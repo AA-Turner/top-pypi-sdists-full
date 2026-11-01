@@ -9,8 +9,11 @@ import os
 import pytest
 
 import probe
-from probe.sdk import disabled, exclusions, inputs, outputs, probe_config as pc, snapshot
-from probe.sdk.run import Run
+from probe.sdk.run import disabled
+from probe.sdk.capture import lineage as inputs, outputs, code as snapshot
+from probe.sdk import probe_config as pc
+from probe.sdk.recording_rules import recording_rules as exclusions
+from probe.sdk.run.run import Run
 
 
 @pytest.fixture
@@ -90,7 +93,7 @@ def test_code_capture_drops_excluded_without_naming_them(tree):
 
 
 def test_snapshot_include_cannot_pull_in_excluded(tree):
-    from probe.sdk.snapshot import capture_manifest
+    from probe.sdk.capture.code.sources.git import capture_manifest
 
     m = capture_manifest(str(tree), include=["data/*", "src/*"])
     paths = {e["path"] for e in m["entries"]} | {s["path"] for s in m.get("skipped", [])}
@@ -148,7 +151,7 @@ def test_excluded_reads_are_never_counted_or_queued(tree, monkeypatch, tmp_path)
 
 
 def test_a_manifest_never_names_an_excluded_path(tree):
-    from probe.sdk.snapshot import capture_manifest
+    from probe.sdk.capture.code.sources.git import capture_manifest
 
     (tree / pc.CONFIG_NAME).write_text("/client-acme/\n")
     (tree / "client-acme" / "node_modules").mkdir(parents=True)

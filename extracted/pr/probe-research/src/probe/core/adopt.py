@@ -8,7 +8,7 @@
                     (`version_refresh --apply`). With PROBE_UPDATE_ADOPT set
                     (this process is the newest release, exec'd by a hand-off)
                     it adopts. Otherwise it runs the frozen hand-off's stage 1
-                    (`probe._shared.handoff.stage1`), which either execs the
+                    (`probe.shared.updates.handoff.stage1`), which either execs the
                     newest release (never returning) or answers, and the
                     update goes on here as before.
 
@@ -39,7 +39,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from probe._shared import handoff
+from probe.shared.updates import handoff
+from probe.shared.updates import step as update_step
 
 #: The update ends here, nothing switched: try again later (`wizard_lock.BUSY_EXIT_CODE`).
 DEFERRED_EXIT = 75
@@ -49,7 +50,7 @@ FIRST_SWITCH_WAIT_KEY = "first_switch_waiting_since"
 #: `probe.cli.upgrading.SKIP_CLI_ENV` (and the service's): the CLI half of
 #: this update is done or not to be done. Named here too so the service's
 #: child reads it before importing the CLI.
-SKIP_CLI_ENV = "PROBE_UPDATE_SKIP_CLI"
+SKIP_CLI_ENV = update_step.SKIP_CLI_ENV
 
 
 @dataclass(frozen=True)
@@ -108,7 +109,7 @@ def runs_managed_cli() -> bool:
     if os.name == "nt":
         return False
     try:
-        from probe._shared import installs
+        from probe.shared.updates import installs
         from probe.cli import updater
 
         if os.environ.get(updater.IN_PLACE_ENV) == "1":
@@ -159,8 +160,9 @@ def begin(trigger: str, *, argv: list[str] | None = None, before_exec=None) -> E
     if not runs_managed_cli():
         return None
     try:
-        from probe import __version__, version_policy
-        from probe._shared import installs
+        from probe import __version__
+        from probe.shared.updates import version_policy
+        from probe.shared.updates import installs
 
         _answer = handoff.stage1(
             trigger,
@@ -187,10 +189,10 @@ def begin(trigger: str, *, argv: list[str] | None = None, before_exec=None) -> E
 
 def _uninstalling() -> Ending | None:
     """`probe uninstall` runs, or must be finished (its barrier is LIVE,
-    `probe._shared.uninstall_barrier`): no update installs or switches
+    `probe.shared.updates.uninstall_barrier`): no update installs or switches
     anything, here or in the release a hand-off exec'd (PROBE_UPDATE_ADOPT,
     whose variables and inherited install lock are let go unused)."""
-    from probe._shared import uninstall_barrier
+    from probe.shared.updates import uninstall_barrier
 
     try:
         said = uninstall_barrier.refusal()
@@ -213,13 +215,13 @@ def selftest() -> str | None:
     import importlib
 
     try:
-        for name in ("probe.core.run", "probe.cli.updater", "probe.cli.upgrading", "probe.cli.update_report",
+        for name in ("probe.core.run", "probe.cli.updater", "probe.cli.upgrading", "probe.shared.updates.update_report",
                      "probe.cli.main"):
             importlib.import_module(name)
     except Exception as exc:  # noqa: BLE001 -- an import that fails is a release that cannot update
         # (Not BaseException: a Ctrl-C meanwhile must never reject a good release.)
         return f"{type(exc).__name__}: {exc}"[:300]
-    from probe import version_policy
+    from probe.shared.updates import version_policy
     from probe.cli import updater
 
     try:
@@ -245,8 +247,8 @@ def _runs_from(target: Path) -> bool:
 def _skip(reason: str) -> None:
     """The deferral in `autoupdate.json` (`probe doctor`), as the service records its own."""
     with contextlib.suppress(Exception):
-        from probe._shared import autoupdate
-        from probe.cli import update_report
+        from probe.shared.updates import autoupdate
+        from probe.shared.updates import update_report
         from probe.service import updater as service_updater
 
         name = service_updater._SKIPS.get(reason)  # noqa: SLF001 -- the service's own map
@@ -264,7 +266,7 @@ def first_switch_waits(tools: Path, *, at: float | None = None) -> str | None:
     h), as the service updates past them -- a setup by its own record's age.
     None: go on. A child of the service (its barrier's token) was let through
     by the service's own check."""
-    from probe._shared import installs
+    from probe.shared.updates import installs
     from probe.service import barrier
     from probe.service import updater as service_updater
     from probe.service.protocol import DeferReason
@@ -308,7 +310,7 @@ def tools_for(target: Path) -> Path | None:
     else the one the last switch recorded (`active.json` `tools`), else the
     lifeboat's env.json -- a lifeboat's exec may carry a PATH without uv, and
     uv's default folder is not every machine's. None when none of them is."""
-    from probe._shared import installs
+    from probe.shared.updates import installs
 
     root = target.parent.parent
     candidates: list = []
@@ -329,7 +331,7 @@ def tools_for(target: Path) -> Path | None:
 def _wait_for_parent() -> None:
     """A detached update waits for the `probe` that spawned it before anything
     moves under it (`upgrading._update_turn`'s reason)."""
-    from probe._shared import autoupdate
+    from probe.shared.updates import autoupdate
 
     parent = os.environ.get(autoupdate.WAIT_FOR_PID_ENV)
     if parent and parent.isdigit():
@@ -359,7 +361,7 @@ def adopt() -> Ending | None:
 def _adopt(target: Path, dropped_raw: str, came_from: str | None) -> Ending | None:
     global _adopted_from, _note
     from probe import __version__
-    from probe._shared import installs
+    from probe.shared.updates import installs
     from probe.cli import updater
 
     root = target.parent.parent

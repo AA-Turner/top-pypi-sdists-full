@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: setuptools-protobuf
-Version: 0.1.17
+Version: 0.1.18
 Summary: Setuptools protobuf extension plugin
 Author-email: Jelmer Vernooĳ <jelmer@jelmer.uk>
 License: Apachev2
@@ -9,7 +9,6 @@ Keywords: distutils,setuptools,protobuf
 Classifier: Topic :: Software Development :: Version Control
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Intended Audience :: Developers
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -18,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: setuptools>=60.8

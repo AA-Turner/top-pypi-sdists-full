@@ -1,52 +1,50 @@
+from . import _coercion
 from .formula import Formula
-from .styles import is_date_format
-from datetime import datetime, date, timedelta
-from weakref import ref as weakref
 
-
-def datetime_to_serial(val):
-    if isinstance(val, date) and not isinstance(val, datetime):
-        val = datetime.combine(val, datetime.min.time())
-    delta = val - datetime(1899, 12, 30)
-    return delta.total_seconds() / 86400.0
-
-
-def serial_to_datetime(serial):
-    return datetime(1899, 12, 30) + timedelta(days=serial)
+# Re-export for public / historical import paths (``from pyopenxlsx.cell import …``).
+datetime_to_serial = _coercion.datetime_to_serial
+serial_to_datetime = _coercion.serial_to_datetime
 
 
 class Cell:
     """
     Represents an Excel cell.
 
-    Uses weak references to worksheet and workbook to avoid circular references
-    that could delay garbage collection.
+    OPTIMIZATION PRINCIPLE:
+    Direct reference model is used for `_worksheet_val` instead of `weakref`.
+    Because the Worksheet keeps a WeakValueDictionary `_cells` cache of Cell objects,
+    there is no strong reference cycle between Worksheet and Cell.
+    This eliminates the allocation of 2 `weakref` objects for every Cell creation,
+    massively improving performance in loops and preventing GC thrashing.
     """
 
     # Include __weakref__ to allow weak references to Cell objects
     # This enables WeakValueDictionary caching in Worksheet
-    __slots__ = ("_cell", "_worksheet_ref", "_workbook_ref", "__weakref__")
+    __slots__ = ("_cell", "_worksheet_val", "__weakref__")
 
     def __init__(self, raw_cell, worksheet=None):
         self._cell = raw_cell
-        # Use weak references to avoid circular references with Worksheet
-        self._worksheet_ref = weakref(worksheet) if worksheet else None
-        self._workbook_ref = (
-            weakref(worksheet._workbook) if worksheet and worksheet._workbook else None
-        )
+        self._worksheet_val = worksheet
+
+    @property
+    def _closed(self):
+        """Return True if the parent worksheet/workbook has been closed."""
+        return self._worksheet_val._closed if self._worksheet_val else False
 
     @property
     def _worksheet(self):
-        """Get the worksheet, or None if it has been garbage collected."""
-        return self._worksheet_ref() if self._worksheet_ref else None
+        """Get the worksheet, or None if not set."""
+        return self._worksheet_val
 
     @property
     def _workbook(self):
-        """Get the workbook, or None if it has been garbage collected."""
-        return self._workbook_ref() if self._workbook_ref else None
+        """Get the workbook, or None if not set."""
+        return self._worksheet_val._workbook if self._worksheet_val else None
 
     @property
     def comment(self):
+        if self._closed is True:
+            raise ValueError("I/O operation on closed Workbook/Worksheet.")
         if self._worksheet is None:
             return None
         text = self._worksheet._sheet.comments().get(
@@ -58,6 +56,8 @@ class Cell:
 
     @comment.setter
     def comment(self, value):
+        if self._closed is True:
+            raise ValueError("I/O operation on closed Workbook/Worksheet.")
         if self._worksheet is None:
             raise ValueError("Cell must be associated with a worksheet to set comments")
 
@@ -101,6 +101,8 @@ class Cell:
 
     @property
     def value(self):
+        if self._closed is True:
+            raise ValueError("I/O operation on closed Workbook/Worksheet.")
         val = self._cell.value
         if isinstance(val, (float, int)) and self.is_date:
             try:
@@ -111,24 +113,43 @@ class Cell:
 
     @value.setter
     def value(self, val):
-        if isinstance(val, (date, datetime)):
-            val = datetime_to_serial(val)
-        self._cell.value = val
+        if self._closed is True:
+            raise ValueError("I/O operation on closed Workbook/Worksheet.")
+        storage, date_kind = _coercion.coerce_cell_value(val)
+        self._cell.value = storage
+        if date_kind is None:
+            return
+        wb = self._workbook
+        if not _coercion.workbook_wants_auto_date(wb):
+            return
+        if self.is_date:
+            return
+        self.style_index = wb._get_auto_date_style(
+            is_datetime=(date_kind == _coercion.DATE_KIND_DATETIME)
+        )
 
     @property
     def formula(self):
+        if self._closed is True:
+            raise ValueError("I/O operation on closed Workbook/Worksheet.")
         return Formula(self._cell)
 
     @formula.setter
     def formula(self, val):
+        if self._closed is True:
+            raise ValueError("I/O operation on closed Workbook/Worksheet.")
         self._cell.set_formula(str(val))
 
     @property
     def style_index(self):
+        if self._closed is True:
+            raise ValueError("I/O operation on closed Workbook/Worksheet.")
         return self._cell.cell_format()
 
     @style_index.setter
     def style_index(self, val):
+        if self._closed is True:
+            raise ValueError("I/O operation on closed Workbook/Worksheet.")
         self._cell.set_cell_format(val)
 
     @property
@@ -176,42 +197,6 @@ class Cell:
         Returns True if the cell is formatted as a date/time.
         Requires workbook to be passed to Cell constructor.
         """
-        if self._workbook is None:
-            return False
-
-        style_idx = self.style_index
-        if style_idx < 0:
-            return False
-
-        # Check cache
-        if style_idx in self._workbook._date_format_cache:
-            return self._workbook._date_format_cache[style_idx]
-
-        # Get styles from workbook
-        styles = self._workbook.styles
-        cfs = styles.cell_formats()
-        if style_idx >= cfs.count():
-            self._workbook._date_format_cache[style_idx] = False
-            return False
-
-        cf = cfs.cell_format_by_index(style_idx)
-        nf_id = cf.number_format_id()
-
-        # Check standard formats
-        if is_date_format(nf_id):
-            self._workbook._date_format_cache[style_idx] = True
-            return True
-
-        # Check custom formats via string
-        nfs = styles.number_formats()
-        try:
-            val = nfs.number_format_by_id(nf_id)
-            if val:
-                res = is_date_format(val.format_code())
-                self._workbook._date_format_cache[style_idx] = res
-                return res
-        except Exception:
-            pass
-
-        self._workbook._date_format_cache[style_idx] = False
-        return False
+        if self._closed is True:
+            raise ValueError("I/O operation on closed Workbook/Worksheet.")
+        return _coercion.style_is_date_format(self._workbook, self.style_index)

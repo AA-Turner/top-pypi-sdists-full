@@ -954,6 +954,7 @@ def replay(
     dataset_ids: list[str] | None = None,
     grader_ids: list[str] | None = None,
     only_with_assertions: bool = False,
+    category_ids: list[str] | None = None,
     skip_assertion_judging: bool = False,
     judge_assertions: bool | None = None,
     mock: MockStrategy = "marked",
@@ -1100,6 +1101,14 @@ def replay(
             replay is only judged against assertions a person has approved, so a
             trace carrying nothing but drafts has nothing here to measure. A
             selection that narrows to nothing replays nothing.
+        category_ids: Replay only the selected traces that carry an
+            approved assertion in one of these categories. Narrows a
+            ``trace_ids`` or ``dataset_ids`` selection the way
+            ``only_with_assertions`` does, but counts only assertions filed
+            under a named category. It changes which traces replay, not which
+            assertions are judged on each replay. Passing it without
+            ``trace_ids``, ``dataset_id`` or ``dataset_ids`` raises
+            ``ValueError``. A selection that narrows to nothing replays nothing.
         mock: Mock strategy for child spans during replay.
 
             * ``"marked"`` (default): only child spans declared with
@@ -1174,9 +1183,10 @@ def replay(
             ``carried_over=True`` and no payloads. The traces, attempts and
             graders come from that experiment, so passing ``trace_ids``,
             ``limit``, ``dataset_id``, ``dataset_ids``, ``attempts``,
-            ``grader_ids``, ``only_with_assertions`` or ``dry_run`` with it is
-            an error. Database branching and its settings also come from the
-            experiment, so ``db_branch`` is ignored.
+            ``grader_ids``, ``only_with_assertions``, ``category_ids`` or
+            ``dry_run`` with it is an error. Database branching and its
+            settings also come from the experiment, so ``db_branch`` is
+            ignored.
         force: Resume even when the experiment had activity in the last two
             minutes or its code change differs from the one it started with.
             Only valid with ``resume``.
@@ -1229,10 +1239,19 @@ def replay(
             attempts=attempts,
             grader_ids=grader_ids,
             only_with_assertions=only_with_assertions,
+            category_ids=category_ids,
             dry_run=dry_run,
             experimental_selective_replay=experimental_selective_replay,
         )
     resolved_dataset_ids = _resolve_dataset_ids(dataset_id, dataset_ids)
+    if category_ids is not None:
+        if not category_ids:
+            raise ValueError("category_ids must contain at least one category ID.")
+        if trace_ids is None and resolved_dataset_ids is None:
+            raise ValueError(
+                "category_ids narrows a trace ID or dataset selection. "
+                "Pass it with trace_ids, dataset_id or dataset_ids."
+            )
     resolved_concurrency = _resolve_concurrency(concurrency, attempts, max_concurrency)
     resolved_attempts = resolved_concurrency.attempts
     resolved_max_concurrency = resolved_concurrency.max_concurrency
@@ -1336,6 +1355,7 @@ def replay(
             grader_ids=grader_ids,
             db_branch_settings=db_branch_settings,
             only_with_assertions=only_with_assertions,
+            category_ids=category_ids,
             skip_assertion_judging=skip_assertion_judging,
             attempts=resolved_attempts,
             dry_run=dry_run,
@@ -2283,6 +2303,7 @@ def _refuse_selection_with_resume(
     attempts: int | _ConcurrencyUnset,
     grader_ids: list[str] | None,
     only_with_assertions: bool,
+    category_ids: list[str] | None,
     dry_run: bool,
     experimental_selective_replay: SelectiveReplayOptions | None,
 ) -> None:
@@ -2296,6 +2317,7 @@ def _refuse_selection_with_resume(
             ("attempts", not isinstance(attempts, _ConcurrencyUnset)),
             ("grader_ids", grader_ids is not None),
             ("only_with_assertions", only_with_assertions),
+            ("category_ids", category_ids is not None),
             ("dry_run", dry_run),
             (
                 "experimental_selective_replay",

@@ -889,7 +889,7 @@ class Run:
             if src.exists():
                 shutil.rmtree(src)
             src.mkdir(parents=True)
-            for name in ("pyproject.toml", "README.md", "LICENSE"):
+            for name in ("pyproject.toml", "README.md", "LICENSE", "hatch_build.py"):
                 shutil.copy2(AGENT / name, src / name)
             for name in ("src", "skills"):
                 shutil.copytree(AGENT / name, src / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
@@ -1494,7 +1494,7 @@ class Run:
             self.run_cmd([self.layout.real_probe, "service", "stop"], timeout=60, label="probe service stop")
         if not WINDOWS:
             # A daemon worker finishes its queue after SIGTERM (bounded by
-            # probe.daemon.worker.FINISH_CAP_S): give it a little, then stop it.
+            # probe.daemon.worker.lease_keeping.FINISH_CAP_S): give it a little, then stop it.
             for sig, wait in ((signal.SIGTERM, 15), (signal.SIGKILL, 1)):
                 pids = self.our_pids()
                 if not pids:

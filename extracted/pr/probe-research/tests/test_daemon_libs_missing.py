@@ -10,7 +10,7 @@ import types
 
 import pytest
 
-from probe.daemon import trace as trace_mod
+from probe.daemon.trace import trace as trace_mod
 from probe.daemon import worker as worker_mod
 
 SID = "0d5e8a3c-6f8e-4b1a-9c55-2f1f7a0b9c11"
@@ -18,7 +18,8 @@ SID = "0d5e8a3c-6f8e-4b1a-9c55-2f1f7a0b9c11"
 
 @pytest.fixture
 def no_libraries(monkeypatch):
-    monkeypatch.setattr(worker_mod, "ai_libraries_importable", lambda: False)
+    monkeypatch.setattr(worker_mod.install, "ai_libraries_importable", lambda: False)
+    monkeypatch.setattr(worker_mod.startup, "ai_libraries_importable", lambda: False)
 
 
 @pytest.fixture

@@ -43,9 +43,12 @@ requires-python = ">=3.10"
 # the Elasticsearch, OpenSearch, Kafka, AWS, Azure, Gmail, and Microsoft
 # Graph SDKs (see issue #883).
 dependencies = [
-    # The [doh] extra supplies the httpx/h2 floors DNS over HTTPS needs;
-    # 2.7.0 is the floor verified against the dns.nameserver and
-    # dns.query.https(session=...) APIs utils.py builds on.
+    # The [doh] extra supplies the HTTP client DNS over HTTPS needs (httpx,
+    # httpcore and h2 on dnspython 2.7 and 2.8; httpx2, httpcore2 and h2 on
+    # 2.9+; utils.py builds its session from whichever client library
+    # dnspython imported). 2.7.0 is the floor verified against the
+    # dns.nameserver and dns.query.https(session=...) APIs utils.py builds
+    # on.
     "dnspython[doh]>=2.7.0",
     "expiringdict>=1.1.4",
     # The runtime HTTP library (utils.py fetches, webhook and Splunk HEC
@@ -56,7 +59,7 @@ dependencies = [
     # No extras: the base mailsuite supplies IMAP and Maildir connections
     # plus mail-parser. Gmail and Microsoft Graph come from the gmail and
     # msgraph extras below.
-    "mailsuite>=2.3.2",
+    "mailsuite>=2.3.4",
     "maxminddb>=2.0.0",
     "publicsuffixlist>=0.10.0",
     # Imported directly at utils.py:39 (dateutil.parser). It used to
@@ -93,13 +96,13 @@ loganalytics = [
     "azure-monitor-ingestion>=1.0.0",
 ]
 msgraph = [
-    "mailsuite[msgraph]>=2.3.1",
+    "mailsuite[msgraph]>=2.3.4",
     # Imported directly in cli.py for Graph error handling; otherwise
     # only a transitive dep of mailsuite[msgraph] -> msgraph-sdk.
     "microsoft-kiota-abstractions>=1.8.0",
 ]
 gmail = [
-    "mailsuite[gmail]>=2.3.1",
+    "mailsuite[gmail]>=2.3.4",
 ]
 # `all` must stay the union of every extra above — and must keep
 # excluding `postgresql`: psycopg's prebuilt binary wheels do not exist
@@ -115,7 +118,7 @@ all = [
     "boto3>=1.16.63",
     "elasticsearch>=8.18,<9",
     "kafka-python>=2.3.2",
-    "mailsuite[gmail,msgraph]>=2.3.1",
+    "mailsuite[gmail,msgraph]>=2.3.4",
     "microsoft-kiota-abstractions>=1.8.0",
     "opensearch-py>=2.4.2,<=4.0.0",
     "pygelf>=0.4.2",

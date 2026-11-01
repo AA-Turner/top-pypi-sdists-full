@@ -34,7 +34,7 @@ from pathlib import Path
 import pytest
 import typer
 
-from probe._shared import handoff, installs, uninstall_barrier
+from probe.shared.updates import handoff, installs, uninstall_barrier
 from probe.cli import bootstrap, install_pipeline, repair
 from tests.reinstall_harness import OLD_VERSION, reinstall_wheels, uv_machine  # noqa: F401 -- fixtures
 from tests.test_wizard_json_events import device  # noqa: F401 -- a fixture
@@ -145,7 +145,7 @@ def test_p1_repair_replaces_an_active_release_too_old_to_check(uv_machine, monke
 def test_p1_a_service_token_is_never_held_to_the_sign_in(monkeypatch):
     """P1.5: `/v1/me` refuses PROBE_SERVICE_TOKEN by design."""
     from probe.cli import identity_check
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     save_context({"base_url": "https://api.example", "token": "probe_pat_mine"})
     answers = {"probe_pat_mine": ("ok", {"customer_id": "a", "user_id": "u"})}
@@ -351,7 +351,8 @@ def test_p2_a_shadowing_pip_probe_is_named_with_its_exact_uninstall(tmp_path, mo
 
 
 def test_p2_probe_repair_reports_a_disabled_plugin_and_leaves_it_off(tmp_path, monkeypatch):
-    from probe.cli import capabilities, integration_repair, plugin_cli
+    from probe.cli import capabilities, integration_repair
+    from probe.shared.harness import plugins as plugin_cli
 
     claude = tmp_path / "claude"
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude))
@@ -725,7 +726,7 @@ def test_vt2_daemon_install_holds_the_daemon_key_to_the_sign_in(monkeypatch, cap
     import importlib
 
     from probe.cli import daemon_cli
-    from probe.sdk.config import load_context, save_context
+    from probe.sdk.settings.settings import load_context, save_context
 
     main = importlib.import_module("probe.cli.main")
     save_context({"base_url": "https://api.example", "token": "probe_pat_b", "companion_token": "probe_pat_daemon_a"})
@@ -751,7 +752,7 @@ def test_vt2_probe_login_holds_the_daemon_key_to_the_new_sign_in(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.sdk.config import load_context, save_context
+    from probe.sdk.settings.settings import load_context, save_context
 
     main = importlib.import_module("probe.cli.main")
     save_context({"base_url": "https://api.example", "token": "probe_pat_a", "companion_token": "probe_pat_daemon_a"})
@@ -778,7 +779,7 @@ def test_vt2_switching_context_holds_its_daemon_key_to_its_sign_in(monkeypatch):
 
     from typer.testing import CliRunner
 
-    from probe.sdk.config import load_context, save_context, use_context
+    from probe.sdk.settings.settings import load_context, save_context, use_context
 
     main = importlib.import_module("probe.cli.main")
     save_context({"base_url": "https://api.example", "token": "probe_pat_a", "companion_token": "probe_pat_daemon_a"},

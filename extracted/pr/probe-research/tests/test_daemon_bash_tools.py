@@ -1,6 +1,6 @@
 """The `bash` tool set (daemon-bash-only, 2026-10-18): one `bash` tool and the
 run's output tool for the writer, the reader and the audit, and the commands
-that do what the removed tools did (`probe.daemon.toolset`):
+that do what the removed tools did (`probe.daemon.agent.toolset`):
 
     read     -> cat / sed -n / head / tail (the skills folder read-only on the
                 safe list) and `probe file preview <path>`
@@ -25,9 +25,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.daemon import approvals as appr, lease, local_commands, probe_api, tools, toolset
-from probe.daemon.events import Event, Kind
-from probe.daemon.store import Store
+from probe.shared.mailbox import approvals as appr
+from probe.daemon.host import lease
+from probe.daemon.shell import local_commands
+from probe.daemon.session import probe_api
+from probe.daemon.agent import tools, toolset
+from probe.shared.harness.events import Event, Kind
+from probe.daemon.store.store import Store
 
 DAEMON_TOOLS = "bash"
 SID = "11111111-2222-3333-4444-555555555555"
@@ -51,7 +55,7 @@ def body(name: str) -> str:
 
 
 def _deps(tmp_path, *, bypass: bool = False, reader: bool = False) -> tools.Deps:
-    from probe.daemon.folders import note_dirs
+    from probe.daemon.session.session import note_dirs
 
     work = tmp_path / "work"
     work.mkdir(parents=True, exist_ok=True)
@@ -123,9 +127,13 @@ def test_the_kill_switch_restores_todays_tools(monkeypatch):
 def test_the_native_mcp_is_loaded_only_by_the_classic_set(monkeypatch):
     pytest.importorskip("pydantic_ai")  # the daemon extra; agent-ci runs without it
     from probe.daemon import agent as agent_mod
+    from probe.daemon.agent import agent, audit, prompts, reader  # noqa: F401 -- the pieces patched below, loaded
 
     loaded: list = []
-    monkeypatch.setattr(agent_mod, "_native_mcp", lambda caps, what, headers=None: loaded.append(what))
+    monkeypatch.setattr(agent_mod.prompts, "_native_mcp", lambda caps, what, headers=None: loaded.append(what))
+    monkeypatch.setattr(agent_mod.agent, "_native_mcp", lambda caps, what, headers=None: loaded.append(what))
+    monkeypatch.setattr(agent_mod.audit, "_native_mcp", lambda caps, what, headers=None: loaded.append(what))
+    monkeypatch.setattr(agent_mod.reader, "_native_mcp", lambda caps, what, headers=None: loaded.append(what))
     _all_three()
     assert loaded == []
     monkeypatch.setenv(toolset.TOOLS_ENV, "classic")
@@ -135,7 +143,7 @@ def test_the_native_mcp_is_loaded_only_by_the_classic_set(monkeypatch):
 
 def test_the_bash_descriptions_are_the_drafted_text(monkeypatch):
     pytest.importorskip("pydantic_ai")  # the daemon extra; agent-ci runs without it
-    from probe.daemon.bite import skills_root
+    from probe.daemon.worker.bite.bite import skills_root
 
     monkeypatch.setenv("PROBE_DAEMON_MCP", "0")
     shell_text = body("tools/shell.PROPOSED.md")
@@ -165,9 +173,10 @@ def test_the_bash_descriptions_are_the_drafted_text(monkeypatch):
 def test_the_new_wording_is_the_drafted_text():
     """Each NEW fixture is what the code says (the files are the researcher's review copy)."""
     pytest.importorskip("pydantic_ai")  # the daemon extra; agent-ci runs without it
-    from probe import drafts
+    from probe.shared.notes import drafts
     from probe.daemon import agent as agent_mod
-    from probe.daemon import bite, index, reader_lane
+    from probe.daemon.worker.bite import bite
+    from probe.daemon.lanes import index, reader as reader_lane
     from probe.daemon import shell as sh
 
     assert body("tools/bash-command-map.NEW.md") == agent_mod.COMMAND_MAP
@@ -216,7 +225,8 @@ def test_the_new_wording_is_the_drafted_text():
 
 def test_the_job_texts_name_the_commands_not_the_removed_tools(monkeypatch):
     pytest.importorskip("pydantic_ai")  # the daemon extra; agent-ci runs without it
-    from probe.daemon import bite, reader_lane
+    from probe.daemon.worker.bite import bite
+    from probe.daemon.lanes import reader as reader_lane
 
     writer, reader = bite.record_session_text(), reader_lane.read_session_text()
     assert bite.OPEN_WITH_BASH in writer and bite.OPEN_WITH_SESSION not in writer
@@ -228,7 +238,7 @@ def test_the_job_texts_name_the_commands_not_the_removed_tools(monkeypatch):
 
 
 def test_a_cut_event_points_at_the_session_command(tmp_path, monkeypatch):
-    from probe.daemon import bite
+    from probe.daemon.worker.bite import bite
 
     monkeypatch.setattr(bite, "TEXT_SHOWN_CHARS", 50)
     st = Store(tmp_path / "s.sqlite", clock=time.time)
@@ -251,7 +261,7 @@ def _record_hash(path: Path) -> str:
 
 
 def test_a_skill_is_read_with_cat_even_when_the_installer_hard_linked_it(tmp_path, monkeypatch):
-    from probe.daemon import bite
+    from probe.daemon.worker.bite import bite
     from probe.daemon import shell as sh
 
     skills = tmp_path / "share" / "skills"
@@ -264,12 +274,12 @@ def test_a_skill_is_read_with_cat_even_when_the_installer_hard_linked_it(tmp_pat
     monkeypatch.setattr(bite, "skills_root", lambda: skills)
     deps = _deps(tmp_path)
     # Hard-linked and not a file the installed package's RECORD lists: asked, as anywhere.
-    monkeypatch.setattr(sh, "_RECORD", {})
+    monkeypatch.setattr(sh.bookkeeping, "_RECORD", {})
     assert not _sh(deps, f"cat {page}").startswith("[exit 0]")
     # Listed with another hash (a second name given to some other file): still asked.
-    monkeypatch.setattr(sh, "_RECORD", {os.path.realpath(page): "not-its-hash"})
+    monkeypatch.setattr(sh.bookkeeping, "_RECORD", {os.path.realpath(page): "not-its-hash"})
     assert not _sh(deps, f"cat {page}").startswith("[exit 0]")
-    monkeypatch.setattr(sh, "_RECORD", {os.path.realpath(page): _record_hash(page)})
+    monkeypatch.setattr(sh.bookkeeping, "_RECORD", {os.path.realpath(page): _record_hash(page)})
     out = _sh(deps, f"cat {page}")
     assert out.startswith("[exit 0]") and "what a page says" in out
     assert _sh(deps, f"sed -n 1,1p {page}").startswith("[exit 0]")
@@ -314,7 +324,7 @@ def test_file_preview_follows_the_read_tools_rules(tmp_path):
 
 
 def _draft(text: str = "<p>old line</p>\n<p>keep</p>\n") -> Path:
-    from probe.daemon.folders import note_dirs
+    from probe.daemon.session.session import note_dirs
 
     folder = note_dirs()[1]
     folder.mkdir(parents=True, exist_ok=True)
@@ -364,7 +374,7 @@ def test_the_writers_draft_edit_example_runs_as_it_is_copied(tmp_path):
     `<path>` filled in), is the shape the checker runs -- indented under a list
     item, its `EOF` line was refused (`shell._probe_heredoc`) and its first body
     line not `<<<<<<< OLD` (`drafts.parse_change`)."""
-    from probe.daemon import bite
+    from probe.daemon.worker.bite import bite
 
     skill = bite.writer_skill(Path(__file__).resolve().parents[1] / "skills" / "track-work")
     example = _fenced(skill, "probe draft edit")
@@ -387,7 +397,7 @@ def test_the_task_example_runs_a_question_with_backticks_and_dollars(tmp_path, r
     and the reader's `bash` show the heredoc, which takes any text as it is."""
     pytest.importorskip("pydantic_ai")  # the daemon extra; agent-ci runs without it
     from probe.daemon import agent as agent_mod
-    from probe.daemon import bite
+    from probe.daemon.worker.bite import bite
 
     skill = bite.writer_skill(Path(__file__).resolve().parents[1] / "skills" / "track-work")
     shown = agent_mod.bash_description(agent_mod.READER_BASH_DESCRIPTION, agent_mod.READER_COMMAND_MAP, tasks=True) \
@@ -509,7 +519,7 @@ def test_the_reader_runs_nothing_but_a_read_even_in_bypass_mode(tmp_path, comman
 
 def test_the_readers_feedback_is_held_as_the_readers(tmp_path, monkeypatch):
     pytest.importorskip("pydantic_ai")  # the daemon extra; agent-ci runs without it
-    from probe import feedback as fb
+    from probe.shared.feedback import feedback as fb
 
     held: dict = {}
 
@@ -538,7 +548,7 @@ class _Result:
 
 
 def _mcp(monkeypatch) -> list:
-    from probe.cli import mcp_bridge
+    from probe.shared.reads import mcp_bridge
 
     calls: list = []
 
@@ -607,7 +617,8 @@ def test_the_classic_set_leaves_probe_mcp_call_to_the_cli_refusal(tmp_path, monk
 
 
 def test_a_shell_write_is_logged_as_bash_and_jevs_listing_reads_both(tmp_path, monkeypatch):
-    from probe.daemon import command_check, store
+    from probe.daemon.shell import command_check
+    from probe.daemon import store
 
     assert tools.shell_argv("ls") == ["bash", "-c", "ls"]
     for n, argv0 in enumerate(("sh", "bash")):
@@ -659,7 +670,7 @@ def test_a_draft_edit_heredoc_in_another_shape_never_runs_in_any_mode(tmp_path, 
 
 
 def test_reproduce_writing_a_file_is_the_researchers(tmp_path, monkeypatch):
-    from probe.daemon import precheck
+    from probe.shared.command_rules import command_rules as precheck
 
     for flag, value in (("--export", "~/.bashrc"), ("--materialize", "/tmp/anywhere")):
         parsed = precheck.parse(["run", "reproduce", "r1", flag, value])
@@ -672,7 +683,8 @@ def test_reproduce_writing_a_file_is_the_researchers(tmp_path, monkeypatch):
         ran.append(argv)
         return tools.ProbeResult(0, "{}")
 
-    monkeypatch.setattr(tools, "run_probe_process", fake)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", fake)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", fake)
     writer = _deps(tmp_path / "w")
     assert "isn't the daemon's to run" in _sh(writer, "probe run reproduce r1 --export ~/.bashrc")
     reader = _deps(tmp_path / "r", reader=True)
@@ -687,13 +699,14 @@ def test_the_reader_runs_only_its_listed_probe_reads(tmp_path, monkeypatch):
         ran.append(list(argv))
         return tools.ProbeResult(0, "{}")
 
-    monkeypatch.setattr(tools, "run_probe_process", fake)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", fake)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", fake)
     reader = _deps(tmp_path, reader=True)
     assert _sh(reader, "probe run get r1").startswith("[exit 0]")
     for command in ("probe run reproduce r1", "probe bundle r1", "probe doctor", "probe metrics export r1"):
         assert "is not one of its reads" in _sh(reader, command), command
     assert ran == [["run", "get", "r1"]]
-    assert tools.READER_PROBE_READS <= {p for p, o in __import__("probe.daemon.precheck", fromlist=["x"]).OWNERS.items()
+    assert tools.READER_PROBE_READS <= {p for p, o in __import__("probe.shared.command_rules.command_rules", fromlist=["x"]).OWNERS.items()
                                         if o == "read"}
 
 
@@ -705,10 +718,10 @@ def test_bookkeeping_names_are_refused_in_any_case(tmp_path, monkeypatch):
     out = _sh(deps, _edit(upper, "<p>old line</p>", "x"))
     assert "refused in every mode" in out or "never edited" in out
     assert upper.read_text() == "<p>old line</p>\n"
-    from probe import drafts
+    from probe.shared.notes import drafts
 
     assert drafts.edit(str(upper), "<<<<<<< OLD\n<p>old line</p>\n======= NEW\nx\n>>>>>>> END\n", tmp_path)[0] == 1
-    from probe.daemon.folders import note_dirs
+    from probe.daemon.session.session import note_dirs
 
     note = note_dirs()[0] / "x.md.LOCK"
     note.parent.mkdir(parents=True, exist_ok=True)
@@ -719,7 +732,7 @@ def test_bookkeeping_names_are_refused_in_any_case(tmp_path, monkeypatch):
 def test_a_failed_mcp_instructions_fetch_is_asked_again_only_after_its_retry_period(tmp_path, monkeypatch):
     from contextlib import asynccontextmanager
 
-    from probe.cli import mcp_bridge
+    from probe.shared.reads import mcp_bridge
 
     tries: list = []
 
@@ -748,7 +761,7 @@ def test_a_failed_mcp_instructions_fetch_is_asked_again_only_after_its_retry_per
 def test_a_cancel_inside_an_exception_group_is_never_read_as_the_mcp_failing(tmp_path, monkeypatch):
     from contextlib import asynccontextmanager
 
-    from probe.cli import mcp_bridge
+    from probe.shared.reads import mcp_bridge
 
     import builtins
 
@@ -800,7 +813,7 @@ def test_a_heredoc_after_the_first_line_gets_every_mode_check(tmp_path, command)
     "x.md.ba{s,}e",
 ])
 def test_a_bookkeeping_name_spelled_any_way_is_refused_in_every_mode(tmp_path, target):
-    from probe.daemon.folders import note_dirs
+    from probe.daemon.session.session import note_dirs
 
     notes = note_dirs()[0]
     notes.mkdir(parents=True, exist_ok=True)
@@ -810,7 +823,7 @@ def test_a_bookkeeping_name_spelled_any_way_is_refused_in_every_mode(tmp_path, t
 
 
 def test_a_search_of_the_notes_folder_is_not_taken_for_bookkeeping(tmp_path):
-    from probe.daemon.folders import note_dirs
+    from probe.daemon.session.session import note_dirs
 
     notes = note_dirs()[0]
     notes.mkdir(parents=True, exist_ok=True)
@@ -821,7 +834,7 @@ def test_a_search_of_the_notes_folder_is_not_taken_for_bookkeeping(tmp_path):
 def test_the_notes_folder_in_other_case_is_the_notes_folder_on_macos(tmp_path, monkeypatch):
     import sys
 
-    from probe.daemon.folders import note_dirs
+    from probe.daemon.session.session import note_dirs
 
     notes = note_dirs()[0]
     notes.mkdir(parents=True, exist_ok=True)

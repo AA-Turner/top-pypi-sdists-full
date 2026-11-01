@@ -1,0 +1,58 @@
+"""One skill, two readers: the main agent's version and the daemon writer's, rendered from a
+skill's `versions/` folder. Stdlib only (tools/vendor.py loads it by path). DESIGN.md (skills.py).
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+MAIN_AGENT = "main-agent"
+WRITER = "writer"
+READERS = (MAIN_AGENT, WRITER)
+VERSIONS = "versions"
+
+
+def split_front_matter(text: str) -> tuple[str, str]:
+    """`(front matter block with its closing ---, body)`; ("", text) without one."""
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        if end >= 0:
+            cut = text.index("\n", end + 1) + 1 if "\n" in text[end + 1:] else len(text)
+            return text[:cut], text[cut:]
+    return "", text
+
+
+def _piece(skill_dir: Path, name: str) -> str:
+    path = skill_dir / VERSIONS / name
+    return path.read_text(encoding="utf-8").strip() if path.is_file() else ""
+
+
+def render(skill_dir: Path, reader: str, extras: tuple[str, ...] = ()) -> str:
+    """The skill as `reader` sees it. A skill without `versions/` is its SKILL.md.
+    `extras`: the writer's optional pieces to show, in order, after its header."""
+    if reader not in READERS:
+        raise ValueError(f"unknown reader {reader!r}: one of {', '.join(READERS)}")
+    text = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+    if not (skill_dir / VERSIONS).is_dir():
+        return text
+    front, base = split_front_matter(text)
+    base = base.strip()
+    if reader == MAIN_AGENT:
+        header = _piece(skill_dir, f"header.{MAIN_AGENT}.md")
+        return front + "\n" + "\n\n".join(p for p in (header, base) if p) + "\n"
+    parts = (_piece(skill_dir, f"header.{WRITER}.md"), *(_piece(skill_dir, f"{name}.{WRITER}.md") for name in extras),
+             base, _piece(skill_dir, f"footer.{WRITER}.md"))
+    return "\n\n".join(p for p in parts if p) + "\n"
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 2:
+        print("usage: skills.py <skill dir> <main-agent|writer>", file=sys.stderr)
+        return 2
+    sys.stdout.write(render(Path(argv[0]), argv[1]))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

@@ -52,7 +52,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from probe.sdk.durable import write_text_atomic
+from probe.foundation.durable.durable import write_text_atomic
 
 #: Bumped when the entry shape changes in a way a reader must notice. A watcher
 #: that meets a newer schema leaves the entry alone rather than guessing.

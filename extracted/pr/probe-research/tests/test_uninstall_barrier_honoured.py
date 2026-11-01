@@ -1,7 +1,7 @@
 """While `probe uninstall` runs, nothing of Probe starts or updates anything (clean-uninstall U-T3, C3).
 
 The barrier (`S/uninstall/barrier.json`) is written by the uninstall and read
-by ONE reader, `probe._shared.uninstall_barrier`. These are the release-side
+by ONE reader, `probe.shared.updates.uninstall_barrier`. These are the release-side
 places that must honour it: `client.ensure`, the service's own start, the
 keeper, the guard, a daemon worker's start, `write_runtime`, and the update's
 first step (`core.adopt.begin`, the hand-off's adopt included). The tap's
@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from probe._shared import uninstall_barrier
+from probe.shared.updates import uninstall_barrier
 from probe.service import client, paths
 
 TAP_ROOT = Path(__file__).resolve().parent.parent / "plugins" / "probe-research-tap"
@@ -95,7 +95,7 @@ def test_a_daemon_worker_comes_back_later():
 
 
 def test_the_update_and_the_handoffs_adopt_stop_at_their_first_step(monkeypatch):
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
     from probe.core import adopt
 
     _barrier("server", pid=999999999)  # past the point of no return: LIVE without its owner
@@ -113,7 +113,7 @@ def test_the_update_and_the_handoffs_adopt_stop_at_their_first_step(monkeypatch)
 def test_an_update_whose_handoff_answers_uninstalling_ends_there(monkeypatch):
     """The hand-off (v3) reads the barrier itself and answers `uninstalling`:
     the update ENDS, it never goes on in this release instead."""
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
     from probe.core import adopt
 
     adopt.reset()

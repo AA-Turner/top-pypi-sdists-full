@@ -1,7 +1,7 @@
 """Two sessions' daemon runs in one process keep their own state (plan H1-H7).
 
 The daemon host runs every session's worker as a thread of one process
-(`probe.daemon.host`). Whatever one process per session got for free -- its own
+(`probe.daemon.host.host`). Whatever one process per session got for free -- its own
 environment, the model's refusal fallback and pushed settings, the alert gate,
 the lease's identity -- each run must now keep apart from the others. Outside a
 run (one session per process, and the tests that patch module globals) every
@@ -19,8 +19,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import alerts, lease, runctx
-from probe.daemon import model as model_mod
+from probe.daemon.worker import alerts
+from probe.daemon.host import lease, runctx
+from probe.daemon.agent.model import model as model_mod
 
 
 @pytest.fixture
@@ -396,7 +397,9 @@ def test_a_hosted_worker_asks_its_owner_and_a_process_worker_its_parent(monkeypa
     from probe.daemon import worker as worker_mod
 
     seen = []
-    monkeypatch.setattr(worker_mod, "parent_gone", lambda sup, ppid: seen.append((sup, ppid)) or False)
+    monkeypatch.setattr(worker_mod.supervisor, "parent_gone", lambda sup, ppid: seen.append((sup, ppid)) or False)
+    monkeypatch.setattr(worker_mod.lease_keeping, "parent_gone", lambda sup, ppid: seen.append((sup, ppid)) or False)
+    monkeypatch.setattr(worker_mod.startup, "parent_gone", lambda sup, ppid: seen.append((sup, ppid)) or False)
     w = worker_mod.Worker.__new__(worker_mod.Worker)
     w.supervisor, w.parent_pid, w.supervisor_gone = (42, "start"), 7, None
     assert w._parent_gone() is False and seen == [((42, "start"), 7)]

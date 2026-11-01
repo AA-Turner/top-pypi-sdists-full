@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandas_market_calendars
-Version: 5.5.0
+Version: 5.6.0
 Summary: Market and exchange trading calendars for pandas
 Author-email: Ryan Sheftel <rsheftel@alumni.upenn.edu>
 License: MIT
@@ -19,12 +19,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: exchange-calendars>=3.3
-Requires-Dist: pandas>=1.1
+Requires-Dist: pandas>=2.3
 Dynamic: license-file
 
 pandas_market_calendars
@@ -85,6 +86,8 @@ As of v4.0, this package provides the framework to add interruptions to calendar
 the new interruptions_df property. A full list of changes can be found in PR #210.
 
 As of v5.0, this package uses the new zoneinfo standard to timezones and depricates and removes pytz. Minimum python version is now 3.9
+
+As of v5.6.0, the minimum pandas version is 2.3.
 
 Source location
 ~~~~~~~~~~~~~~~

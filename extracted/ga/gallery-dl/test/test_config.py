@@ -213,6 +213,49 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(config.get(("b",), "c"), "text")
             self.assertEqual(config.get(("b",), "e"), "foo")
 
+    def test_load_invalid(self):
+        with tempfile.TemporaryDirectory() as base:
+            path_invalid = os.path.join(base, "cfg1")
+            with open(path_invalid, "w") as fp:
+                fp.write('{"a": 1, "b": {"a": 2, "c": "text",}}')
+
+            with self.assertLogs(config.log, "ERROR"):
+                config.load((path_invalid,))
+
+            with self.assertLogs(config.log, "ERROR"), \
+                    self.assertRaises(SystemExit):
+                config.load((path_invalid,), strict=True)
+
+            with self.assertLogs(config.log, "ERROR"), \
+                    self.assertRaises(SystemExit):
+                try:
+                    os.environ["GDL_CONFIG_STRICT"] = "1"
+                    config.load((path_invalid,))
+                finally:
+                    del os.environ["GDL_CONFIG_STRICT"]
+
+    def test_load_missing(self):
+        with tempfile.TemporaryDirectory() as base:
+            path_missing = os.path.join(base, "cfg2")
+
+            with self.assertLogs() as cm:
+                config.load((path_missing,))
+                config.log.info("")
+            self.assertEqual(len(cm.output), 1)
+
+            with self.assertLogs(config.log, "ERROR"), \
+                    self.assertRaises(SystemExit):
+                config.load((path_missing,), strict=True)
+
+            with self.assertLogs() as cm:
+                try:
+                    os.environ["GDL_CONFIG_STRICT"] = "1"
+                    config.load((path_missing,))
+                    config.log.info("")
+                finally:
+                    del os.environ["GDL_CONFIG_STRICT"]
+            self.assertEqual(len(cm.output), 1)
+
     def test_remap_categories_default(self):
         opts = {"foo": 1, "bar": 2, "baz": 3}
         config.set(("extractor",), "pixiv", opts)

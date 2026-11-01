@@ -21,7 +21,7 @@ import sys
 import threading
 from collections.abc import Mapping
 
-from ..client_headers import CLIENT_VERSION_HEADER
+from ..foundation.request_identity.request_identity import CLIENT_VERSION_HEADER
 from .session_marker import WIZARD_HINT
 
 CLIENT_STATUS_HEADER = "X-Probe-Client-Status"

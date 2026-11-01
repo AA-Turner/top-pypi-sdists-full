@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.daemon import runctx
+from probe.daemon.host import runctx
 from probe.service import daemonhost
 from probe.service import updater as updater_mod
 from probe.service import workers as workers_mod
@@ -150,7 +150,7 @@ def test_stopping_one_hosted_run_signals_that_run_only():
 def test_the_hosts_stop_signal_never_waits_on_its_lock():
     """The host's SIGTERM handler runs on its control thread, which it may have
     interrupted inside the host's lock: it only asks, the control loop stops."""
-    from probe.daemon import host as host_mod
+    from probe.daemon.host import host as host_mod
 
     folder = Path(tempfile.mkdtemp(prefix="pdh", dir="/tmp"))
     host = host_mod.Host(folder, folder / "h.sock")
@@ -347,7 +347,7 @@ def test_the_update_counts_an_old_taps_hosted_run_as_live(tmp_path, monkeypatch)
 
 
 def _bare_host():
-    from probe.daemon import host as host_mod
+    from probe.daemon.host import host as host_mod
 
     folder = Path(tempfile.mkdtemp(prefix="pdh", dir="/tmp"))
     return host_mod, host_mod.Host(folder, folder / "h.sock")
@@ -407,7 +407,7 @@ def test_a_connection_a_send_failed_on_is_closed_and_its_runs_owner_is_gone():
 
 
 def test_a_hosted_runs_session_log_is_private_and_never_followed_through_a_symlink(tmp_path, monkeypatch):
-    from probe.daemon import host as host_mod
+    from probe.daemon.host import host as host_mod
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     daemon_dir = tmp_path / "daemon"
@@ -453,7 +453,7 @@ def test_the_host_socket_is_never_trusted_in_a_folder_others_can_write(tmp_path)
     shared.mkdir()
     os.chmod(shared, 0o777)
     assert daemonhost.DaemonHost._connect(shared / "h.sock", 1) is None
-    from probe.daemon import host as host_mod
+    from probe.daemon.host import host as host_mod
 
     (tmp_path / "link").symlink_to(shared)
     with pytest.raises(OSError):
@@ -464,7 +464,7 @@ def _stale_spec(tmp_path, monkeypatch, cli_source="0" * 64):
     """A shipped spec older than the CLI, the copies kept under tmp_path, nothing tried yet."""
     import sys as _sys
 
-    from probe.daemon import cli_spec
+    from probe.shared.command_rules import cli_spec
 
     cache = tmp_path / "cache"
     monkeypatch.setattr(cli_spec, "_cache_path", lambda sha: cache / f"{sha[:24]}.json")
@@ -514,7 +514,7 @@ def test_the_spec_writing_child_never_imports_what_the_cache_folder_or_a_session
     for folder in (cache / "probe", tmp_path / "repo" / "probe"):
         folder.mkdir(parents=True)
         (folder / "__init__.py").write_text(f"open({str(marker)!r}, 'w').write('ran')\n")
-    from probe.daemon import runctx
+    from probe.daemon.host import runctx
 
     run = runctx.Run("s1", env={**os.environ, "PYTHONPATH": str(tmp_path / "repo")})
     environ = runctx.install()
@@ -662,9 +662,12 @@ def test_the_services_watchdog_looks_at_its_hosts_without_any_supervisor(monkeyp
     # it may do (WATCH_S later) before this thread reaches the join.
     watchdog = host._watchdog = threading.Thread(target=host._watch, daemon=True)
     watchdog.start()
-    time.sleep(0.3)
+    # Wait for the second look, not a fixed 0.3 s a starved thread can miss.
+    deadline = time.monotonic() + 30
+    while len(polled) < 2 and time.monotonic() < deadline:
+        time.sleep(0.01)
     host._current = None
-    watchdog.join(2)
+    watchdog.join(30)
     assert len(polled) >= 2 and host._watchdog is None
 
 
@@ -734,8 +737,11 @@ def test_a_retired_or_signalled_host_hands_every_live_run_over():
     host.retire(handover_until=until)
     assert sorted(stopped) == ["r1", "r2"]
     marker = host.folder / "daemon" / "s-r1.handover"
-    deadline = time.monotonic() + 5  # dated on a thread of its own, never the control thread
-    while not marker.exists() and time.monotonic() < deadline:
+    deadline = time.monotonic() + 30  # dated on a thread of its own, never the control thread
+    # The file exists before it is dated: wait for the date, not the file.
+    while time.monotonic() < deadline:
+        if marker.exists() and abs(marker.stat().st_mtime - until) <= 1:
+            break
         time.sleep(0.02)
     assert marker.stat().st_mtime == pytest.approx(until, abs=1)
     assert not (host.folder / "daemon" / "s-r2.handover").exists()  # finishing an ended session's queue: no hand-over
@@ -754,7 +760,7 @@ def test_only_the_hosts_parent_is_its_service():
 
 
 def test_a_proxied_start_the_host_refuses_runs_the_worker_in_process(tmp_path, monkeypatch):
-    from probe.daemon import proxy
+    from probe.daemon.host import proxy
 
     folder = Path(tempfile.mkdtemp(prefix="pdh", dir="/tmp"))
     os.chmod(folder, 0o700)
@@ -786,8 +792,8 @@ def test_a_proxied_start_the_host_refuses_runs_the_worker_in_process(tmp_path, m
 
 
 def test_the_copied_constants_match():
-    from probe.daemon import host as host_mod
-    from probe.daemon import proxy
+    from probe.daemon.host import host as host_mod
+    from probe.daemon.host import proxy
     from probe.daemon import worker as worker_mod
     from probe.service import recorders
 
@@ -798,7 +804,7 @@ def test_the_copied_constants_match():
 
 
 def test_a_change_to_the_clis_vocabulary_makes_the_spec_stale(tmp_path, monkeypatch):
-    from probe.daemon import cli_spec
+    from probe.shared.command_rules import cli_spec
 
     before = cli_spec.source_sha()
     monkeypatch.setattr(cli_spec, "VOCABULARY", cli_spec.VOCABULARY[:-1])
@@ -831,7 +837,7 @@ def test_a_stop_by_session_reaches_a_run_too_new_for_any_beat(monkeypatch, tmp_p
 
 
 def test_a_runs_stuck_thread_never_keeps_its_run_from_ending():
-    from probe.daemon import host as host_mod
+    from probe.daemon.host import host as host_mod
 
     release = threading.Event()
     run = runctx.Run("s1")

@@ -6,6 +6,9 @@ from river_client.renderers.glm53 import parse_glm53_content_blocks
 
 
 class Glm52Renderer(CheckpointTextRenderer):
+    model_label = "GLM-5.2"
+    reasoning_efforts = ("high", "max")
+
     def __init__(
         self,
         tokenizer,
@@ -19,8 +22,10 @@ class Glm52Renderer(CheckpointTextRenderer):
             thinking=thinking,
             strip_thinking_from_history=strip_thinking_from_history,
         )
-        if reasoning_effort not in ("high", "max"):
-            raise ValueError("GLM-5.2 reasoning_effort must be 'high' or 'max'")
+        if reasoning_effort not in self.reasoning_efforts:
+            raise ValueError(
+                f"{self.model_label} reasoning_effort must be one of {self.reasoning_efforts}"
+            )
         self.reasoning_effort = reasoning_effort
 
     def _template_kwargs(self):

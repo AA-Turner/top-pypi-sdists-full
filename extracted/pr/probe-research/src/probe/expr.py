@@ -1,4 +1,4 @@
-"""Compatibility import for ``probe.sdk.expr``.
+"""Compatibility import for ``probe.sdk.reads.expr``.
 
 Lets an agent write ``from probe import expr`` — the shape every example uses —
 without reaching into ``probe.sdk``.
@@ -8,5 +8,5 @@ grows, and a literal list here silently omitted every new one until someone
 noticed at a call site.
 """
 
-from .sdk.expr import *  # noqa: F401,F403
-from .sdk.expr import __all__ as __all__
+from .sdk.reads.expr import *  # noqa: F401,F403
+from .sdk.reads.expr import __all__ as __all__

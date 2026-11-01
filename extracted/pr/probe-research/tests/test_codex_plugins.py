@@ -6,7 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from probe.cli import plugin_cli
+from probe.shared.harness import plugins as plugin_cli
 
 
 ROOT = Path(__file__).resolve().parents[1]

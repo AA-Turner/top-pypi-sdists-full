@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: g4f
-Version: 8.8.9
+Version: 8.8.12
 Summary: The official gpt4free repository | various collection of powerful language models
 Home-page: https://github.com/xtekky/gpt4free
 Author: Tekky
@@ -24,7 +24,6 @@ Requires-Dist: brotli>=1.2.1
 Provides-Extra: all
 Requires-Dist: curl_cffi>=0.6.2; extra == "all"
 Requires-Dist: certifi; extra == "all"
-Requires-Dist: browser_cookie3; extra == "all"
 Requires-Dist: ddgs; extra == "all"
 Requires-Dist: beautifulsoup4; extra == "all"
 Requires-Dist: platformdirs; extra == "all"
@@ -41,13 +40,11 @@ Requires-Dist: a2wsgi; extra == "all"
 Requires-Dist: setuptools; extra == "all"
 Requires-Dist: markitdown[all]; extra == "all"
 Requires-Dist: python-dotenv; extra == "all"
-Requires-Dist: PyYAML; extra == "all"
 Requires-Dist: pystray; extra == "all"
 Requires-Dist: cryptography; extra == "all"
 Provides-Extra: slim
 Requires-Dist: curl_cffi>=0.6.2; extra == "slim"
 Requires-Dist: certifi; extra == "slim"
-Requires-Dist: browser_cookie3; extra == "slim"
 Requires-Dist: ddgs; extra == "slim"
 Requires-Dist: beautifulsoup4; extra == "slim"
 Requires-Dist: aiohttp_socks; extra == "slim"
@@ -62,7 +59,6 @@ Requires-Dist: a2wsgi; extra == "slim"
 Requires-Dist: pypdf2; extra == "slim"
 Requires-Dist: python-docx; extra == "slim"
 Requires-Dist: python-dotenv; extra == "slim"
-Requires-Dist: PyYAML; extra == "slim"
 Requires-Dist: pystray; extra == "slim"
 Requires-Dist: cryptography; extra == "slim"
 Provides-Extra: image
@@ -76,7 +72,6 @@ Requires-Dist: uvicorn; extra == "api"
 Requires-Dist: websockets; extra == "api"
 Requires-Dist: python-multipart; extra == "api"
 Requires-Dist: a2wsgi; extra == "api"
-Requires-Dist: PyYAML; extra == "api"
 Provides-Extra: gui
 Requires-Dist: werkzeug; extra == "gui"
 Requires-Dist: flask[async]; extra == "gui"
@@ -211,8 +206,9 @@ Table of contents
 
 ## Related projects
 - [g4f-go](g4f-go/README.md) – Self-contained Go launcher for g4f (downloads CPython + g4f on demand)
+- [sandbox-launcher](sandbox-launcher/README.md) – Small standalone `g4f-sandbox` executable for the sandbox image (Docker/Podman, image pulled on demand)
 - [remote_desktop](projects/remote-desktop/) – WebRTC-based remote desktop host/viewer
-- [sandbox-desktop](docs/sandbox-desktop.md) – TigerVNC + Xfce + noVNC desktop in Docker with preinstalled coding agents ([menu/tool list](docker/sandbox-menu/README.md), [start script](bin/start-sandbox-desktop.sh), [Dockerfile](docker/Dockerfile-sandbox-desktop))
+- [sandbox-desktop](https://g4f.dev/docs/sandbox-desktop) – TigerVNC + Xfce + noVNC desktop in Docker with preinstalled coding agents ([menu/tool list](docker/sandbox-menu/README.md), [start script](bin/start-sandbox-desktop.sh), [Dockerfile](docker/Dockerfile-sandbox-desktop))
 
 ---
 
@@ -270,7 +266,7 @@ Notes:
 A full Xfce desktop (TigerVNC + noVNC) with the g4f API and a one-click
 **Install & Open** menu for 100+ AI tools and providers — coding agents,
 browsers, gateways, local runtimes and assistants. See
-[docs/sandbox-desktop.md](docs/sandbox-desktop.md) for the start script,
+[docs/sandbox-desktop.md](https://g4f.dev/docs/sandbox-desktop) for the start script,
 clipboard, scaling, app volume, user id, password and domain-routing options,
 and [docker/sandbox-menu/README.md](docker/sandbox-menu/README.md) for the
 menu, the tool list and the settings.
@@ -322,7 +318,7 @@ docker run -d --name g4f-sandbox-desktop \
   `--domain-suffix`, `--no-domain-router`, `shell`, `logs` and `stop`.
   `--api-key KEY` protects the desktop/API with a password (any username
   works in the browser login); see
-  [docs/sandbox-desktop.md](docs/sandbox-desktop.md).
+  [docs/sandbox-desktop.md](https://g4f.dev/docs/sandbox-desktop).
 - The sandbox user (`pn`) runs with uid/gid 1000 by default. On a host whose
   user has another id, build the image with
   `--build-arg G4F_USER_ID="$(id -u)"` (or run
@@ -330,6 +326,27 @@ docker run -d --name g4f-sandbox-desktop \
   existing image was built for a different id). Matching the id keeps the
   bind-mounted `sandbox-home` and files written under `/app/gpt4free` owned by
   your host user.
+
+#### Standalone launcher (no checkout)
+
+Download `g4f-sandbox` from the release assets for Windows, Linux or macOS
+(amd64/arm64). It is a few MB, requires only Docker or Podman, and pulls the
+image on demand:
+
+```bash
+g4f-sandbox                    # small API-only sandbox (latest-slim)
+g4f-sandbox --desktop          # full desktop image, pulled on first use
+g4f-sandbox --desktop install chrome
+g4f-sandbox status
+g4f-sandbox down
+```
+
+The default API-only mode uses the multi-arch `latest-slim` image; `--desktop`
+pulls `latest-sandbox-desktop` only when the desktop is requested. Tools are
+installed on demand from the sandbox menu or with
+`g4f-sandbox --desktop install <tool>`. On Termux/Android the same executable
+runs the API natively with Termux's Python (no Docker) and installs g4f on
+first run. See [sandbox-launcher](sandbox-launcher/README.md).
 
 ### Python Installation (pip / from source / partial installs)
 
@@ -591,6 +608,7 @@ Repository: https://github.com/xtekky/gpt4free
 
 ### How AI can help you write code
 - See: [docs/guides/help_me.md](https://github.com/gpt4free/g4f.dev/blob/main/docs/guides/help_me.md) for prompt templates and workflows to accelerate development.
+- Automatic development loop: [docs/dev-pipeline.md](https://g4f.dev/docs/dev-pipeline) explains `bin/dev-pipeline`, which reads tasks from `AGENTS.md` and implements them with working free models from pi-freeflow.
 
 ---
 

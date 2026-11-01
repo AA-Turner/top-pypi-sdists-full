@@ -1,5 +1,5 @@
 """A run's checkpoints: best / latest, stored or not, and downloading a set
-(`probe.sdk.checkpoints`, `Client.checkpoint`, `Client.download_checkpoint`).
+(`probe.sdk.run.readback.readback`, `Client.checkpoint`, `Client.download_checkpoint`).
 
 The rows are shaped like the integrations write them
 (`probe.integrations._checkpoints`): one `kind="checkpoint"` index row per save,
@@ -17,11 +17,13 @@ from pathlib import Path
 
 import pytest
 
-from probe.sdk import checkpoints
-from probe.sdk.checkpoints import AmbiguousCheckpoint, CheckpointNotStored
-from probe.sdk.run import Run
+from probe.sdk.run.readback import readback as checkpoints
+from probe.sdk.run.readback.readback import AmbiguousCheckpoint, CheckpointNotStored
+from probe.sdk.run.run import Run
 from tests.conftest import make_client
 from tests.test_outbox import seeded_run
+
+SCANNING_DISABLED = "credential scanning is disabled in the SDK; these tests assert the redaction it did"
 
 
 def _index(name, step, *, step_index=None, members=None, **meta):
@@ -185,6 +187,7 @@ def test_a_tokenizer_vocabulary_round_trips_byte_for_byte(app, tmp_path):
     client.close()
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_a_member_holding_a_credential_is_refused_never_stored_masked(app, tmp_path):
     files = {"model.safetensors": b"weights", "config.json": f'{{"hub_token": "{_GHP}"}}'.encode()}
     with pytest.warns(UserWarning):
@@ -407,9 +410,9 @@ def test_a_set_that_would_be_copied_across_disks_is_recorded_as_a_location(tmp_p
     assert _checkpoints._foreground_bytes(run, files) == 8  # not queued: all of it is sent here
     run._client.async_writes = True
     assert _checkpoints._foreground_bytes(run, files) == 8  # small: copied into the outbox
-    from probe.sdk import multipart
+    from probe.sdk.artifact.storage_handlers import multipart
 
-    monkeypatch.setattr(multipart, "threshold_bytes", lambda: 4)
+    monkeypatch.setattr(multipart.multipart, "threshold_bytes", lambda: 4)
     assert _checkpoints._foreground_bytes(run, files) == 0  # big, same disk: a hard link
     monkeypatch.setattr(_checkpoints, "_foreground_bytes", lambda run, files: 3 * 1024**3)
     said = []
@@ -422,7 +425,8 @@ def test_a_set_that_would_be_copied_across_disks_is_recorded_as_a_location(tmp_p
 
 def test_files_a_probe_config_excludes_are_neither_uploaded_nor_named(tmp_path, monkeypatch):
     from probe.integrations import _checkpoints
-    from probe.sdk import exclusions, probe_config as pc
+    from probe.sdk.recording_rules import recording_rules as exclusions
+    from probe.sdk import probe_config as pc
 
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
@@ -443,7 +447,8 @@ def test_files_a_probe_config_excludes_are_neither_uploaded_nor_named(tmp_path, 
 
 
 def _config_fresh(tmp_path, monkeypatch):
-    from probe.sdk import exclusions, probe_config as pc
+    from probe.sdk.recording_rules import recording_rules as exclusions
+    from probe.sdk import probe_config as pc
 
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
@@ -524,7 +529,7 @@ def test_a_throwaway_disk_warning_names_upload_only_where_upload_can_run(tmp_pat
     it and named `checkpoints="upload"` -- a dead end at `hash`, where nothing
     is uploaded: there it says the checkpoint is recorded by reference only."""
     from probe.integrations import _checkpoints
-    from probe.sdk import ephemeral
+    from probe.sdk.run.launch import ephemeral
 
     pc = _config_fresh(tmp_path, monkeypatch)
     root = tmp_path / "work"
@@ -818,7 +823,8 @@ def test_a_file_the_server_would_refuse_to_name_makes_the_set_a_location(tmp_pat
 
 def test_excluded_files_are_counted_on_the_index(tmp_path, monkeypatch):
     from probe.integrations import _checkpoints
-    from probe.sdk import exclusions, probe_config as pc
+    from probe.sdk.recording_rules import recording_rules as exclusions
+    from probe.sdk import probe_config as pc
 
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))

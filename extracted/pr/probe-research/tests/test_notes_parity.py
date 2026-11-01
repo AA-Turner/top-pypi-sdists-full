@@ -30,9 +30,12 @@ from unittest import mock
 
 import pytest
 
-from probe import cli, skill_versions
-from probe.cli import first_touch, owed, summary_cli
-from probe.daemon import bite, tools
+from probe import cli
+from probe.foundation.skills import skills as skill_versions
+from probe.cli import first_touch
+from probe.shared.notes import owed, summary as summary_cli
+from probe.daemon.worker.bite import bite
+from probe.daemon.agent import tools
 from probe.sdk import errors, session_marker
 from tests.conftest import make_client, open_run
 from tests.test_cli_summary import SummaryServer
@@ -507,14 +510,16 @@ def _writer(tmp_path, monkeypatch, *commands: str, deps=None):
     from pydantic_ai.models.function import FunctionModel
 
     from probe.daemon import agent as agent_mod
-    from probe.daemon import probe_api
+    from probe.daemon.session import probe_api
     from test_daemon_same_response_end import _deps, _retries
 
     async def recorder(env, kind, ref):
         return "recorder"
 
     monkeypatch.setattr(probe_api, "summaries_mode", recorder)
-    monkeypatch.setattr(tools, "run_probe_process", RealCli())
+    fake_process = RealCli()
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", fake_process)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", fake_process)
     first = ModelResponse(parts=[ToolCallPart("shell", {"command": c}) for c in commands])
     end = ModelResponse(parts=[ToolCallPart("final_result", {"summary": "recorded"})])
     responses = [first, end, end, end, end]

@@ -25,8 +25,8 @@ from __future__ import annotations
 
 import pytest
 
-from probe.mcp.contract import VIEW_MATRIX, View
-from probe.mcp.service import _VIEWS
+from probe.shared.reads.search_contract import VIEW_MATRIX, View
+from probe.mcp.tools.view import _VIEWS
 
 
 def test_every_served_pair_is_in_the_shared_vocabulary() -> None:
@@ -39,7 +39,7 @@ def test_every_served_pair_is_in_the_shared_vocabulary() -> None:
     )
     assert not unknown, (
         f"this server serves {unknown}, which the shared vocabulary does not "
-        "declare. Add it to research-os app/core/agent_views.py and run "
+        "declare. Add it to research-os contracts/probe_contracts/agent_surface/agent_surface.py and run "
         "`make gen-views` -- do not hand-edit the generated file."
     )
 
@@ -48,7 +48,7 @@ def test_the_generated_vocabulary_is_current() -> None:
     """Regenerating must be a no-op. If it is not, this package is speaking a
     vocabulary the backend has already changed."""
     agent_views = pytest.importorskip(
-        "app.core.agent_views",
+        "probe_contracts.agent_surface.agent_surface",
         reason="research-os is not importable here; run this where it is",
     )
     # NAMES AND VALUES BOTH. Values alone let a RENAME through -- `README` to

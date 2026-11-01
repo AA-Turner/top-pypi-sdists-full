@@ -14,9 +14,9 @@ from pathlib import Path
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
-from probe.mcp.contract import Capability, EnvelopeState, MissingMarker
-from probe.mcp.server import create_server
-from probe.mcp.service import ResearchReadService
+from probe.shared.reads.search_contract import Capability, EnvelopeState, MissingMarker
+from probe.mcp.server.server import create_server
+from probe.mcp.tools.tools import ResearchReadService
 from probe.sdk import errors
 
 _OPEN_WEB = "open-web"
@@ -56,7 +56,7 @@ def _call(server, tool: str, args: dict):
 
 
 def _e2e(client):
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.source.source import ResearchOSSource
 
     return create_server(ResearchReadService(ResearchOSSource(client)))
 
@@ -194,7 +194,7 @@ def test_invalid_arguments_are_refused_before_the_backend(args, expected):
 
 
 def test_the_provider_capability_is_still_declared_for_paper_search():
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.source.source import ResearchOSSource
 
     reported = ResearchOSSource.capabilities(object())
     assert reported[Capability.WEB_SEARCH] is True
@@ -276,7 +276,7 @@ def test_an_unbounded_upstream_error_body_does_not_land_in_the_agents_context():
 
 @pytest.mark.parametrize("name", ["PaperMode", "PaperExpansion", "WebState"])
 def test_the_mirrored_vocabulary_matches_the_backend_contract(name):
-    from probe.mcp import contract
+    from probe.shared.reads import search_contract as contract
 
     schema = json.loads(
         (Path(__file__).resolve().parent.parent / "schema" / "openapi.json").read_text()
@@ -302,7 +302,7 @@ def test_the_mirrored_vocabulary_matches_the_backend_contract(name):
     ids=["search", "read", "similar"],
 )
 def test_each_paper_mode_remains_callable_with_the_backend_request_contract(client, app, args):
-    from probe._generated.models import PaperSearchRequest
+    from probe.generated.models import PaperSearchRequest
 
     mode = args["mode"]
     app.web_responses["papers"] = {

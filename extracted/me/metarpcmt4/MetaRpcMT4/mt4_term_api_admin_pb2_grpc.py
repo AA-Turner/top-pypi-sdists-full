@@ -110,6 +110,11 @@ class AdminApiStub(object):
                 request_serializer=mt4__term__api__admin__pb2.StopTerminalLocalRequest.SerializeToString,
                 response_deserializer=mt4__term__api__admin__pb2.StopTerminalLocalReply.FromString,
                 )
+        self.SetDedicatedIpEntitlement = channel.unary_unary(
+                '/mrpc_admin.AdminApi/SetDedicatedIpEntitlement',
+                request_serializer=mt4__term__api__admin__pb2.SetDedicatedIpEntitlementRequest.SerializeToString,
+                response_deserializer=mt4__term__api__admin__pb2.SetDedicatedIpEntitlementReply.FromString,
+                )
 
 
 class AdminApiServicer(object):
@@ -272,6 +277,14 @@ class AdminApiServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetDedicatedIpEntitlement(self, request, context):
+        """Grants or revokes the dedicated-IP add-on entitlement for ONE terminal (see the mt5 admin proto for the canonical
+        definition; this copy exists for the mt4 client libs). ADMIN_KEY required.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_AdminApiServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -359,6 +372,11 @@ def add_AdminApiServicer_to_server(servicer, server):
                     servicer.StopTerminalLocal,
                     request_deserializer=mt4__term__api__admin__pb2.StopTerminalLocalRequest.FromString,
                     response_serializer=mt4__term__api__admin__pb2.StopTerminalLocalReply.SerializeToString,
+            ),
+            'SetDedicatedIpEntitlement': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetDedicatedIpEntitlement,
+                    request_deserializer=mt4__term__api__admin__pb2.SetDedicatedIpEntitlementRequest.FromString,
+                    response_serializer=mt4__term__api__admin__pb2.SetDedicatedIpEntitlementReply.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -667,5 +685,22 @@ class AdminApi(object):
         return grpc.experimental.unary_unary(request, target, '/mrpc_admin.AdminApi/StopTerminalLocal',
             mt4__term__api__admin__pb2.StopTerminalLocalRequest.SerializeToString,
             mt4__term__api__admin__pb2.StopTerminalLocalReply.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SetDedicatedIpEntitlement(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/mrpc_admin.AdminApi/SetDedicatedIpEntitlement',
+            mt4__term__api__admin__pb2.SetDedicatedIpEntitlementRequest.SerializeToString,
+            mt4__term__api__admin__pb2.SetDedicatedIpEntitlementReply.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

@@ -118,7 +118,7 @@ def strand_ai(tmp_path, monkeypatch):
     import os
     import sys
 
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     agent_dir = tmp_path / "pi-agent"
     agent_dir.mkdir()
@@ -186,7 +186,7 @@ def test_the_strand_ai_shape_is_installed_but_filtered(strand_ai):
     refuse for the RIGHT reason on the WRONG grounds and the fixture would go
     green while capture stayed broken.
     """
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     worktree = strand_ai["worktree"]
     assert pi_config.package_entry_installed(cwd=worktree) is True

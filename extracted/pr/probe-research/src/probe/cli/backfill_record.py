@@ -52,7 +52,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ..sdk.durable import write_text_atomic
+from ..foundation.durable.durable import write_text_atomic
 from ..sdk.secret_gate import CredentialBlocked, _redact_read
 from . import backfill as bf
 from . import backfill_oplog as oplog
@@ -278,7 +278,7 @@ def _locked(current: str | None, *, customized: bool, ours: tuple) -> bool:
 def _page(client, *, project: str, experiment: str | None = None) -> dict | None:
     """The page as a checked-out HTML draft (`summary_cli.compose_draft`), or
     None from a server without full pages: no page is written then."""
-    from .summary_cli import compose_draft
+    from ..shared.notes.summary.summary import compose_draft
 
     row = client.get_summary(project=project, experiment=experiment, format="html")
     if row.get("format") != "html" or not isinstance(row.get("html"), str):
@@ -545,8 +545,8 @@ def run_sessions(listing: dict, folder: Path, root: Path, *, agent: bf.Agent,
     client; the listing carries every current note and page, and the result is
     op logs, never applied. A session already finished in `root` is not run
     again (its log is returned as it stands)."""
-    from probe import skill_versions
-    from probe.daemon.bite import SHARED_SKILLS, skills_root, skills_text
+    from probe.foundation.skills import skills as skill_versions
+    from probe.daemon.worker.bite.bite import SHARED_SKILLS, skills_root, skills_text
 
     skills = skills_text(SHARED_SKILLS, reader=skill_versions.MAIN_AGENT)
     where_skills = str(skills_root() or "<skills folder>")
@@ -676,9 +676,9 @@ def _push_document(client, listing: dict, kind: str, row: dict, text: str, base_
     sent again. A merge that conflicts is refused, never forced."""
     from probe.sdk import errors
 
-    from . import notes_file
-    from .note_sync import Paths, commit
-    from .summary_cli import compose_draft
+    from ..shared.notes import notes as notes_file
+    from ..shared.notes.sync import Paths, commit
+    from ..shared.notes.summary.summary import compose_draft
 
     project_id = listing["project"]["id"]
     entity = row.get("id")

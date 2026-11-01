@@ -2,7 +2,7 @@ from __future__ import annotations
 
 # When updating this version number, please update the
 # ``docs/source/global.rst.inc`` file as well.
-VERSION_MAJOR = 6
+VERSION_MAJOR = 7
 VERSION_MINOR = 0
 VERSION_BUILD = 0
 VERSION_INFO = (VERSION_MAJOR, VERSION_MINOR, VERSION_BUILD)

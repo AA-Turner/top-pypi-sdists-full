@@ -41,7 +41,7 @@ from probe.service import keeper, lifeboat, paths
 
 pytestmark = pytest.mark.skipif(os.name != "posix", reason="the lifeboat is POSIX-only (/bin/sh)")
 
-SHARED = Path(lifeboat.__file__).resolve().parent.parent / "_shared"
+SHARED = Path(lifeboat.__file__).resolve().parent.parent / "shared" / "updates"
 #: `keeper.wanted` as the suite has it: False (a test HOME, PROBE_SERVICE_KEEPER=0).
 _WANTED = keeper.wanted
 #: sha256(lifeboat.sh)[:16]. FROZEN: every keeper unit and every session start
@@ -576,7 +576,8 @@ def test_every_update_whose_cli_step_ended_ok_refreshes_the_lifeboat(an_update, 
 
 
 def test_an_update_a_live_run_deferred_refreshes_nothing(an_update, monkeypatch):
-    from probe.cli import autoupdate, run_lock, update_report
+    from probe.cli import autoupdate, run_lock
+    from probe.shared.updates import update_report
 
     monkeypatch.setattr(run_lock, "any_live", lambda: True)
     monkeypatch.setattr(autoupdate, "record_skip", lambda *a, **k: None)
@@ -772,7 +773,7 @@ def test_saving_the_auto_update_setting_rewrites_env_json_at_once(home):
     """Turned off, the lifeboat stops at its next run: it never rescued a
     machine 12 h after a person turned updates off (the setting was read at
     the last service start only)."""
-    from probe._shared import autoupdate
+    from probe.shared.updates import autoupdate
 
     autoupdate.save(enabled=True)
     assert not lifeboat.root().exists(), "no lifeboat here: nothing is made"
@@ -833,7 +834,7 @@ def test_the_real_handoff_under_the_wrapper_does_nothing_during_an_uninstall(boa
     """An uninstall past its point of no return (`S/uninstall/barrier.json`,
     phase `server`): the keeper's run of the real hand-off reads nothing,
     writes none of its clocks and exits 0, so known-good never runs either."""
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
 
     (boat.root / "current").mkdir()
     shutil.copyfile(SHARED / "handoff.py", boat.root / "current" / "handoff.py")
@@ -852,7 +853,7 @@ def test_the_real_handoff_under_the_wrapper_does_nothing_during_an_uninstall(boa
 
 
 def test_this_releases_real_handoff_is_what_a_first_install_places(home, tmp_path, monkeypatch):
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
 
     monkeypatch.setattr(lifeboat, "env_record", lambda login=None: {"v": 1, "base_python": sys.executable})
     monkeypatch.setattr(lifeboat, "SYSTEM_PYTHON", str(tmp_path / "no-system-python"))
@@ -885,7 +886,7 @@ def test_the_real_v3_replaces_a_deployed_current_and_keeps_known_good(home, tmp_
     released v1/v2 copies: the packaged v3 becomes `current/`, and
     `known-good/` stays as it is until v3 proves itself (`promote`: a rescue
     of its own, then a cycle at the latest) -- with the real files."""
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
 
     assert handoff.HANDOFF_VERSION == 3
     v3 = (SHARED / "handoff.py").read_bytes()

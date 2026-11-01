@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphifyy
-Version: 0.9.99
+Version: 0.9.100
 Summary: AI coding assistant skill (Claude Code, CodeBuddy, Codex, OpenCode, Kilo Code, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, Devin CLI, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://graphify.com
@@ -75,6 +75,7 @@ Requires-Dist: psycopg[binary]; extra == "postgres"
 Requires-Dist: tree-sitter-sql; extra == "postgres"
 Provides-Extra: video
 Requires-Dist: faster-whisper; python_version >= "3.11" and extra == "video"
+Requires-Dist: av<19,>=11; python_version >= "3.11" and extra == "video"
 Requires-Dist: yt-dlp>=2026.7.4; extra == "video"
 Provides-Extra: kimi
 Requires-Dist: openai; extra == "kimi"
@@ -131,6 +132,7 @@ Requires-Dist: python-docx; extra == "all"
 Requires-Dist: openpyxl; extra == "all"
 Requires-Dist: psycopg[binary]; extra == "all"
 Requires-Dist: faster-whisper; python_version >= "3.11" and extra == "all"
+Requires-Dist: av<19,>=11; python_version >= "3.11" and extra == "all"
 Requires-Dist: yt-dlp>=2026.7.4; extra == "all"
 Requires-Dist: matplotlib; extra == "all"
 Requires-Dist: pillow>=13.0.0; python_version >= "3.11" and extra == "all"
@@ -578,6 +580,7 @@ Beyond your AI assistant, query `graph.json` straight from the CLI with `graphif
 
 Backends, API keys, hook behavior, and tuning are controlled by environment variables. Full table: **[Configuration](https://docs.graphify.com/reference/configuration)**.
 
+- **Claude API prompt caching**: `GRAPHIFY_CLAUDE_PROMPT_CACHE` controls system-prompt caching for `--backend claude`. Unset or blank keeps caching enabled; `1`, `true`, `yes`, or `on` explicitly enables it, and `0`, `false`, `no`, or `off` disables it (case-insensitive, surrounding whitespace ignored). Invalid values raise an error before sending a request. For example, run `GRAPHIFY_CLAUDE_PROMPT_CACHE=0 graphify extract . --backend claude` when an Anthropic-compatible endpoint rejects `cache_control`. Disabling sends the original plain-text system prompt. The setting applies equally to official Anthropic and custom `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` endpoints, including deep mode; it does not affect Bedrock, Claude CLI, or Graphify's local extraction cache. Enabling requests caching but cannot guarantee cache hits: the endpoint/model must support it and the prompt must meet its minimum length. Unsupported caching errors are not silently retried without caching.
 - **Claude CLI model**: `GRAPHIFY_CLAUDE_CLI_MODEL` overrides the model for the `claude-cli` backend (default: Opus). `haiku` or `sonnet` are usually enough for community naming; the semantic extraction pass benefits from a larger model.
 
 ---

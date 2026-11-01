@@ -1,6 +1,6 @@
 """Run alerts reach the agent through the daemon (run-alerts-to-agent, PR 2, D1-D2).
 
-The worker's run-alert poller (`probe.daemon.run_alerts`) asks the server for the
+The worker's run-alert poller (`probe.daemon.lanes.run_alerts`) asks the server for the
 session's alerts every RUN_ALERT_POLL_S on its own asyncio task, and hands what
 is new to the mailbox as ONE `alert` message per poll: published first, then
 recorded. The server is never reached here: `probe_api.run_alerts` runs against
@@ -23,11 +23,13 @@ import pytest
 # test_daemon_worker.py; agent-ci installs the package without it.
 pytest.importorskip("pydantic_ai")
 
-from probe.daemon import lease, mailbox, probe_api  # noqa: E402
-from probe.daemon import reader_lane as rl  # noqa: E402
-from probe.daemon import run_alerts as ra  # noqa: E402
+from probe.daemon.host import lease  # noqa: E402
+from probe.daemon.session import probe_api
+from probe.shared import mailbox
+from probe.daemon.lanes import reader as rl  # noqa: E402
+from probe.daemon.lanes import run_alerts as ra  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
-from probe.daemon.events import READER_STREAM  # noqa: E402
+from probe.shared.harness.events import READER_STREAM  # noqa: E402
 
 SID = "11111111-2222-3333-4444-555555555555"
 LATER = "2099-01-01T00:00:00Z"
@@ -266,7 +268,9 @@ def test_a_refused_key_raises_as_every_daemon_read_does(monkeypatch):
 
 def test_a_poll_with_no_answer_or_a_refused_key_never_raises_into_the_worker(tmp_path, monkeypatch):
     lane = ra.RunAlertLane(_worker(tmp_path))
-    monkeypatch.setattr(worker_mod, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.env, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.bite.run, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.loop.failures, "probe_env", lambda sid: dict(ENV))
     _serve(monkeypatch, lambda r: httpx.Response(503, text="deploying"))
     assert asyncio.run(lane.tick()) is None and _alerts_waiting() == []
 
@@ -317,8 +321,10 @@ def test_the_poller_runs_beside_a_bite_in_on_and_read_only(tmp_path, monkeypatch
         return [_alert(9)]
 
     monkeypatch.setattr(probe_api, "run_alerts", fake)
-    monkeypatch.setattr(worker_mod, "probe_env", lambda sid: dict(ENV))
-    monkeypatch.setattr(worker_mod, "POLL_S", 0.01)
+    monkeypatch.setattr(worker_mod.env, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.bite.run, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.loop.failures, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.loop.loop, "POLL_S", 0.01)
     w = _worker(tmp_path)
     bite_running = asyncio.Event()
 
@@ -354,7 +360,7 @@ def test_no_poller_without_the_mailbox(tmp_path, monkeypatch):
     """The daemon serves reads for this agent only on the daemon profile (or the
     developer switch): no mailbox, no alerts (decision 2: no daemon, no alert)."""
     pytest.importorskip("pydantic_ai")
-    monkeypatch.setattr(worker_mod, "POLL_S", 0.01)
+    monkeypatch.setattr(worker_mod.loop.loop, "POLL_S", 0.01)
     w = _worker(tmp_path)
     ticks: list[int] = []
 
@@ -386,7 +392,9 @@ def test_a_session_that_is_ending_polls_no_more(tmp_path, monkeypatch):
         raise AssertionError("asked after the session ended")
 
     monkeypatch.setattr(probe_api, "run_alerts", never)
-    monkeypatch.setattr(worker_mod, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.env, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.bite.run, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.loop.failures, "probe_env", lambda sid: dict(ENV))
     lane.w.stopping = True
     assert asyncio.run(lane.tick()) is None
 
@@ -458,7 +466,9 @@ def test_the_services_answer_is_taken_without_asking_each_once(tmp_path, monkeyp
         raise AssertionError("asked while the service polls for the session")
 
     monkeypatch.setattr(probe_api, "run_alerts", never)
-    monkeypatch.setattr(worker_mod, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.env, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.bite.run, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.loop.failures, "probe_env", lambda sid: dict(ENV))
     _handoff([_alert(1), _alert(2)])
     assert asyncio.run(lane.tick()).alerts == [1, 2]
     assert asyncio.run(lane.tick()) is None, "the same hand-off is taken once"
@@ -481,7 +491,9 @@ def test_with_no_fresh_handoff_or_no_offer_the_lane_asks_itself(tmp_path, monkey
         return [_alert(5)]
 
     monkeypatch.setattr(probe_api, "run_alerts", fake)
-    monkeypatch.setattr(worker_mod, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.env, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.bite.run, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.loop.failures, "probe_env", lambda sid: dict(ENV))
     _handoff([_alert(4)], age=ra.HANDOFF_FRESH_S + 5 if offered else 0.0)
     assert asyncio.run(lane.tick()).alerts == [5]
     assert asked == [SID]

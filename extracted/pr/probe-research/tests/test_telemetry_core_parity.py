@@ -1,7 +1,7 @@
 """The plugin's vendored `_telemetry_core` must match the canonical one.
 
 `plugins/probe-research/hooks/_telemetry_core.py` is a COPY of
-`src/probe/sdk/_telemetry_core.py`, for the same hard reason as
+`src/probe/analytics/core.py`, for the same hard reason as
 version_policy.py: the hook runs under the SYSTEM python3 with no probe
 package on its path, so a shared import is impossible and a shipped duplicate
 is the only option.
@@ -25,18 +25,18 @@ import sys
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
-_CANONICAL = _ROOT / "src" / "probe" / "sdk" / "_telemetry_core.py"
+_CANONICAL = _ROOT / "src" / "probe" / "analytics" / "core.py"
 _PLUGIN_COPY = _ROOT / "plugins" / "probe-research" / "hooks" / "_telemetry_core.py"
 
 
 def test_plugin_core_copy_matches_canonical() -> None:
-    assert _CANONICAL.is_file(), "canonical src/probe/sdk/_telemetry_core.py is missing"
+    assert _CANONICAL.is_file(), "canonical src/probe/analytics/core.py is missing"
     assert _PLUGIN_COPY.is_file(), (
         "plugin copy of _telemetry_core.py is missing; run `make sync-telemetry-core`"
     )
     assert filecmp.cmp(_CANONICAL, _PLUGIN_COPY, shallow=False), (
         "plugins/probe-research/hooks/_telemetry_core.py has drifted from "
-        "src/probe/sdk/_telemetry_core.py — run `make sync-telemetry-core` "
+        "src/probe/analytics/core.py — run `make sync-telemetry-core` "
         "(and add a plugin CHANGELOG line: core changes ship with the next "
         "plugin release)"
     )

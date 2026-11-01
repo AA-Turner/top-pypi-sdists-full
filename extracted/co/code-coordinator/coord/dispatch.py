@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from coord.milestone_dispatch import OracleReadiness
+    from coord.models import Board
 
 from coord import github_ops
 from coord.comments import (
@@ -274,6 +275,211 @@ def enforce_epic_dispatch_guard(
         "`coord assign <machine> <repo> <tracking_issue> --type "
         "epic-decompose` to hand the epic to a worker for in-pickup "
         "decomposition (#3132) — that type never trips this guard."
+    )
+
+
+def enforce_preflight_guard(
+    *,
+    proposal_type: str,
+    repo: Repo | None,
+    config: Config,
+    issue_number: int,
+    machine: Machine | None = None,
+    board: "Board | None" = None,
+) -> None:
+    """#3817: pre-dispatch half of the preflight decomposition guard.
+
+    Scores a `type="work"` issue with the free heuristic scorer
+    (`coord.preflight_size.score_issue_size`, #3815) and, when it comes
+    back `triage_worthy`, defers the original dispatch and hands the issue
+    to the paid size-triage agent (`coord.decomposition_chat.
+    dispatch_size_triage_review`, #3818) instead — the same deterministic-
+    refusal shape as :func:`enforce_oracle_readiness` /
+    :func:`enforce_epic_dispatch_guard`, reusing :class:`DispatchRefused`
+    rather than inventing a second "this refusal doesn't count" concept
+    (#2096).
+
+    Cheap no-op — no network call — unless *proposal_type* is ``"work"``,
+    *repo* is resolved, and ``config.preflight_guard_enabled(repo.name)``
+    is `True` (the fleet kill switch AND the per-repo opt-in, see
+    `Config.preflight_guard_enabled`). Fails OPEN (returns, doesn't gate)
+    if the issue can't be fetched, same posture as the other two gates —
+    a GitHub hiccup must never turn into a fleet-wide dispatch outage.
+
+    *machine*/*board* default `None` for callers that still dispatch
+    without a board in scope (e.g. the chat-continuation path) — for
+    those this falls through and the original dispatch proceeds
+    unchanged, identical to the repo not being opted in, since there
+    would be no board to dedup/record the triage dispatch against.
+    Production chokepoints (`coord assign`/`coord drive`'s WORK stage,
+    the drive-queue auto-drain tick, `coord approve`) all resolve a real
+    board and pass it through.
+
+    The triage dispatch itself only fires once per issue *within the
+    board's retention window*: a matching `review_target`, scoped to this
+    *repo* (issue numbers collide across repos), already present in
+    `board.active` *or* `board.completed` (terminal statuses per
+    `coord.dao.TERMINAL_STATUSES`, which includes `advisory`/
+    `refused_policy`/`refused_premise` — an assignment can go terminal
+    without ever being moved out of `active`) means a triage session has
+    already run or is running, so this never re-scores and re-dispatches
+    a fresh paid session on every retry. A size-triage row can also sit
+    non-terminal (e.g. `finalizing`) for the notify-drain window, during
+    which this gate correctly keeps refusing. A terminal row ages out of
+    the board projection after its retention window (`coord.dao`'s
+    `_DEFAULT_BOARD_RETENTION_DAYS`), so re-dispatching the *same* flagged
+    issue long after that will spawn one more paid triage session — bounded
+    per window, not a one-time guarantee.
+
+    Once a matching triage assignment reaches a terminal status, its
+    verdict is consumed rather than ignored: the assignment's raw agent
+    log is fetched and parsed with
+    `coord.decomposition_chat.parse_size_triage_response`. A PROCEED
+    verdict — or anything that fails to fetch or parse — falls through
+    to let the original dispatch proceed unchanged (fail-open, same
+    posture as the rest of this gate). A SPLIT verdict is mechanically
+    re-checked with `coord.preflight_size.verify_split_proposal`; only
+    once that passes is the epic + chained children actually filed and
+    queued (`coord.decomposition_chat.file_and_queue_split_proposal`),
+    superseding the original. A gate-rejected split also falls through
+    to the original dispatch — a broken epic is never filed.
+    """
+    if proposal_type != "work" or repo is None:
+        return
+    if not config.preflight_guard_enabled(repo.name):
+        return
+
+    try:
+        issue_data = github_ops.get_issue(repo.github, issue_number)
+    except RuntimeError:
+        return
+
+    # #3830: a now-closed issue never re-enters the triage/split path. The
+    # common way this fires is the *success* case this gate itself just
+    # produced — `file_and_queue_split_proposal` already superseded
+    # (closed) this exact issue on a previous pass — but it also covers an
+    # issue closed for any other reason. Without this, a retry (`coord
+    # drive-queue remove && add`, a manual `coord assign`, `coord
+    # approve`, ...) re-scores a still-`triage_worthy` body, re-finds the
+    # same terminal triage assignment below, and re-files a second epic +
+    # a duplicate set of children every time. `state` is already on this
+    # same `get_issue` response, so this costs no extra fetch.
+    if str(issue_data.get("state") or "").upper() == "CLOSED":
+        return
+
+    from coord.preflight_size import score_issue_size  # noqa: PLC0415
+
+    thresholds = config.preflight_guard.for_repo(repo.name).resolve_thresholds()
+    score = score_issue_size(
+        body=issue_data.get("body"),
+        labels=issue_data.get("labels") or [],
+        thresholds=thresholds,
+    )
+    if not score.triage_worthy:
+        return
+
+    if machine is None or board is None:
+        # No board in scope at this call site — fall through rather than
+        # refusing with no way for the refusal to ever clear.
+        return
+
+    from coord.decomposition_chat import (  # noqa: PLC0415
+        SizeTriageError,
+        dispatch_size_triage_review,
+        size_triage_review_target_for,
+    )
+    from coord.dao import TERMINAL_STATUSES  # noqa: PLC0415
+
+    review_target = size_triage_review_target_for(issue_number)
+    matches = [
+        a
+        for a in (*board.active, *board.completed)
+        if a.review_target == review_target and a.repo_name == repo.name
+    ]
+    in_flight = next(
+        (a for a in matches if a.status not in TERMINAL_STATUSES), None
+    )
+    if in_flight is None and matches:
+        # A triage session already ran this issue's review_target to a
+        # terminal status (done/advisory/refused_*/...). Consume its
+        # verdict: PROCEED (or anything unparseable) falls through to
+        # the original dispatch; a verified SPLIT files the epic +
+        # children, queues them, and supersedes the original instead.
+        terminal = max(matches, key=lambda a: a.dispatched_at or 0.0)
+        triage_machine = next(
+            (m for m in config.machines if m.name == terminal.machine_name), None
+        )
+        if triage_machine is not None and terminal.assignment_id:
+            from coord.notify import _fetch_raw_log_text_by_id  # noqa: PLC0415
+
+            raw_log = _fetch_raw_log_text_by_id(
+                terminal.assignment_id, None, triage_machine.host
+            )
+            if raw_log is not None:
+                from coord.decomposition_chat import (  # noqa: PLC0415
+                    parse_size_triage_response,
+                )
+
+                try:
+                    proposal = parse_size_triage_response(
+                        raw_log,
+                        repo_name=repo.name,
+                        issue_number=issue_number,
+                        issue_title=issue_data.get("title")
+                        or f"issue #{issue_number}",
+                    )
+                except SizeTriageError:
+                    proposal = None
+
+                if proposal is not None:
+                    from coord.preflight_size import (  # noqa: PLC0415
+                        verify_split_proposal,
+                    )
+
+                    verification = verify_split_proposal(proposal)
+                    if verification.ok:
+                        from coord.decomposition_chat import (  # noqa: PLC0415
+                            file_and_queue_split_proposal,
+                        )
+
+                        epic_number = file_and_queue_split_proposal(
+                            proposal=proposal,
+                            verification=verification,
+                            repo=repo,
+                        )
+                        raise DispatchRefused(
+                            f"issue #{issue_number} was split by the preflight "
+                            f"size-triage review into epic #{epic_number} — the "
+                            "original is superseded; work continues on the "
+                            "child issues."
+                        )
+        return
+
+    if in_flight is None:
+        try:
+            dispatch_size_triage_review(
+                repo_cfg=repo,
+                machine=machine,
+                issue_number=issue_number,
+                issue_title=issue_data.get("title") or f"issue #{issue_number}",
+                issue_body=issue_data.get("body") or "",
+                board=board,
+                size_signals=[
+                    signal.detail for signal in score.signals if signal.points > 0
+                ],
+            )
+        except SizeTriageError:
+            # Couldn't even get the triage review out the door — let the
+            # original dispatch proceed rather than refuse with no
+            # follow-up in flight to ever clear the refusal.
+            return
+
+    raise DispatchRefused(
+        f"issue #{issue_number} flagged by the preflight size scorer "
+        f"(score {score.total:g}/{score.threshold:g}): {score.reason}. "
+        f"A size-triage review is {'already ' if in_flight is not None else ''}"
+        f"running on {machine.name!r} (review_target={review_target!r}) — "
+        "retry once it posts its verdict."
     )
 
 
@@ -747,11 +953,20 @@ def dispatch(
     status_fetcher=None,
     credential_fetcher=None,
     issue_liveness_fetcher=None,
+    board: "Board | None" = None,
 ) -> dict:
     """POST an assignment to the agent server on the target machine.
 
     Returns the response JSON from the agent server (which includes the
     server-assigned `id`).
+
+    *board* (#3817) opts the `type="work"` STRUCTURAL PREFLIGHT-SIZE GATE
+    below into actually dispatching a size-triage review when the issue
+    scores `triage_worthy` on an opted-in repo — see
+    `enforce_preflight_guard`'s docstring. `None` (the default) makes that
+    gate a pure read-only no-op, same opt-in shape as *status_fetcher* /
+    *credential_fetcher* / *issue_liveness_fetcher*: every caller that
+    predates this parameter is unaffected byte-for-byte.
 
     *status_fetcher* (#3353) opts the `type="work"` liveness-routing gate
     below into a LIVE reachability probe of `proposal.machine_name` before
@@ -914,6 +1129,17 @@ def dispatch(
     enforce_epic_dispatch_guard(
         proposal_type=proposal.type, repo=repo, config=config,
         issue_number=proposal.issue_number,
+    )
+
+    # #3817: STRUCTURAL PREFLIGHT-SIZE GATE — score a `type="work"` issue
+    # on an opted-in repo with the free heuristic scorer and, when flagged,
+    # dispatch a size-triage review in place of the original (see
+    # `enforce_preflight_guard`'s docstring). Placed alongside the two
+    # gates above, before the TOS gate, for the same reason: a refusal
+    # should never depend on provider resolution succeeding first.
+    enforce_preflight_guard(
+        proposal_type=proposal.type, repo=repo, config=config,
+        issue_number=proposal.issue_number, machine=machine, board=board,
     )
 
     # #437: STRUCTURAL TOS-COMPLIANCE GATE — refuse to route an
@@ -1481,6 +1707,7 @@ def dispatch_with_retry(
     status_fetcher=None,
     credential_fetcher=None,
     issue_liveness_fetcher=None,
+    board: "Board | None" = None,
 ) -> dict:
     """Dispatch with exponential backoff on transient failures.
 
@@ -1494,6 +1721,11 @@ def dispatch_with_retry(
     hits the same `except ValueError: raise` below unchanged) — a closed
     issue, an already-merged branch, or a dead credential is not a
     transient condition backoff can fix.
+
+    *board* (#3817) is forwarded to `dispatch()` untouched — see
+    `enforce_preflight_guard`'s docstring for the STRUCTURAL PREFLIGHT-
+    SIZE GATE it opts into. Defaults to `None` for callers that don't
+    have a board in scope, same fail-open posture as the gate itself.
     """
     from coord.network import classify_error, is_retryable
 
@@ -1506,6 +1738,7 @@ def dispatch_with_retry(
                 status_fetcher=status_fetcher,
                 credential_fetcher=credential_fetcher,
                 issue_liveness_fetcher=issue_liveness_fetcher,
+                board=board,
             )
         except httpx.HTTPError as exc:
             state, reason = classify_error(exc)

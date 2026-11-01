@@ -32,7 +32,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import approvals as appr
+from probe.shared.mailbox import approvals as appr
 from probe.service import client, protocol
 from probe.service.mailhost import ANSWER_CHANNEL, MailHost
 from probe.service.protocol import ErrorCode, Method

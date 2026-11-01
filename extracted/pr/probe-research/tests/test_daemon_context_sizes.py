@@ -10,7 +10,8 @@ import pytest
 pytest.importorskip("pydantic_ai")  # the daemon extra: absent on the SDK-only CI shard
 
 from probe.daemon import agent as agent_mod  # noqa: E402
-from probe.daemon import model as model_mod  # noqa: E402
+from probe.daemon.agent.model import model as model_mod  # noqa: E402
+import probe.daemon.agent.context  # noqa: F401 -- a piece read through its lazy door: loaded here, whatever ran first
 
 
 @pytest.fixture(autouse=True)
@@ -24,8 +25,8 @@ def test_before_any_answer_the_clients_own_sizes_stand():
 
 
 def test_a_lower_server_size_wins_and_a_higher_one_does_not(monkeypatch):
-    monkeypatch.setattr(agent_mod, "CONTEXT_TOKENS", 250_000)
-    monkeypatch.setattr(agent_mod, "READ_CONTEXT_TOKENS", 120_000)
+    monkeypatch.setattr(agent_mod.context, "CONTEXT_TOKENS", 250_000)
+    monkeypatch.setattr(agent_mod.context, "READ_CONTEXT_TOKENS", 120_000)
     model_mod.remember_context_sizes({"x-probe-context-tokens": "200000", "x-probe-read-context-tokens": "500000"})
     assert agent_mod.writer_context_tokens() == 200_000
     assert agent_mod.read_context_tokens() == 120_000, "a server size only lowers"
@@ -39,7 +40,7 @@ def test_a_missing_malformed_or_tiny_server_size_is_ignored(raw):
 
 
 def test_the_writers_compaction_uses_the_lowered_size(monkeypatch):
-    monkeypatch.setattr(agent_mod, "CONTEXT_TOKENS", 250_000)
+    monkeypatch.setattr(agent_mod.context, "CONTEXT_TOKENS", 250_000)
     model_mod.remember_context_sizes({"x-probe-context-tokens": "100000"})
     pytest.importorskip("pydantic_ai_harness")
     compaction = agent_mod.counted_compaction(agent_mod.RunState(conversation=True))

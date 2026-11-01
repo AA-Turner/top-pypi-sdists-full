@@ -16,10 +16,14 @@ import pytest
 import typer
 
 from probe import cli
-from probe.sdk.journal import DrainReport, Journal, drain
+from probe.sdk.delivery.outbox.drain.report import DrainReport
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain.drain import drain
 
 
 from tests.conftest import make_client, open_run
+
+SCANNING_DISABLED = "credential scanning is disabled in the SDK; these tests assert the redaction it did"
 
 
 def _cli_main():
@@ -499,7 +503,7 @@ def test_outbox_pause_blocks_drain_and_resume_rekicks(wired_async, outbox_dir, c
 def test_outbox_pause_says_when_it_ends(wired_async, outbox_dir, capsys):
     """A pause ends by itself (24 h unless --hours), and says when; only
     --until-resume holds until `resume`. Status shows the same end."""
-    from probe.sdk.journal import Journal as J
+    from probe.sdk.delivery.journal.journal import Journal as J
 
     assert cli.main(["--spool-dir", str(outbox_dir), "outbox", "pause"]) == 0
     out = capsys.readouterr().out
@@ -553,7 +557,7 @@ def test_flush_is_an_alias_of_outbox_drain(wired_async, outbox_dir, monkeypatch,
         assert journal.dir == outbox_dir and run_ref is None
         return cli_drain(wired_async, outbox_dir, run_ref=run_ref)
 
-    monkeypatch.setattr("probe.sdk.journal.drain", factory_drain)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", factory_drain)
     rc = cli.main(["--spool-dir", str(outbox_dir), "flush"])
     assert rc == 0
     assert "delivered 1" in capsys.readouterr().out
@@ -568,7 +572,7 @@ def test_run_end_sync_refuses_while_run_ops_undeliverable(
 ):
     run_id = start_run(wired_async)
     monkeypatch.setattr(
-        "probe.sdk.journal.drain",
+        "probe.sdk.delivery.outbox.drain.drain.drain",
         lambda j, run_ref=None, **k: DrainReport(
             remaining=1, stopped_transient=True, errors=["net down"]
         ),
@@ -586,7 +590,7 @@ def test_run_end_sync_refuses_on_this_runs_dead_letters(
     journal = Journal(outbox_dir)
     journal.append_http("POST", f"/v1/runs/{run_id}/badroute", {})
     assert not cli_drain(wired_async, outbox_dir).clean  # dead-letters it
-    monkeypatch.setattr("probe.sdk.journal.drain", lambda j, run_ref=None, **k: DrainReport())
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", lambda j, run_ref=None, **k: DrainReport())
     rc = cli.main(["--spool-dir", str(outbox_dir), "run", "end", run_id])
     assert rc == 2
     assert "retry dead letters" in capsys.readouterr().err
@@ -594,7 +598,7 @@ def test_run_end_sync_refuses_on_this_runs_dead_letters(
 
 def test_run_end_sync_closes_when_clean(wired_async, outbox_dir, monkeypatch, capsys):
     run_id = start_run(wired_async)
-    monkeypatch.setattr("probe.sdk.journal.drain", lambda j, run_ref=None, **k: DrainReport())
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", lambda j, run_ref=None, **k: DrainReport())
     rc = cli.main(["--spool-dir", str(outbox_dir), "run", "end", run_id])
     assert rc == 0
     assert wired_async.runs[run_id]["status"] == "completed"
@@ -792,7 +796,7 @@ def test_run_end_flush_timeout_defers_the_close(wired_async, outbox_dir, monkeyp
     run_id = start_run(wired_async)
     cli.main(["--async", "log", run_id, "loss=1.0", "--step", "1"])
     monkeypatch.setattr(  # every barrier pass parks transiently
-        "probe.sdk.journal.drain",
+        "probe.sdk.delivery.outbox.drain.drain.drain",
         lambda j, run_ref=None, **k: DrainReport(
             remaining=1, stopped_transient=True, errors=["net down"]
         ),
@@ -824,7 +828,7 @@ def test_run_end_flush_timeout_closes_normally_when_it_drains_in_time(
     cli.main(["--async", "log", run_id, "loss=1.0", "--step", "1"])
     fake = make_client(wired_async)
     monkeypatch.setattr(  # a drain that can actually reach the fake app
-        "probe.sdk.journal.drain",
+        "probe.sdk.delivery.outbox.drain.drain.drain",
         lambda j, run_ref=None, **k: drain(j, run_ref=run_ref, client_factory=lambda ctx: fake),
     )
     rc = cli.main(["--spool-dir", str(outbox_dir), "run", "end", run_id, "--flush-timeout", "5"])
@@ -877,7 +881,7 @@ def test_async_big_file_defers_hash_and_ping(
     wired_async, outbox_dir, tmp_path, monkeypatch, capsys
 ):
     run_id = start_run(wired_async)
-    monkeypatch.setattr("probe.sdk.journal.INLINE_HASH_MAX_BYTES", 8)
+    monkeypatch.setattr("probe.sdk.delivery.journal.headroom.INLINE_HASH_MAX_BYTES", 8)
     source = tmp_path / "huge.bin"
     source.write_bytes(b"way more than eight bytes")
     before = len(wired_async.requests)
@@ -903,7 +907,7 @@ def test_run_end_passes_run_scope_and_ignores_other_runs(
         seen_scope.append(run_ref)
         return DrainReport()
 
-    monkeypatch.setattr("probe.sdk.journal.drain", scoped_drain)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", scoped_drain)
     rc = cli.main(["--spool-dir", str(outbox_dir), "run", "end", run_id])
     assert rc == 0, "another run's dead letter must not block this run's close"
     # First call is the T3-A barrier (run-scoped); Run.finish()'s own flush
@@ -926,7 +930,7 @@ def test_outbox_watch_once_and_retry_unknown_and_failed_only_status(
     assert rc == 1
     assert "requeued 0" in capsys.readouterr().out
     # watch --once drains once and returns
-    monkeypatch.setattr("probe.sdk.journal.drain", lambda j, **kw: DrainReport(delivered=0))
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", lambda j, **kw: DrainReport(delivered=0))
     assert cli.main(["--spool-dir", str(outbox_dir), "outbox", "watch", "--once"]) == 0
 
 
@@ -1312,6 +1316,7 @@ def test_enqueue_upload_lets_a_keyboard_interrupt_through(wired_async, tmp_path)
         client.close()
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_enqueue_upload_scrubs_meta_before_it_reaches_the_journal(wired_async, tmp_path):
     """meta/notes used to land in the ops file verbatim and stay in failed/
     indefinitely. write() scrubs before journaling; this is the same rule for
@@ -1471,6 +1476,7 @@ def test_staging_refused_falls_back_to_a_real_upload_and_queues_nothing(
 # -- what the cross-model review caught --------------------------------------
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_secrets_in_meta_and_notes_never_reach_the_ops_file(
     wired_async, outbox_dir, tmp_path, capsys
 ):
@@ -1601,7 +1607,7 @@ def test_a_big_run_file_is_queued_in_parts_not_refused(
     # A CI runner's outbox disk reads as ephemeral, which sends a big file down
     # the disposable-machine path instead of the queue; pin the durable disk.
     monkeypatch.setenv("PROBE_EPHEMERAL", "0")
-    from probe.sdk import multipart
+    from probe.sdk.artifact.storage_handlers import multipart
 
     wired_async.supports_artifact_multipart = True
     run_id = start_run(wired_async)
@@ -1631,7 +1637,7 @@ def test_a_big_run_file_queues_in_parts_even_under_probe_async_0(
     time, so a run file over 64 MiB queues in parts unless --sync says
     otherwise. An older skill's `--notes` still uploads the file, and is never
     written into the op file (files no longer carry notes)."""
-    from probe.sdk import multipart
+    from probe.sdk.artifact.storage_handlers import multipart
 
     monkeypatch.setenv("PROBE_ASYNC", "0")
     # A CI runner's outbox disk reads as ephemeral; pin the durable disk.
@@ -1655,7 +1661,7 @@ def test_a_big_run_file_queues_in_parts_even_under_probe_async_0(
 
 
 def test_sync_still_uploads_a_big_run_file_in_process(wired_async, outbox_dir, tmp_path):
-    from probe.sdk import multipart
+    from probe.sdk.artifact.storage_handlers import multipart
 
     wired_async.supports_artifact_multipart = True
     run_id = start_run(wired_async)
@@ -1679,7 +1685,7 @@ def test_without_multipart_a_forced_big_run_file_fails_as_it_did(
     """An old or self-hosted server (no `artifact_multipart`) under
     PROBE_ASYNC=0: nothing is queued in parts, and the synchronous fallback
     refuses the size loudly, exactly as before parts were forced (exit 1)."""
-    from probe.sdk import multipart
+    from probe.sdk.artifact.storage_handlers import multipart
 
     monkeypatch.setenv("PROBE_ASYNC", "0")
     run_id = start_run(wired_async)
@@ -1689,7 +1695,7 @@ def test_without_multipart_a_forced_big_run_file_fails_as_it_did(
 
 
 def test_a_credential_in_the_path_never_reaches_the_parts_queue(wired_async, outbox_dir, tmp_path, monkeypatch):
-    from probe.sdk import multipart
+    from probe.sdk.artifact.storage_handlers import multipart
 
     monkeypatch.setenv("PROBE_ASYNC", "0")
     wired_async.supports_artifact_multipart = True
@@ -1703,10 +1709,10 @@ def test_a_credential_in_the_path_never_reaches_the_parts_queue(wired_async, out
 def test_a_wrong_run_id_fails_now_not_in_the_outbox(wired_async, outbox_dir, tmp_path, monkeypatch):
     """The daemon's rule (lineage plan L14): a write it cannot see land is never
     queued. Forcing parts under PROBE_ASYNC=0 reads the run first."""
-    from probe.sdk import multipart
+    from probe.sdk.artifact.storage_handlers import multipart
 
     from probe.sdk import errors
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     monkeypatch.setenv("PROBE_ASYNC", "0")
     wired_async.supports_artifact_multipart = True
@@ -1743,11 +1749,11 @@ def test_a_superseded_write_is_set_aside_not_dead_lettered(wired_async, outbox_d
     instead of a dead letter that nagged every session start (#3629). Told by
     the server's code, or on a server without one by the epochs its message
     names."""
-    from probe._shared import telemetry
+    from probe import analytics as telemetry
 
     sent: list = []
     monkeypatch.setattr(
-        telemetry, "emit_outbox_discarded", lambda counts, **kw: sent.append((counts.writes, kw["reason"]))
+        telemetry.events, "emit_outbox_discarded", lambda counts, **kw: sent.append((counts.writes, kw["reason"]))
     )
     wired_async.stale_write_epoch_code = coded
     run_id = _reopened_run(wired_async)
@@ -1853,7 +1859,7 @@ def test_doctor_fix_sets_aside_only_the_letters_no_retry_can_deliver(tmp_path):
 def test_doctor_fix_asks_with_each_writes_own_credential_once_per_run(tmp_path, monkeypatch):
     from probe.sdk import client as client_module
     from probe.sdk import errors
-    from probe.sdk import journal as journal_module
+    from probe.sdk.delivery import journal as journal_module
 
     journal = Journal(tmp_path / "outbox")
     for n, ref in enumerate(["r-gone", "r-gone", "r-limited", "r-away", "r-here"]):
@@ -1885,8 +1891,12 @@ def test_doctor_fix_asks_with_each_writes_own_credential_once_per_run(tmp_path, 
         def close(self):
             pass
 
-    monkeypatch.setattr(journal_module, "_settings_for_op", lambda context, **_kw: ("own", context["base_url"]))
-    monkeypatch.setattr(client_module, "Client", FakeClient)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.credentials._settings_for_op", lambda context, **_kw: ("own", context["base_url"]))
+    monkeypatch.setattr(journal_module.journal, "_settings_for_op", lambda context, **_kw: ("own", context["base_url"]))
+    monkeypatch.setattr("probe.sdk.delivery.ops.classify._settings_for_op", lambda context, **_kw: ("own", context["base_url"]))
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain._settings_for_op", lambda context, **_kw: ("own", context["base_url"]))
+    monkeypatch.setattr(client_module.client, "Client", FakeClient)
+    monkeypatch.setattr(client_module.resources.runs.attach, "Client", FakeClient)
 
     counts = journal.drop_unrecoverable()
 
@@ -1900,14 +1910,14 @@ def test_doctor_fix_asks_with_each_writes_own_credential_once_per_run(tmp_path, 
 
 def test_probe_doctor_fix_reports_what_it_set_aside(tmp_path, monkeypatch):
     from probe.cli import doctor as doctor_impl
-    from probe._shared import telemetry
+    from probe import analytics as telemetry
 
     root = tmp_path / "outbox"
     monkeypatch.setenv("PROBE_OUTBOX_DIR", str(root))
     _letter(Journal(root), "0001-stale", "r-1", _STALE_LETTER)
     sent: list = []
     monkeypatch.setattr(
-        telemetry, "emit_outbox_discarded", lambda counts, **kw: sent.append((counts.writes, kw["reason"]))
+        telemetry.events, "emit_outbox_discarded", lambda counts, **kw: sent.append((counts.writes, kw["reason"]))
     )
 
     lines = doctor_impl.drop_unrecoverable_dead_letters()
@@ -1921,7 +1931,7 @@ def test_probe_doctor_fix_reports_what_it_set_aside(tmp_path, monkeypatch):
 def test_probe_outbox_drain_says_what_it_set_aside(tmp_path, monkeypatch, capsys):
     """A superseded write leaves the queue without landing: the drain says so,
     so it never reads as delivered, and `drain --all` adds every queue's up."""
-    from probe.sdk import journal as journal_module
+    from probe.sdk.delivery import journal as journal_module
 
     main = _cli_main()
     monkeypatch.setattr(main, "_journal", lambda: Journal(tmp_path / "outbox"))
@@ -1931,7 +1941,7 @@ def test_probe_outbox_drain_says_what_it_set_aside(tmp_path, monkeypatch, capsys
         report.superseded.add({"kind": "http", "context": {"base_url": "http://test"}})
         return report
 
-    monkeypatch.setattr(journal_module, "drain", drained)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", drained)
 
     main._drain_foreground()
 

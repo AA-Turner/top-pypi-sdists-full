@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 
 from probe.cli import backfill_import as imp
-from probe.sdk.journal import DrainReport
+from probe.sdk.delivery.outbox.drain.report import DrainReport
 
 
 class Report:
@@ -43,7 +43,7 @@ class Client:
 @pytest.fixture(autouse=True)
 def no_sleeping(monkeypatch):
     """Opt back into the full attempt count, without the waiting."""
-    from probe.sdk import durable
+    from probe.foundation.durable import durable
 
     monkeypatch.delenv(imp.FLUSH_ATTEMPTS_ENV, raising=False)
     monkeypatch.setattr(durable.time, "sleep", lambda _seconds: None)
@@ -61,7 +61,7 @@ def drains(monkeypatch):
             calls.append(kwargs)
             return queue.pop(0) if len(queue) > 1 else queue[0]
 
-        monkeypatch.setattr("probe.sdk.journal.drain", fake_drain)
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", fake_drain)
         return calls
 
     return install
@@ -127,7 +127,7 @@ def test_a_background_job_still_defers_to_its_own_supervisor(monkeypatch):
 
 
 def test_the_wait_is_bounded_and_the_comment_matches_the_constants():
-    from probe.sdk.durable import RETRY_BACKOFF, backoff_delays
+    from probe.foundation.durable.durable import RETRY_BACKOFF, backoff_delays
 
     total = sum(backoff_delays(imp.FLUSH_ATTEMPTS, RETRY_BACKOFF))
     assert 60 <= total <= 300, (
@@ -140,7 +140,7 @@ def test_a_real_error_is_not_swallowed_as_a_connection_problem(monkeypatch):
     def explode(journal, **kwargs):
         raise TypeError("a bug, not a network")
 
-    monkeypatch.setattr("probe.sdk.journal.drain", explode)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", explode)
     with pytest.raises(TypeError):
         imp._flush_uploads(Client([]), retry_network=False, report=Report())
 

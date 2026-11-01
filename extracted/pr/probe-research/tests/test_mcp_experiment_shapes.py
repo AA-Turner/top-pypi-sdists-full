@@ -58,8 +58,8 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from tests.conftest import make_client
 
 P = "aaaaaaaa-0000-4000-8000-000000000001"

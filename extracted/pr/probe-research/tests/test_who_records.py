@@ -17,11 +17,12 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from probe.cli import agent_rules, capabilities, daemon_cli, plugin_cli, updater
+from probe.cli import agent_rules, capabilities, daemon_cli, updater
+from probe.shared.harness import plugins as plugin_cli
 from probe.cli import setup as wizard
 from probe.cli.capabilities import Capabilities
-from probe.cli.claude_cli import Result
-from probe.daemon import mailbox
+from probe.shared.harness.harnesses.claude_code.binary import Result
+from probe.shared import mailbox
 from probe.sdk import session_marker
 
 SID = "44444444-5555-6666-7777-888888888888"
@@ -300,7 +301,7 @@ def test_a_failed_install_stops_before_anything_is_removed(isolate, monkeypatch)
 
 
 def test_back_to_the_agent(isolate, monkeypatch):
-    from probe.sdk.config import load_context, save_context
+    from probe.sdk.settings.settings import load_context, save_context
 
     calls = Calls(monkeypatch)
     calls.key["held"] = True
@@ -329,7 +330,7 @@ def test_back_to_the_agent(isolate, monkeypatch):
 def test_back_to_the_agent_keeps_the_key_while_a_daemon_session_is_open(isolate, monkeypatch):
     """Revoking now would stop a session the daemon is recording mid-way; the
     plugin swap only reaches new sessions (review of #2172)."""
-    from probe.sdk.config import load_context, save_context
+    from probe.sdk.settings.settings import load_context, save_context
 
     calls = Calls(monkeypatch)
     calls.key["held"] = True
@@ -344,7 +345,7 @@ def test_back_to_the_agent_keeps_the_key_while_a_daemon_session_is_open(isolate,
 
 
 def test_back_to_the_agent_keeps_the_default_another_agent_still_needs(isolate, monkeypatch):
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     calls = Calls(monkeypatch)
     calls.key["held"] = True
@@ -738,7 +739,7 @@ def test_enter_on_the_daemon_row_replaces_a_refused_key(isolate, monkeypatch):
 
     session_marker.write_recorder("claude_code", session_marker.RECORDER_DAEMON)
     session_marker.write_recorder("codex", session_marker.RECORDER_DAEMON)
-    from probe.sdk.config import load_context, save_context
+    from probe.sdk.settings.settings import load_context, save_context
 
     save_context({"companion_token": "probe_pat_" + "9" * 32})
     seen = []
@@ -760,7 +761,7 @@ def test_a_declined_re_approval_leaves_no_key_and_moves_nothing(isolate, monkeyp
     gone, so the switch reports NO_KEY instead of moving onto a dead key."""
     from probe.cli import companion
     from probe.cli import telemetry as tm
-    from probe.sdk.config import load_context, save_context
+    from probe.sdk.settings.settings import load_context, save_context
 
     save_context({"companion_token": "probe_pat_" + "9" * 32})
     monkeypatch.setattr(companion, "provision_daemon", lambda base, **kw: ["! approval declined"])
@@ -964,7 +965,7 @@ def test_no_ai_libraries_no_move(isolate, monkeypatch):
 
 
 def test_codex_on_the_daemon_loses_the_mcp_and_a_rerun_does_not_bring_it_back(isolate, monkeypatch):
-    from probe.cli import codex_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     Calls(monkeypatch)
     removed = []
@@ -975,7 +976,7 @@ def test_codex_on_the_daemon_loses_the_mcp_and_a_rerun_does_not_bring_it_back(is
     assert wizard.sync_codex_mcp_token() == [], "the token sync leaves a daemon-profile Codex alone"
     assert "type /hooks and approve the Probe hooks" in lines[-1], (
         "Codex skips an untrusted hook silently: the daemon's messages would never arrive")
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 
     monkeypatch.setattr(codex_hooks, "approve", lambda *a, **k: codex_hooks.Approval(done=True))
     back = wizard.apply_recorder(caps, session_marker.RECORDER_AGENT, base_url="https://api.test")
@@ -985,7 +986,7 @@ def test_codex_on_the_daemon_loses_the_mcp_and_a_rerun_does_not_bring_it_back(is
 def test_codex_on_the_daemon_approves_its_hooks_and_skips_the_hooks_step(isolate, monkeypatch):
     """The daemon plugin swapped in has hook keys of its own: Probe approves them,
     and `/hooks` is named only when that did not take."""
-    from probe.cli import codex_config, codex_hooks
+    from probe.shared.harness.harnesses.codex import config as codex_config, hooks as codex_hooks
 
     Calls(monkeypatch)
     monkeypatch.setattr(codex_config, "remove_mcp_server", lambda name, **kw: None)

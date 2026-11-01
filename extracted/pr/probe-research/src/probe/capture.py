@@ -1,6 +1,6 @@
 """Compatibility imports for durable capture primitives."""
 
-from .sdk.capture import (
+from .sdk.capture.capture import (
     CaptureLedger,
     CaptureState,
     SCHEMA_VERSION,

@@ -272,3 +272,18 @@ class TTLCacheTest(unittest.TestCase, CacheTestMixin):
         cache.timer.tick()
         cache.timer.tick()  # past TTL
         self.assertNotIn(42, cache)
+
+    def test_ttl_default_timer_stubs(self):
+        # type stubs must infer key and value types with the default timer
+        cache: TTLCache[str, int] = TTLCache(maxsize=2, ttl=math.inf)
+
+        cache["a"] = 1
+        self.assertEqual(1, cache["a"])
+        self.assertEqual(1, len(cache))
+        self.assertIn("a", cache)
+
+        sized: TTLCache[str, str] = TTLCache(maxsize=10, ttl=math.inf, getsizeof=len)
+
+        sized["abc"] = "abc"
+        self.assertEqual("abc", sized["abc"])
+        self.assertEqual(3, sized.currsize)

@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING
 
 from tomlrt import _array, _container
 from tomlrt._kind import _Kind
-from tomlrt._list_ops import delete_runs, index_runs
+from tomlrt._list_ops import delete_runs, index_runs, replacement_indices
 from tomlrt._scalar import SCALAR_TYPES
 from tomlrt._slots import (
     AoTEntry,
@@ -833,6 +833,19 @@ def _materialise_empty_section_header(
     _bind_own_section_header(c, header)
 
 
+def _clear_child_refs(c: Container) -> None:
+    """Drop child projections, retaining the container's own header."""
+    header = c._header  # noqa: SLF001
+    for slot in c._refs:  # noqa: SLF001
+        if slot is not header:
+            _unfile_container(slot, c)
+    c._refs.clear()  # noqa: SLF001
+    if header is not None:
+        c._refs.append(header)  # noqa: SLF001
+    c._index.clear()  # noqa: SLF001
+    c._body_tail = _recompute_body_tail(c)  # noqa: SLF001
+
+
 def _materialise_empty_inline_table(
     c: Container,
     primary: KVSlot,
@@ -892,8 +905,7 @@ def _materialise_empty_inline_table(
     # entries live in ``val.items``). Unfile its remaining
     # descendant-binding refs first — this also unregisters their slot
     # back-pointers, so the later scrub no longer reaches ``c``.
-    for slot in list(c._refs):  # noqa: SLF001
-        unfile_slot(c, slot)
+    _clear_child_refs(c)
     c._inline = True  # noqa: SLF001
     c._value = val  # noqa: SLF001
 
@@ -952,83 +964,73 @@ def _root_orphan_subtree(
 
 
 def delete_key(c: Container, key: str, *, materialise_empty: bool = False) -> None:
-    """Delete ``key`` from ``c`` — scalar, inline, section, AoT, or dotted-subtree.
+    """Delete a child binding without pruning its empty ancestors."""
+    delete_keys(c, (key,), materialise_empty=materialise_empty)
 
-    Owned slots are scrubbed from live refs/indexes via slot
-    back-pointers, body tails are repaired, then the slots are unlinked.
-    Cascade-prune is intentionally *not*
-    performed: ``del c[k]`` removes exactly ``k`` and leaves any
-    now-emptied implicit ancestor chain reachable as nested empty
-    ``Table`` views.
 
-    ``materialise_empty`` is opt-in for the public delete API: if the
-    removal leaves ``c`` itself an empty, header-less section, a
-    synthetic ``[c._path]`` header is materialised so it still renders.
-    Internal delete-then-reinstall callers leave it ``False``, since
-    the container is repopulated immediately and a transient empty
-    state must not grow a spurious header.
+def delete_keys(
+    c: Container, keys: Sequence[str], *, materialise_empty: bool = False
+) -> None:
+    """Delete one child binding or all bindings without pruning empty ancestors.
 
-    Deleted structural views are transplanted to a private orphan
-    document, preserving safe mutation and later reattachment without
-    touching the live document.
+    Structural views retain their layout in private orphan documents.
+    Public deletion materialises an emptied headerless section using the
+    last key's origin; internal delete-then-reinstall callers opt out.
     """
-    val = dict.__getitem__(c, key)  # raises KeyError if absent
+    if not keys:
+        return
+    clear_all = len(keys) == len(c)
+    assert len(keys) == 1 or clear_all, "delete one binding or the whole container"
+    plans: list[tuple[str, TomlInput, list[Slot], list[_View]]] = []
+    slots: list[Slot] = []
+    views: list[_View] = []
+    for key in keys:
+        value = dict.__getitem__(c, key)  # raises KeyError if absent
+        child_slots = list(c._index.get(key, ()))  # noqa: SLF001
+        if _container._is_section(value) or isinstance(value, _array.AoT):  # noqa: SLF001
+            owned = set(child_slots)
+            owned.update(owned_slots(value))
+            child_slots = sorted(owned, key=_slot_order)
+            del owned
+            child_views = list(_walk_views((value,)))
+        else:
+            child_views = []
+        plans.append((key, value, child_slots, child_views))
+        slots.extend(child_slots)
+        views.extend(child_views)
+    if len(plans) > 1:
+        slots.sort(key=_slot_order)
     doc = c._attached_doc  # noqa: SLF001
 
-    # If this empties ``c`` into a live, header-less, non-inline section,
-    # a ``[c._path]`` header is synthesised below (before the unlink
-    # loop, while the descendant's primary slot is still in place).
-    will_materialise = (
+    # Materialise before scrubbing, while the last binding's primary is linked.
+    if (
         materialise_empty
         and bool(c._path)  # noqa: SLF001
         and not c._inline  # noqa: SLF001
         and c._header is None  # noqa: SLF001
-        and len(c) == 1
-    )
-    mat_primary: Slot | None = None
-    if will_materialise:
-        # ``_index[key]`` is scrubbed below; grab the removed descendant's
-        # doc-stream-first slot now, while it is still linked.
-        mat_primary = c._index[key][0]  # noqa: SLF001
-
-    owned = set(c._index.get(key, ()))  # noqa: SLF001
-    if _container._is_section(val) or isinstance(val, _array.AoT):  # noqa: SLF001
-        owned.update(owned_slots(val))
-        views = list(_walk_views((val,)))
-    else:
-        views = []
-    slots = sorted(owned, key=operator.attrgetter("_order"))
-    del owned  # The removal step builds its own membership set.
-
-    # Synthesise the now-empty section's physical presence while the
-    # descendant's primary slot is still linked, so the replacement takes
-    # its position in place. The descendant's *origin* picks the form: a
-    # dotted-origin section (``a.b.x = 1``) re-materialises as an inline
-    # table ``a = {}``; a header-origin section (``[a.b]``) as a header
-    # ``[a]``.
-    if will_materialise:
-        assert mat_primary is not None
-        if isinstance(mat_primary, KVSlot):
-            _materialise_empty_inline_table(c, mat_primary, doc)
+        and clear_all
+    ):
+        primary = c._index[keys[-1]][0]  # noqa: SLF001
+        if isinstance(primary, KVSlot):
+            _materialise_empty_inline_table(c, primary, doc)
         else:
-            _materialise_empty_section_header(c, mat_primary, doc)
+            _materialise_empty_section_header(c, primary, doc)
 
+    if clear_all:
+        _clear_child_refs(c)
     _detach_departing_slots(c, slots, views)
-
-    if views:
-        assert isinstance(val, (_container.Container, _array.AoT))
-        _transplant_to_orphan(
-            val,
-            slots,
-            doc._newline,  # noqa: SLF001
-            views,
-        )
-    else:
-        # No orphan (e.g. a top-level inline value): reset so a held
-        # reference reports detached and can re-attach cleanly.
-        reset_displaced_views(val)
-
-    dict.__delitem__(c, key)
+    for key, value, child_slots, child_views in plans:
+        if child_views:
+            assert isinstance(value, (_container.Container, _array.AoT))
+            _transplant_to_orphan(
+                value,
+                child_slots,
+                doc._newline,  # noqa: SLF001
+                child_views,
+            )
+        else:
+            reset_displaced_views(value)
+        dict.__delitem__(c, key)
 
 
 def _detach_departing_slots(
@@ -1758,6 +1760,7 @@ def add_aot_entry(
     rehome: Table | None = None,
     preserve_source_separator: bool = False,
     index: int | None = None,
+    capture: _SourceCapture | None = None,
 ) -> Table:
     """Capture and insert an entry, preserving a structural source's layout.
 
@@ -1769,12 +1772,18 @@ def add_aot_entry(
         assert rehome._layout_root is None  # noqa: SLF001
         body = rehome
     table = _container.Table() if rehome is None else rehome
+    capture = _SourceCapture((aot,), capture)
     prepared = _prepare_entry(
-        aot, table, {} if body is None else body, (aot,), {}, index=index
+        aot,
+        table,
+        {} if body is None else body,
+        capture,
+        index=index,
     )
     return _install_entry(
         aot,
         prepared,
+        capture,
         preserve_source_separator=preserve_source_separator,
         index=index,
     )
@@ -2665,6 +2674,7 @@ def attach_section_at(
     source: Table,
     *,
     preserve_header: bool = False,
+    capture: _SourceCapture | None = None,
 ) -> Table:
     """Synthesise ``[parent_path.sub_path]`` (multi-component) at end-of-doc.
 
@@ -2739,7 +2749,7 @@ def attach_section_at(
     for k, v in scalars:
         append_synth_kv(section, k, v)
     for k, v in structurals:
-        section._setitem_validated(k, v)  # noqa: SLF001
+        section._setitem_validated(k, v, capture)  # noqa: SLF001
     return section
 
 
@@ -2833,9 +2843,10 @@ def _scrub_owned_slots_via_backptrs(
     `delete_key`, which transplants the deleted subtree to a fresh
     orphan doc and needs the subtree containers' internal
     structure intact. AoT removal likewise retains the departing
-    entries' internal refs. Both multi-slot callers visit binding refs
-    in document order. Each affected ancestor therefore loses an ordered
-    subset of one child binding, never its own header or several different keys.
+    entries' internal refs. Multi-slot callers visit binding refs in
+    document order and retain the subtree containers' own headers.
+    Each affected container loses refs for one binding; full clears
+    unregister their own child projections before reaching this helper.
     """
     # One slot has at most one ref per container: there is nothing to batch.
     if len(owned) == 1:
@@ -2854,8 +2865,8 @@ def _scrub_owned_slots_via_backptrs(
     for c, removed in by_container.values():
         key = slot_local_key(removed[0], c)
         assert key is not None, "bulk removal retains subtree containers' own refs"
-        bucket = c._index[key]  # noqa: SLF001
         _unfile_ordered_many(c._refs, removed)  # noqa: SLF001
+        bucket = c._index[key]  # noqa: SLF001
         _unfile_ordered_many(bucket, removed)
         if not bucket:
             del c._index[key]  # noqa: SLF001
@@ -2898,53 +2909,39 @@ def remove_aot_entries(aot: AoT, indices: Iterable[int]) -> list[Table]:
     """
     idx_list = list(indices)
     assert idx_list
-    doc = aot._attached_doc  # noqa: SLF001
     parent = aot._host  # noqa: SLF001
     assert parent is not None
-
-    # Collect each entry's whole subtree in doc-stream order and capture
-    # the entry table itself for return. Distinct entries own
-    # disjoint subtrees, so concatenating is already a union.
-    popped_entries: list[Table] = []
-    union_owned_ordered: list[Slot] = []  # in doc-stream order
-
-    for i in idx_list:
-        entry_table = aot[i]
-        union_owned_ordered.extend(owned_slots(entry_table))
-        popped_entries.append(entry_table)
-
-    # The entries themselves keep their internal caches: they are moving
-    # to a document of their own, not being taken apart.
-    views = list(_walk_views(popped_entries))
-
-    _detach_departing_slots(parent, union_owned_ordered, views)
-
+    popped_entries = [aot[i] for i in idx_list]
+    _orphan_aot_entries(aot, popped_entries)
     delete_runs(aot, index_runs(idx_list))
-
-    # The popped entries move to a private document, keeping their own
-    # lines, exactly as a deleted section does. An array-of-tables is
-    # what their ``[[path]]`` headers spell, so that is what holds them
-    # there, at the path they came from.
-    holder = _array.AoT()
-    holder._path = aot._path  # noqa: SLF001
-    list.extend(holder, popped_entries)
-    views.append(holder)
-    _transplant_to_orphan(
-        holder,
-        union_owned_ordered,
-        doc._newline,  # noqa: SLF001
-        views,
-    )
 
     last_key = aot._path[-1]  # noqa: SLF001
     if len(aot) == 0 and not parent._index.get(last_key):  # noqa: SLF001
-        parent._index.pop(last_key, None)  # noqa: SLF001
-        # An empty AoT still lives in dict storage; a ``key = []``
-        # placeholder gives it a physical presence so the document keeps
-        # the same semantic shape as the dict view.
         _materialise_empty_aot(aot)
 
     return popped_entries
+
+
+def _orphan_aot_entries(aot: AoT, entries: Sequence[Table]) -> None:
+    """Detach doc-ordered entries intact, leaving logical list edits to the caller."""
+    doc = aot._attached_doc  # noqa: SLF001
+    parent = aot._host  # noqa: SLF001
+    assert parent is not None
+    slots = [slot for entry in entries for slot in owned_slots(entry)]
+    views = list(_walk_views(entries))
+
+    _detach_departing_slots(parent, slots, views)
+
+    holder = _array.AoT()
+    holder._path = aot._path  # noqa: SLF001
+    list.extend(holder, entries)
+    views.append(holder)
+    _transplant_to_orphan(
+        holder,
+        slots,
+        doc._newline,  # noqa: SLF001
+        views,
+    )
 
 
 def _view_route(view: Container | AoT) -> list[tuple[str, int | None]]:
@@ -3012,63 +3009,68 @@ def _snapshot_in_copy(
     return _follow_view_route(snapshot, _view_route(view))
 
 
-def _capture_items(
-    items: Iterable[tuple[str, TomlInput]],
-    sites: Sequence[Container | AoT],
-    snapshots: dict[int, Document],
-) -> dict[str, TomlInput]:
-    """Snapshot mapping storage, recursing only into compound values."""
-    return {
-        key: value
-        if isinstance(value, SCALAR_TYPES)
-        else _capture_input(value, sites, snapshots)
-        for key, value in items
-    }
+class _SourceCapture:
+    """Capture local sources, sharing factory walks across nested installs."""
 
+    __slots__ = ("_ancestor_ids", "_factories", "_sites", "_snapshots")
 
-def _capture_input(
-    value: TomlInput,
-    sites: Sequence[Container | AoT],
-    snapshots: dict[int, Document],
-) -> TomlInput:
-    """Capture sources containing a write site, recursively through wrappers.
+    def __init__(
+        self, sites: Iterable[Container | AoT], outer: _SourceCapture | None = None
+    ) -> None:
+        self._sites = tuple(sites)
+        self._ancestor_ids: set[int] | None = None
+        self._snapshots: dict[int, Document] = {}
+        self._factories: dict[int, Container | AoT] = (
+            {} if outer is None else outer._factories  # noqa: SLF001
+        )
 
-    Detached factories retain their identity; plain mappings and lists
-    are rebuilt. Other values keep ordinary installation semantics,
-    including adoption of descendants orphaned by the write. Callers
-    handle scalar leaves without entering this recursive path.
-    """
-    if isinstance(value, (_container.Container, _array.AoT)):
-        # A detached view's storage is all it has, so that is where its
-        # own sources are captured; an attached one is copied from its
-        # slots at install time, which reads nothing this write touches.
-        if value._layout_root is None:  # noqa: SLF001
-            _capture_into_factory(value, sites, snapshots)
-        elif any(hosts_site(value, site) for site in sites):
-            return _snapshot_in_copy(value, snapshots)
-        return value
-    if is_inline_value(value):
-        return value
-    if isinstance(value, Mapping):
-        return _capture_items(_mapping_items(value), sites, snapshots)
-    assert isinstance(value, list)
-    return [
-        v if isinstance(v, SCALAR_TYPES) else _capture_input(v, sites, snapshots)
-        for v in value
-    ]
+    def _contains_write_site(self, view: Container | AoT) -> bool:
+        ancestors = self._ancestor_ids
+        if ancestors is None:
+            ancestors = set()
+            for site in self._sites:
+                cur: Container | AoT | Array | None = site
+                while cur is not None and id(cur) not in ancestors:
+                    ancestors.add(id(cur))
+                    cur = cur._host  # noqa: SLF001
+            self._ancestor_ids = ancestors
+        return id(view) in ancestors
 
+    def capture_items(
+        self, items: Iterable[tuple[str, TomlInput]]
+    ) -> dict[str, TomlInput]:
+        """Snapshot mapping storage, recursing only into compound values."""
+        return {
+            key: value if isinstance(value, SCALAR_TYPES) else self.capture(value)
+            for key, value in items
+        }
 
-def _capture_into_factory(
-    factory: Container | AoT,
-    sites: Sequence[Container | AoT],
-    snapshots: dict[int, Document],
-) -> None:
-    """Capture in the factory's storage so its first occurrence still attaches."""
-    if isinstance(factory, _array.AoT):
-        for entry in factory:
-            _capture_into_factory(entry, sites, snapshots)
-        return
-    dict.update(factory, _capture_items(_mapping_items(factory), sites, snapshots))
+    def capture(self, value: TomlInput) -> TomlInput:
+        """Capture overlapping sources, retaining detached factory identities."""
+        if isinstance(value, (_container.Container, _array.AoT)):
+            # Factories hold raw inputs; materialized views have their own slots.
+            if value._layout_root is None:  # noqa: SLF001
+                self._capture_factory(value)
+            elif self._contains_write_site(value):
+                return _snapshot_in_copy(value, self._snapshots)
+            return value
+        if is_inline_value(value):
+            return value
+        if isinstance(value, Mapping):
+            return self.capture_items(_mapping_items(value))
+        assert isinstance(value, list)
+        return [v if isinstance(v, SCALAR_TYPES) else self.capture(v) for v in value]
+
+    def _capture_factory(self, factory: Container | AoT) -> None:
+        """Capture descendants once; installation still reads each live body."""
+        if id(factory) in self._factories:
+            return
+        if isinstance(factory, _array.AoT):
+            for entry in factory:
+                self._capture_factory(entry)
+        else:
+            dict.update(factory, self.capture_items(_mapping_items(factory)))
+        self._factories[id(factory)] = factory
 
 
 def hosts_site(view: Container | AoT, site: Container | AoT) -> bool:
@@ -3093,7 +3095,7 @@ def hosts_site(view: Container | AoT, site: Container | AoT) -> bool:
 
 
 class _PreparedEntry:
-    """An existing or unpublished entry and its destination-ready body."""
+    """An unpublished entry and its destination-ready body."""
 
     __slots__ = ("body", "body_indent", "header", "table")
 
@@ -3158,11 +3160,11 @@ def _prepare_entry(
     aot: AoT,
     table: Table,
     body: Mapping[str, TomlInput],
-    sites: Sequence[Container | AoT],
-    snapshots: dict[int, Document],
+    capture: _SourceCapture,
     *,
     index: int | None = None,
     body_indent: str | None = None,
+    previous: Table | None = None,
 ) -> _PreparedEntry:
     """Capture a body without clearing, wiring or publishing its destination.
 
@@ -3173,15 +3175,16 @@ def _prepare_entry(
     """
     doc = aot._attached_doc  # noqa: SLF001
     path = aot._path  # noqa: SLF001
-    owner: AoTEntry | None
-    if table._layout_root is None:  # noqa: SLF001
-        owner = AoTEntry()
-        header = None
-    else:
-        owner = table._owner_aot_entry  # noqa: SLF001
-        assert owner is not None
-        header = owner.header
-        tail = _last_body_kv(table)
+    owner = AoTEntry()
+    header = None
+    if previous is not None:
+        assert previous._header is not None  # noqa: SLF001
+        cloned = previous._header.__deepcopy__({})  # noqa: SLF001
+        assert isinstance(cloned, StructuralHeaderSlot)
+        header = cloned
+        header.entry = header.owner_aot_entry = owner
+        owner.bind_header(header)
+        tail = _last_body_kv(previous)
         if tail is not None:
             body_indent = trailing_ws(tail.leading)
     payload: list[Slot] | dict[str, TomlInput]
@@ -3200,7 +3203,7 @@ def _prepare_entry(
         if cloned_head is not None:
             header = cloned_head
     else:
-        payload = _capture_items(_mapping_items(body), sites, snapshots)
+        payload = capture.capture_items(_mapping_items(body))
     if header is None:
         header = _new_section_header(
             path,
@@ -3252,40 +3255,46 @@ def _insert_entry_run(
 def _install_entry(
     aot: AoT,
     prepared: _PreparedEntry,
+    capture: _SourceCapture,
     *,
     preserve_source_separator: bool = False,
     index: int | None = None,
 ) -> Table:
-    """Publish a fresh header or retain an existing one, then consume its body."""
+    """Publish a fresh entry, then consume its prepared body."""
     table, header = prepared.table, prepared.header
-    body_indent = prepared.body_indent
     owner = header.entry
     assert owner is not None
     parent = aot._host  # noqa: SLF001
     assert parent is not None
     doc = aot._attached_doc  # noqa: SLF001
     path = aot._path  # noqa: SLF001
-    if table._layout_root is None:  # noqa: SLF001
-        dict.clear(table)
-        table._wire(  # noqa: SLF001
-            layout_root=doc, parent=aot, path=path, owner=owner
-        )
-        _insert_entry_run(
-            aot,
-            header,
-            [header],
-            preserve_source_separator=preserve_source_separator,
-            index=index,
-        )
-        file_own_header(table, header)
-        _file_header_binding_chain(parent, header)
-        list.insert(aot, len(aot) if index is None else index, table)
-        _maybe_demote_synthetic_empty_header(parent)
-    else:
-        table.clear()
+    dict.clear(table)
+    table._wire(  # noqa: SLF001
+        layout_root=doc, parent=aot, path=path, owner=owner
+    )
+    _insert_entry_run(
+        aot,
+        header,
+        [header],
+        preserve_source_separator=preserve_source_separator,
+        index=index,
+    )
+    file_own_header(table, header)
+    _file_header_binding_chain(parent, header)
+    list.insert(aot, len(aot) if index is None else index, table)
+    _maybe_demote_synthetic_empty_header(parent)
+    _populate_prepared_entry(prepared, capture)
+    return table
+
+
+def _populate_prepared_entry(prepared: _PreparedEntry, capture: _SourceCapture) -> None:
+    """Fill an entry whose header and logical binding have been published."""
+    table, header = prepared.table, prepared.header
+    body_indent = prepared.body_indent
+    doc = table._attached_doc  # noqa: SLF001
     if isinstance(prepared.body, dict):
         for key, value in prepared.body.items():
-            table._setitem_validated(key, value)  # noqa: SLF001
+            table._setitem_validated(key, value, capture)  # noqa: SLF001
             if body_indent is not None:
                 tail = _last_body_kv(table)
                 # Dotted-child grafts retain their source indentation.
@@ -3297,49 +3306,112 @@ def _install_entry(
         _populate_entry_views(
             entry_table=table,
             cloned_slots=prepared.body,
-            target_prefix=path,
+            target_prefix=table._path,  # noqa: SLF001
             doc=doc,
         )
+        parent = table._parent  # noqa: SLF001
+        assert parent is not None
         _extend_header_bindings_to_root(parent, prepared.body)
-    return table
+
+
+def _replace_entry_header(previous: Table, prepared: _PreparedEntry) -> None:
+    """Replace a header without shifting its ancestor projections."""
+    table, header = prepared.table, prepared.header
+    old = previous._header  # noqa: SLF001
+    owner = header.entry
+    assert old is not None
+    assert owner is not None
+    doc = previous._attached_doc  # noqa: SLF001
+    host = previous._host  # noqa: SLF001
+    assert isinstance(host, _array.AoT)
+    table._wire(  # noqa: SLF001
+        layout_root=doc,
+        parent=host,
+        path=previous._path,  # noqa: SLF001
+        owner=owner,
+    )
+    _replace_primary_in_place(header, old, doc)
+    file_own_header(table, header)
+    for container in tuple(old._containers):  # noqa: SLF001
+        if container is previous:
+            continue
+        key = slot_local_key(old, container)
+        assert key is not None
+        for refs in (container._refs, container._index[key]):  # noqa: SLF001
+            at = _ordered_index(refs, old._order)  # noqa: SLF001
+            assert refs[at] is old
+            refs[at] = header
+        _unfile_container(old, container)
+        header._containers.append(container)  # noqa: SLF001
 
 
 def assign_aot_entries(
     aot: AoT, index: int | slice, bodies: Sequence[Mapping[str, TomlInput]]
 ) -> None:
-    """Capture all sources, then replace in place or resize the array."""
+    """Capture sources, replace changed pairs, then remove or insert excess entries."""
     if isinstance(index, slice):
         start, stop, step = index.indices(len(aot))
         indices = range(start, stop, step)
     else:
         start = _norm_aot_index(aot, index)
         indices = range(start, start + 1)
-    resizing = len(indices) != len(bodies)
-    tables = (
-        [_container.Table() for _ in bodies] if resizing else [aot[i] for i in indices]
-    )
-    targets = [
-        (table, body)
-        for table, body in zip(tables, bodies, strict=True)
-        if table is not body
+    changed = replacement_indices(aot, indices, bodies)
+    if not changed and len(bodies) == len(indices):
+        return
+    removed = indices[len(bodies) :]
+    departing = [
+        aot[index] for index in sorted([index for _, index in changed] + list(removed))
     ]
-    sites = [aot] if resizing else [table for table, _ in targets]
-    snapshots: dict[int, Document] = {}
+    sites: list[Container | AoT] = list(departing)
+    if len(bodies) > len(indices):
+        sites.append(aot)
+    capture = _SourceCapture(sites)
     body_indent = None
-    if resizing and aot:
+    if len(bodies) > len(indices) and aot:
         tail = _last_body_kv(aot[min(start, len(aot) - 1)])
         if tail is not None:
             body_indent = trailing_ws(tail.leading)
+    selected = [aot[index] for index in indices[: len(bodies)]]
     prepared = [
-        _prepare_entry(
-            aot, table, body, sites, snapshots, index=start, body_indent=body_indent
+        (
+            offset,
+            _prepare_entry(
+                aot,
+                _container.Table(),
+                bodies[offset],
+                capture,
+                previous=aot[index],
+            ),
         )
-        for table, body in targets
+        for offset, index in changed
     ]
-    if resizing and indices:
-        remove_aot_entries(aot, indices)
-    for offset, entry in enumerate(prepared):
-        _install_entry(aot, entry, index=start + offset if resizing else None)
+    added = [
+        _prepare_entry(
+            aot,
+            _container.Table(),
+            body,
+            capture,
+            index=start,
+            body_indent=body_indent,
+        )
+        for body in bodies[len(indices) :]
+    ]
+    for offset, entry in prepared:
+        _replace_entry_header(selected[offset], entry)
+        selected[offset] = entry.table
+    if departing:
+        _orphan_aot_entries(aot, departing)
+    if isinstance(index, slice):
+        list.__setitem__(aot, index, selected)
+    else:
+        list.__setitem__(aot, start, selected[0])
+    if departing and not aot:
+        _materialise_empty_aot(aot)
+    with _container._sources_kept_intact(aot._layout_root, departing):  # noqa: SLF001
+        for _offset, entry in prepared:
+            _populate_prepared_entry(entry, capture)
+        for offset, entry in enumerate(added, start=start + len(indices)):
+            _install_entry(aot, entry, capture, index=offset)
 
 
 def renormalise_aot_order(aot: AoT, new_logical_order: Sequence[Table]) -> None:
@@ -3652,8 +3724,8 @@ def reorder_container(c: Container, new_key_order: list[str]) -> None:
             key_blocks[bind_key].append(cur)
             movable_slots.append(cur)
 
-    # `Container.sort` only calls in when the order actually changes, so
-    # at least two keys are bound, each contributing a slot.
+    # `Container.sort` only calls in with at least two keys, each
+    # contributing a slot.
     assert movable_slots
 
     movable_ids = set(movable_slots)

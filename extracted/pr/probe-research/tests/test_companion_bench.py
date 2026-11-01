@@ -948,7 +948,7 @@ def test_a_frozen_edge_from_later_in_the_session_does_not_exist_yet():
 def test_a_genealogy_link_fills_the_runs_parent_and_its_origin_like_the_server():
     """create_edge mirrors the first genealogy parent into the run's column, and
     the lineage read derives the run's origin from it; deleting the edge clears it."""
-    from probe._generated.models import ProjectLineageOut
+    from probe.generated.models import ProjectLineageOut
 
     fake = _edge_fake()
     made = _post_edge(fake, "run", CHOSEN, "branched_from", "run", PCA_RUN).body
@@ -999,7 +999,7 @@ def test_a_duplicate_answers_like_the_server_so_the_cli_prints_already_linked():
 
 
 def test_an_experiments_own_lineage_is_served_in_the_servers_shape():
-    from probe._generated.models import ProjectLineageOut
+    from probe.generated.models import ProjectLineageOut
 
     reads = _edge_reads()
     seen = {"id": "e0000000-0000-4000-8000-000000000002", "customer_id": "probe", "source_type": "project",
@@ -1244,7 +1244,7 @@ def test_data_links_are_reported_found_wrong_and_by_role():
 
 def _v2_store(state: Path, session: str, writes: list[tuple[float, list[str], str, str, str]]) -> None:
     """The live daemon's store, written by the daemon's own `Store`."""
-    from probe.daemon.store import Store
+    from probe.daemon.store.store import Store
 
     clock = {"now": 0.0}
     store = Store(state / "probe" / "daemon" / f"{session}.sqlite", clock=lambda: clock["now"])
@@ -1537,7 +1537,7 @@ def test_track_work_linking_names_only_relations_the_server_takes():
     with every skill-sync test still green."""
     import re
 
-    from probe._generated.models import LineageRelation
+    from probe.generated.models import LineageRelation
 
     text = (AGENT / "skills" / "track-work" / "SKILL.md").read_text(encoding="utf-8")
     section = text.split("### Linking", 1)[1].split("\n## ", 1)[0]

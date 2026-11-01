@@ -225,7 +225,7 @@ def preload() -> None:
     import zlib  # noqa: F401
 
     with contextlib.suppress(Exception):
-        from probe.sdk import tls  # noqa: F401
+        from probe.foundation.tls import tls  # noqa: F401
     with contextlib.suppress(ImportError):
         from cryptography.hazmat.primitives.asymmetric import ed25519  # noqa: F401
 
@@ -510,14 +510,14 @@ class _Deadline:
 
 
 def _opener():
-    """urllib with the one TLS decision of this package (`probe.sdk.tls`: the OS
+    """urllib with the one TLS decision of this package (`probe.foundation.tls.tls`: the OS
     store plus certifi, and the CA variables), the system's proxies (as the
     app's updater finds them), and redirects to https only."""
     import ssl
     import urllib.request
 
     try:
-        from probe.sdk.tls import ssl_context
+        from probe.foundation.tls.tls import ssl_context
 
         context = ssl_context()
     except Exception:  # noqa: BLE001 -- the stdlib's default trust, never none

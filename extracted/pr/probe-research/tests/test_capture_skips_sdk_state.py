@@ -24,7 +24,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.sdk import homedir, inputs, journal
+from probe.foundation.durable import homedir
+from probe.sdk.capture import lineage as inputs
+from probe.sdk.delivery import journal
 from tests.conftest import make_client, open_run
 from tests.conftest import _WS_MINE
 
@@ -80,7 +82,7 @@ def work(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_STATE_HOME", str(work / "state"))
     monkeypatch.setattr(tempfile, "tempdir", str(work))
     monkeypatch.setattr(homedir, "_stand_in", None)
-    monkeypatch.setattr(journal, "_private_fallback", None)
+    monkeypatch.setattr(journal.paths, "_private_fallback", None)
     monkeypatch.chdir(work)
     return work
 
@@ -203,7 +205,7 @@ def test_a_job_started_in_tmpdir_with_no_usable_home(app, tmp_path):
     (earlier / "00000000000000000001.json").write_text(_OP)
     (tmp / "train.py").write_text(_CHILD)
     with serve(app) as url:
-        from probe.sdk.client import Client
+        from probe.sdk.client.client import Client
 
         setup = Client(base_url=url, token="ros_pat_deadbeef", async_writes=False,
                        auto_drain=False, spool_dir=tmp_path / "setup-spool")
@@ -236,7 +238,7 @@ def test_a_job_started_in_tmpdir_with_no_usable_home(app, tmp_path):
 
 
 def test_a_folder_named_like_the_sdks_elsewhere_is_the_users(tmp_path, monkeypatch):
-    from probe.sdk import owndirs
+    from probe.sdk.capture import owndirs
 
     assert owndirs.REASON == REASON
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
@@ -257,7 +259,7 @@ def test_a_folder_named_like_the_sdks_elsewhere_is_the_users(tmp_path, monkeypat
 def test_a_capture_rooted_inside_an_sdk_folder_is_left_alone(tmp_path, monkeypatch):
     """A root that is itself inside one of the folders is the caller's choice
     of place: only what is below it counts."""
-    from probe.sdk import owndirs
+    from probe.sdk.capture import owndirs
 
     monkeypatch.setenv("PROBE_OUTBOX_DIR", str(tmp_path / "outbox"))
     within = owndirs.current().within(str(tmp_path / "outbox" / "ops"))
@@ -269,7 +271,7 @@ def test_many_noted_outboxes_cost_one_lookup_per_path_level(tmp_path):
     used (the test suite's) must not become a scan."""
     import time
 
-    from probe.sdk import owndirs
+    from probe.sdk.capture import owndirs
 
     for i in range(5000):
         owndirs.note(tmp_path / f"q{i}")

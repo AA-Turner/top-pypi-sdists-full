@@ -29,7 +29,8 @@ def _hook(name: str):
 
 def test_pis_manual_steps_are_pis_not_claude_codes():
     """"Set it up manually" for pi printed `claude plugin marketplace add ...`."""
-    from probe.cli import actions, pi_config
+    from probe.cli import actions
+    from probe.shared.harness.harnesses import pi as pi_config
 
     text = actions.manual_steps(base_url="https://api.test", agent_source="pi")
     assert f"pi install {pi_config.MIRROR_GIT_SOURCE}" in text
@@ -73,7 +74,7 @@ def test_a_pi_run_never_writes_claude_codes_status_line(tmp_path, monkeypatch):
 
 def test_the_plugin_cli_refuses_an_agent_with_no_marketplace():
     """`run` sent every non-Codex source to the `claude` binary."""
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
 
     with pytest.raises(ValueError, match="pi"):
         plugin_cli.run("pi", ["plugin", "list"], timeout=1)
@@ -86,7 +87,7 @@ def test_the_plugin_cli_refuses_an_agent_with_no_marketplace():
 
 def test_reasoning_settings_refuse_an_agent_without_one():
     """Every non-Claude source would have written Codex's config.toml."""
-    from probe.cli import reasoning_summaries
+    from probe.shared.harness import reasoning_summaries
 
     assert reasoning_summaries.SOURCES == ("claude_code", "codex")
     with pytest.raises(ValueError, match="pi"):

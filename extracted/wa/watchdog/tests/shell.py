@@ -2,7 +2,7 @@
 :module: tests.shell
 :synopsis: Common shell operations for testing.
 :author: yesudeep@google.com (Yesudeep Mangalapilly)
-:author: contact@tiger-222.fr (Mickaël Schoentgen)
+:author: Mickaël Schoentgen <contact@tiger-222.fr>
 """
 
 from __future__ import annotations
@@ -13,6 +13,10 @@ import os.path
 import shutil
 import tempfile
 import time
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def cd(path):
@@ -40,6 +44,10 @@ def mkdir(path, *, parents=False):
                 raise
     else:
         os.mkdir(path)
+
+
+def symlink(source, destination, *, target_is_directory: bool = False):
+    os.symlink(source, destination, target_is_directory=target_is_directory)
 
 
 def rm(path, *, recursive=False):
@@ -95,6 +103,11 @@ def msize(path):
     with open(path, "w") as w:
         w.write("0")
     os.utime(path, (0, 0))
+
+
+def chmod(path: str | Path, mode: int) -> None:
+    """Change file mode bits."""
+    os.chmod(path, mode)
 
 
 def mount_tmpfs(path):

@@ -92,7 +92,6 @@ def push(
   return IngestBenchmarkResponse(
     bench_id=result.status.bench_id,
     name=manifest.name,
-    family=manifest.family,
     task_count=result.status.registered_tasks,
     failed_tasks=[],
   )

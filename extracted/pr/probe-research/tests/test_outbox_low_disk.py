@@ -21,12 +21,14 @@ import pytest
 
 from probe._shared import oscompat
 from probe.sdk import client as client_mod
+from probe.sdk.delivery.sinks import journaled as journaled_sink
 from probe.sdk import errors
-from probe.sdk import journal as journal_mod
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
-from probe.sdk.journal import Journal, drain
-from probe.sdk.transport import Transport
+from probe.sdk.delivery import journal as journal_mod
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain.drain import drain
+from probe.sdk.delivery.transport.transport import Transport
 
 from tests.conftest import make_client, open_run
 from tests.test_outbox import seeded_run
@@ -42,11 +44,12 @@ def _isolated(monkeypatch, tmp_path):
     for var in (*journal_mod._GLOBAL_RANK_VARS, "LOCAL_RANK", "PROBE_OUTBOX_DIR",
                 "PROBE_OUTBOX_MIN_FREE_BYTES", "KUBERNETES_SERVICE_HOST", "PROBE_ASYNC"):
         monkeypatch.delenv(var, raising=False)
-    monkeypatch.setattr(journal_mod, "MIN_FREE_BYTES", None)  # scale with the volume
-    monkeypatch.setattr(client_mod, "_FALLBACK_WARNED", set())
-    monkeypatch.setattr(client_mod, "_K8S_NOTICE_GIVEN", False)
+    monkeypatch.setattr(journal_mod.headroom, "MIN_FREE_BYTES", None)  # scale with the volume
+    monkeypatch.setattr(journal_mod.journal, "MIN_FREE_BYTES", None)  # scale with the volume
+    monkeypatch.setattr(journaled_sink, "_FALLBACK_WARNED", set())
+    monkeypatch.setattr(journaled_sink, "_K8S_NOTICE_GIVEN", False)
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "tmp"))
-    monkeypatch.setattr(journal_mod, "_private_fallback", None, raising=False)
+    monkeypatch.setattr(journal_mod.paths, "_private_fallback", None, raising=False)
     (tmp_path / "tmp").mkdir()
 
 
@@ -87,7 +90,8 @@ def test_the_free_space_floor_scales_with_the_volume(monkeypatch, tmp_path, tota
 
 
 def test_an_explicit_floor_still_wins(monkeypatch, tmp_path):
-    monkeypatch.setattr(journal_mod, "MIN_FREE_BYTES", 12345)
+    monkeypatch.setattr(journal_mod.headroom, "MIN_FREE_BYTES", 12345)
+    monkeypatch.setattr(journal_mod.journal, "MIN_FREE_BYTES", 12345)
     _disk(monkeypatch, free=1, total=1000 * GIB)
     assert journal_mod.free_floor(tmp_path) == 12345
 
@@ -151,7 +155,8 @@ def test_a_run_with_writes_queued_is_not_sent_around_them(app, tmp_path, monkeyp
     clear = open_run(client, experiment="lowdisk", name="clear")
     _metrics(client, busy.id, 0)  # queued while there was room
     assert len(client.journal.pending()) == 1
-    monkeypatch.setattr(journal_mod, "_STATVFS_EVERY", 1)  # see the drop at once
+    monkeypatch.setattr(journal_mod.headroom, "_STATVFS_EVERY", 1)  # see the drop at once
+    monkeypatch.setattr(journal_mod.journal, "_STATVFS_EVERY", 1)  # see the drop at once
     _disk(monkeypatch, free=1024**2)
 
     _metrics(client, busy.id, 1)
@@ -238,7 +243,7 @@ def test_a_landed_op_whose_status_write_failed_still_wakes_a_worker(tmp_path, mo
     non-empty, and every later write of the window was dropped instead of sent
     directly (7-day soak, condensed run: 891 of 901 steps over a 15-min full
     window, every drop with the same one op queued)."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     journal = Journal(tmp_path / "outbox")
     _bookkeeping_full(monkeypatch, journal)
@@ -255,7 +260,7 @@ def test_a_landed_op_whose_status_write_failed_still_wakes_a_worker(tmp_path, mo
 def test_a_worker_does_not_exit_past_an_op_its_status_count_missed(tmp_path, monkeypatch):
     """The live worker's exit guard read status.json alone: with the count left
     at zero by a full disk it exited `drained` while the landed op waited."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     journal = Journal(tmp_path / "outbox")
     _bookkeeping_full(monkeypatch, journal)
@@ -270,17 +275,20 @@ def test_a_write_held_back_by_its_queued_run_wakes_the_drainer(app, tmp_path, mo
     """Below the floor a write waits behind its run's queued ops -- and on a full
     disk it is then dropped without ever being queued, so no enqueue kicks the
     drainer. The hold itself must, or a stranded op is never delivered."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True)
     run = open_run(client, experiment="lowdisk")
     _metrics(client, run.id, 0)  # queued while there was room
-    monkeypatch.setattr(journal_mod, "_STATVFS_EVERY", 1)
+    monkeypatch.setattr(journal_mod.headroom, "_STATVFS_EVERY", 1)
+    monkeypatch.setattr(journal_mod.journal, "_STATVFS_EVERY", 1)
     _disk(monkeypatch, free=1024**2)
     client._default_transport, client._auto_drain = True, True
     client._drainer_kicked_at = float("-inf")
     kicks: list = []
-    monkeypatch.setattr(outbox_worker, "maybe_spawn", lambda d=None: kicks.append(d) or False)
+    monkeypatch.setattr(outbox_worker.drainers.detached, "maybe_spawn", lambda d=None: kicks.append(d) or False)
+    monkeypatch.setattr(outbox_worker.outbox, "maybe_spawn", lambda d=None: kicks.append(d) or False)
+    monkeypatch.setattr(outbox_worker.rescuer, "maybe_spawn", lambda d=None: kicks.append(d) or False)
 
     _metrics(client, run.id, 1)
 
@@ -291,7 +299,7 @@ def test_a_write_held_back_by_its_queued_run_wakes_the_drainer(app, tmp_path, mo
 
 def test_an_empty_queue_with_a_zero_count_still_spawns_nothing(tmp_path, monkeypatch):
     """The negative control: the extra look only finds an op that is there."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     journal = Journal(tmp_path / "outbox")
     journal.append_http("POST", "/v1/runs/r1/metrics", {"points": []}, run_ref="r1")
@@ -322,7 +330,7 @@ def test_a_refused_ops_queue_still_spawns_nothing_despite_corrupt_bookkeeping(
     `pending: 0` outright, for the wrong reason but the same outcome)."""
     from tests.served_fake_app import serve
 
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     token = "probe_pat_refused_0123456789abcdef"
     run_id = seeded_run(app, tmp_path)
@@ -459,7 +467,7 @@ def test_a_filesystem_without_locks_is_unusable(tmp_path, monkeypatch):
 def test_on_kubernetes_the_default_outbox_says_so_once(tmp_path, monkeypatch, recwarn):
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
-    monkeypatch.setattr(client_mod, "_on_container_root_disk", lambda path: True)
+    monkeypatch.setattr(journaled_sink, "_on_container_root_disk", lambda path: True)
     _default_client().close()
     _default_client().close()
     warned = _warnings(recwarn)
@@ -476,12 +484,14 @@ def test_on_kubernetes_a_configured_outbox_is_quiet(tmp_path, monkeypatch, recwa
 def test_a_waiting_queue_is_kicked_when_a_client_starts(tmp_path, monkeypatch):
     """A pod recreated on the same persistent volume: its backlog starts
     draining when the new process starts, not at its first write."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     monkeypatch.setenv("PROBE_OUTBOX_DIR", str(tmp_path / "pv" / "outbox"))
     Journal().append_http("POST", "/v1/runs/r-1/metrics", {"points": [{"i": 0}]})
     kicked = []
-    monkeypatch.setattr(outbox_worker, "maybe_spawn", lambda d=None: kicked.append(d) or False)
+    monkeypatch.setattr(outbox_worker.drainers.detached, "maybe_spawn", lambda d=None: kicked.append(d) or False)
+    monkeypatch.setattr(outbox_worker.outbox, "maybe_spawn", lambda d=None: kicked.append(d) or False)
+    monkeypatch.setattr(outbox_worker.rescuer, "maybe_spawn", lambda d=None: kicked.append(d) or False)
     settings = Settings(base_url="http://test", token="ros_pat_deadbeef", ingest_token=None,
                         hmac_secret=None)
     Client(settings=settings, async_writes=True).close()
@@ -545,7 +555,7 @@ def test_drain_all_carries_every_report_field():
     from dataclasses import dataclass, field
 
     from probe.cli.main import _fold_drain_reports
-    from probe.sdk.journal import DrainReport, LaneStall
+    from probe.sdk.delivery.outbox.drain.report import DrainReport, LaneStall
 
     @dataclass
     class WithHolds(DrainReport):
@@ -663,7 +673,7 @@ def test_drain_all_does_not_send_a_planted_op(tmp_path, monkeypatch, capsys):
     _hostile_fallback(tmp_path)
     sent = []
     monkeypatch.setattr(
-        journal_mod, "drain", lambda j, **kw: sent.append(str(j.dir)) or journal_mod.DrainReport()
+        "probe.sdk.delivery.outbox.drain.drain.drain", lambda j, **kw: sent.append(str(j.dir)) or journal_mod.DrainReport()
     )
     cli.main(["outbox", "drain", "--all"])
     assert not any("probe-outbox" in d for d in sent), sent
@@ -671,7 +681,7 @@ def test_drain_all_does_not_send_a_planted_op(tmp_path, monkeypatch, capsys):
 
 @pytest.mark.skipif(not hasattr(os, "O_NOFOLLOW"), reason="no O_NOFOLLOW on Windows (a symlink there needs privilege to plant)")
 def test_a_symlinked_drainer_log_starts_no_worker(tmp_path, monkeypatch):
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     journal = Journal(tmp_path / "outbox")
     journal.append_http("POST", "/v1/runs/r-1/metrics", {"points": []})
@@ -739,10 +749,10 @@ def test_the_kubernetes_notice_is_quiet_for_a_home_on_its_own_volume(
     container's disk; and an explicit spool_dir is the caller's choice."""
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
-    monkeypatch.setattr(client_mod, "_on_container_root_disk", lambda path: False)
+    monkeypatch.setattr(journaled_sink, "_on_container_root_disk", lambda path: False)
     _default_client().close()
     assert _warnings(recwarn) == []
-    monkeypatch.setattr(client_mod, "_on_container_root_disk", lambda path: True)
+    monkeypatch.setattr(journaled_sink, "_on_container_root_disk", lambda path: True)
     settings = Settings(base_url="http://test", token="ros_pat_deadbeef", ingest_token=None,
                         hmac_secret=None)
     transport = Transport(settings, client=httpx.Client(base_url="http://test"))

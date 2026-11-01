@@ -1,7 +1,5 @@
 """Automatic model loading utilities."""
 
-from __future__ import annotations
-
 from sahi.models.base import DetectionModel
 from sahi.utils.file import import_model_class
 
@@ -16,9 +14,8 @@ MODEL_TYPE_TO_MODEL_CLASS_NAME = {
     "huggingface_segmentation": "HuggingfaceSegmentationModel",
     "torchvision": "TorchVisionDetectionModel",
     "roboflow": "RoboflowDetectionModel",
-    "yolo-world": "YOLOWORLDDetectionModel",
+    "yolo-world": "YOLOWorldDetectionModel",
     "yoloe": "YOLOEDetectionModel",
-    "hugging_face_universal_segmentation": "HuggingFaceUniversalSegmentationModel",
 }
 
 ULTRALYTICS_MODEL_NAMES = ["yolov8", "yolov11", "yolo11", "yolo26", "ultralytics"]

@@ -1,5 +1,5 @@
 """Kimi parity K3/K4: what each open Kimi Code session LOADED, and the proof
-behind "no restart needed" for Kimi (`probe._shared.kimi_live`)."""
+behind "no restart needed" for Kimi (`probe.shared.harness.harnesses.kimi_code.live`)."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from probe._shared import kimi_live
+from probe.shared.harness.harnesses.kimi_code import live as kimi_live
 from probe.sdk import session_marker
 
 AGENT = Path(__file__).resolve().parents[1]
-CANONICAL = AGENT / "src" / "probe" / "_shared" / "kimi_live.py"
+CANONICAL = AGENT / "src" / "probe" / "shared" / "harness" / "harnesses" / "kimi_code" / "live.py"
 HOOKS = AGENT / "plugins" / "probe-research" / "hooks"
 KIMI = "kimi_code"  # harness-literal-ok: the registry id the hooks record
 

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from probe._shared import installs
+from probe.shared.updates import installs
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlinks and shebangs")
 
@@ -181,7 +181,7 @@ def test_a_rejected_version_is_skipped_only_until_it_expires(tools, monkeypatch)
         installed.append(version)
         raise RuntimeError("stop here")
 
-    monkeypatch.setattr(installs, "install", install)
+    monkeypatch.setattr(installs.installs, "install", install)
     installs.reject("0.2.0", "no answer", tools)
     assert "switched back" in updater.upgrade_side_by_side("0.1.0", "0.2.0").message and installed == []
     assert "stop here" in updater.upgrade_side_by_side("0.1.0", "0.3.0").message and installed == ["0.3.0"]
@@ -193,7 +193,7 @@ def test_a_rejected_version_is_skipped_only_until_it_expires(tools, monkeypatch)
 def test_the_guards_switch_back_waits_out_another_updates_lock(monkeypatch):
     """A switch back must not be lost to an install that happens to hold the
     lock: asked again SWITCH_BACK_TRIES times; the last refusal rises."""
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
     from probe.service import guard
 
     monkeypatch.setattr(guard, "SWITCH_BACK_RETRY_S", 0)
@@ -217,7 +217,7 @@ def test_installs_and_switches_take_the_install_lock(tools, monkeypatch):
     """One lock for every install and switch (plan I8): while another update
     holds it, a switch waits and then refuses, changing nothing; the holder
     itself goes through (re-entrant)."""
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
 
     new = installs.install("0.2.0", "x", tools=tools, run=_uv("0.2.0"))
     root = installs.versions_root(tools)
@@ -229,7 +229,8 @@ def test_installs_and_switches_take_the_install_lock(tools, monkeypatch):
     )
     try:
         assert holder.stdout.readline().strip() == "held"
-        monkeypatch.setattr(installs, "LOCK_WAIT_S", 0.3)
+        monkeypatch.setattr(installs.installs, "LOCK_WAIT_S", 0.3)
+        monkeypatch.setattr(installs.repair, "LOCK_WAIT_S", 0.3)
         with pytest.raises(handoff.LockBusy):
             installs.activate(new, tools=tools)
         assert not (tools / installs.DIST).is_symlink()
@@ -242,7 +243,8 @@ def test_installs_and_switches_take_the_install_lock(tools, monkeypatch):
 
 
 def test_pruning_keeps_the_active_the_previous_and_young_versions(tools, monkeypatch):
-    monkeypatch.setattr(installs, "_in_use", lambda folder, commands=None: False)
+    monkeypatch.setattr(installs.pruning, "_in_use", lambda folder, commands=None: False)
+    monkeypatch.setattr(installs.installs, "_in_use", lambda folder, commands=None: False)
     envs = []
     for version in ("0.2.0", "0.3.0", "0.4.0", "0.5.0", "0.6.0"):
         env = installs.install(version, "x", tools=tools, run=_uv(version))
@@ -289,14 +291,14 @@ def test_a_first_switch_that_fails_puts_the_folder_back(tools, monkeypatch):
     """A full disk or a refused rename after the folder moved: it moves back,
     so the CLI keeps its tool path (Codex R2 #2)."""
     new = installs.install("0.2.0", "x", tools=tools, run=_uv("0.2.0"))
-    real_replace = installs.os.replace
+    real_replace = installs.installs.os.replace
 
     def refuse(src, dst):
         if Path(dst) == installs.tool_env(tools):
             raise OSError(28, "No space left on device")
         return real_replace(src, dst)
 
-    monkeypatch.setattr(installs.os, "replace", refuse)
+    monkeypatch.setattr(installs.installs.os, "replace", refuse)
     with pytest.raises(OSError):
         installs.activate(new, tools=tools)
     env = installs.tool_env(tools)
@@ -341,7 +343,8 @@ def test_a_version_envs_receipt_names_the_real_scripts_folder(tools, tmp_path, m
 def test_a_version_another_machine_runs_from_is_kept(tools, monkeypatch):
     """A home shared by several machines: this one sees only its own
     processes, so another's fresh mark keeps the version."""
-    monkeypatch.setattr(installs, "_commands", lambda: [])
+    monkeypatch.setattr(installs.pruning, "_commands", lambda: [])
+    monkeypatch.setattr(installs.repair, "_commands", lambda: [])
     for version in ("0.2.0", "0.3.0", "0.4.0", "0.5.0"):
         installs.activate(installs.install(version, "x", tools=tools, run=_uv(version)), tools=tools)
     root = tools.parent / "probe-versions"

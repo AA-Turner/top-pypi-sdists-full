@@ -23,7 +23,7 @@ import pytest
 from probe.sdk import fluent
 from tests.served_fake_app import child_env, serve
 
-#: `probe.sdk.preempt.ENV`; spelled out so the child-process cases also run
+#: `probe.sdk.run.launch.preempt.ENV`; spelled out so the child-process cases also run
 #: (and fail) against an SDK without the module.
 ENV = "PROBE_SIGTERM_FLUSH_SECONDS"
 STEPS = 120
@@ -170,7 +170,9 @@ while True:
 #: journal's append lock: the op file's write sends the signal, then either
 #: finishes after a pause (`slow`) or never does (`stuck`).
 _IN_THE_APPEND_LOCK = _PRELUDE + """
-from probe.sdk import journal
+from probe.sdk.delivery.journal import journal
+from probe.sdk.delivery.ops import op_handler
+from probe.sdk.delivery.outbox.drain import accounts, drain, holds
 
 mode, at = sys.argv[2], int(sys.argv[1])
 real = journal.write_text_atomic
@@ -185,7 +187,9 @@ def write_text_atomic(path, *args, **kwargs):
             time.sleep(3600 if mode == "stuck" else 0.5)
     return real(path, *args, **kwargs)
 
-journal.write_text_atomic = write_text_atomic
+# Every piece that writes op files binds it (they were one module before the split).
+for piece in (journal, op_handler, accounts, drain, holds):
+    piece.write_text_atomic = write_text_atomic
 run = probe.init(experiment="e1", name="preempted")
 say("opened", run_id=run.id)
 loop(run, at + 20)
@@ -564,7 +568,7 @@ def _clean_binding():
 
 @pytest.fixture
 def preempt():
-    from probe.sdk import preempt
+    from probe.sdk.run.launch import preempt
 
     return preempt
 
@@ -724,8 +728,8 @@ def test_the_sdk_boundary_is_the_outermost_probe_frame(preempt):
 
     sdk = preempt._SDK_ROOT
     user = frame("/home/me/train.py")
-    outer = frame(sdk + "sdk/fluent.py", user)
-    inner = frame(sdk + "sdk/journal.py", outer)
+    outer = frame(sdk + "sdk/fluent/fluent.py", user)
+    inner = frame(sdk + "sdk/delivery/journal/journal.py", outer)
     library = frame("/usr/lib/python3.12/json/encoder.py", inner)
     assert preempt._sdk_boundary(library) == (outer, False)
     assert preempt._sdk_boundary(user) == (None, False)
@@ -886,7 +890,8 @@ def test_the_close_thread_never_waits_on_a_stream_another_thread_holds(
     once on a thread inside `streams_off_limits`, whoever holds the stream's
     lock; the warning still reaches fd 2. Negative control: outside it, the
     same flush waits on the lock."""
-    from probe.sdk import logcapture, safe_warn
+    from probe.sdk.capture.logs import logs as logcapture
+    from probe.foundation.safe_warn import safe_warn
 
     held = _HeldStream()
     try:

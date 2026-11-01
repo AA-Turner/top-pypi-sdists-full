@@ -19,10 +19,14 @@ import time
 import httpx
 import pytest
 
-from probe.daemon import approvals as appr, lease, precheck, probe_api, scope, tools
-from probe.daemon.store import Store
+from probe.shared.mailbox import approvals as appr
+from probe.daemon.host import lease
+from probe.daemon.session import probe_api, scope
+from probe.daemon.agent import tools
+from probe.shared.command_rules import command_rules as precheck
+from probe.daemon.store.store import Store
 from probe.sdk import session_marker
-from probe.sdk.write_outcome import QUEUED_PREFIX
+from probe.sdk.values.write_outcome import QUEUED_PREFIX
 
 SID = "11111111-2222-3333-4444-555555555555"
 PROJECT = "0b9e6c1a-1d1e-4c39-9d0f-6d1b7f0a2c11"
@@ -61,7 +65,8 @@ def _cli(monkeypatch, code: int = 0, stderr: str = "") -> list[list[str]]:
         ran.append(list(argv))
         return tools.ProbeResult(code, "{}", stderr)
 
-    monkeypatch.setattr(tools, "run_probe_process", run)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", run)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", run)
     return ran
 
 
@@ -113,7 +118,7 @@ def test_every_daemon_write_is_classified_once():
     both = set(scope.SCOPE_PARAMS) & scope.NO_SCOPE
     assert not both, f"in both tables: {sorted(both)}"
     missing = daemon - set(scope.SCOPE_PARAMS) - scope.NO_SCOPE
-    assert not missing, f"classify in daemon/scope.py: {sorted(missing)}"
+    assert not missing, f"classify in daemon/session/scope.py: {sorted(missing)}"
     stale = (set(scope.SCOPE_PARAMS) | scope.NO_SCOPE) - set(precheck.OWNERS)
     assert not stale, f"no longer commands: {sorted(stale)}"
 
@@ -309,12 +314,13 @@ def test_deleting_the_labelled_project_clears_it(tmp_path, monkeypatch, ref, cle
     deps.bypass = True  # the delete's own question is not what this tests
     _cli(monkeypatch)
     session_marker.write_scope(SID, "willow", PROJECT)
-    monkeypatch.setattr(tools, "_server_has_trash", lambda deps: asyncio.sleep(0, True))
+    monkeypatch.setattr(tools.probe_cli.probe_cli, "_server_has_trash", lambda deps: asyncio.sleep(0, True))
+    monkeypatch.setattr(tools.probe_cli.deletes, "_server_has_trash", lambda deps: asyncio.sleep(0, True))
 
     async def own(deps, parsed):
         return {"id": PROJECT, "others": {}}
 
-    monkeypatch.setattr(tools, "deletion_facts", own)
+    monkeypatch.setattr(tools.probe_cli.deletes, "deletion_facts", own)
     _run(tools.run_probe_command(deps, ["project", "delete", ref]))
 
     assert (session_marker.read_scope(SID) is None) is cleared
@@ -588,7 +594,7 @@ def test_a_tag_change_or_a_folder_sync_names_its_project(monkeypatch, argv):
 
 def test_the_cli_lookup_is_bounded(monkeypatch):
     cli_main = importlib.import_module("probe.cli.main")
-    from probe.daemon import probe_api
+    from probe.daemon.session import probe_api
 
     _cli_session(monkeypatch, state="full", delay=2.0)
     monkeypatch.setattr(probe_api, "SCOPE_TIMEOUT_S", 0.2)

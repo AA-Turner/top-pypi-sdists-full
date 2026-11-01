@@ -12,8 +12,11 @@ import dataclasses
 import datetime as dt
 import json
 import math
+import sys
+from collections.abc import Iterable
 from decimal import Decimal
 from enum import Enum
+from types import ModuleType
 from typing import Any, TypedDict
 from uuid import UUID
 
@@ -145,7 +148,7 @@ def _to_json_safe(
         _seen = frozenset()
 
     # Prevent runaway recursion on pathologically nested structures.
-    if _depth > 16:
+    if _depth > _MAX_SAFE_DEPTH:
         if _dropped is not None:
             _dropped.append(type(value).__qualname__)
         return f"<{type(value).__qualname__}: max depth>"
@@ -255,7 +258,7 @@ def _to_json_safe(
             pass
 
     # Objects with a __dict__ - shallow expansion.
-    if hasattr(value, "__dict__") and _depth < 4:
+    if hasattr(value, "__dict__") and _depth < _SHALLOW_OBJECT_DEPTH:
         try:
             attrs: dict[str, Any] = {}
             for k, v in vars(value).items():
@@ -300,6 +303,270 @@ def _contains_framework_object(value: Any, _depth: int = 0) -> bool:
 # is in. Anything past it is replaced with a stub so the span still ships and
 # the trace isn't dropped server-side.
 _MAX_SERIALIZED_BYTES = MAX_COMPRESSIBLE_SPAN_CARRIER_BYTES
+_MAX_SAFE_DEPTH = 16
+_SHALLOW_OBJECT_DEPTH = 4
+_DEFAULT_GETSTATE = getattr(object, "__getstate__", None)
+_FLAT_SCALAR_TYPES = frozenset({int, float, bool, type(None)})
+_MAX_SKIPPED_PER_BUDGET_BYTE = 3
+
+
+def too_large_reason(budget: int) -> str:
+    return f"too_large_over_{budget}_bytes"
+
+
+def _loaded_attribute(module_name: str, name: str) -> Any:
+    module = sys.modules.get(module_name)
+    return getattr(module, name, None) if module is not None else None
+
+
+def _has_jsonpickle_handler(kind: type) -> bool:
+    return jsonpickle.handlers.registry.get(kind) is not None
+
+
+def _pickles_with_default_state(kind: type) -> bool:
+    return (
+        kind.__reduce_ex__ is object.__reduce_ex__
+        and getattr(kind, "__getstate__", None) is _DEFAULT_GETSTATE
+        and kind.__getattribute__ is object.__getattribute__
+        and not hasattr(kind, "__getattr__")
+        and not _has_jsonpickle_handler(kind)
+    )
+
+
+def _pickles_as_plain_object(node: Any, kind: type) -> bool:
+    return (
+        not callable(node)
+        and not isinstance(node, (ModuleType, BaseException))
+        and isinstance(getattr(node, "__dict__", None), dict)
+        and _pickles_with_default_state(kind)
+        and kind.__reduce__ is object.__reduce__
+        and not hasattr(kind, "__getnewargs_ex__")
+        and not hasattr(kind, "__getnewargs__")
+        and not hasattr(kind, "__slots__")
+    )
+
+
+def _pickles_as_model(kind: type, model_getstate: Any) -> bool:
+    return (
+        model_getstate is not None
+        and getattr(kind, "__getstate__", None) is model_getstate
+        and not _has_jsonpickle_handler(kind)
+    )
+
+
+def _pickles_as_exception(node: Any, kind: type) -> bool:
+    return (
+        isinstance(node, BaseException)
+        and isinstance(getattr(node, "__dict__", None), dict)
+        and _pickles_with_default_state(kind)
+        and kind.__reduce__ is BaseException.__reduce__
+    )
+
+
+class _WalkTooLong(Exception):
+    pass
+
+
+def _flat_items_size(items: Any, room: int, check_types: bool = True) -> int | None:
+    shortest = max(2 * len(items) - 1, 0)
+    if shortest > room:
+        return shortest
+    if not check_types:
+        return None
+    kinds = set(map(type, items))
+    if kinds <= _FLAT_SCALAR_TYPES:
+        return shortest
+    if kinds == {str}:
+        return sum(map(len, items)) + 3 * len(items) - 1
+    return None
+
+
+def _ndarray_text_size(node: Any) -> int:
+    if _has_jsonpickle_handler(type(node)):
+        return 1
+    if node.dtype.hasobject:
+        return int(node.size)
+    return int(node.nbytes) * 4 // 3
+
+
+def exceeds_jsonpickle_budget(value: Any, budget: int) -> bool:
+    total = 0
+    skipped = 0
+    seen: set[int] = set()
+    ndarray = _loaded_attribute("numpy", "ndarray")
+    model_getstate = getattr(
+        _loaded_attribute("pydantic", "BaseModel"), "__getstate__", None
+    )
+
+    def visit_entries(entries: dict[Any, Any]) -> None:
+        nonlocal total, skipped
+        for key, item in entries.items():
+            if total > budget:
+                return
+            if callable(item) or (isinstance(key, str) and key.startswith("py/")):
+                skipped += 1
+                if skipped > _MAX_SKIPPED_PER_BUDGET_BYTE * budget:
+                    raise _WalkTooLong
+                continue
+            total += (len(key) if isinstance(key, str) else 0) + 3
+            visit(item)
+
+    def visit_items(items: Any) -> None:
+        nonlocal total
+        total += 2
+        flat_size = _flat_items_size(items, budget - total)
+        if flat_size is not None:
+            total += flat_size
+            return
+        for index, item in enumerate(items):
+            if total > budget:
+                return
+            if index:
+                total += 1
+            visit(item)
+
+    def visit(node: Any) -> None:
+        nonlocal total
+        kind = type(node)
+        if node is None or kind is bool:
+            total += 4
+        elif kind is str:
+            total += len(node) + 2
+        elif kind is int or kind is float:
+            total += 1
+        elif kind is bytes:
+            total += len(node) * 4 // 3 + 2
+        elif id(node) in seen:
+            total += 1
+        else:
+            seen.add(id(node))
+            if kind is dict:
+                total += 2
+                visit_entries(node)
+            elif kind in (list, tuple, set, frozenset):
+                visit_items(node)
+            elif ndarray is not None and kind is ndarray:
+                total += _ndarray_text_size(node)
+            elif _pickles_as_exception(node, kind):
+                total += 2
+                visit_items(node.args)
+                visit_entries(vars(node))
+            elif _pickles_as_model(kind, model_getstate) or _pickles_as_plain_object(
+                node, kind
+            ):
+                total += 2
+                visit_entries(vars(node))
+            else:
+                total += 1
+
+    try:
+        visit(value)
+    except Exception:
+        return False
+    return total > budget
+
+
+def _readable_bytes_size(node: bytes | bytearray, remaining: int) -> int:
+    """Lower bound on the text to_json_safe writes for bytes: the decoded
+    UTF-8 when it decodes, else a hex string twice as long. Every UTF-8
+    character takes at most four bytes, so len // 4 holds either way and
+    answers without reading the bytes once it alone passes the budget."""
+    floor = len(node) // 4
+    if floor > remaining:
+        return floor
+    if node.isascii():
+        return len(node)
+    try:
+        return len(node.decode("utf-8"))
+    except UnicodeDecodeError:
+        return 2 * len(node)
+
+
+def exceeds_readable_budget(values: Iterable[Any], budget: int) -> bool:
+    total = 0
+    skipped = 0
+    ancestors: set[int] = set()
+
+    def visit(node: Any, depth: int) -> None:
+        nonlocal total
+        if depth > _MAX_SAFE_DEPTH:
+            total += 2
+        elif node is None or isinstance(node, bool):
+            total += 4
+        elif isinstance(node, str):
+            total += len(node) + 2
+        elif isinstance(node, (int, float, Enum)):
+            total += 1
+        elif isinstance(node, (dt.datetime, dt.date, dt.time, UUID, Decimal)):
+            total += 2
+        elif isinstance(node, (bytes, bytearray)):
+            total += _readable_bytes_size(node, budget - total) + 2
+        elif isinstance(node, (dict, list, tuple, set, frozenset)) or hasattr(
+            node, "__dict__"
+        ):
+            if id(node) in ancestors:
+                total += 2
+                return
+            ancestors.add(id(node))
+            visit_shape(node, depth)
+            ancestors.discard(id(node))
+        else:
+            total += 2
+
+    def visit_shape(node: Any, depth: int) -> None:
+        nonlocal total
+        if isinstance(node, dict):
+            total += 2
+            visit_entries(node.items(), depth, skip_private=False)
+        elif isinstance(node, (list, tuple, set, frozenset)):
+            total += 2
+            flat_size = _flat_items_size(
+                node, budget - total, check_types=depth < _MAX_SAFE_DEPTH
+            )
+            if flat_size is not None:
+                total += flat_size
+                return
+            for index, item in enumerate(node):
+                if total > budget:
+                    return
+                if index:
+                    total += 1
+                visit(item, depth + 1)
+        elif (
+            callable(getattr(node, "model_dump", None))
+            or callable(getattr(node, "dict", None))
+            or (dataclasses.is_dataclass(node) and not isinstance(node, type))
+        ):
+            total += 1
+        elif depth < _SHALLOW_OBJECT_DEPTH:
+            total += 2
+            visit_entries(vars(node).items(), depth, skip_private=True)
+        else:
+            total += 2
+
+    def visit_entries(
+        entries: Iterable[tuple[Any, Any]], depth: int, skip_private: bool
+    ) -> None:
+        nonlocal total, skipped
+        for key, item in entries:
+            if total > budget:
+                return
+            if skip_private and key.startswith("_"):
+                skipped += 1
+                if skipped > _MAX_SKIPPED_PER_BUDGET_BYTE * budget:
+                    raise _WalkTooLong
+                continue
+            total += (len(key) if isinstance(key, str) else 0) + 3
+            visit(item, depth + 1)
+
+    try:
+        for value in values:
+            if total > budget:
+                break
+            visit(value, 0)
+    except Exception:
+        return False
+    return total > budget
 
 
 def _describe_value(value: Any) -> str:
@@ -375,6 +642,9 @@ def _serialize_value_inner(value: Any) -> SerializedValue:
     # For simple JSON-native types, no metadata needed
     if isinstance(value, (str, int, float, bool)):
         return {"json": value}
+
+    if exceeds_jsonpickle_budget(value, _MAX_SERIALIZED_BYTES):
+        return _unserializable_stub(value, too_large_reason(_MAX_SERIALIZED_BYTES))
 
     import json
 

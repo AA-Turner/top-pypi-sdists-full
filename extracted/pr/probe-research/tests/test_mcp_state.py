@@ -15,7 +15,8 @@ from pathlib import Path
 import pytest
 
 from probe.cli import capabilities as caps_mod
-from probe.cli import kimi_config, pi_config
+from probe.shared.harness.harnesses.kimi_code import config as kimi_config
+from probe.shared.harness.harnesses import pi as pi_config
 from probe.cli.capabilities import (
     DAEMON_PLUGIN_NAME,
     TRACKING_PLUGIN_NAME,
@@ -24,8 +25,8 @@ from probe.cli.capabilities import (
     McpCredential,
     McpState,
 )
-from probe.harness import get_registry
-from probe.harness import registry as reg
+from probe.foundation.harness_registry import get_registry
+from probe.foundation.harness_registry import harness_registry as reg
 
 
 @pytest.fixture(autouse=True)
@@ -214,7 +215,7 @@ def test_a_refused_token_reads_login_needed_and_names_the_reason(refused):
 
 
 def test_codex_on_its_own_oauth_login_is_not_the_refused_token(refused, monkeypatch):
-    from probe.cli import codex_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     monkeypatch.setattr(codex_config, "configured_bearer", lambda name: None)
     assert caps_mod.check_mcp("codex", codex_auth=True)[1].credential == McpCredential.PRESENT

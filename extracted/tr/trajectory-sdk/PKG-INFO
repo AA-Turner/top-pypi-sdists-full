@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.9.32
+Version: 0.9.34
 Summary: Generated Trajectory API client and high-level workflows
 Project-URL: Documentation, https://docs.trajectory.ai
 Project-URL: Cookbook, https://github.com/Trajectorylabs/trajectory-cookbook
@@ -24,20 +24,25 @@ trajectories, telemetry, and runtime-backed benchmarks.
 pip install trajectory-sdk
 ```
 
-For a coding agent, copy
-[the Trajectory skill](https://github.com/Trajectorylabs/trajectory-platform/blob/main/skills/trajectory/SKILL.md)
-into your benchmark repo at `.agents/skills/trajectory/SKILL.md` for Codex or
+The SDK installs a Trajectory skill for coding agents at
+`share/doc/trajectory-sdk/skills/trajectory/SKILL.md` in its Python environment. Print its path:
+
+```bash
+python -c "import importlib.metadata as m; print(next(f.locate().resolve() for f in m.files('trajectory-sdk') if f.name == 'SKILL.md'))"
+```
+
+Copy that file into your benchmark repo at `.agents/skills/trajectory/SKILL.md` for Codex or
 `.claude/skills/trajectory/SKILL.md` for Claude Code.
 
 ## Start here
 
-Start with the SDK [quickstart](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/quickstart.mdx),
-then [bring a benchmark](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/benchmarks.mdx),
-[evaluate](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/evaluations.mdx),
-[train](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/training.mdx), and
-[deploy](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/deployments.mdx).
-The installed SDK also includes these guides.
-The [cookbook](https://github.com/Trajectorylabs/trajectory-cookbook)
+The [Trajectory docs](https://docs.trajectory.ai) cover the SDK. Start with the
+[quickstart](https://docs.trajectory.ai/quickstart), then
+[bring a benchmark](https://docs.trajectory.ai/guides/benchmarks),
+[evaluate](https://docs.trajectory.ai/guides/evaluations),
+[train](https://docs.trajectory.ai/guides/training), and
+[deploy](https://docs.trajectory.ai/guides/deployments).
+The SDK also installs these guides next to the skill. The [cookbook](https://github.com/Trajectorylabs/trajectory-cookbook)
 has worked integrations for different harnesses and graders.
 
 ## Quick start
@@ -119,7 +124,7 @@ reward zero and `ENV_DONE`. Process exit alone does not complete a trajectory.
 Define a `BenchmarkSpec` named `benchmark` with your tasks, distinct `train`/`test` splits,
 and a runtime such as `DockerfileBuild("Dockerfile")`. With the Dockerfile and harness under
 the local `benchmark/` directory,
-[choose or create an agent](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx), then register the
+[choose or create an agent](https://docs.trajectory.ai/agent), then register the
 benchmark and build its runtime. Replace `YOUR_AGENT_NAME` with that agent's name:
 
 ```python registration.py
@@ -168,4 +173,4 @@ The generated client lives in `src/trajectory/`. Handwritten workflows live in
 
 ## License
 
-[Apache 2.0](https://github.com/Trajectorylabs/trajectory-platform/blob/main/LICENSE)
+Apache License 2.0.

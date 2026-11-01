@@ -31,7 +31,8 @@ import asyncio
 
 import pytest
 
-from probe.mcp.server import _RETIRED_TOOLS, create_server
+from probe.mcp.server.retired import _RETIRED_TOOLS
+from probe.mcp.server.server import create_server
 
 
 def test_no_retired_name_is_registered() -> None:

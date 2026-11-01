@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import pi_config
+from probe.shared.harness.harnesses import pi as pi_config
 
 
 def _env(tmp_path: Path) -> dict[str, str]:
@@ -448,7 +448,7 @@ def test_package_entry_installed_is_false_never_raises_when_no_package_root_reso
     env = _env(tmp_path)  # no PROBE_PI_PACKAGE_ROOT
     fake_file = tmp_path / "nowhere" / "pi_config.py"
     fake_file.parent.mkdir(parents=True)
-    monkeypatch.setattr(pi_config, "__file__", str(fake_file))
+    monkeypatch.setattr(pi_config.package_source, "__file__", str(fake_file))
 
     assert pi_config.package_entry_installed(env) is False
 
@@ -495,7 +495,7 @@ def _no_checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, s
     env = _env(tmp_path)
     fake_file = tmp_path / "nowhere" / "pi_config.py"
     fake_file.parent.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(pi_config, "__file__", str(fake_file))
+    monkeypatch.setattr(pi_config.package_source, "__file__", str(fake_file))
     return env
 
 

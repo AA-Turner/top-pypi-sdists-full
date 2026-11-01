@@ -10,7 +10,7 @@ bytes twice, and downstream selection then picks one of two without saying so.
 
 from __future__ import annotations
 
-from probe.sdk.run import Run
+from probe.sdk.run.run import Run
 
 
 class _FakeClient:

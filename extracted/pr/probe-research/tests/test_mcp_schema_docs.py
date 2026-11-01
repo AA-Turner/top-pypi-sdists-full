@@ -25,9 +25,9 @@ import re
 
 import anyio
 
-from probe.mcp.contract import BackendCorpus
-from probe.mcp.server import create_server
-from probe.mcp.service import _SEARCH_IN_TO_BACKEND, NON_BACKEND_CORPORA
+from probe.shared.reads.search_contract import BackendCorpus
+from probe.mcp.server.server import create_server
+from probe.mcp.tools.corpus import _SEARCH_IN_TO_BACKEND, NON_BACKEND_CORPORA
 
 
 def _tool_description() -> str:
@@ -102,7 +102,7 @@ def test_every_enum_member_has_a_backend_mapping() -> None:
     value that `_map_search_in` cannot resolve, and the caller lands in the
     unsupported floor holding a value the tool told them was valid.
     """
-    from probe.mcp.contract import ToolCorpus
+    from probe.shared.reads.search_contract import ToolCorpus
 
     unmapped = set(ToolCorpus) - set(_SEARCH_IN_TO_BACKEND) - NON_BACKEND_CORPORA
     assert not unmapped, f"advertised but unmapped search_in values: {sorted(unmapped)}"
@@ -116,7 +116,7 @@ def test_the_one_value_with_no_backend_corpus_is_docs_and_never_reaches_the_mapp
     A second value joining it must be added here deliberately, not by growing
     the set; and a value in both would mean the backend is asked for a corpus
     it does not have."""
-    from probe.mcp.contract import ToolCorpus
+    from probe.shared.reads.search_contract import ToolCorpus
 
     assert NON_BACKEND_CORPORA == {ToolCorpus.DOCS}
     assert not NON_BACKEND_CORPORA & set(_SEARCH_IN_TO_BACKEND)
@@ -130,7 +130,7 @@ def test_the_schema_enum_matches_the_enum_it_is_generated_from() -> None:
     schema through functools.wraps on the _tool decorator; if that seam ever
     stops carrying annotations the enum silently degrades to a bare string array
     and every typo goes back to round-tripping."""
-    from probe.mcp.contract import CollapseMode, ToolCorpus
+    from probe.shared.reads.search_contract import CollapseMode, ToolCorpus
 
     tools = anyio.run(create_server(object()).list_tools)
     schema = next(t for t in tools if t.name == "search").inputSchema

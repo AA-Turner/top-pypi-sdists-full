@@ -44,10 +44,10 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable
 
 from ..models import SpanBatch, SpanCreate
-from ..sdk import unit_context
+from ..sdk.run.context import context as unit_context
 
 if TYPE_CHECKING:
-    from ..sdk.run import Run
+    from ..sdk.run.run import Run
 
 #: Eager-expansion window. A cap here is a lazy-loading concern, never a data
 #: limit — raw bytes are always stored and ``max_spans=0`` expands everything.
@@ -957,7 +957,7 @@ def expand_trajectory(
                     "trajectory_index": trajectory_index,
                 },
                 # `summary_metrics` since the rename -- see
-                # `probe.sdk.run.Run.span` for what passing the old name here
+                # `probe.sdk.run.run.Run.span` for what passing the old name here
                 # costs: the kwarg lands nowhere and the span ships a null into
                 # a server field that is a plain dict.
                 summary_metrics={},

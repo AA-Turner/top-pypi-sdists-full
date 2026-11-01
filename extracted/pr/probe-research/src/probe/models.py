@@ -1,6 +1,6 @@
 """Stable public alias for the generated wire models.
 
-Import request/response types from here, never from ``probe._generated.models``
+Import request/response types from here, never from ``probe.generated.models``
 directly. The generated module is a build artifact (see ``scripts/gen_models.py``);
 this seam means a change to how it is generated is a one-line update, not a
 sweep across the SDK.
@@ -22,7 +22,7 @@ generated and validated like every other write path.
 
 from __future__ import annotations
 
-from ._generated.models import (
+from .generated.models import (
     AnchorLevel,
     ArtifactCreate,
     ArtifactPinImpact,
@@ -93,16 +93,16 @@ from ._generated.models import (
 # The citation graph's two enums carry generic generated names (the schema now
 # has two `Direction`s, so FastAPI names this one by its module; `GraphState`);
 # they are re-exported under names that say what they are.
-from ._generated.models import AppPapersCitationStoreDirection as CitationDirection
-from ._generated.models import GraphState as CitationGraphState
+from .generated.models import AppPapersCitationStoreDirection as CitationDirection
+from .generated.models import GraphState as CitationGraphState
 
 # The research literature (`Client.find_papers`, `probe paper find`).
-from ._generated.models import PaperExpansion, PaperMode
+from .generated.models import PaperExpansion, PaperMode
 
 #: What a scope id or slug names (`GET /v1/scopes/...`): project, experiment or
 #: run. The generator names it after its server module.
-from ._generated.models import AppProjectsTwinScopeKind as ScopeKind
-from ._generated.models import ProjectKind
+from .generated.models import AppProjectsTwinScopeKind as ScopeKind
+from .generated.models import ProjectKind
 
 #: The experiment create body. `/v1/experiments` was retired by 0231 and its
 #: `ExperimentCreate` with it; the light experiments' experiment API creates

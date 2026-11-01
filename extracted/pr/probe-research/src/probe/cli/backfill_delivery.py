@@ -6,8 +6,9 @@ import json
 import mimetypes
 from pathlib import Path
 
-from ..sdk.client import Anchor
-from ..sdk.journal import WAITING_STATES, OutboxFull
+from ..sdk.artifact.anchors import Anchor
+from ..sdk.delivery.journal.failures.discards import WAITING_STATES
+from ..sdk.delivery.journal.headroom import OutboxFull
 from .backfill_coverage import Coverage, own_names
 from .backfill_manifest import validate_manifest
 

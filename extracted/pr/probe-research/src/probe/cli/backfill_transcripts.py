@@ -24,12 +24,12 @@ import sqlite3
 import time
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import asdict, dataclass, field, replace
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 from pathlib import Path
 from typing import NamedTuple
 
-from ..sdk.durable import file_lock, fsync_directory, now_iso
-from ..sdk.tls import ssl_context
+from ..foundation.durable.durable import file_lock, fsync_directory, now_iso
+from ..foundation.tls.tls import ssl_context
 from ..tap_core import capture_gate as tap_gate
 from ..tap_core import codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
 from ..tap_core.session_identity import check_identity, compatible_copy, validate_identity
@@ -58,7 +58,7 @@ KIMI = "kimi_code"
 #: KeyErrors on the very first one it tries to send -- see
 #: test_ingest_path_and_sanitizer_cover_every_tap_capture_source.
 def _captured_rows():
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     return get_registry().captured()
 
@@ -527,7 +527,7 @@ def _is_pi_session_file(path: Path) -> bool:
 
 
 def _kimi():
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     return get_registry().get(KIMI)
 
@@ -2147,7 +2147,7 @@ def _background_identity(client) -> dict:
     """Nonsecret account identity pinned before the transcript review."""
     from urllib.parse import urlsplit, urlunsplit
 
-    from ..sdk.config import current_context_name
+    from ..sdk.settings.settings import current_context_name
 
     identity = client.me()
     url = urlsplit(client.settings.base_url)
@@ -2264,8 +2264,8 @@ def run_background_job(payload: dict, *, progress) -> list[str]:
 
 
 def _run_background_job(payload: dict, *, progress) -> list[str]:
-    from ..sdk.client import Client
-    from ..sdk.config import current_context_name, resolve
+    from ..sdk.client.client import Client
+    from ..sdk.settings.settings import current_context_name, resolve
     from . import capabilities, import_jobs
 
     if payload.get("schema") != 1:

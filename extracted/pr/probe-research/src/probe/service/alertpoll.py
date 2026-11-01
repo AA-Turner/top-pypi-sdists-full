@@ -1,18 +1,18 @@
 """Run alerts for every daemon session on the machine, asked for here once (plan Q2).
 
 Each daemon worker used to ask the server for its own session's run alerts
-every 30 s (`probe.daemon.run_alerts`), each time on a new HTTPS client. Now
+every 30 s (`probe.daemon.lanes.run_alerts`), each time on a new HTTPS client. Now
 the service asks for all of them, on one kept connection per endpoint, and
 leaves each answer where that session's worker reads it:
 
     every POLL_S, while a live daemon-mode session is registered:
         each such session (registered from outside any sandbox: the state
         folder it names is where the answers go) whose worker asked for it:
-        its `.worker.json` marker (`probe.daemon.mailbox.offer_run_alerts`)
+        its `.worker.json` marker (`probe.shared.mailbox.worker_marker.offer_run_alerts`)
         says `run_alerts`, names a process that runs outside any sandbox, and
         names the CLI config that worker reads
         -> GET /v1/sessions/{sid}/run-alerts with that config's daemon key
-           and endpoint (`probe.daemon.model.endpoint`, minus the environment:
+           and endpoint (`probe.daemon.agent.model.model.endpoint`, minus the environment:
            a worker whose key or endpoint comes from its environment never
            asks), one session after another
         -> the answer as the server gave it, in `<state>/reads/alerts/<sid>.json`:
@@ -26,7 +26,7 @@ leaves each answer where that session's worker reads it:
     here loses nothing (the server keeps two hours of alerts).
 
 BACKOFF. A refused key (a 401, or a 403 that names the credential:
-`probe.sdk.key_refusal`) pauses that key REFUSED_WAIT_S, as the worker did; a
+`probe.sdk.settings.key_refusal`) pauses that key REFUSED_WAIT_S, as the worker did; a
 429 pauses it for its Retry-After, within [POLL_S, REFUSED_WAIT_S]. While a key
 is paused its sessions' hand-offs still go out (saying until when), so no
 worker takes over a poll the service holds back. An endpoint that does not
@@ -66,7 +66,7 @@ from urllib.parse import quote, urlsplit
 from . import caller
 from .mailwatch import DaemonLane, read_json, safe
 
-#: The server is asked this often (`probe.daemon.run_alerts.RUN_ALERT_POLL_S`).
+#: The server is asked this often (`probe.daemon.lanes.run_alerts.RUN_ALERT_POLL_S`).
 POLL_S = 30.0
 #: After Probe refused the key (`run_alerts.RUN_ALERT_REFUSED_WAIT_S`).
 REFUSED_WAIT_S = 5 * 60.0
@@ -98,12 +98,12 @@ def poll_interval() -> float:
 
 
 def handoff_path(state: str, sid: str) -> Path:
-    """`probe.daemon.mailbox.alerts_handoff_path` for a session under `state`."""
+    """`probe.shared.mailbox.worker_marker.alerts_handoff_path` for a session under `state`."""
     return Path(state) / "reads" / HANDOFF_DIR / f"{safe(sid)}.json"
 
 
 def marker_path(state: str, sid: str) -> Path:
-    """`probe.daemon.mailbox.worker_marker_path` for a session under `state`."""
+    """`probe.shared.mailbox.worker_marker.worker_marker_path` for a session under `state`."""
     return Path(state) / "reads" / "requests" / safe(sid) / ".worker.json"
 
 
@@ -139,7 +139,7 @@ class Endpoint:
     base_url: str
     key: str
     #: The workspace limit of the SAME config the key came from, as header pairs
-    #: (`probe.sdk.workspace_limit`): each session polls under its own computer's
+    #: (`probe.sdk.settings.workspace_limit`): each session polls under its own computer's
     #: setting, never the service's own config's.
     limit_headers: tuple[tuple[str, str], ...] = ()
 
@@ -148,7 +148,7 @@ def _config_limit(row: dict, environ: dict | None) -> tuple[tuple[str, str], ...
     """`row`'s (a context's) limit headers, `environ` (the session's own, when
     known) on top. No network: an environment slug goes fail-closed."""
     try:
-        from probe.sdk import workspace_limit as wl
+        from probe.sdk.settings import workspace_limit as wl
 
         return tuple(sorted(wl.offline_headers(wl.resolve_limit(row, environ or {})).items()))
     except Exception:  # noqa: BLE001 -- a context the reader cannot read limits nothing
@@ -158,7 +158,7 @@ def _config_limit(row: dict, environ: dict | None) -> tuple[tuple[str, str], ...
 def endpoint(
     config: str, keys: tuple[str, ...] = ("companion_token",), *, environ: dict | None = None
 ) -> Endpoint | None:
-    """`probe.daemon.model.endpoint()` without the environment: the daemon key
+    """`probe.daemon.agent.model.model.endpoint()` without the environment: the daemon key
     and API of `config`'s current context (a v1 flat file is its one context).
     `keys`: the context's credentials to use, the first one present wins (the
     hint lane reads with the read-only key first, `hints.KEYS`). The endpoint
@@ -223,7 +223,7 @@ class Fetcher:
     def _client_headers(self) -> dict:
         if self._headers is None:
             try:
-                from probe.client_headers import client_version_headers
+                from probe.foundation.request_identity.request_identity import client_version_headers
 
                 self._headers = dict(client_version_headers("cli", self.version))
             except Exception:  # noqa: BLE001 -- the poll goes out without them
@@ -240,7 +240,7 @@ class Fetcher:
     def _ssl(self):
         if self._context is None:
             try:
-                from probe.sdk.tls import ssl_context
+                from probe.foundation.tls.tls import ssl_context
 
                 self._context = ssl_context()
             except Exception:  # noqa: BLE001 -- the OS store still verifies
@@ -350,7 +350,7 @@ class Fetcher:
         except (UnicodeDecodeError, ValueError, RecursionError):
             data = None
         if status in (401, 403):
-            from probe.sdk.key_refusal import credential_refused
+            from probe.sdk.settings.key_refusal import credential_refused
 
             detail = data.get("detail") if isinstance(data, dict) else None
             message = detail.get("message") if isinstance(detail, dict) else detail

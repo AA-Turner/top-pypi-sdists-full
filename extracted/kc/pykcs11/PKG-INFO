@@ -1,9 +1,8 @@
 Metadata-Version: 2.4
 Name: pykcs11
-Version: 1.5.20
+Version: 1.5.21
 Summary: A Full PKCS#11 wrapper for Python
 Home-page: https://github.com/LudovicRousseau/PyKCS11
-Download-URL: http://sourceforge.net/projects/pkcs11wrap/files/pykcs11/
 Author: Giuseppe Amato (Midori)
 Author-email: paipai@tiscali.it
 Maintainer: Ludovic Rousseau
@@ -27,7 +26,6 @@ Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
-Dynamic: download-url
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license

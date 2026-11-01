@@ -19,7 +19,7 @@ import re
 import sys
 from pathlib import Path
 
-from probe._compat import tomllib
+from probe.foundation.compat.compat import tomllib
 
 _AGENT = Path(__file__).resolve().parents[1]
 _PACKAGE = _AGENT / "src" / "probe"
@@ -37,9 +37,12 @@ _CLI_SIDE = {
     "core": _ALL,
     "service": _ALL,
     "_shared": _ALL,
+    "shared": _ALL,
+    "foundation": _ALL,
     "harness": _ALL,
     "tap_core": _ALL,
     "hw": _ALL,
+    "sdk/hardware": _ALL,
     "box": _ALL,
     "daemon": (*_ALL, "daemon"),
     "mcp": (*_ALL, "mcp-http"),
@@ -58,7 +61,7 @@ _PROVIDED_BY = {
 
 #: Optional imports whose ImportError the CALLER handles.
 _GUARDED_BY_CALLER = {
-    ("daemon/reader.py", "pyarrow"): "_parquet catches the ImportError from _import_parquet",
+    ("daemon/session/read_render.py", "pyarrow"): "_parquet catches the ImportError from _import_parquet",
 }
 
 #: Not a distribution: the tap plugin's own package, on sys.path when it runs.

@@ -1,4 +1,4 @@
-"""The team-note audit, run by the daemon (`daemon/audit.py`; daemon-team-note-audit,
+"""The team-note audit, run by the daemon (`daemon/lanes/audit.py`; daemon-team-note-audit,
 2026-10-11).
 
 What it must do, and each test below holds one of these:
@@ -35,12 +35,15 @@ pytest.importorskip("pydantic_ai_harness")
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, ToolReturnPart  # noqa: E402
 from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
-from probe.cli import team_note_file as tnf  # noqa: E402
+from probe.shared.notes import team_note as tnf  # noqa: E402
 from probe.daemon import agent as agent_mod  # noqa: E402
-from probe.daemon import approvals as appr  # noqa: E402
-from probe.daemon import audit as audit_mod  # noqa: E402
-from probe.daemon import lease, mailbox, precheck, tools  # noqa: E402
-from probe.daemon import model as model_mod  # noqa: E402
+from probe.shared.mailbox import approvals as appr  # noqa: E402
+from probe.daemon.lanes import audit as audit_mod  # noqa: E402
+from probe.daemon.host import lease  # noqa: E402
+from probe.daemon.agent import tools
+from probe.shared import mailbox
+from probe.shared.command_rules import command_rules as precheck
+from probe.daemon.agent.model import model as model_mod  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
 
 SID = "11111111-2222-3333-4444-555555555555"
@@ -157,8 +160,8 @@ def _lane(w, auditor, monkeypatch, *, due=_due, pulled=True, publish=True) -> au
             pushes.append(where.document.read_text())
             return None, pushes[-1]
 
-        monkeypatch.setattr(tnf, "reconcile", reconcile)
-        monkeypatch.setattr(tnf, "render_blocks", lambda text, settings=None: None)
+        monkeypatch.setattr(tnf.team_note, "reconcile", reconcile)
+        monkeypatch.setattr(tnf.render, "render_blocks", lambda text, settings=None: None)
     return lane
 
 
@@ -558,7 +561,7 @@ def test_the_probe_commands_it_may_run(argv, runs):
 
 
 def test_the_open_web_from_the_shell_names_the_web_refusal():
-    from probe.daemon.agent import AUDIT_REFUSED_TOOLS, AUDIT_WEB_REFUSED
+    from probe.daemon.agent.audit import AUDIT_REFUSED_TOOLS, AUDIT_WEB_REFUSED
 
     assert tools.audit_probe_refusal(precheck.parse(["paper", "find", "q"])) == AUDIT_WEB_REFUSED
     assert "find_papers" in AUDIT_REFUSED_TOOLS, "the shell door mirrors a refused MCP tool"
@@ -636,9 +639,9 @@ def test_a_read_of_probes_own_docs_is_not_a_look(tool, args, look):
 
 
 def test_the_audit_uses_the_mcp_definition_of_docs_only():
-    """One test of "docs only" (`probe.mcp.contract.is_docs_only`): the audit's
+    """One test of "docs only" (`probe.shared.reads.search_contract.is_docs_only`): the audit's
     answer follows it rather than a copy of its rule."""
-    contract = pytest.importorskip("probe.mcp.contract")
+    contract = pytest.importorskip("probe.shared.reads.search_contract")
     for search_in in (["docs"], ["docs", "notes"], [], None, ["notes"]):
         assert agent_mod.is_a_look("search", {"search_in": search_in}) is (
             not contract.is_docs_only(search_in)
@@ -819,7 +822,7 @@ def test_a_push_that_fails_after_the_merge_says_the_next_sync_sends_it(tmp_path,
     def offline(client, where):
         raise ConnectionError("offline")
 
-    monkeypatch.setattr(tnf, "reconcile", offline)
+    monkeypatch.setattr(tnf.team_note, "reconcile", offline)
     asyncio.run(lane.run())
     assert note.read_text(encoding="utf-8") == NEW_NOTE
     [msg] = _reports()
@@ -862,7 +865,7 @@ def test_the_daemon_claims_under_its_own_holder_name(tmp_path, monkeypatch):
     lane = _lane(w, Auditor([LOOK], end="nothing stale"), monkeypatch)
     claims = []
     real = tnf.claim_audit_dispatch
-    monkeypatch.setattr(tnf, "claim_audit_dispatch", lambda **kw: (claims.append(kw.get("holder")), real(**kw))[1])
+    monkeypatch.setattr(tnf.audit, "claim_audit_dispatch", lambda **kw: (claims.append(kw.get("holder")), real(**kw))[1])
     asyncio.run(lane.run())
     assert claims == [f"daemon:{SID}"]
     assert tnf.claim_audit_dispatch(holder=SID) is False

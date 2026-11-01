@@ -12,7 +12,8 @@ import json
 
 import pytest
 
-from probe.cli import doctor, pi_config
+from probe.cli import doctor
+from probe.shared.harness.harnesses import pi as pi_config
 
 
 @pytest.fixture

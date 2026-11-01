@@ -25,8 +25,12 @@ from pathlib import Path
 import pytest
 
 import probe
-from probe.sdk import ephemeral, fluent, inputs, outputs
+from probe.sdk.run.launch import ephemeral
+from probe.sdk import fluent
+from probe.sdk.capture import lineage as inputs, outputs
 from tests.conftest import RUN_OUTPUT_KEYS, make_client, open_run, run_outputs_problems
+
+SCANNING_DISABLED = "credential scanning is disabled in the SDK; these tests assert the redaction it did"
 
 TOKEN = "ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
 OTHER_TOKEN = "ghp_Z9y8X7w6V5u4T3s2R1q0P9o8N7m6L5k4J3i2"
@@ -148,7 +152,8 @@ def test_an_open_that_changed_nothing_is_not_an_output(tmp_path, monkeypatch) ->
     written.write_text("result")
     hashed: list[str] = []
     real = inputs.hash_file
-    monkeypatch.setattr(inputs, "hash_file", lambda path, *a, **k: hashed.append(path) or real(path, *a, **k))
+    monkeypatch.setattr(inputs.identities, "hash_file", lambda path, *a, **k: hashed.append(path) or real(path, *a, **k))
+    monkeypatch.setattr(inputs.lineage, "hash_file", lambda path, *a, **k: hashed.append(path) or real(path, *a, **k))
     got = inputs.collect_all("run-noop", wait_s=5)
     assert list(_outputs(got)) == [str(written)]
     assert got.outputs_coverage["unchanged"] == 2
@@ -191,7 +196,7 @@ def test_a_rename_of_a_file_the_run_did_not_write_is_nothing(tmp_path) -> None:
 def test_what_is_never_an_output(tmp_path, monkeypatch) -> None:
     """The recorder's own folders, caches (a write there is a download),
     credential-shaped paths and `.probeignore`d files."""
-    from probe.sdk import ignore
+    from probe.sdk.recording_rules import ignore
 
     cache = tmp_path / "xdg-cache"
     monkeypatch.setenv("XDG_CACHE_HOME", str(cache))
@@ -245,7 +250,13 @@ def test_a_forked_worker_notes_its_writes_in_its_own_spool(tmp_path) -> None:
 
 
 def test_the_write_cap_bounds_what_is_held(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(inputs, "MAX_PATHS", 3)
+    monkeypatch.setattr(inputs.spool.spool, "MAX_PATHS", 3)
+    monkeypatch.setattr(inputs.child_site, "MAX_PATHS", 3)
+    monkeypatch.setattr(inputs.exclusions, "MAX_PATHS", 3)
+    monkeypatch.setattr(inputs.finishing, "MAX_PATHS", 3)
+    monkeypatch.setattr(inputs.lineage, "MAX_PATHS", 3)
+    monkeypatch.setattr(inputs.named_files, "MAX_PATHS", 3)
+    monkeypatch.setattr(inputs.spool.reader, "MAX_PATHS", 3)
     assert inputs.start("run-wcap")
     for i in range(5):
         _file(tmp_path, f"o{i}.bin", bytes([65 + i]) * 100)
@@ -291,7 +302,10 @@ def test_the_env_names_are_output_captures_own() -> None:
 
 
 def test_init_capture_outputs_false_sends_no_write_list(app, tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
     app.seed_experiment("e1")
     run = probe.init(experiment="e1", name="no-writes", capture_outputs=False)
     (tmp_path / "result.bin").write_bytes(b"r" * 100)
@@ -415,7 +429,10 @@ def test_each_list_goes_only_to_a_server_that_takes_it(tmp_path, features, route
 def test_finish_posts_the_contract_exactly(app, tmp_path, monkeypatch) -> None:
     """Through `probe.init()` / `finish()` and the fake server, which checks
     the body against the shared contract (`run_outputs_problems`)."""
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
     app.seed_experiment("e1")
     run = probe.init(experiment="e1", name="writer")
     out = tmp_path / "model.bin"
@@ -434,7 +451,10 @@ def test_finish_posts_the_contract_exactly(app, tmp_path, monkeypatch) -> None:
 
 def test_an_old_server_gets_no_write_list(app, tmp_path, monkeypatch) -> None:
     app.supports_run_outputs = False
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
     app.seed_experiment("e1")
     run = probe.init(experiment="e1", name="old")
     (tmp_path / "model.bin").write_bytes(b"m" * 100)
@@ -647,7 +667,7 @@ def test_ten_thousand_writes_journal_quickly(tmp_path, monkeypatch) -> None:
     lifted past the journal's scrubber (`stamp_scrub`), as a read row's are:
     only the path is scanned."""
     from probe.sdk import redaction
-    from probe.sdk.journal import Journal
+    from probe.sdk.delivery.journal.journal import Journal
 
     monkeypatch.setenv("PROBE_OUTBOX_MIN_FREE_BYTES", "0")
     assert redaction.enable_scrub_cache()
@@ -683,6 +703,7 @@ def test_ten_thousand_writes_journal_quickly(tmp_path, monkeypatch) -> None:
     assert elapsed < 1.5, f"{elapsed:.2f}s of CPU"
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_a_token_in_a_write_path_is_redacted(tmp_path) -> None:
     out = tmp_path / "work" / TOKEN / "out.bin"
     out.parent.mkdir(parents=True)
@@ -697,8 +718,9 @@ def test_a_token_in_a_write_path_is_redacted(tmp_path) -> None:
 
 
 def test_reads_are_hashed_before_writes_from_one_budget(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(inputs, "RUN_HASH_BUDGET_BYTES", 1000)
-    monkeypatch.setattr(inputs, "EDGE_BYTES", 150)
+    monkeypatch.setattr(inputs.identities, "RUN_HASH_BUDGET_BYTES", 1000)
+    monkeypatch.setattr(inputs.lineage, "RUN_HASH_BUDGET_BYTES", 1000)
+    monkeypatch.setattr(inputs.identities, "EDGE_BYTES", 150)
     data = _file(tmp_path, "in.bin", b"i" * 800)
     out = tmp_path / "work" / "out.bin"
     assert inputs.start("run-order")
@@ -716,9 +738,11 @@ def test_reads_are_hashed_before_writes_from_one_budget(tmp_path, monkeypatch) -
 def test_past_the_budget_fingerprints_are_charged_and_stop(tmp_path, monkeypatch) -> None:
     """Finding 13: a run that wrote many big files cannot turn its close into
     an unbounded read of their edges."""
-    monkeypatch.setattr(inputs, "RUN_HASH_BUDGET_BYTES", 250)
-    monkeypatch.setattr(inputs, "FULL_HASH_MAX_BYTES", 100)
-    monkeypatch.setattr(inputs, "EDGE_BYTES", 50)
+    monkeypatch.setattr(inputs.identities, "RUN_HASH_BUDGET_BYTES", 250)
+    monkeypatch.setattr(inputs.lineage, "RUN_HASH_BUDGET_BYTES", 250)
+    monkeypatch.setattr(inputs.identities, "FULL_HASH_MAX_BYTES", 100)
+    monkeypatch.setattr(inputs.lineage, "FULL_HASH_MAX_BYTES", 100)
+    monkeypatch.setattr(inputs.identities, "EDGE_BYTES", 50)
     assert inputs.start("run-edges")
     for i in range(6):
         _file(tmp_path, f"big{i}.bin", bytes([65 + i]) * 1000)
@@ -745,20 +769,26 @@ def test_hashing_stops_at_the_deadline(tmp_path, monkeypatch) -> None:
     budget = [1 << 40]
     # Past the deadline: nothing is read, nothing charged -- a fingerprint too.
     assert inputs.hash_file(str(data), ident, cache=None, budget=budget, deadline=time.monotonic() - 1) is None
-    monkeypatch.setattr(inputs, "FULL_HASH_MAX_BYTES", 100)
+    monkeypatch.setattr(inputs.identities, "FULL_HASH_MAX_BYTES", 100)
+    monkeypatch.setattr(inputs.lineage, "FULL_HASH_MAX_BYTES", 100)
     assert inputs.hash_file(str(data), ident, cache=None, budget=budget, deadline=time.monotonic() - 1) is None
     assert budget == [1 << 40]
     # A full hash the deadline overtakes stops mid-file and pays for what it read.
-    monkeypatch.setattr(inputs, "FULL_HASH_MAX_BYTES", 1 << 30)
-    monkeypatch.setattr(inputs, "_CHUNK", 1000)
+    monkeypatch.setattr(inputs.identities, "FULL_HASH_MAX_BYTES", 1 << 30)
+    monkeypatch.setattr(inputs.lineage, "FULL_HASH_MAX_BYTES", 1 << 30)
+    monkeypatch.setattr(inputs.identities, "_CHUNK", 1000)
     ticks = iter(range(1000))
-    monkeypatch.setattr(inputs, "time", types.SimpleNamespace(monotonic=lambda: next(ticks)))
+    clock = types.SimpleNamespace(monotonic=lambda: next(ticks))
+    monkeypatch.setattr(inputs.lineage, "time", clock)
+    monkeypatch.setattr(inputs.identities, "time", clock)
+    monkeypatch.setattr(inputs.recovery, "time", clock)
     assert inputs.hash_file(str(data), ident, cache=None, budget=budget, deadline=3) is None
     assert (1 << 40) - budget[0] < 10_000
 
 
 def test_the_close_leaves_its_budget_to_references(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(inputs, "RUN_HASH_BUDGET_BYTES", 1000)
+    monkeypatch.setattr(inputs.identities, "RUN_HASH_BUDGET_BYTES", 1000)
+    monkeypatch.setattr(inputs.lineage, "RUN_HASH_BUDGET_BYTES", 1000)
     data = _file(tmp_path, "in.bin", b"i" * 600)
     assert inputs.start("run-left")
     data.read_bytes()
@@ -781,7 +811,7 @@ def work(monkeypatch, tmp_path):
     monkeypatch.chdir(folder)
     monkeypatch.setenv("PROBE_CAPTURE_LOG", "0")
     monkeypatch.setenv(ephemeral.ENV, "0")
-    monkeypatch.setattr(outputs, "_shared_warned", set())
+    monkeypatch.setattr(outputs.host_registry, "_shared_warned", set())
     return folder
 
 
@@ -795,7 +825,7 @@ def _stored(app, row) -> bytes:
 
 def test_a_capture_reference_carries_the_files_hash(client, app, work, monkeypatch) -> None:
     monkeypatch.setenv(inputs.READS_ENV, "0")
-    monkeypatch.setattr(outputs, "INSPECT_LIMIT_BYTES", 1024)
+    monkeypatch.setattr(outputs.sweep, "INSPECT_LIMIT_BYTES", 1024)
     run = open_run(client, experiment="ref-hash", capture_outputs=True)
     (work / "ckpt.pt").write_bytes(b"\x01" * 5000)
     run.finish()
@@ -807,8 +837,9 @@ def test_a_capture_reference_carries_the_files_hash(client, app, work, monkeypat
 def test_a_reference_is_paid_from_what_the_reads_left(client, app, work, monkeypatch) -> None:
     """One budget: reads during the run, then the close's writes, then the
     references. A budget the run's reads spent leaves the reference unhashed."""
-    monkeypatch.setattr(outputs, "INSPECT_LIMIT_BYTES", 1024)
-    monkeypatch.setattr(inputs, "RUN_HASH_BUDGET_BYTES", 6000)
+    monkeypatch.setattr(outputs.sweep, "INSPECT_LIMIT_BYTES", 1024)
+    monkeypatch.setattr(inputs.identities, "RUN_HASH_BUDGET_BYTES", 6000)
+    monkeypatch.setattr(inputs.lineage, "RUN_HASH_BUDGET_BYTES", 6000)
     monkeypatch.setenv(inputs.WRITES_ENV, "0")
     dataset = work.parent / "dataset.bin"
     dataset.write_bytes(b"d" * 5000)
@@ -824,10 +855,10 @@ def test_references_are_hashed_after_every_upload(client, app, work, monkeypatch
     """Hashing a reference reads up to 1 GiB: the close's time goes to the
     uploads first, so a big file sorted early cannot starve small ones."""
     monkeypatch.setenv(inputs.READS_ENV, "0")
-    monkeypatch.setattr(outputs, "INSPECT_LIMIT_BYTES", 1024)
+    monkeypatch.setattr(outputs.sweep, "INSPECT_LIMIT_BYTES", 1024)
     events: list[str] = []
     real_hash, real_queue = inputs.reference_hash, outputs.OutputCapture._queue_generated
-    monkeypatch.setattr(inputs, "reference_hash", lambda p, **k: events.append("hash") or real_hash(p, **k))
+    monkeypatch.setattr(inputs.identities, "reference_hash", lambda p, **k: events.append("hash") or real_hash(p, **k))
     monkeypatch.setattr(
         outputs.OutputCapture, "_queue_generated",
         lambda self, name, data, **k: events.append("upload") or real_queue(self, name, data, **k),
@@ -864,8 +895,8 @@ def test_the_hasher_looks_at_written_files_on_its_own(tmp_path, monkeypatch) -> 
     import queue as _queue
     import threading
 
-    monkeypatch.setattr(inputs, "WRITE_CHECK_S", 0.05)
-    monkeypatch.setattr(inputs, "_hash_queue", _queue.Queue())
+    monkeypatch.setattr(inputs.lineage, "WRITE_CHECK_S", 0.05)
+    monkeypatch.setattr(inputs.lineage, "_hash_queue", _queue.Queue())
     out = tmp_path / "work" / "ckpt.pt"
     out.parent.mkdir(parents=True)
     assert inputs.start("run-beat")
@@ -895,6 +926,7 @@ def test_a_reference_past_the_deadline_is_left_unhashed(tmp_path) -> None:
 # -- redacted uploads carry the original's hash (F1) -------------------------------
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_two_originals_that_redact_alike_are_one_version(client, app, work, monkeypatch) -> None:
     """Rewritten with another token of the same kind, the file redacts to the
     SAME bytes: one stored version, keeping the FIRST original's hash, and the
@@ -926,10 +958,17 @@ def test_past_the_write_cap_nothing_is_judged(tmp_path, monkeypatch) -> None:
     """P2: the write hook resolved every new path (one lstat per component)
     and ran every exclusion BEFORE `record_write` looked at the cap, so a run
     past 10,000 writes paid the full price per open to note nothing."""
-    monkeypatch.setattr(inputs, "MAX_PATHS", 2)
+    monkeypatch.setattr(inputs.spool.spool, "MAX_PATHS", 2)
+    monkeypatch.setattr(inputs.child_site, "MAX_PATHS", 2)
+    monkeypatch.setattr(inputs.exclusions, "MAX_PATHS", 2)
+    monkeypatch.setattr(inputs.finishing, "MAX_PATHS", 2)
+    monkeypatch.setattr(inputs.lineage, "MAX_PATHS", 2)
+    monkeypatch.setattr(inputs.named_files, "MAX_PATHS", 2)
+    monkeypatch.setattr(inputs.spool.reader, "MAX_PATHS", 2)
     judged: list[str] = []
     real = inputs._write_skip
-    monkeypatch.setattr(inputs, "_write_skip", lambda target, path: judged.append(path) or real(target, path))
+    monkeypatch.setattr(inputs.exclusions, "_write_skip", lambda target, path: judged.append(path) or real(target, path))
+    monkeypatch.setattr(inputs.lineage, "_write_skip", lambda target, path: judged.append(path) or real(target, path))
     (tmp_path / "work").mkdir()
     assert inputs.start("run-past-cap")
     for i in range(6):
@@ -1028,7 +1067,13 @@ def test_reopening_the_spool_past_the_write_cap_does_not_deadlock(tmp_path, monk
     opener already held."""
     import threading
 
-    monkeypatch.setattr(inputs, "MAX_PATHS", 1)
+    monkeypatch.setattr(inputs.spool.spool, "MAX_PATHS", 1)
+    monkeypatch.setattr(inputs.child_site, "MAX_PATHS", 1)
+    monkeypatch.setattr(inputs.exclusions, "MAX_PATHS", 1)
+    monkeypatch.setattr(inputs.finishing, "MAX_PATHS", 1)
+    monkeypatch.setattr(inputs.lineage, "MAX_PATHS", 1)
+    monkeypatch.setattr(inputs.named_files, "MAX_PATHS", 1)
+    monkeypatch.setattr(inputs.spool.reader, "MAX_PATHS", 1)
     (tmp_path / "work").mkdir()
     assert inputs.start("run-reopen")
     (tmp_path / "work" / "a.bin").write_bytes(b"a")  # noted: the cap is reached

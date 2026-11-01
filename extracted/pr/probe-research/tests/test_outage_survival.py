@@ -18,9 +18,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from probe.sdk import journal as journal_mod
-from probe.sdk import outbox_worker
-from probe.sdk.journal import Journal, OutboxFull
+from probe.sdk.delivery import journal as journal_mod
+from probe.sdk.delivery import outbox as outbox_worker
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.journal.headroom import OutboxFull
 
 
 @pytest.fixture(autouse=True)
@@ -83,7 +84,8 @@ def test_the_queue_has_a_ceiling(tmp_path, monkeypatch):
     """`append_http` had no cap of any kind — no free-space floor, no count
     limit, no backpressure. The upload path's own comment says it best: a
     producer that outruns delivery makes filling the disk the STEADY STATE."""
-    monkeypatch.setattr(journal_mod, "MAX_PENDING_OPS", 5)
+    monkeypatch.setattr(journal_mod.headroom, "MAX_PENDING_OPS", 5)
+    monkeypatch.setattr(journal_mod.journal, "MAX_PENDING_OPS", 5)
     journal = Journal(tmp_path / "outbox")
     for _ in range(5):
         journal.append_http("POST", "/v1/x", {})
@@ -93,7 +95,8 @@ def test_the_queue_has_a_ceiling(tmp_path, monkeypatch):
 
 
 def test_a_refused_write_is_recorded_as_a_gap_not_silence(tmp_path, monkeypatch):
-    monkeypatch.setattr(journal_mod, "MAX_PENDING_OPS", 3)
+    monkeypatch.setattr(journal_mod.headroom, "MAX_PENDING_OPS", 3)
+    monkeypatch.setattr(journal_mod.journal, "MAX_PENDING_OPS", 3)
     journal = Journal(tmp_path / "outbox")
     journal.register_producer("sdk:test", role="sdk")
     for _ in range(3):
@@ -237,8 +240,8 @@ def _delivery_mechanism(client) -> str:
 
 
 def _client(tmp_path, **kw):
-    from probe.sdk.client import Client
-    from probe.sdk.config import Settings
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import Settings
 
     kw.setdefault("settings", Settings(base_url="https://example.invalid", token="probe_pat_x"))
     kw.setdefault("journal", Journal(tmp_path / "outbox"))
@@ -255,8 +258,8 @@ def test_no_configuration_queues_without_a_drainer(tmp_path):
     Enumerated rather than spot-checked: the bug survived because each case
     looked fine on its own.
     """
-    from probe.sdk.transport import Transport
-    from probe.sdk.config import Settings
+    from probe.sdk.delivery.transport.transport import Transport
+    from probe.sdk.settings.settings import Settings
 
     settings = Settings(base_url="https://example.invalid", token="probe_pat_x")
     cases = [
@@ -298,8 +301,8 @@ def test_an_injected_transport_without_a_drainer_says_so(tmp_path):
     not the configuration. Forcing one would start a background drain in every
     test using a fake transport and race their assertions.
     """
-    from probe.sdk.transport import Transport
-    from probe.sdk.config import Settings
+    from probe.sdk.delivery.transport.transport import Transport
+    from probe.sdk.settings.settings import Settings
 
     settings = Settings(base_url="https://example.invalid", token="probe_pat_x")
     with pytest.warns(UserWarning, match="no background drainer"):

@@ -19,13 +19,13 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import audit as audit_mod
-from probe.daemon import bite as bite_mod
-from probe.daemon import mailbox
+from probe.daemon.lanes import audit as audit_mod
+from probe.daemon.worker.bite import bite as bite_mod
+from probe.shared import mailbox
 from probe.daemon import store as store_mod
 from probe.daemon import worker as worker_mod
-from probe.daemon.adapters.claude_code import ClaudeCode
-from probe.daemon.events import READER_SOURCE, READER_STREAM, Event, Kind
+from probe.shared.harness.harnesses.claude_code.session_log import ClaudeCode
+from probe.shared.harness.events import READER_SOURCE, READER_STREAM, Event, Kind
 
 SID = "11111111-2222-3333-4444-555555555555"
 #: A chat stamp newer than every claim a test makes, so no claim waits (`_held`).
@@ -218,7 +218,8 @@ def test_a_log_made_again_is_read_from_its_start(env):
 
 
 def test_a_line_with_no_end_past_the_read_size_never_wedges_the_stream(env, monkeypatch):
-    monkeypatch.setattr(worker_mod, "READ_CHUNK_BYTES", 256)
+    monkeypatch.setattr(worker_mod.loop.reading, "READ_CHUNK_BYTES", 256)
+    monkeypatch.setattr(worker_mod.loop.inbox, "READ_CHUNK_BYTES", 256)
     w = worker_mod.Worker(env)
     w.read_new()
     log_path = mailbox.claim_log_path(SID)
@@ -233,7 +234,8 @@ def test_a_line_with_no_end_past_the_read_size_never_wedges_the_stream(env, monk
 def test_a_claim_is_placed_after_the_chat_lines_still_waiting(env, monkeypatch):
     """A backlog of chat is read a chunk a poll; a claim read in the meantime must
     not land before the later chat lines (in an earlier turn)."""
-    monkeypatch.setattr(worker_mod, "READ_CHUNK_BYTES", 200)
+    monkeypatch.setattr(worker_mod.loop.reading, "READ_CHUNK_BYTES", 200)
+    monkeypatch.setattr(worker_mod.loop.inbox, "READ_CHUNK_BYTES", 200)
     env.transcript.write_text(
         _line({"type": "user", "message": {"content": "turn one " + "a" * 120}, "timestamp": LATER})
         + _line({"type": "system", "subtype": "turn_duration"})

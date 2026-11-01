@@ -15,7 +15,7 @@ re-raising SIGINT. The fix hoists that import to module load time in
 client.py, well before any close can run.
 
 This must run in a REAL child process: every in-process test in this suite
-already imports ``probe._shared.telemetry`` itself (directly or via a
+already imports ``probe.analytics`` itself (directly or via a
 fixture), which would hide the bug. The child below imports nothing but
 ``probe`` and must not go through any test helper that pre-imports telemetry.
 """
@@ -34,7 +34,7 @@ _EXITED_BY_CTRL_C = 0xC000013A if sys.platform == "win32" else -signal.SIGINT
 
 _CHILD_SOURCE = """
 import sys
-assert "probe._shared.telemetry" not in sys.modules
+assert "probe.analytics" not in sys.modules
 import probe
 run = probe.init(experiment="e1", name="r1")
 run.log({"loss": 1.0}, step=0)

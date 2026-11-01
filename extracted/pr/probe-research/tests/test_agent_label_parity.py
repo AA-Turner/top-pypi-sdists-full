@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from probe.sdk import _telemetry_core as core
+from probe.analytics import core as core
 from probe.sdk import agent_session
 
 

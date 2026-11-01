@@ -3,7 +3,7 @@
 
 The daemon's reader writes messages to `<state>/probe/reads/messages/<sid>/`;
 this hook delivers them. It reads the SAME files with the SAME rules as
-`probe.daemon.mailbox` (it cannot import `probe`: stdlib only, Python 3.9), so
+`probe.shared.mailbox` (it cannot import `probe`: stdlib only, Python 3.9), so
 the few functions it needs are mirrored below and a parity test renders the
 same files through both.
 
@@ -56,7 +56,7 @@ import sys
 import time
 from pathlib import Path
 
-# Mirrors of `probe.daemon.mailbox` (the parity test pins them).
+# Mirrors of `probe.shared.mailbox` (the parity test pins them).
 HOLD_FRESH_S = 15.0
 ANSWER_TTL_S = 24 * 3600
 LABEL_QUESTION_CHARS = 120

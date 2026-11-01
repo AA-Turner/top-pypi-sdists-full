@@ -23,7 +23,7 @@ import warnings
 import pytest
 
 from probe.sdk import errors
-from probe.sdk.run import Run
+from probe.sdk.run.run import Run
 
 from tests.conftest import make_client
 from tests.test_outbox import seeded_run
@@ -283,12 +283,13 @@ def test_no_disk_headroom_uploads_synchronously_instead_of_queueing(
     is right at a command line and wrong beside a training loop. The SDK demands
     a staged op and does the work now rather than take something that references
     a file which may rotate under it."""
-    from probe.sdk import journal as journal_mod
+    from probe.sdk.delivery import journal as journal_mod
 
     run_id = seeded_run(app, tmp_path)
     client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True)
     run = Run(client, {"id": run_id})
-    monkeypatch.setattr(journal_mod, "MIN_FREE_BYTES", 1 << 60)  # nothing fits
+    monkeypatch.setattr(journal_mod.headroom, "MIN_FREE_BYTES", 1 << 60)  # nothing fits
+    monkeypatch.setattr(journal_mod.journal, "MIN_FREE_BYTES", 1 << 60)  # nothing fits
 
     result = run.log_artifact("ckpt", path=_ckpt(tmp_path))
 
@@ -311,7 +312,7 @@ def test_an_unstaged_op_is_never_queued(app, tmp_path, monkeypatch):
     assertion is the invariant itself, not the call count: whatever this queues,
     it is staged, or it is not queued at all.
     """
-    from probe.sdk import journal as journal_mod
+    from probe.sdk.delivery import journal as journal_mod
 
     run_id = seeded_run(app, tmp_path)
     client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True)
@@ -370,7 +371,7 @@ def test_a_rejected_queued_upload_still_records_a_reference(app, tmp_path):
     as a capture gap. The drainer had no such path, so a queued upload that was
     rejected left NO artifact row anywhere — a capability regression hiding
     inside the feature."""
-    from probe.sdk.journal import drain
+    from probe.sdk.delivery.outbox.drain.drain import drain
 
     run_id = seeded_run(app, tmp_path)
     client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True)

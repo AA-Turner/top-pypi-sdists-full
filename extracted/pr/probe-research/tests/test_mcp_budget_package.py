@@ -26,7 +26,7 @@ def distributions(tmp_path_factory):
     root = tmp_path_factory.mktemp("mcp-budget-dist")
     project = root / "project"
     project.mkdir()
-    for name in ("pyproject.toml", "README.md"):
+    for name in ("pyproject.toml", "README.md", "hatch_build.py"):
         shutil.copy2(_ROOT / name, project / name)
     for name in ("src", "skills"):
         shutil.copytree(_ROOT / name, project / name, ignore=shutil.ignore_patterns("__pycache__"))
@@ -107,7 +107,7 @@ from probe.mcp import budget
 assert Path(probe.__file__).is_relative_to(Path(sys.prefix)), probe.__file__
 assert budget._encoding is None
 assert 'tiktoken' not in sys.modules
-assets = Path(budget.__file__).parent / '_tokenizer'
+assets = Path(budget.__file__).parent / 'tokenizer'
 assert hashlib.sha256((assets / 'o200k_base.tiktoken').read_bytes()).hexdigest() == budget.VOCABULARY_SHA256
 assert hashlib.sha256((assets / 'o200k_base.json').read_bytes()).hexdigest() == budget.CONFIG_SHA256
 assert 'MIT License' in (assets / 'LICENSE').read_text()

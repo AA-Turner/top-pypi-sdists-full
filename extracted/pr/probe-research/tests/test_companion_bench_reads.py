@@ -300,8 +300,8 @@ def _session_line(obj: dict) -> bytes:
 
 def test_a_delivery_goes_into_the_transcript_as_claude_code_writes_it_and_the_real_adapter_reads_it(tmp_path):
     sys.path.insert(0, str(AGENT / "src"))
-    from probe.daemon.adapters.claude_code import PROBE_MESSAGE_PREFIX, ClaudeCode
-    from probe.daemon.mailbox import Message
+    from probe.shared.harness.harnesses.claude_code.session_log import PROBE_MESSAGE_PREFIX, ClaudeCode
+    from probe.shared.mailbox.mailbox import Message
 
     sid, now = "s1", time.time()
     d = rd.Deliverer(tmp_path, sid)
@@ -377,7 +377,7 @@ def test_the_bench_writes_each_delivery_right_after_the_line_whose_hook_delivere
 
 def test_scripted_asks_are_filed_with_the_real_mailbox_in_the_sandbox(tmp_path, monkeypatch):
     sys.path.insert(0, str(AGENT / "src"))
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "real-state"))
     lines = [_line("2026-09-24T03:33:28Z"), _line("2026-09-24T03:35:16Z")]
@@ -431,7 +431,7 @@ def test_the_readers_conversation_is_read_turn_by_turn():
 def test_the_store_is_read_while_the_run_goes_and_a_compaction_loses_nothing(tmp_path):
     pytest.importorskip("pydantic_ai")  # the daemon extra; the release gate runs without it
     sys.path.insert(0, str(AGENT / "src"))
-    from probe.daemon.store import Store
+    from probe.daemon.store.store import Store
 
     path = tmp_path / "s.sqlite"
     store = Store(path, clock=time.time)
@@ -728,7 +728,7 @@ def test_the_bench_turns_the_reader_on_through_the_workers_env_only():
 
     from probe.daemon import agent as agent_mod
 
-    from probe.daemon import local_commands
+    from probe.daemon.shell import local_commands
 
     # Today's tools load it natively; the `bash` tool set's `probe mcp call` connects the same way.
     assert "mcp_url(env.get(\"PROBE_BASE_URL\", \"\"))" in inspect.getsource(agent_mod._native_mcp)
@@ -739,7 +739,7 @@ def test_the_bench_turns_the_reader_on_through_the_workers_env_only():
 def test_the_deliverer_hands_one_more_unasked_message_per_window_of_a_long_turn(tmp_path):
     import json as _json
 
-    from probe.daemon.mailbox import UNASKED_WINDOW_S
+    from probe.shared.mailbox.poster import UNASKED_WINDOW_S
 
     from evals.companion.reads import Deliverer  # noqa: E402
 

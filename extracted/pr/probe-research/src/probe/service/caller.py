@@ -52,7 +52,7 @@ _SOL_LOCAL = 0
 _LOCAL_PEERPID = 2
 #: A parent walk stops here (a loop in a broken /proc, or pid 1).
 MAX_ANCESTRY = 64
-#: The hosted Probe API (`probe.sdk.config.DEFAULT_BASE_URL`), which every
+#: The hosted Probe API (`probe.sdk.settings.settings.DEFAULT_BASE_URL`), which every
 #: install may reach whatever its config says.
 DEFAULT_BASE_URL = "https://api.research.prbe.ai"
 #: A CLI config larger than this is not read (it is never this big).
@@ -201,7 +201,7 @@ def lineage(pid: int):
 
 
 #: What a coding agent's process is called (its kernel name or argv[0]), beside
-#: each harness's own binary and process title (`probe.harness`, `agent_names`):
+#: each harness's own binary and process title (`probe.foundation.harness_registry`, `agent_names`):
 #: pi titles its RPC mode `pi-rpc`.
 AGENT_NAMES = frozenset({"claude", "codex", "pi", "pi-rpc", "kimi", "kimi-code"})  # harness-literal-ok: the fallback when the registry cannot be read
 #: Where an agent an interpreter runs keeps its code (`node .../cli.js`): pi
@@ -216,7 +216,7 @@ def agent_names() -> frozenset:
     if _agent_names is None:
         names = set(AGENT_NAMES)
         try:
-            from probe.harness import get_registry
+            from probe.foundation.harness_registry import get_registry
 
             for harness in get_registry().all():
                 names.update(n for n in (harness.binary, harness.process_title) if n)
@@ -306,7 +306,7 @@ def environ(pid: int, names: frozenset) -> dict:
 
 
 def _config_path(env: dict) -> Path:
-    """The CLI config the child would read (`probe.sdk.config.config_path`),
+    """The CLI config the child would read (`probe.sdk.settings.settings.config_path`),
     with the child's exact environment (`children.child_env`: the service's,
     the request's context over it), so an empty value means what it means there."""
     child = {**os.environ, **env}
@@ -345,7 +345,7 @@ def known_endpoints(env: dict) -> set:
     """The endpoints the stored token may go to: the CURRENT context's base URL
     in the CLI config the child reads (a v1 flat file's own), else the hosted
     API. Only that context's token follows `PROBE_BASE_URL`
-    (`probe.sdk.config.resolve` -> `load_context`), so another context's
+    (`probe.sdk.settings.settings.resolve` -> `load_context`), so another context's
     address would receive a token signed in somewhere else."""
     hosted = {_normal(DEFAULT_BASE_URL)}
     try:
@@ -369,6 +369,6 @@ def known_endpoint(url: str, env: dict) -> bool:
     """May a child run with this base URL? Only https, and only the endpoint
     the CLI config the child reads is signed in to now (its current context's,
     or the hosted API when that names none): the config's stored token follows
-    `PROBE_BASE_URL` (`probe.sdk.config.resolve`), so any other address would
+    `PROBE_BASE_URL` (`probe.sdk.settings.settings.resolve`), so any other address would
     receive it."""
     return url.startswith("https://") and _normal(url) in known_endpoints(env)

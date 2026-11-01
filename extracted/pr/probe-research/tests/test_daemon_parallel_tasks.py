@@ -20,8 +20,11 @@ import time
 
 import pytest
 
-from probe.daemon import approvals as appr, lease, local_commands, tools, toolset
-from probe.daemon.store import Store
+from probe.shared.mailbox import approvals as appr
+from probe.daemon.host import lease
+from probe.daemon.shell import local_commands
+from probe.daemon.agent import tools, toolset
+from probe.daemon.store.store import Store
 
 pytest.importorskip("pydantic_ai")  # the daemon extra; agent-ci runs without it
 
@@ -29,6 +32,9 @@ from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, ToolCall
 from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
 from probe.daemon import agent as agent_mod  # noqa: E402
+import probe.daemon.agent.guards  # noqa: F401 -- a piece read through its lazy door: loaded here, whatever ran first
+import probe.daemon.agent.state  # noqa: F401 -- a piece read through its lazy door: loaded here, whatever ran first
+import probe.daemon.agent.tasks  # noqa: F401 -- a piece read through its lazy door: loaded here, whatever ran first
 
 DAEMON_TOOLS = "bash"
 SID = "11111111-2222-3333-4444-555555555555"
@@ -44,7 +50,7 @@ def _state(tmp_path, monkeypatch):
 
 
 def _deps(tmp_path, *, reader: bool = False) -> tools.Deps:
-    from probe.daemon.folders import note_dirs
+    from probe.daemon.session.session import note_dirs
 
     work = tmp_path / "work"
     work.mkdir(parents=True, exist_ok=True)
@@ -174,7 +180,7 @@ def test_reads_of_one_response_run_together(tmp_path, monkeypatch):
         await asyncio.wait_for(every.wait(), 5)
         return f"[exit 0]\n{command}"
 
-    monkeypatch.setattr(tools, "shell", shell)
+    monkeypatch.setattr(tools.bash.bash, "shell", shell)
     result, _ = _run_writer(deps, [_calls("cat a.txt", "cat b.txt", "ls")])
     assert sorted(started) == ["cat a.txt", "cat b.txt", "ls"]
     assert _returns(result) == {"c0": "[exit 0]\ncat a.txt", "c1": "[exit 0]\ncat b.txt", "c2": "[exit 0]\nls"}
@@ -183,7 +189,7 @@ def test_reads_of_one_response_run_together(tmp_path, monkeypatch):
 def test_a_write_runs_alone_in_the_models_order(tmp_path, monkeypatch):
     deps = _deps(tmp_path)
     fake = _Shell()
-    monkeypatch.setattr(tools, "shell", fake)
+    monkeypatch.setattr(tools.bash.bash, "shell", fake)
     w1, w2 = "probe project create one", "probe project create two"
     _run_writer(deps, [_calls("cat a.txt", "cat b.txt", w1, "ls", w2, "cat c.txt", "cat d.txt")])
     # The reads before the first write ran together, and it waited for both.
@@ -201,7 +207,7 @@ def test_a_write_runs_alone_in_the_models_order(tmp_path, monkeypatch):
 def test_a_write_waits_for_an_earlier_write(tmp_path, monkeypatch):
     deps = _deps(tmp_path)
     fake = _Shell(seconds=0.1)
-    monkeypatch.setattr(tools, "shell", fake)
+    monkeypatch.setattr(tools.bash.bash, "shell", fake)
     w1, w2, w3 = "probe project create a", "probe experiment create b --project a", "probe run move r --to b"
     _run_writer(deps, [_calls(w1, w2, w3)])
     assert [c for w, c, _ in fake.log] == [w1, w1, w2, w2, w3, w3]
@@ -211,7 +217,7 @@ def test_a_write_waits_for_an_earlier_write(tmp_path, monkeypatch):
 def test_reads_run_at_most_four_at_once(tmp_path, monkeypatch):
     deps = _deps(tmp_path)
     fake = _Shell(seconds=0.1)
-    monkeypatch.setattr(tools, "shell", fake)
+    monkeypatch.setattr(tools.bash.bash, "shell", fake)
     _run_writer(deps, [_calls(*(f"cat f{i}.txt" for i in range(7)))])
     assert fake.peak == agent_mod.PARALLEL_READS == 4
     assert len([1 for w, *_ in fake.log if w == "end"]) == 7
@@ -220,7 +226,7 @@ def test_reads_run_at_most_four_at_once(tmp_path, monkeypatch):
 def test_a_failed_or_refused_call_cancels_no_sibling(tmp_path, monkeypatch):
     deps = _deps(tmp_path)
     fake = _Shell(fail="cat b.txt")
-    monkeypatch.setattr(tools, "shell", fake)
+    monkeypatch.setattr(tools.bash.bash, "shell", fake)
     # One raises inside the tool, one is refused by the checker (real shell: `rm` is held, not run).
     result, _ = _run_writer(deps, [_calls("cat a.txt", "cat b.txt", "cat c.txt")])
     out = _returns(result)
@@ -250,7 +256,7 @@ def test_identical_calls_of_one_response_keep_their_order_for_the_loop_detector(
         await asyncio.sleep(0.01)
         return "[exit 1]\nno such file"
 
-    monkeypatch.setattr(tools, "shell", shell)
+    monkeypatch.setattr(tools.bash.bash, "shell", shell)
     result, state = _run_writer(deps, [_calls(*["cat missing.txt"] * 4)])
     assert len(ran) == 3
     assert state.detector.tripped and "3 times" in state.detector.tripped
@@ -266,7 +272,7 @@ def test_alike_refusals_of_one_round_count_once_for_the_loop_detector(tmp_path, 
         await asyncio.sleep(0.01)
         return f"not run: {command.split()[-1]} is outside the working folders"
 
-    monkeypatch.setattr(tools, "shell", shell)
+    monkeypatch.setattr(tools.bash.bash, "shell", shell)
     _, state = _run_writer(deps, [_calls("cat /x/1/a", "cat /x/2/a", "cat /x/3/a")])
     assert state.detector.tripped is None
     _, state = _run_writer(deps, [_calls("cat /x/1/a"), _calls("cat /x/2/a"), _calls("cat /x/3/a")])
@@ -283,7 +289,7 @@ def test_a_write_beside_final_result_that_did_not_land_still_sends_the_run_back(
             return "[exit 1]\nerror: 500"
         return "[exit 0]\nok"
 
-    monkeypatch.setattr(tools, "shell", shell)
+    monkeypatch.setattr(tools.bash.bash, "shell", shell)
 
     def fn(messages, info):
         seen.append(messages[-1])
@@ -302,7 +308,7 @@ def test_a_call_that_fails_validation_holds_up_no_other(tmp_path, monkeypatch):
     it do not wait for it."""
     deps = _deps(tmp_path)
     fake = _Shell()
-    monkeypatch.setattr(tools, "shell", fake)
+    monkeypatch.setattr(tools.bash.bash, "shell", fake)
     bad = ToolCallPart("bash", {"command": "probe project create a", "extra": 1}, tool_call_id="bad")
     started = time.monotonic()
     result, _ = _run_writer(deps, [[bad, *_calls("cat a.txt", "probe project create b")]])
@@ -314,7 +320,7 @@ def test_the_switch_runs_every_call_alone_in_order(tmp_path, monkeypatch):
     monkeypatch.setenv(toolset.PARALLEL_ENV, "0")
     deps = _deps(tmp_path)
     fake = _Shell()
-    monkeypatch.setattr(tools, "shell", fake)
+    monkeypatch.setattr(tools.bash.bash, "shell", fake)
     _run_writer(deps, [_calls("cat a.txt", "cat b.txt", "ls")])
     assert fake.peak == 1
     assert [c for w, c, _ in fake.log if w == "start"] == ["cat a.txt", "cat b.txt", "ls"]
@@ -322,7 +328,7 @@ def test_the_switch_runs_every_call_alone_in_order(tmp_path, monkeypatch):
 
 def test_the_reader_and_the_audit_order_their_calls_too(tmp_path, monkeypatch):
     fake = _Shell(seconds=0.1)
-    monkeypatch.setattr(tools, "shell", fake)
+    monkeypatch.setattr(tools.bash.bash, "shell", fake)
     deps = _deps(tmp_path, reader=True)
     reader = agent_mod.build_reader_agent(
         "i", model=FunctionModel(lambda m, info: ModelResponse(parts=_calls(*(f"cat r{i}" for i in range(6))))
@@ -331,7 +337,7 @@ def test_the_reader_and_the_audit_order_their_calls_too(tmp_path, monkeypatch):
     asyncio.run(reader.run("go", deps=deps))
     assert fake.peak == 4, "the reader's calls run together, four at most"
     fake2 = _Shell()
-    monkeypatch.setattr(tools, "shell", fake2)
+    monkeypatch.setattr(tools.bash.bash, "shell", fake2)
     audit_state = agent_mod.AuditState(started=time.monotonic(), evidence=1)
     audit = agent_mod.build_audit_agent(
         "i", model=FunctionModel(lambda m, info: ModelResponse(parts=_calls("cat a", "cat b", "touch c", "cat d"))
@@ -487,7 +493,7 @@ def test_a_task_starts_no_task(tmp_path):
 
 
 def test_a_task_out_of_rounds_is_told_to_answer_then_cut(tmp_path, monkeypatch):
-    monkeypatch.setattr(agent_mod, "TASK_ROUNDS", 3)
+    monkeypatch.setattr(agent_mod.tasks, "TASK_ROUNDS", 3)
     deps = _deps(tmp_path)
     (deps.cwd / "a.txt").write_text("x\n")
     said: list = []
@@ -508,8 +514,8 @@ def test_a_task_out_of_rounds_is_told_to_answer_then_cut(tmp_path, monkeypatch):
 
 
 def test_a_task_out_of_time_is_cut(tmp_path, monkeypatch):
-    monkeypatch.setattr(agent_mod, "TASK_WALL_S", 0.2)
-    monkeypatch.setattr(agent_mod, "TASK_GRACE_S", 0.3)
+    monkeypatch.setattr(agent_mod.tasks, "TASK_WALL_S", 0.2)
+    monkeypatch.setattr(agent_mod.tasks, "TASK_GRACE_S", 0.3)
     deps = _deps(tmp_path)
 
     async def child(messages, info):
@@ -527,7 +533,7 @@ def test_a_task_out_of_time_is_cut(tmp_path, monkeypatch):
 def test_a_runs_task_budget_is_per_run_and_refused_with_what_to_do(tmp_path, monkeypatch):
     """One task's hold (TASK_TOKENS_CUT) fits; once it spent anything, a second's does not."""
     cap = agent_mod.TASK_TOKENS_CUT + 1
-    monkeypatch.setattr(agent_mod, "TASK_RUN_TOKENS", cap)
+    monkeypatch.setattr(agent_mod.state, "TASK_RUN_TOKENS", cap)
     deps = _deps(tmp_path)
     state = agent_mod.RunState()
     model = _task_model([_calls('probe daemon task "one"'), _calls('probe daemon task "two"')],
@@ -726,8 +732,8 @@ def test_a_tasks_tokens_never_count_against_the_bites_token_limit(tmp_path):
 def test_at_most_two_tasks_of_a_run_run_at_once(tmp_path, monkeypatch):
     """Item 3: a semaphore of the run's own (not CallOrder's). The budget fits three,
     so the slots are what holds the third back."""
-    monkeypatch.setattr(agent_mod, "TASK_RUN_TOKENS", 10 * agent_mod.TASK_TOKENS_CUT)
-    monkeypatch.setattr(agent_mod, "TASK_RUN_USD", 10.0)
+    monkeypatch.setattr(agent_mod.state, "TASK_RUN_TOKENS", 10 * agent_mod.TASK_TOKENS_CUT)
+    monkeypatch.setattr(agent_mod.state, "TASK_RUN_USD", 10.0)
     deps = _deps(tmp_path)
     running = {"now": 0, "peak": 0}
 
@@ -751,7 +757,7 @@ def test_tasks_started_together_cannot_overshoot_the_runs_budget(tmp_path, monke
     """Item 4: a running task holds back its share; a second that does not fit beside
     it is refused at its start, before either has spent anything."""
     cap = int(agent_mod.TASK_TOKENS_CUT * 1.5)
-    monkeypatch.setattr(agent_mod, "TASK_RUN_TOKENS", cap)
+    monkeypatch.setattr(agent_mod.state, "TASK_RUN_TOKENS", cap)
     deps = _deps(tmp_path)
 
     async def child(messages, info):
@@ -771,7 +777,7 @@ def test_tasks_started_together_cannot_overshoot_the_runs_budget(tmp_path, monke
 def test_a_task_runs_nothing_bypass_mode_would_let_through(tmp_path):
     """Item 5: a task's deps run nothing but reads at run time, whatever its own
     `bash` decided, and bypass mode lets no `cd` out of the working folders."""
-    from probe.daemon.folders import note_dirs
+    from probe.daemon.session.session import note_dirs
 
     deps = _deps(tmp_path)
     deps.bypass = True
@@ -799,7 +805,7 @@ def test_a_write_waits_for_an_earlier_accepted_call_however_late_it_arrives(tmp_
     """Item 7: no ARRIVAL_S give-up: the second write never starts before the first."""
     from types import SimpleNamespace
 
-    monkeypatch.setattr(agent_mod, "ARRIVAL_S", 0.05)
+    monkeypatch.setattr(agent_mod.guards, "ARRIVAL_S", 0.05)
     deps = _deps(tmp_path)
     order = agent_mod.CallOrder()
     first, second = _calls("probe project create a", "probe project create b")
@@ -822,7 +828,7 @@ def test_a_write_waits_for_an_earlier_accepted_call_however_late_it_arrives(tmp_
 
 def test_a_tasks_answer_is_scrubbed_before_it_is_cut(tmp_path, monkeypatch):
     """Item 8: a cut through a credential leaves a piece no scrub recognizes."""
-    monkeypatch.setattr(agent_mod, "TASK_ANSWER_CHARS", 100)
+    monkeypatch.setattr(agent_mod.tasks, "TASK_ANSWER_CHARS", 100)
     key = "sk-proj-" + "Ab3dE5gH7jK9mN1pQ3sT5vX7zB9dF1hJ3lN5pR7tV9xZ"
     deps = _deps(tmp_path)
     answer = "x" * 70 + " " + key
@@ -865,7 +871,7 @@ def test_a_tasks_text_cannot_forge_the_end_of_its_block(tmp_path, forged):
 def test_a_task_never_holds_a_team_note_write(tmp_path):
     """Re-review 2: `shell()` routes a team-note heredoc to its question before the
     shell checks; a task is refused before that."""
-    from probe.daemon.folders import note_dirs
+    from probe.daemon.session.session import note_dirs
 
     deps = _deps(tmp_path)
     folder = note_dirs()[-1]
@@ -879,7 +885,7 @@ def test_a_task_never_holds_a_team_note_write(tmp_path):
 def test_a_task_spends_at_most_its_share_then_sends_no_round(tmp_path, monkeypatch):
     """Re-review 3: priced round by round, a task is told to answer at 80% of its
     share and sends no round past all of it (it never answers here)."""
-    from probe.daemon import usage as usage_mod
+    from probe.daemon.agent.model import usage as usage_mod
 
     monkeypatch.setattr(usage_mod, "response_cost", lambda response: 0.1)
     deps = _deps(tmp_path)
@@ -923,8 +929,8 @@ def test_a_call_waiting_on_one_that_never_started_is_not_run(tmp_path, monkeypat
 
     from pydantic_ai.exceptions import SkipToolExecution
 
-    monkeypatch.setattr(agent_mod, "ARRIVAL_S", 0.02)
-    monkeypatch.setattr(agent_mod, "NEVER_STARTED_S", 0.1)
+    monkeypatch.setattr(agent_mod.guards, "ARRIVAL_S", 0.02)
+    monkeypatch.setattr(agent_mod.guards, "NEVER_STARTED_S", 0.1)
     deps = _deps(tmp_path)
     order = agent_mod.CallOrder()
     first, second = _calls("probe project create a", "probe project create b")
@@ -947,7 +953,8 @@ def test_a_tasks_help_of_a_write_runs_as_a_read(tmp_path, monkeypatch):
     async def fake(d, argv, op_id, *, cwd=None):
         return tools.ProbeResult(0, "usage: probe project create NAME\n")
 
-    monkeypatch.setattr(tools, "run_probe_process", fake)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", fake)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", fake)
     out = asyncio.run(tools.shell(tools.task_deps(deps), "probe project create --help", "t"))
     assert out.startswith("[exit 0]\nusage: probe project create")
     assert deps.store.db.execute("SELECT count(*) FROM writes").fetchone()[0] == 0
@@ -990,7 +997,7 @@ def test_a_third_task_waits_for_a_slot_and_runs_once_the_first_two_end_cheaply(t
 def test_a_task_told_to_answer_gets_its_answer_round_even_past_its_share(tmp_path, monkeypatch):
     """Final review 1: one round costing more than the gap between the warning (80%)
     and the cap (100%) crosses both; the answer round is still sent, and only it."""
-    from probe.daemon import usage as usage_mod
+    from probe.daemon.agent.model import usage as usage_mod
 
     monkeypatch.setattr(usage_mod, "response_cost", lambda response: 0.3)
     deps = _deps(tmp_path)
@@ -1024,11 +1031,11 @@ def test_a_task_told_to_answer_gets_its_answer_round_even_past_its_share(tmp_pat
 def test_a_write_waits_for_an_earlier_read_that_runs_past_the_never_started_limit(tmp_path, monkeypatch):
     """Final review 4: NEVER_STARTED_S bounds only a call that never STARTED; a write
     behind a slow read that did start waits for it, then runs."""
-    monkeypatch.setattr(agent_mod, "ARRIVAL_S", 0.02)
-    monkeypatch.setattr(agent_mod, "NEVER_STARTED_S", 0.1)
+    monkeypatch.setattr(agent_mod.guards, "ARRIVAL_S", 0.02)
+    monkeypatch.setattr(agent_mod.guards, "NEVER_STARTED_S", 0.1)
     deps = _deps(tmp_path)
     fake = _Shell(seconds=0.3)  # every call 0.3 s: past NEVER_STARTED_S
-    monkeypatch.setattr(tools, "shell", fake)
+    monkeypatch.setattr(tools.bash.bash, "shell", fake)
     result, _ = _run_writer(deps, [_calls("cat slow.txt", "probe project create x")])
     assert fake.at("start", "probe project create x") >= fake.at("end", "cat slow.txt")
     assert _returns(result)["c1"] == "[exit 0]\nran probe project create x"

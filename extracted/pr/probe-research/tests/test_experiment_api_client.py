@@ -628,8 +628,8 @@ def test_the_daemon_s_api_client_sends_the_cli_pair():
     import asyncio
 
     from probe import __version__
-    from probe.client_headers import client_version_headers
-    from probe.daemon import probe_api
+    from probe.foundation.request_identity.request_identity import client_version_headers
+    from probe.daemon.session import probe_api
 
     async def headers() -> dict:
         async with await probe_api._client({"PROBE_TOKEN": "t"}) as client:
@@ -646,7 +646,7 @@ def test_the_daemon_s_api_client_sends_the_cli_pair():
 
 
 def test_the_mcp_lists_a_project_s_experiments_through_the_experiment_api():
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.source.source import ResearchOSSource
 
     client, rec = _client(
         {
@@ -661,7 +661,7 @@ def test_the_mcp_lists_a_project_s_experiments_through_the_experiment_api():
 
 
 def test_the_mcp_reads_an_experiment_document_from_the_experiment_detail():
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.source.source import ResearchOSSource
 
     client, rec = _client(
         {("GET", f"/v1/projects/{P}/experiments/{E}"): _detail(document="# Plan")}
@@ -780,7 +780,7 @@ def test_the_cli_looks_in_the_active_project_first(app, tmp_path, monkeypatch):
 
 def test_backfill_counts_every_experiment_page():
     from probe.cli.backfill import count_landed
-    from probe.sdk.transport import Page
+    from probe.sdk.delivery.transport.transport import Page
 
     class Stub:
         def __init__(self):
@@ -912,7 +912,7 @@ def test_a_404_on_a_fresh_placement_is_not_retried():
 
 
 def test_child_writes_are_the_experiment_api_s():
-    from probe.sdk.client import Anchor
+    from probe.sdk.artifact.anchors import Anchor
 
     group = {"id": "g1", "experiment_id": E, "project_id": P, "name": "g", "kind": "sweep",
              "notes": None}
@@ -1002,7 +1002,7 @@ def test_the_detail_carries_the_document_and_the_notes_headroom():
 
 
 def _reader(routes):
-    from probe.sdk.reader import Reader
+    from probe.sdk.reads.reads import Reader
 
     client, rec = _client(routes)
     return Reader(client.transport), rec
@@ -1054,7 +1054,7 @@ def test_the_reader_walks_every_project_without_one():
 
 
 def test_offline_replay_starts_its_run_under_the_experiment_s_project(app):
-    from probe.sdk import offline
+    from probe.sdk.delivery import offline
 
     client = make_client(app)
     exp = app.seed_experiment("offline-exp")
@@ -1065,7 +1065,7 @@ def test_offline_replay_starts_its_run_under_the_experiment_s_project(app):
 def test_the_daemon_retries_experiment_writes_again():
     """The server's Idempotency-Key allowlist names the experiment API's
     writes since X21, so these commands are retried with their key again."""
-    from probe.daemon.tools import IDEMPOTENT_COMMANDS
+    from probe.daemon.agent.tools.probe_cli.process import IDEMPOTENT_COMMANDS
 
     assert {"experiment create", "experiment set", "experiment move"} <= IDEMPOTENT_COMMANDS
 
@@ -1076,8 +1076,8 @@ def test_the_mcp_reads_a_saved_experiment_note_version_on_the_experiment_api():
     under the project the experiment row names -- not the leaf door."""
     import hashlib
 
-    from probe.mcp.delivery_context import delivery_context
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.delivery.context import delivery_context
+    from probe.mcp.source.source import ResearchOSSource
 
     body = "the notes as they were"
     client, rec = _client(
@@ -1185,7 +1185,7 @@ def test_a_queued_experiment_write_needs_no_network_and_is_placed_at_drain():
     """Under async writes a manifest mint, a notes write and a sub-note write
     are QUEUED: by the experiment alone (`/v1/projects/~/experiments/{E}/...`),
     with no request -- not even the scope lookup -- and a drain places them."""
-    from probe.sdk.journal import drain
+    from probe.sdk.delivery.outbox.drain.drain import drain
 
     client, rec = _async_client({})
     client.experiment_version(E, label="v1")
@@ -1219,7 +1219,7 @@ def test_a_queued_experiment_write_needs_no_network_and_is_placed_at_drain():
 def test_a_write_queued_with_its_project_is_journaled_by_the_experiment():
     """A sync write that fell back to the queue (fail-open) was sent with its
     project; the journal still files it by the experiment alone."""
-    from probe.sdk.journal import unplaced_experiment_path
+    from probe.sdk.delivery.ops.ops import unplaced_experiment_path
 
     assert unplaced_experiment_path(f"{_BASE}/versions") == f"/v1/projects/~/experiments/{E}/versions"
     assert unplaced_experiment_path(_BASE) == f"/v1/projects/~/experiments/{E}"
@@ -1253,7 +1253,7 @@ def test_a_placement_by_the_detail_read_serves_the_child_routes():
 
 
 def test_list_anchored_takes_the_experiment_s_project():
-    from probe.sdk.client import Anchor
+    from probe.sdk.artifact.anchors import Anchor
 
     client, rec = _client({("GET", f"{_BASE}/artifacts"): []})
     client.list_anchored(Anchor.EXPERIMENT, E, project_id=P, limit=5)

@@ -1,10 +1,11 @@
 """Tests for COCO utility functions and classes."""
 
-from __future__ import annotations
-
 import os
 import shutil
+from pathlib import Path
 from typing import Any
+
+import pytest
 
 from sahi.logger import logger
 from sahi.utils.coco import merge, update_categories
@@ -385,6 +386,40 @@ class TestCocoUtils:
         coco = Coco.from_coco_dict_or_path(coco_dict_path, image_dir=image_dir)
         coco.export_as_yolo(output_dir=output_dir, train_split_rate=0.5, numpy_seed=0)
 
+    @pytest.mark.parametrize("output_name", ["export", "export.jpg"])
+    @pytest.mark.parametrize(
+        ("file_name", "expected_labels"),
+        [
+            ("photo.jpg", ["photo.txt", "photo_2.txt"]),
+            ("photo.jpg.backup.jpg", ["photo.jpg.backup.txt", "photo.jpg.backup_2.txt"]),
+        ],
+    )
+    def test_yolo_labels_replace_only_the_image_suffix(
+        self, tmp_path: Path, output_name: str, file_name: str, expected_labels: list[str]
+    ) -> None:
+        """Keep directory and stem names intact, including after duplicate-image renaming."""
+        from PIL import Image
+
+        from sahi.utils.coco import CocoAnnotation, CocoImage, export_single_yolo_image_and_corresponding_txt
+
+        source = tmp_path / file_name
+        Image.new("RGB", (100, 100)).save(source)
+        output = tmp_path / output_name
+        output.mkdir()
+        image = CocoImage(file_name=str(source), height=100, width=100)
+        image.add_annotation(CocoAnnotation(bbox=[10, 20, 30, 40], category_id=0))
+
+        for _ in range(2):
+            export_single_yolo_image_and_corresponding_txt(image, str(tmp_path), str(output), disable_symlink=True)
+
+        expected_images = [Path(label).with_suffix(".jpg").name for label in expected_labels]
+        assert sorted(path.name for path in output.iterdir()) == sorted(expected_images + expected_labels)
+        for label, image_name in zip(expected_labels, expected_images):
+            values = (output / label).read_text().split()
+            assert values[0] == "0"
+            assert [float(value) for value in values[1:]] == pytest.approx([0.25, 0.4, 0.3, 0.4])
+            assert (output / image_name).read_bytes() == source.read_bytes()
+
     def test_update_categories(self) -> None:
         """Test updating categories in COCO dataset."""
         coco_path = "tests/data/coco_utils/terrain2_coco.json"
@@ -601,6 +636,40 @@ class TestCocoUtils:
             == int(coco.stats["num_negative_images"] / SUBSAMPLE_RATIO) + 1
         )
 
+    @pytest.mark.parametrize(
+        ("category_id", "expected_indices"),
+        [
+            (0, [0, 1, 3, 4, 5]),
+            (1, [0, 1, 2, 4, 5]),
+            (None, [0, 2, 4]),
+            (-1, [0, 1, 2, 3, 4]),
+            (2, [0, 1, 2, 3, 4, 5]),
+        ],
+    )
+    def test_get_subsampled_coco_preserves_other_categories(
+        self, category_id: int | None, expected_indices: list[int]
+    ) -> None:
+        """Subsample only the requested category, including category zero and negative samples."""
+        from sahi.utils.coco import Coco, CocoAnnotation, CocoCategory, CocoImage
+
+        coco = Coco()
+        for cid in (0, 1):
+            coco.add_category(CocoCategory(id=cid, name=f"class_{cid}"))
+        for index, image_category_id in enumerate((0, 1, 0, 1, None, None)):
+            image = CocoImage(file_name=f"{index}.jpg", height=100, width=100)
+            if image_category_id is not None:
+                image.add_annotation(
+                    CocoAnnotation(
+                        bbox=[10, 10, 20, 20], category_id=image_category_id, category_name=f"class_{image_category_id}"
+                    )
+                )
+            coco.add_image(image)
+
+        subsampled = coco.get_subsampled_coco(subsample_ratio=2, category_id=category_id)
+
+        assert sorted(image.file_name for image in subsampled.images) == [f"{index}.jpg" for index in expected_indices]
+        assert [image.file_name for image in coco.images] == [f"{index}.jpg" for index in range(6)]
+
     def test_get_upsampled_coco(self) -> None:
         """Test upsampling COCO dataset by ratio and category."""
         from sahi.utils.coco import Coco
@@ -796,6 +865,34 @@ class TestCocoUtils:
             get_coco_dict(), remapping_dict=remapping_dict, clip_bboxes_to_img_dims=True
         )
         assert clipped_coco.json_categories == coco.json_categories
+
+    def test_coco_keeps_iscrowd(self) -> None:
+        """Test that crowd annotations stay crowd annotations when loaded, clipped and exported."""
+        from sahi.utils.coco import Coco
+
+        def get_coco_dict() -> dict:
+            return {
+                "images": [{"id": 1, "file_name": "a.jpg", "height": 100, "width": 100}],
+                "categories": [{"id": 1, "name": "person"}],
+                "annotations": [
+                    {"id": 1, "image_id": 1, "category_id": 1, "bbox": [0, 0, 10, 10], "segmentation": []},
+                    {
+                        "id": 2,
+                        "image_id": 1,
+                        "category_id": 1,
+                        "bbox": [20, 20, 30, 30],
+                        "segmentation": [],
+                        "iscrowd": 1,
+                    },
+                ],
+            }
+
+        coco = Coco.from_coco_dict_or_path(get_coco_dict())
+        assert [annotation.iscrowd for annotation in coco.images[0].annotations] == [0, 1]
+        assert [annotation["iscrowd"] for annotation in coco.json["annotations"]] == [0, 1]
+
+        clipped_coco = Coco.from_coco_dict_or_path(get_coco_dict(), clip_bboxes_to_img_dims=True)
+        assert [annotation["iscrowd"] for annotation in clipped_coco.json["annotations"]] == [0, 1]
 
     def test_remove_invalid_coco_results_short_bbox(self) -> None:
         from sahi.utils.coco import remove_invalid_coco_results

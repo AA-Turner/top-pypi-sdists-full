@@ -20,7 +20,7 @@ import json
 import httpx
 from mcp.server.transport_security import TransportSecuritySettings
 
-from probe.mcp.server import create_server
+from probe.mcp.server.server import create_server
 
 _OPEN = TransportSecuritySettings(
     enable_dns_rebinding_protection=False, allowed_hosts=["*"], allowed_origins=["*"]

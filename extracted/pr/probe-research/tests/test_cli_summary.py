@@ -16,7 +16,7 @@ import httpx
 import pytest
 
 from probe import cli
-from probe.cli import summary_cli
+from probe.shared.notes import summary as summary_cli
 from tests.conftest import make_client
 
 SID_A = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa"
@@ -633,7 +633,7 @@ def test_a_draft_from_another_server_is_never_pushed(server, capsys, monkeypatch
 
 
 def test_a_refused_key_reaches_main_in_the_daemons_words(server, capsys, monkeypatch):
-    from probe.sdk.key_refusal import KEY_REFUSED_LINE
+    from probe.sdk.settings.key_refusal import KEY_REFUSED_LINE
 
     _session(monkeypatch, SID_A)
     path = Path(_checkout(capsys, "--project", "p")["path"])
@@ -729,7 +729,7 @@ def test_a_set_never_moves_the_remembered_tables_version_backwards(server, capsy
 def test_a_push_follow_rechecks_the_tables_version_under_the_lock(server, capsys, monkeypatch):
     """The push's follow writes only if the version it saw is still remembered
     once it holds the lock: a set that moved it in between is not undone."""
-    from probe.cli import summary_cli
+    from probe.shared.notes import summary as summary_cli
 
     _session(monkeypatch, SID_A)
     capsys.readouterr()
@@ -738,8 +738,8 @@ def test_a_push_follow_rechecks_the_tables_version_under_the_lock(server, capsys
     meta = draft.with_name(f"{draft.stem}.meta.json")
     seen = iter([0, 4])  # outside the lock: still v0; inside: a set has moved it to v4
     real = summary_cli._remembered_visuals_version
-    monkeypatch.setattr(summary_cli, "_remembered_visuals_version", lambda d: next(seen, None) if d == draft else real(d))
-    monkeypatch.setattr(summary_cli, "_visuals_draft", lambda target, sid: draft)
+    monkeypatch.setattr(summary_cli.visuals, "_remembered_visuals_version", lambda d: next(seen, None) if d == draft else real(d))
+    monkeypatch.setattr(summary_cli.visuals, "_visuals_draft", lambda target, sid: draft)
     meta.write_text(json.dumps({"version": 4}))
     summary_cli._visuals_follow_push(None, SID_A, 0, 1)
     assert json.loads(meta.read_text())["version"] == 4
@@ -777,7 +777,7 @@ def test_a_tables_set_after_another_writers_push_leaves_the_summary_base_alone(s
 
 
 def test_adopting_the_servers_text_leaves_a_draft_edited_after_the_send(tmp_path, monkeypatch):
-    from probe.cli import notes_file
+    from probe.shared.notes import notes as notes_file
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     settings = type("Settings", (), {"base_url": "https://probe.example"})()
@@ -791,7 +791,7 @@ def test_adopting_the_servers_text_leaves_a_draft_edited_after_the_send(tmp_path
 def test_a_checkout_writes_the_document_before_its_version(tmp_path, monkeypatch):
     """Codex review: a checkout killed after the meta but before the document
     left the old text beside the new version, past the server's erasure check."""
-    from probe.cli import note_sync, notes_file
+    from probe.shared.notes import sync as note_sync, notes as notes_file
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     settings = type("Settings", (), {"base_url": "https://probe.example"})()

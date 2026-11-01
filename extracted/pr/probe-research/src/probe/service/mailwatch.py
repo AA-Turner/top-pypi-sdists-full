@@ -1,7 +1,7 @@
 """The machine's view of what waits for the coding agents (plan Q2).
 
 The Probe daemon's messages, the agents' asks and the held questions are plain
-files (`probe.daemon.mailbox`, `probe.daemon.approvals`), and every party that
+files (`probe.shared.mailbox`, `probe.shared.mailbox.approvals`), and every party that
 waited for one polled them on its own: an idle Claude Code session's Stop
 waiter, one Python process per session, looked every 2 s for up to seven days.
 Now a waiting party subscribes here and sleeps on its socket, and this service
@@ -87,7 +87,7 @@ MAX_REQUEST_BYTES = 256 * 1024
 
 
 def safe(session_id: str) -> str:
-    """`probe.daemon.mailbox._safe`: a session id as its folder name."""
+    """`probe.shared.mailbox.layout._safe`: a session id as its folder name."""
     return "".join(c for c in session_id if c.isalnum() or c in "-_") or "session"
 
 
@@ -249,7 +249,7 @@ class Board:
 
 
 def _request_session(path: str) -> str | None:
-    """The session a held question belongs to (`probe.daemon.approvals.Request`)."""
+    """The session a held question belongs to (`probe.shared.mailbox.approvals.Request`)."""
     data = read_json(path, MAX_REQUEST_BYTES)
     sid = data.get("session_id") if isinstance(data, dict) else None
     return sid if isinstance(sid, str) and sid else None

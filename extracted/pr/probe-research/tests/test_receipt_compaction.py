@@ -11,8 +11,8 @@ import sqlite3
 
 import pytest
 
-from probe.sdk import journal as jm
-from probe.sdk.durable import file_lock, write_text_atomic
+from probe.sdk.delivery import journal as jm
+from probe.foundation.durable.durable import file_lock, write_text_atomic
 
 CTX = multiprocessing.get_context("fork")
 
@@ -32,7 +32,8 @@ def _append(queue, correlation="one"):
 
 @pytest.fixture
 def queue(tmp_path, monkeypatch):
-    monkeypatch.setattr(jm, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
     return jm.Journal.for_receipts(tmp_path / "outbox", context={"base_url": "http://test"})
 
 

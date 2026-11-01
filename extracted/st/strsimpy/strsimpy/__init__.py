@@ -22,12 +22,14 @@
 from .cosine import Cosine
 from .damerau import Damerau
 from .jaccard import Jaccard
+from .jaro_winkler import JaroWinkler
 from .levenshtein import Levenshtein
 from .longest_common_subsequence import LongestCommonSubsequence
 from .metric_lcs import MetricLCS
 from .ngram import NGram
 from .normalized_levenshtein import NormalizedLevenshtein
 from .optimal_string_alignment import OptimalStringAlignment
+from .overlap_coefficient import OverlapCoefficient
 from .qgram import QGram
 from .shingle_based import ShingleBased
 from .sorensen_dice import SorensenDice
@@ -37,4 +39,4 @@ from .weighted_levenshtein import WeightedLevenshtein
 from .sift4 import SIFT4Options, SIFT4
 
 __name__ = 'strsimpy'
-__version__ = '0.2.1'
+__version__ = '0.3.0'

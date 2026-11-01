@@ -18,7 +18,8 @@ import time
 
 import pytest
 
-from probe.cli import autoupdate, update_report, updater, upgrading
+from probe.cli import autoupdate, updater, upgrading
+from probe.shared.updates import update_report
 from probe.cli.capabilities import Capabilities
 
 MANIFEST = {

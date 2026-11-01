@@ -1,6 +1,6 @@
-"""Compatibility imports for ``probe.sdk.config``."""
+"""Compatibility imports for ``probe.sdk.settings.settings``."""
 
-from .sdk.config import (
+from .sdk.settings.settings import (
     CONFIG_VERSION,
     DEFAULT_BASE_URL,
     DEFAULT_CONTEXT,

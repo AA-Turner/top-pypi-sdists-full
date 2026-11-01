@@ -1,5 +1,5 @@
-"""Compatibility imports for ``probe.sdk.transport``."""
+"""Compatibility imports for ``probe.sdk.delivery.transport``."""
 
-from .sdk.transport import Page, Transport
+from .sdk.delivery.transport.transport import Page, Transport
 
 __all__ = ["Page", "Transport"]

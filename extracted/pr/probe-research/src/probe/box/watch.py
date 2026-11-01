@@ -104,8 +104,8 @@ def _span_id(run_id: str, pid: object, event: str) -> str:
 def _client_for(entry: dict[str, Any]):
     """A client aimed at wherever this run reports. Built per entry, because a
     box can host runs from more than one context."""
-    from probe.sdk.client import Client
-    from probe.sdk.config import Settings
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import Settings
 
     settings = Settings.load(context=entry.get("context") or None)
     if entry.get("base_url"):
@@ -118,7 +118,7 @@ def _client_for(entry: dict[str, Any]):
 def _iso(epoch: float) -> str:
     """A tz-aware ISO timestamp, which `SpanCreate` requires."""
     from datetime import datetime
-    from probe._compat import UTC
+    from probe.foundation.compat.compat import UTC
 
     return datetime.fromtimestamp(epoch, tz=UTC).isoformat()
 

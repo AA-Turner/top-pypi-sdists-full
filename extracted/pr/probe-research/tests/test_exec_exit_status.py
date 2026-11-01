@@ -15,7 +15,7 @@ import time
 
 import pytest
 
-from probe.sdk.run import _status_for_exit
+from probe.sdk.run.closing.status import _status_for_exit
 from tests.conftest import make_client, open_run
 from tests.served_fake_app import child_env, serve
 

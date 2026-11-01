@@ -2071,6 +2071,42 @@ async function waitForExtensionTargetType(
   return await tryGetExtensionContext(target, targetType);
 }
 
+async function openExtensionPage(browser, url, timeoutMs = 10000) {
+  // Create the extension URL directly: newPage() first emits about:blank, which
+  // active recorders can claim and reload after our subsequent goto(). That
+  // destroys in-flight extension calls and can pollute the recorded archive.
+  const deadline = Date.now() + timeoutMs;
+  const remaining = () => Math.max(1, deadline - Date.now());
+  // Direct target creation does not report navigation failures like goto().
+  // Query Chrome's live inventory so an uninstalled extension fails immediately
+  // instead of creating an error page and spending the entire readiness budget.
+  const extensionId = getExtensionIdFromUrl(url);
+  if (!(await browser.extensions()).has(extensionId)) {
+    throw new Error(`Extension ${extensionId} is not installed`);
+  }
+  const { targetId } = await sendBrowserCommand(browser, "Target.createTarget", {
+    url, background: true,
+  });
+  if (!targetId) throw new Error("Extension helper creation returned no target ID");
+  try {
+    const matches = target => getTargetIdFromTarget(target) === targetId && target.type() === "page";
+    const target = browser.targets().find(matches) ||
+      await browser.waitForTarget(matches, { timeout: remaining() });
+    const page = await target.page();
+    if (!page) throw new Error(`Extension helper ${targetId} is not a page`);
+    await page.waitForFunction(expected =>
+      location.href === expected && document.readyState !== "loading" &&
+      Boolean(globalThis.chrome?.runtime?.id),
+    { timeout: remaining(), polling: 100 }, url);
+    return page;
+  } catch (error) {
+    // Creation owns this target even if attachment/readiness fails. Preserve
+    // the initiating error while releasing only this failed helper.
+    await sendBrowserCommand(browser, "Target.closeTarget", { targetId }).catch(() => {});
+    throw error;
+  }
+}
+
 /**
  * Wait for a Puppeteer target handle for a specific extension id.
  *
@@ -2093,13 +2129,10 @@ async function waitForExtensionTargetHandle(
     if (!wakePath) return null;
     let wakePage = null;
     try {
-      wakePage = await browser.newPage();
-      await wakePage.goto(
+      wakePage = await openExtensionPage(
+        browser,
         `${CHROME_EXTENSION_URL_PREFIX}${extensionId}${wakePath}`,
-        {
-          waitUntil: "load",
-          timeout: Math.min(Math.max(timeout, 1000), 10000),
-        }
+        Math.min(Math.max(timeout, 1000), 10000)
       );
       await wakePage.evaluate(() => {
         return new Promise((resolve) => {
@@ -6029,6 +6062,7 @@ module.exports = {
   loadExtensionFromTarget,
   loadUnpackedExtensionsIntoBrowser,
   waitForExtensionTargetHandle,
+  openExtensionPage,
   // New puppeteer best-practices helpers
   resolvePuppeteerModule,
   connectToBrowserEndpoint,

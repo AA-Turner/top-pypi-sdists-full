@@ -24,8 +24,11 @@ import zipfile
 
 import pytest
 
-from probe.daemon import approvals as appr, lease, probe_api, reader, tools
-from probe.daemon.store import Store
+from probe.shared.mailbox import approvals as appr
+from probe.daemon.host import lease
+from probe.daemon.session import probe_api, read_render as reader
+from probe.daemon.agent import tools
+from probe.daemon.store.store import Store
 
 SID = "11111111-2222-3333-4444-555555555555"
 FAKE_KEY = "sk-proj-" + "Ab3dE5gH7jK9mN1pQ3sT5vX7zB9dF1hJ3lN5pR7tV9xZ"
@@ -92,15 +95,16 @@ def _checked_out(tmp_path, monkeypatch) -> tuple[Probe, object]:
     note = tmp_path / "state" / "probe" / "notes" / "run-r1.md"
     note.parent.mkdir(parents=True, exist_ok=True)
     probe = Probe({"notes checkout": json.dumps({"target": "run", "path": str(note)})})
-    monkeypatch.setattr(tools, "run_probe_process", probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", probe)
     return probe, note
 
 
 def test_a_peer_agents_message_opens_and_is_found_as_its_text_not_its_sender(tmp_path):
     """A peer agent's message keeps its sender in `command` (plan probe-hints
     T4): `session` open and search still show the message, as for any META line."""
-    from probe.daemon.adapters.base import peer_message
-    from probe.daemon.events import PEER_TOOL
+    from probe.shared.harness.session_log import peer_message
+    from probe.shared.harness.events import PEER_TOOL
 
     deps = _deps(tmp_path)
     ev = peer_message("main", 7, text="Benchmark NVIDIA RFD4-Proteina on the held-out set",
@@ -146,7 +150,8 @@ def test_two_pushes_of_one_note_with_new_text_send_new_keys(tmp_path, monkeypatc
 ])
 def test_a_file_a_command_sends_is_part_of_its_key(tmp_path, monkeypatch, argv, file):
     probe = Probe()
-    monkeypatch.setattr(tools, "run_probe_process", probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", probe)
     deps = _deps(tmp_path)
     for text in ("val F1 0.81\n", "val F1 0.84\n"):
         (deps.cwd / file).write_text(text)
@@ -157,7 +162,8 @@ def test_a_file_a_command_sends_is_part_of_its_key(tmp_path, monkeypatch, argv, 
 
 def test_a_manifest_rows_file_is_part_of_its_key(tmp_path, monkeypatch):
     probe = Probe()
-    monkeypatch.setattr(tools, "run_probe_process", probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", probe)
     deps = _deps(tmp_path)
     (deps.cwd / "rows.jsonl").write_text(json.dumps({"path": "results.csv"}) + "\n")
     argv = ["artifact", "add", "--from-manifest", "rows.jsonl", "--project", "p"]
@@ -171,7 +177,8 @@ def test_a_manifest_rows_file_is_part_of_its_key(tmp_path, monkeypatch):
 def test_a_command_that_sends_no_file_keeps_its_key(tmp_path, monkeypatch):
     """The same words, nothing sent: the same key (R3-7's replay), as before."""
     probe = Probe()
-    monkeypatch.setattr(tools, "run_probe_process", probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", probe)
     deps = _deps(tmp_path)
     for _ in range(2):
         _run(tools.run_probe_command(deps, ["run", "tag", "r1", "abandoned"]))
@@ -202,7 +209,8 @@ def test_slicing_a_file_is_asked_unless_bypass(tmp_path):
 
 def _probe(monkeypatch, **kw) -> Probe:
     probe = Probe(**kw)
-    monkeypatch.setattr(tools, "run_probe_process", probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", probe)
     return probe
 
 
@@ -295,7 +303,8 @@ def test_a_moved_switch_stops_the_rest_of_the_compound(tmp_path, monkeypatch):
         (lease.sessions_dir() / f"{SID}.state").write_text("off")  # the researcher moves the switch
         return tools.ProbeResult(0, "{}")
 
-    monkeypatch.setattr(tools, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", run_probe)
     deps = _deps(tmp_path)
     out = _run(tools.shell(deps, "probe run tag r1 a; probe run tag r1 b"))
     assert ran == [["run", "tag", "r1", "a"]] and tools.NO_LEASE in out and deps.stopped
@@ -327,7 +336,7 @@ def test_the_probe_process_starts_in_the_folder_the_cd_reached(tmp_path, monkeyp
     fake = tmp_path / "probe"
     fake.write_text("#!/bin/sh\npwd\n")
     fake.chmod(0o755)
-    monkeypatch.setattr(tools, "probe_executable", lambda: [str(fake)])
+    monkeypatch.setattr(tools.probe_cli.process, "probe_executable", lambda: [str(fake)])
     deps = _deps(tmp_path)
     (deps.cwd / "eval").mkdir()
     out = _run(tools.shell(deps, "cd eval && probe run list && cd .. && probe run list"))
@@ -346,7 +355,8 @@ def test_a_long_compound_keeps_its_lease(tmp_path, monkeypatch):
         lease.lease_path(SID).write_text(json.dumps({**data, "expires_at": time.time() + 30}))  # a slow command
         return tools.ProbeResult(0, "{}")
 
-    monkeypatch.setattr(tools, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", run_probe)
     deps = _deps(tmp_path)
     _run(tools.shell(deps, "probe run tag r1 a && probe run tag r1 b && probe run tag r1 c"))
     assert seen == [None, None, None]
@@ -551,7 +561,7 @@ def test_a_blocked_command_reads_none_of_the_files_it_names(tmp_path, monkeypatc
     _probe(monkeypatch)
     deps = _deps(tmp_path)
     read = []
-    monkeypatch.setattr(tools, "_file_digest", lambda path: read.append(path) or "x")
+    monkeypatch.setattr(tools.probe_cli.process, "_file_digest", lambda path: read.append(path) or "x")
     (deps.cwd / "notes.md").write_text(f"token = {FAKE_KEY}\n")
     out = _run(tools.shell(deps, "probe run set r1 --notes @notes.md"))
     assert "block" in out and read == [] and deps.sent == {}
@@ -673,7 +683,9 @@ def _moves(runs: dict[str, dict]):
 def test_the_second_branch_filed_outside_an_experiment_says_so(tmp_path, monkeypatch):
     deps = _deps(tmp_path)
     runs = {BASE: {"slug": "toy-base"}, "a1": {"parent": BASE}, "a2": {"parent": BASE}, "a3": {"parent": BASE}}
-    monkeypatch.setattr(tools, "run_probe_process", _moves(runs))
+    fake_process = _moves(runs)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", fake_process)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", fake_process)
     first = _run(tools.run_probe_command(deps, ["run", "move", BASE, "--to", "toy-sft"]))
     assert "branch from" not in first, "a run with no parent"
     one = _run(tools.run_probe_command(deps, ["run", "move", "a1", "--to", "toy-sft"]))
@@ -687,7 +699,9 @@ def test_the_second_branch_filed_outside_an_experiment_says_so(tmp_path, monkeyp
 def test_no_branch_fact_once_a_sibling_is_in_an_experiment(tmp_path, monkeypatch):
     deps = _deps(tmp_path)
     runs = {"a1": {"parent": BASE, "experiment_id": "e1"}, "a2": {"parent": BASE}}
-    monkeypatch.setattr(tools, "run_probe_process", _moves(runs))
+    fake_process = _moves(runs)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", fake_process)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", fake_process)
     _run(tools.run_probe_command(deps, ["run", "move", "a1", "--to", "sft-wave1"]))
     out = _run(tools.run_probe_command(deps, ["run", "move", "a2", "--to", "toy-sft"]))
     assert "branch from" not in out
@@ -709,7 +723,7 @@ class Ran:
         self.commands: list[str] = []
 
     async def __call__(self, deps, command, op_id, **kw):
-        from probe.daemon.shell import ShellResult
+        from probe.daemon.shell.verdict import ShellResult
 
         self.commands.append(command)
         return ShellResult(exit_code=0, output="ran\n", truncated=False, timed_out=False)
@@ -723,7 +737,8 @@ class Ran:
 ])
 def test_a_shell_hunt_for_a_skill_file_is_pointed_at_the_read_tool(tmp_path, monkeypatch, command):
     ran = Ran()
-    monkeypatch.setattr(tools, "_run_shell_write", ran)
+    monkeypatch.setattr(tools.bash.bash, "_run_shell_write", ran)
+    monkeypatch.setattr(tools.team_note, "_run_shell_write", ran)
     deps = _deps(tmp_path)
     out = _run(tools.shell(deps, command))
     assert out.startswith("not run: It reads ") and "outside the working folders" in out, out
@@ -738,7 +753,8 @@ def test_a_hunt_through_the_whole_disk_is_not_asked_either(tmp_path, monkeypatch
     """`find /` already stops at the every-mode refusal (a tree too big to check
     for `.probe.config` `off` paths), which comes first and keeps its words."""
     ran = Ran()
-    monkeypatch.setattr(tools, "_run_shell_write", ran)
+    monkeypatch.setattr(tools.bash.bash, "_run_shell_write", ran)
+    monkeypatch.setattr(tools.team_note, "_run_shell_write", ran)
     deps = _deps(tmp_path)
     out = _run(tools.shell(deps, "find / -path '*track-work/reference.md'"))
     assert out.startswith("not run: ") and out.endswith("This is refused in every mode."), out
@@ -785,7 +801,8 @@ def test_a_note_write_that_mentions_a_skill_keeps_the_hint_for_its_shape(tmp_pat
 
 def test_bypass_mode_still_runs_a_skill_path_command(tmp_path, monkeypatch):
     ran = Ran()
-    monkeypatch.setattr(tools, "_run_shell_write", ran)
+    monkeypatch.setattr(tools.bash.bash, "_run_shell_write", ran)
+    monkeypatch.setattr(tools.team_note, "_run_shell_write", ran)
     deps = _deps(tmp_path, bypass=True)
     command = "cat ~/.pi/agent/git/x/skills/track-work/reference.md"
     out = _run(tools.shell(deps, command))

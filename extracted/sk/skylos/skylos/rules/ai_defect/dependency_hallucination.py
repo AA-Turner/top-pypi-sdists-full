@@ -46,6 +46,7 @@ from skylos.core.safe_cache_io import (
     save_project_json_cache,
 )
 from skylos.rules.ai_defect import pypi_wheel_modules
+from skylos.rules.ai_defect.compose_environment import compose_entrypoint_distributions
 from skylos.rules.ai_defect.environment_dependencies import (
     DirectoryEnvironment,
     directory_environment,
@@ -2218,8 +2219,13 @@ def _environment_scope_for_file(repo_root, file_path, cache, *, diff_path=False)
     if len(relative.parts) > MAX_DEPENDENCY_SCOPE_COMPONENTS:
         relative = Path()
     key = ("scope", relative)
+    compose_names = (
+        compose_entrypoint_distributions(root, root / importer, cache)
+        if importer is not None
+        else frozenset()
+    )
     if key in cache:
-        return cache[key]
+        return cache[key] | compose_names
     names = set()
     manifest_nearer = False
     dockerfiles = []
@@ -2239,7 +2245,7 @@ def _environment_scope_for_file(repo_root, file_path, cache, *, diff_path=False)
             root_dockerignore = environment.dockerignore
     names |= image_distributions(dockerfiles, root_dockerignore=root_dockerignore)
     cache[key] = frozenset(names)
-    return cache[key]
+    return cache[key] | compose_names
 
 
 def _nested_pyproject_metadata(repo_root, directory, project_names=None):
@@ -3457,9 +3463,53 @@ def _classify_import(
             )
         if _transitively_provided(mod, required_paths, from_imports, ctx, importer):
             return None
-    return _check_declared_providers(
+    checked = _check_declared_providers(
         mod, template, ctx, required_paths=required_paths, from_imports=from_imports
     )
+    if checked is None or checked["rule_id"] != RULE_ID_UNDECLARED:
+        return checked
+    sibling = _unproven_sibling_provider(mod, ctx, file_path, diff_path=diff_path)
+    if sibling is None:
+        return checked
+    # A sibling is evidence about intent, not proof of absolute resolution.
+    # Package execution can still require a third-party module, and a
+    # relative import can fail inside that sibling before taking a fallback.
+    # Keep the finding and provider uncertainty; avoid calling real local
+    # source a hallucinated package simply because its name is absent on PyPI.
+    checked = dict(checked)
+    checked["metadata"] = {
+        **checked.get("metadata", {}),
+        "dependency_provider_diagnostic": checked["message"],
+        "local_provider_candidate": {
+            "path": sibling.as_posix(),
+            "absolute_runtime_provider_proven": False,
+            "invocation_mode_unproven": True,
+            "relative_import_success_unproven": True,
+        },
+    }
+    checked["message"] = (
+        f"Unresolved absolute import '{mod}'. Local sibling '{sibling.as_posix()}' "
+        "exists, but it is not proven to provide this import at runtime. "
+        "Check script/package invocation and any ImportError fallback before "
+        "declaring an external dependency."
+    )
+    return checked
+
+
+def _unproven_sibling_provider(mod, ctx, file_path, *, diff_path=False):
+    """A contained candidate, never an exemption or a runtime import proof."""
+    if file_path is None or not str(mod).isidentifier():
+        return None
+    importer = _contained_importer_path(ctx["repo_root"], file_path, diff_path=diff_path)
+    if importer is None or not _context_has_local_python_file(ctx, importer):
+        return None
+    for candidate in (
+        importer.parent / f"{mod}.py",
+        importer.parent / mod / "__init__.py",
+    ):
+        if _context_has_local_python_file(ctx, candidate):
+            return candidate
+    return None
 
 
 def _classify_import_names(

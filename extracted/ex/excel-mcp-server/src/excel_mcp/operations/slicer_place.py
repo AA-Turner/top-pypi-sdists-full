@@ -7,6 +7,7 @@ from openpyxl.workbook import Workbook
 from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.worksheet import Worksheet
 
+from excel_mcp.errors import WorkbookError
 from excel_mcp.operations import slicer_xml as xml
 from excel_mcp.package import Link, Part, SheetPackage, state_of
 from excel_mcp.package.anchors import Geometry
@@ -17,6 +18,7 @@ from excel_mcp.package.scan import (
     root_scope,
     used_prefixes,
 )
+from excel_mcp.xml_text import attribute
 
 _XDR = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
 _A = "http://schemas.openxmlformats.org/drawingml/2006/main"
@@ -119,7 +121,8 @@ def _list_in(extensions: dict[str, str], uri: str, element: str) -> None:
     assert reference is not None
     existing = extensions[uri]
     closing = re.search(r"</(?:\w+:)(?:slicerCaches|timelineCacheRefs)>", existing)
-    assert closing is not None
+    if closing is None:
+        raise WorkbookError("The workbook's list of slicer or timeline caches is malformed.")
     extensions[uri] = existing[: closing.start()] + reference[0] + existing[closing.start() :]
 
 
@@ -152,12 +155,13 @@ def anchor(
     end_col, col_off = _end(geometry, False, column, left + size[0], left)
     end_row, row_off = _end(geometry, True, row, top + size[1], top)
     timeline = kind == "timeline"
+    shape_name = attribute(name)
     requires = "tsle" if timeline else "sle15" if kind == "table" else "a14"
     declared = {"tsle": _TSLE, "sle15": _SLE15, "a14": _A14}[requires]
     graphic = (
-        f'<tsle:timeslicer xmlns:tsle="{_TSLE}" name="{name}"/>'
+        f'<tsle:timeslicer xmlns:tsle="{_TSLE}" name={shape_name}/>'
         if timeline
-        else f'<sle:slicer xmlns:sle="{_SLE}" name="{name}"/>'
+        else f'<sle:slicer xmlns:sle="{_SLE}" name={shape_name}/>'
     )
     uri = _TSLE if timeline else _SLE
     guid = "{" + str(uuid.uuid4()).upper() + "}"
@@ -171,7 +175,7 @@ def anchor(
         f'<mc:AlternateContent xmlns:mc="{xml.MC}">'
         f'<mc:Choice xmlns:{requires}="{declared}" Requires="{requires}">'
         f'<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr>'
-        f'<xdr:cNvPr id="{shape_id}" name="{name}"><a:extLst>'
+        f'<xdr:cNvPr id="{shape_id}" name={shape_name}><a:extLst>'
         f'<a:ext uri="{{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}}">'
         f'<a16:creationId xmlns:a16="{_A16}" id="{guid}"/></a:ext></a:extLst></xdr:cNvPr>'
         f"<xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr>"

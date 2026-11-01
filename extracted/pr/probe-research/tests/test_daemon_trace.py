@@ -1,4 +1,4 @@
-"""The daemon's session folder (`probe/daemon/trace.py`): the worker's log and
+"""The daemon's session folder (`probe/daemon/trace/trace.py`): the worker's log and
 each agent's full trace, one JSON object per line.
 
 Same seams as test_daemon_conversation.py: the model is Pydantic AI's
@@ -24,7 +24,7 @@ pytest.importorskip("pydantic_ai_harness")
 from pydantic_ai.models.function import FunctionModel  # noqa: E402
 
 from probe.daemon import store as store_mod  # noqa: E402
-from probe.daemon import trace as trace_mod  # noqa: E402
+from probe.daemon.trace import trace as trace_mod  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
 from tests.test_daemon_conversation import (  # noqa: E402,F401 -- `_isolated` is an autouse fixture
     RUN,
@@ -155,7 +155,8 @@ def test_a_tool_that_raises_is_traced_and_still_raises(tmp_path):
 
 
 def test_a_paused_run_ends_with_its_outcome(tmp_path, monkeypatch):
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 1)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 1)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 1)
     script = Script([("shell", "ls a"), ("shell", "ls b"), ("done", "ok")])
     w = _worker(tmp_path, model=FunctionModel(script), replay=Replay(), mode="conversation", monkeypatch=monkeypatch)
     w.read_new()

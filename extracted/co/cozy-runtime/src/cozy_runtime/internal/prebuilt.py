@@ -57,6 +57,7 @@ class _Format:
 INT8, FP8 = _Format("int8", False, CONVROT_GROUP), _Format("fp8", True, 16)
 #: The prologue's gated activation (`cozy_int8::kActSitu`): rows of [hidden | gate] halves.
 SITU = 3
+#: `silu(gate) * up`: gate rows and an `up` pointer, or without it rows of [up | gate] halves.
 SWIGLU = 4
 
 
@@ -139,8 +140,9 @@ class Prebuilt:
         bias: Tensor | None,
         out_dtype: object,
         config: int = -1,
+        out: Tensor | None = None,
     ) -> Tensor:
-        return self._gemm(INT8, q, scales, data, scale, bias, out_dtype, config)
+        return self._gemm(INT8, q, scales, data, scale, bias, out_dtype, config, out)
 
     def fp8_gemm(
         self,
@@ -151,8 +153,9 @@ class Prebuilt:
         bias: Tensor | None,
         out_dtype: object,
         config: int = -1,
+        out: Tensor | None = None,
     ) -> Tensor:
-        return self._gemm(FP8, q, scales, data, scale, bias, out_dtype, config)
+        return self._gemm(FP8, q, scales, data, scale, bias, out_dtype, config, out)
 
     def w4a8_linear(self, x: Tensor, w: W4a8, bias: Tensor | None, out_dtype: object) -> Tensor:
         q, scales = self.int8_quantize(x)
@@ -242,17 +245,16 @@ class Prebuilt:
         up: Tensor | None = None,
     ) -> tuple[Tensor, Tensor]:
         torch = self.torch
-        # A gated row quantizes to half its width.
-        gated = activation == SITU
+        # A gated row quantizes to half its width: SiTU's, and SwiGLU's [up | gate] halves.
+        gated = activation == SITU or (activation == SWIGLU and up is None)
         flat = self._rows(f, x, x.shape[-1] // 2 if gated else x.shape[-1])
         rows, width = flat.shape[0], flat.shape[1] // 2 if gated else flat.shape[1]
         if gated and (x.shape[-1] % 2 or norm or scale is not None or shift is not None):
-            raise ValueError(f"{f.name}_quantize: SiTU takes [hidden | gate] rows alone")
-        # SwiGLU: x is the gate rows, `up` the up rows of the same shape.
-        if (activation == SWIGLU) != (up is not None) or (
-            up is not None
-            and (up.shape != x.shape or up.dtype != x.dtype or norm or scale is not None
-                 or shift is not None)
+            raise ValueError(f"{f.name}_quantize: a gated activation takes [hidden | gate] rows alone")
+        # SwiGLU with `up`: x is the gate rows, `up` the up rows of the same shape.
+        if up is not None and (
+            activation != SWIGLU or up.shape != x.shape or up.dtype != x.dtype or norm
+            or scale is not None or shift is not None
         ):
             raise ValueError(f"{f.name}_quantize: SwiGLU takes gate and up rows of one shape alone")
         other = None if up is None else self._rows(f, up)
@@ -282,7 +284,10 @@ class Prebuilt:
         bias: Tensor | None,
         out_dtype: object,
         config: int,
+        out: Tensor | None = None,
     ) -> Tensor:
+        """`[M, N]` into `out` where given: written in place when its rows sit 16-byte multiples
+        apart (a sibling's column range of one wider output), else copied into it."""
         torch = self.torch
         want = torch.float8_e4m3fn if f.fp8 else torch.int8
         if q.dtype != want or q.dim() != 2 or not q.is_contiguous() or q.data_ptr() % 16:
@@ -291,19 +296,21 @@ class Prebuilt:
         if scales.dtype != torch.float32 or scales.numel() != rows or not scales.is_contiguous():
             raise ValueError(f"{f.name}_gemm: scales must be contiguous float32 with {rows} values")
         bias = self._weight(f, data, scale, bias, width, out_dtype)
-        out = torch.empty(rows, data.shape[0], dtype=out_dtype, device=q.device)
+        n = data.shape[0]
+        direct = out is not None and _writable(out, rows, n, out_dtype, q.device)
+        result = out if direct else torch.empty(rows, n, dtype=out_dtype, device=q.device)
         if rows == 0:
-            return out
+            return _landed(result, out)
         code = _kernels._gemm.NOT_SUPPORTED
         if not f.fp8 or self.cutlass_fp8:
             code = _kernels._gemm.gemm(
                 self.index, FAMILIES.index(self.family), f.fp8, q.data_ptr(), scales.data_ptr(),
-                data.data_ptr(), scale.data_ptr(), _ptr(bias), out.data_ptr(),
-                self._half(out_dtype), rows, data.shape[0], width, config,
+                data.data_ptr(), scale.data_ptr(), _ptr(bias), result.data_ptr(),
+                result.stride(0), self._half(out_dtype), rows, n, width, config,
                 None if f.fp8 else self._scratch, self._stream(),
             )  # fmt: skip
         if code == 0:
-            return out
+            return _landed(result, out)
         if code != _kernels._gemm.NOT_SUPPORTED:
             self._check(code, "the GEMM")
         if config >= 0:
@@ -323,7 +330,7 @@ class Prebuilt:
             padded = torch.nn.functional.pad(q, (0, 0, 0, max(0, 17 - rows)))
             acc = torch._int_mm(padded, data.t())[:rows].float()
             product = acc.mul_(scales.view(-1, 1)).mul_(scale.view(1, -1)).to(out_dtype)
-        return product if bias is None else product.add_(bias)
+        return _landed(product if bias is None else product.add_(bias), out)
 
     def _rows(self, f: _Format, x: Tensor, width: int | None = None) -> Tensor:
         """The activation as contiguous, 16-byte aligned rows; `width` is what each quantizes to
@@ -414,6 +421,28 @@ class W4a8:
     codebook: Tensor | None
 
 
+def _writable(out: Tensor, rows: int, n: int, dtype: object, device: object) -> bool:
+    """Whether the GEMM writes `out` in place: `[rows, n]` of its dtype on its device, the last
+    axis dense and the rows 16 bytes apart in whole multiples, as its stores are."""
+    return (
+        out.dtype == dtype
+        and out.device == device
+        and tuple(out.shape) == (rows, n)
+        and out.stride(1) == 1
+        and out.stride(0) >= n
+        and out.stride(0) * out.element_size() % 16 == 0
+        and out.data_ptr() % 16 == 0
+    )
+
+
+def _landed(result: Tensor, out: Tensor | None) -> Tensor:
+    """`result`, in `out` where one was given."""
+    if out is None or result is out:
+        return result
+    out.copy_(result)
+    return out
+
+
 def unpack(torch: ModuleType, w: W4a8) -> Tensor:
     """The int8 levels [N, K] the codes stand for (spec §6): `clamp(round(level x group scale))`,
     one f32 multiply rounded half to even (a NaN product is 0, as the GEMM's table has it). Torch
@@ -478,6 +507,7 @@ ATTENTION = {
         ),
         "_sage3",
     ),
+    "kitchen-int4qk": "_attn4",
 }
 
 
@@ -490,6 +520,14 @@ def serves(kernel: str, sm: int) -> bool:
         and bool(artifact(module))
         and any(target.rstrip("af") == f"sm_{sm}" for target in ARCHS[module]["cubin"])
     )
+
+
+def missing(kernel: str, sm: int) -> str:
+    """Why the installed wheel does not serve `kernel` on this card (`serves` is false)."""
+    module = ATTENTION[kernel]
+    if not artifact(module):
+        return ABSENT or getattr(_kernels, f"NO_{module.strip('_').upper()}", f"no {module}")
+    return f"the wheel's {module} carries no sm_{sm} kernel ({' '.join(ARCHS[module]['cubin'])})"
 
 
 def lost(f: str, sm: int) -> str:
@@ -596,6 +634,13 @@ def probe(torch: ModuleType, ops: Prebuilt, f: _Format) -> verify.Verdict:
         folded = (ops.fp8_quantize if f.fp8 else ops.int8_quantize)(gate, activation=SWIGLU, up=up)
         got = (ops.fp8_gemm if f.fp8 else ops.int8_gemm)(*folded, data, scale, None, dtype)
         errors[f"prologue swiglu {dtype}"] = verify.error(
+            torch, got, law(torch, f, _swiglu(torch, gate, up), data, scale, None)
+        )
+        # One fused projection's rows: [up | gate] halves.
+        halves = torch.cat([up, gate], -1)
+        folded = (ops.fp8_quantize if f.fp8 else ops.int8_quantize)(halves, activation=SWIGLU)
+        got = (ops.fp8_gemm if f.fp8 else ops.int8_gemm)(*folded, data, scale, None, dtype)
+        errors[f"prologue swiglu halves {dtype}"] = verify.error(
             torch, got, law(torch, f, _swiglu(torch, gate, up), data, scale, None)
         )
     return verify.within(errors, BUDGET)

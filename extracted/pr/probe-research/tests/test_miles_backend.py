@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import pytest
 
 from probe import errors
-from probe.sdk.client import Client
+from probe.sdk.client.client import Client
 from probe.connectors.miles import (
     FLAG,
     ProbeBackend,
@@ -29,7 +29,7 @@ from probe.connectors.miles import (
     register,
 )
 from probe.integrations import miles as integrations_miles
-from probe.sdk.capture import stable_span_id
+from probe.sdk.capture.capture import stable_span_id
 from tests.test_miles_integration import FakeClient, FakeRun, _args
 
 

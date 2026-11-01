@@ -13,6 +13,5 @@ class BenchmarkSpecParams(TypedDict, total=False):
   name: Required[str]
   description: str
   visibility: Literal["public", "private"]
-  family: str | None
   runtime: RuntimeSpecParam | None
   tasks: Required[Iterable[TaskSpecParam]]

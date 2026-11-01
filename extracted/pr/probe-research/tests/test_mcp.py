@@ -7,10 +7,11 @@ import json
 
 import pytest
 
-from probe.mcp.contract import Capability, MissingMarker
-from probe.mcp.server import create_server
-from probe.mcp.service import ResearchReadService, _supported_views
-from probe.mcp.source import ResearchOSSource
+from probe.shared.reads.search_contract import Capability, MissingMarker
+from probe.mcp.server.server import create_server
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.tools.view import _supported_views
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
 from tests.conftest import search_response as _search_response
 
@@ -738,7 +739,7 @@ def test_token_factory_evicts_oldest_pair_beyond_cap(monkeypatch):
 
     server_mod._clients.clear()
     server_mod._sources.clear()
-    monkeypatch.setattr(server_mod, "_MAX_CACHED_TOKENS", 3)
+    monkeypatch.setattr(server_mod.pool, "_MAX_CACHED_TOKENS", 3)
     closed: list[str] = []
 
     class FakeClient:
@@ -751,7 +752,7 @@ def test_token_factory_evicts_oldest_pair_beyond_cap(monkeypatch):
     # The server builds its Client from an explicit Settings (so a missing mcp_token
     # can never fall back to the write token), so read the token off settings.
     monkeypatch.setattr(
-        server_mod,
+        server_mod.pool,
         "Client",
         lambda *, settings, fail_open, surface=None, transport=None: FakeClient(settings.token),
     )
@@ -985,7 +986,8 @@ DEPRECATED_SURFACE: set[str] = set()  # hard cutover: the three
 
 # -- hosted HTTP mode: per-request auth + health -----------------------------
 def test_http_auth_middleware_propagates_token_and_health():
-    from probe.mcp.server import _token_var, with_auth_and_health
+    from probe.mcp.server.pool import _token_var
+    from probe.mcp.server.http import with_auth_and_health
 
     captured: dict = {}
 
@@ -1020,7 +1022,7 @@ def test_http_auth_middleware_propagates_token_and_health():
 
 
 def test_service_resolves_from_request_token():
-    from probe.mcp.server import _clients, _service_from_token, _sources, _token_var
+    from probe.mcp.server.pool import _clients, _service_from_token, _sources, _token_var
 
     _clients.clear()
     _sources.clear()
@@ -1037,7 +1039,7 @@ def test_service_resolves_from_request_token():
 
 
 def test_http_app_builds():
-    from probe.mcp.server import http_app
+    from probe.mcp.server.http import http_app
 
     app = http_app()  # FastMCP streamable-http + auth/health wrapper
     assert callable(app)
@@ -1124,7 +1126,7 @@ def test_browse_available_views_track_the_real_view_matrix(app, client):
     A hand-maintained list is how docs end up naming views that no longer
     exist, so this asserts the advertised set IS the validated set.
     """
-    from probe.mcp.service import _supported_views
+    from probe.mcp.tools.view import _supported_views
 
     app.browse_response = {
         **_browse_payload(),
@@ -1230,7 +1232,7 @@ def test_the_view_matrix_in_the_schema_matches_the_real_one(client):
     longer exist -- an agent then asks for one, gets a validation error, and the
     error contradicts the docs it just followed.
     """
-    from probe.mcp.service import _VIEWS, _supported_views
+    from probe.mcp.tools.view import _VIEWS, _supported_views
 
     # The matrix moved out of the docstring and into `view`'s schema description:
     # a `description` is capped at 2,048 chars by the client and a schema is not,
@@ -1489,7 +1491,7 @@ def test_browse_gives_both_addresses_and_omits_an_absent_slug(app, client):
     sending null: an absent key says "there is none", a null one invites a caller
     to paste the string "None" into a ticket.
     """
-    from probe.mcp.service import _annotate
+    from probe.mcp.tools.browse import _annotate
 
     run = _annotate(
         {"id": "3c5f3695-bb4b-44c8-a59f-707b63f93999", "slug": "prophetic-manatee-987"},
@@ -1515,7 +1517,7 @@ def test_semantic_document_hit_without_ref_has_one_address(app, client):
     it as an entity would emit "id": null, mint a resource URI containing the
     literal string None, and give every such row the identical
     ("experiment", None) collapse key, merging distinct results."""
-    from probe.mcp.service import _collapse_experiments, _semantic_result
+    from probe.mcp.tools.corpora.team import _collapse_experiments, _semantic_result
 
     plain = _semantic_result(
         {"doc_id": "d-1", "title": "t", "snippet": "s", "score": 0.9, "ref": None}
@@ -1541,7 +1543,7 @@ def test_depth_two_browse_annotates_nested_children(app, client):
     """A depth-2 response must not mix labelled addresses at the top level
     with bare backend ids one level down — nested children get the same
     annotation, and their kinds join the envelope views map."""
-    from probe.mcp.service import _supported_views
+    from probe.mcp.tools.view import _supported_views
 
     app.browse_response = {
         **_browse_payload(),
@@ -1588,7 +1590,7 @@ def test_annotate_keeps_falsy_but_present_values():
     """`v is not None` must never decay to truthiness: zero counts and
     expanded-empty lists are answers, and hiding them would make an idle
     project indistinguishable from an unexpanded one."""
-    from probe.mcp.service import _annotate
+    from probe.mcp.tools.browse import _annotate
 
     out = _annotate(
         {
@@ -2038,8 +2040,8 @@ def test_search_offers_views_only_for_kinds_entity_can_open(client, app):
     ],
 )
 def test_a_refusal_is_partial_and_keeps_the_markers_the_search_already_had(prior, expected):
-    from probe.mcp.budget import Budget
-    from probe.mcp.service import _fit_whole_results
+    from probe.foundation.token_budget.token_budget import Budget
+    from probe.mcp.tools.shaping.shaping import _fit_whole_results
 
     def build(results, note):
         envelope = {"data": {"results": results, **(note or {})}}
@@ -2193,7 +2195,7 @@ def test_search_docs_only_reads_the_docs_and_never_the_team_search(client, app):
     value (the experiments-only floor), stripped it is `[]` (EVERY corpus), and
     either answers a docs question with team hits wearing a success envelope.
     The team-search arguments have nothing to apply to."""
-    from probe.mcp.contract import ToolCorpus
+    from probe.shared.reads.search_contract import ToolCorpus
 
     app.search_response = _search_response(exact=[_experiment_row("e-1")])
     app.docs_response = _docs(_docs_section(0), _docs_section(1))
@@ -2263,7 +2265,7 @@ def test_search_mixed_docs_ride_the_first_page_only(client, app):
 
 
 def test_search_mixed_docs_take_at_most_half_the_budget(client, app):
-    from probe.mcp.budget import Budget, count_tokens, serialize
+    from probe.foundation.token_budget.token_budget import Budget, count_tokens, serialize
 
     text = "\n\n".join(_paragraphs(30))  # ~3,700 tokens: over half of any budget below 7,400
     app.search_response = _search_response(semantic=_semantic_rows(4))
@@ -2282,7 +2284,7 @@ def test_search_mixed_docs_take_at_most_half_the_budget(client, app):
 
 
 def test_a_docs_section_that_does_not_fit_is_cut_at_a_paragraph_and_names_its_budget(client, app):
-    from probe.mcp.budget import Budget
+    from probe.foundation.token_budget.token_budget import Budget
 
     paragraphs = _paragraphs(20)  # ~2,500 tokens
     text = "\n\n".join(paragraphs)
@@ -2307,7 +2309,7 @@ def test_a_docs_section_that_does_not_fit_is_cut_at_a_paragraph_and_names_its_bu
 def test_the_best_docs_section_is_never_dropped(client, app):
     """Not even its first paragraph fits: it is cut mid-paragraph, never left
     out -- an empty answer would cost a second call to learn why."""
-    from probe.mcp.budget import Budget, count_tokens, serialize
+    from probe.foundation.token_budget.token_budget import Budget, count_tokens, serialize
 
     text = "word " * 3000  # one paragraph, ~3,000 tokens
     app.search_response = _search_response()
@@ -2329,7 +2331,7 @@ def test_a_docs_section_after_the_first_that_cannot_be_cut_is_left_out_and_count
     """One paragraph has no boundary to cut at, and only the BEST section is
     ever cut mid-paragraph: a later one is left out whole, never shown as a
     stub, and the budget note names the budget that carries every section."""
-    from probe.mcp.budget import Budget
+    from probe.foundation.token_budget.token_budget import Budget
 
     text = "word " * 3000  # one paragraph, ~3,000 tokens
     app.docs_response = _docs(_docs_section(0), _docs_section(1, text))
@@ -2382,7 +2384,7 @@ def test_a_mixed_docs_section_past_the_mixed_ceiling_is_retried_docs_only(client
     """A section whose whole needs more than half of 8,000 tokens arrives whole
     at NO mixed budget, so its `retry_with` names a docs-only search, at the
     budget that carries it there."""
-    from probe.mcp.budget import Budget
+    from probe.foundation.token_budget.token_budget import Budget
 
     text = "word " * 5000  # one ~25 KB paragraph: ~5,000 tokens, 10,000 as a mixed budget
     app.search_response = _search_response(exact=[_experiment_row("e-1")])

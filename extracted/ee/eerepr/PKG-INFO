@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: eerepr
-Version: 0.1.3
+Version: 0.1.4
 Summary: Code Editor-style reprs for Earth Engine data in a Jupyter notebook.
 Keywords: earthengine,gee,html,jupyter,notebook,reprs
 Author: Aaron Zuspan

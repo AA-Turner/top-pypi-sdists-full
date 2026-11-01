@@ -23,7 +23,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.sdk import fluent, inputs
+from probe.sdk import fluent
+from probe.sdk.capture import lineage as inputs
 from tests.conftest import run_outputs_problems
 
 
@@ -156,8 +157,8 @@ def _worker_spool(run_id: str, owner: int, data: Path) -> Path:
 def test_the_hasher_tails_its_workers_spools_during_the_run(tmp_path, monkeypatch) -> None:
     """A worker's reads used to be hashed only at the close, whatever time it
     had. The owner's hasher now reads its workers' spools as they grow."""
-    monkeypatch.setattr(inputs, "TAIL_S", 0.05)
-    monkeypatch.setattr(inputs, "_hash_queue", queue.Queue())
+    monkeypatch.setattr(inputs.lineage, "TAIL_S", 0.05)
+    monkeypatch.setattr(inputs.lineage, "_hash_queue", queue.Queue())
     mine = _file(tmp_path, "worker_read.bin", b"w" * 500)
     theirs = _file(tmp_path, "rank_read.bin", b"r" * 500)
     assert inputs.start("run-tail")
@@ -184,7 +185,7 @@ def test_the_hasher_tails_its_workers_spools_during_the_run(tmp_path, monkeypatc
 
 
 def _close_out_of_time(run_id: str, tmp_path: Path, monkeypatch, *, features=BOTH) -> tuple[Path, Path, _Client]:
-    monkeypatch.setattr(inputs, "_hash_queue", _Unhashed())
+    monkeypatch.setattr(inputs.lineage, "_hash_queue", _Unhashed())
     read = _file(tmp_path, "slow_read.bin", b"s" * 400)
     wrote = tmp_path / "work" / "slow_write.bin"
     assert inputs.start(run_id)
@@ -193,7 +194,7 @@ def _close_out_of_time(run_id: str, tmp_path: Path, monkeypatch, *, features=BOT
     client = _Client(*features)
     with monkeypatch.context() as close:
         # The close looks at its writes, then its time is up before any hash.
-        close.setattr(inputs, "_hash_within", lambda todo, budget, deadline, own, **k: None)
+        close.setattr(inputs.lineage, "_hash_within", lambda todo, budget, deadline, own, **k: None)
         inputs.finalize(client, run_id, wait_s=5)
     return read, wrote, client
 
@@ -252,8 +253,9 @@ def test_a_late_file_for_a_server_that_stopped_keying_on_the_id_is_dropped(tmp_p
 
 def test_what_the_budget_cut_is_not_retried(tmp_path, monkeypatch) -> None:
     """The run's budget said no: a later process does not spend another."""
-    monkeypatch.setattr(inputs, "_hash_queue", _Unhashed())
-    monkeypatch.setattr(inputs, "RUN_HASH_BUDGET_BYTES", 10)
+    monkeypatch.setattr(inputs.lineage, "_hash_queue", _Unhashed())
+    monkeypatch.setattr(inputs.identities, "RUN_HASH_BUDGET_BYTES", 10)
+    monkeypatch.setattr(inputs.lineage, "RUN_HASH_BUDGET_BYTES", 10)
     data = _file(tmp_path, "big.bin", b"b" * 400)
     assert inputs.start("run-late-budget")
     data.read_bytes()
@@ -268,8 +270,9 @@ def test_each_later_run_of_a_process_re_sends_the_late_hashes(monkeypatch) -> No
     """The first run a process opens recovers everything; each later one (a
     sweep's runs close within a short budget) re-sends the late hashes."""
     calls: list[dict] = []
-    monkeypatch.setattr(inputs, "recover_orphans", lambda client, **k: calls.append(k))
-    monkeypatch.setattr(inputs, "_recovery_started", False)
+    monkeypatch.setattr(inputs.recovery, "recover_orphans", lambda client, **k: calls.append(k))
+    monkeypatch.setattr(inputs.lineage, "recover_orphans", lambda client, **k: calls.append(k))
+    monkeypatch.setattr(inputs.lineage, "_recovery_started", False)
     for _ in range(2):
         inputs.start_recovery(object())
     deadline = time.monotonic() + 5
@@ -287,17 +290,17 @@ def test_the_run_folder_is_kept_while_late_hashes_wait(tmp_path, monkeypatch) ->
 
 def test_an_offline_runs_late_hashes_go_into_its_queue(tmp_path, monkeypatch) -> None:
     """`probe sync` (`recover_offline`) queues them before it delivers."""
-    from probe.sdk.journal import Journal
+    from probe.sdk.delivery.journal.journal import Journal
 
     queue_dir = tmp_path / "offline-queue"
     Journal(queue_dir)._ensure()
     run_id = "local:late"
-    monkeypatch.setattr(inputs, "_hash_queue", _Unhashed())
+    monkeypatch.setattr(inputs.lineage, "_hash_queue", _Unhashed())
     data = _file(tmp_path, "offline_read.bin", b"f" * 300)
     assert inputs.start(run_id, offline_dir=queue_dir)
     data.read_bytes()
     with monkeypatch.context() as close:
-        close.setattr(inputs, "_hash_within", lambda todo, budget, deadline, own, **k: None)
+        close.setattr(inputs.lineage, "_hash_within", lambda todo, budget, deadline, own, **k: None)
         inputs.finalize(inputs._OfflineQueue(str(queue_dir)), run_id, wait_s=5)
     queued = [op for _, op in Journal(queue_dir).pending()]
     (first,) = [op for op in queued if op["path"].endswith("/inputs")]
@@ -315,7 +318,8 @@ def test_a_late_read_is_re_sent_only_with_a_full_hash(tmp_path, monkeypatch) -> 
     4562ad828). A read whose late look gets only a fingerprint (over the full
     -hash size) is therefore not re-sent; a write's is (its merge keeps a
     fingerprint at the same modification time)."""
-    monkeypatch.setattr(inputs, "FULL_HASH_MAX_BYTES", 100)
+    monkeypatch.setattr(inputs.identities, "FULL_HASH_MAX_BYTES", 100)
+    monkeypatch.setattr(inputs.lineage, "FULL_HASH_MAX_BYTES", 100)
     read, wrote, _ = _close_out_of_time("run-late-fp", tmp_path, monkeypatch)
     later = _Client(*BOTH)
     assert inputs.recover_orphans(later, late_only=True) == 1

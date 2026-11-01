@@ -18,9 +18,13 @@ import time
 import httpx
 import pytest
 
-from probe.daemon import approvals as appr, command_check, folders, lease, probe_api, tools
-from probe.daemon.command_check import ask_probe as real_ask_probe
-from probe.daemon.store import Store
+from probe.shared.mailbox import approvals as appr
+from probe.daemon.shell import command_check
+from probe.daemon.session import session as folders, probe_api
+from probe.daemon.host import lease
+from probe.daemon.agent import tools
+from probe.daemon.shell.command_check import ask_probe as real_ask_probe
+from probe.daemon.store.store import Store
 
 SID = "11111111-2222-3333-4444-555555555555"
 #: Off the safe list, and harmless: the gray zone the check is for (inline Python, the one shape Jev judges).
@@ -464,7 +468,7 @@ class _Client:
 
 
 def _client(monkeypatch, respond) -> _Client:
-    from probe.daemon import model as model_mod
+    from probe.daemon.agent.model import model as model_mod
 
     client = _Client(respond)
     monkeypatch.setattr(model_mod, "endpoint", lambda: model_mod.Endpoint(base_url="https://probe.test/", key="k"))
@@ -625,7 +629,7 @@ def _logged(session_id: str, *, at: float, reason: str | None, status: str = "ra
 @pytest.fixture
 def no_agent(monkeypatch):
     """`probe approvals` run from the researcher's own terminal: no coding agent's variables."""
-    from probe.harness.registry import get_registry
+    from probe.foundation.harness_registry.harness_registry import get_registry
 
     for harness in get_registry().all():
         for name in (*harness.detect_env, harness.session_env):
@@ -785,7 +789,7 @@ def test_a_jev_yes_the_daemon_runs_is_what_the_list_reads(tmp_path, monkeypatch,
                                   stopped="the researcher switched Probe off", started=False)
         return await real_run(*a, **kw)
 
-    monkeypatch.setattr(sh, "run", run)
+    monkeypatch.setattr(sh.runner, "run", run)
     if ending in ("cut short", "raised"):
         with pytest.raises((asyncio.CancelledError, OSError)):
             _run(tools.shell(deps, GRAY))
@@ -991,7 +995,7 @@ def test_a_held_commands_lines_never_start_where_probe_approvals_own_do(capsys, 
 
 @pytest.mark.parametrize("lowest", [0.0, -0.0, 0.5, 0.995, 0.9999, 1.0])
 def test_every_score_jev_can_give_reads_back(lowest):
-    from probe.daemon.command_check import JEV_REASON, _probability, jev_reason
+    from probe.daemon.shell.command_check import JEV_REASON, _probability, jev_reason
 
     assert JEV_REASON.fullmatch(jev_reason(_probability(lowest)))
 

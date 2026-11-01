@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.sdk.durable import through_symlink, write_text_atomic
+from probe.foundation.durable.durable import through_symlink, write_text_atomic
 
 _POSIX_ONLY = pytest.mark.skipif(os.name == "nt", reason="POSIX modes and symlinks")
 
@@ -122,7 +122,7 @@ def test_keep_mode_drops_special_bits_and_keeps_the_rest_exactly(
 def test_a_filesystem_that_refuses_chmod_still_gets_the_write(tmp_path: Path, monkeypatch) -> None:
     """vfat, some FUSE and SMB mounts refuse chmod. Keeping the mode is best
     effort; refusing the write over it would wedge the integration repair."""
-    from probe.sdk import durable
+    from probe.foundation.durable import durable
 
     def refuse(*_args, **_kwargs):
         raise PermissionError("operation not permitted")
@@ -142,7 +142,7 @@ def test_a_filesystem_that_refuses_chmod_still_gets_the_write(tmp_path: Path, mo
 def test_the_temp_is_never_readable_more_widely_than_the_old_file(tmp_path: Path, monkeypatch) -> None:
     """The temp holds the new bytes before the replace; created at the umask
     it would be world-readable for that moment even when the file is 0600."""
-    from probe.sdk import durable
+    from probe.foundation.durable import durable
 
     opened: list[int] = []
     real_open = durable.os.open

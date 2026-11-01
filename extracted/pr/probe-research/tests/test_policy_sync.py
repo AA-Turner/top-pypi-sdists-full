@@ -1,7 +1,7 @@
 """The plugin's copy of `version_policy` must match the canonical one.
 
 `plugins/probe-research/hooks/version_policy.py` is a COPY of
-`src/probe/version_policy.py`, not a symlink, for the same reason the skills are
+`src/probe/shared/updates/version_policy.py`, not a symlink, for the same reason the skills are
 copied: the plugin ships self-contained. Here the constraint is harder than
 convenience -- `session-start.sh` runs the hook under the SYSTEM python3, which
 has no probe package on its path, so a shared import is not merely inconvenient
@@ -26,18 +26,18 @@ import sys
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
-_CANONICAL = _ROOT / "src" / "probe" / "version_policy.py"
+_CANONICAL = _ROOT / "src" / "probe" / "shared" / "updates" / "version_policy.py"
 _PLUGIN_COPY = _ROOT / "plugins" / "probe-research" / "hooks" / "version_policy.py"
 
 
 def test_plugin_policy_copy_matches_canonical() -> None:
-    assert _CANONICAL.is_file(), "canonical src/probe/version_policy.py is missing"
+    assert _CANONICAL.is_file(), "canonical src/probe/shared/updates/version_policy.py is missing"
     assert _PLUGIN_COPY.is_file(), (
         "plugin copy of version_policy.py is missing; run `make sync-plugin-policy`"
     )
     assert filecmp.cmp(_CANONICAL, _PLUGIN_COPY, shallow=False), (
         "plugins/probe-research/hooks/version_policy.py has drifted from "
-        "src/probe/version_policy.py — run `make sync-plugin-policy` "
+        "src/probe/shared/updates/version_policy.py — run `make sync-plugin-policy` "
         "(edit the canonical file, never the plugin copy)"
     )
 

@@ -10,7 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import kimi_config, plugin_cli
+from probe.shared.harness.harnesses.kimi_code import config as kimi_config
+from probe.shared.harness import plugins as plugin_cli
 
 AGENT = Path(__file__).resolve().parents[1]
 

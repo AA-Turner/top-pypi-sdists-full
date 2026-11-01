@@ -91,6 +91,15 @@ from trajectory.types.benchmarks.tasks.benchmark_spec_task import (
 from trajectory.types.benchmarks.tasks.benchmark_spec_task import (
   BenchmarkTaskCategory as BenchmarkTaskCategory,
 )
+from trajectory.types.beta.checkpoint_exports.checkpoint_export import (
+  CheckpointExport as CheckpointExport,
+)
+from trajectory.types.beta.checkpoint_exports.checkpoint_export import (
+  Download as CheckpointExportDownload,
+)
+from trajectory.types.beta.checkpoint_exports.checkpoint_export import (
+  State as CheckpointExportState,
+)
 from trajectory.types.billing.billing_run_cost import BillingRunCost as BillingRunCost
 from trajectory.types.billing_run_costs_response import (
   BillingRunCostsResponse as BillingRunCostsResponse,
@@ -192,8 +201,17 @@ from trajectory.types.inference.chat_completion_response import (
   ChatCompletionResponseToolCall as ChatCompletionResponseToolCall,
 )
 from trajectory.types.inference.model import Model as Model
+from trajectory.types.inference.operations.inference_operation_response import (
+  InferenceOperationResponse as InferenceOperationResponse,
+)
+from trajectory.types.inference.operations.inference_operation_response import (
+  InferenceOperationState as InferenceOperationState,
+)
 from trajectory.types.ingest_benchmark_response import (
   IngestBenchmarkResponse as IngestBenchmarkResponse,
+)
+from trajectory.types.list_checkpoint_exports_response import (
+  ListCheckpointExportsResponse as ListCheckpointExportsResponse,
 )
 from trajectory.types.list_deployments_response import (
   ListDeploymentsResponse as ListDeploymentsResponse,
@@ -341,6 +359,9 @@ from trajectory.types.trajectory_rollout_status import TracebackDiagnostic as Tr
 from trajectory.types.trajectory_rollout_status import (
   TrajectoryRolloutStatus as TrajectoryRolloutStatus,
 )
+from trajectory.types.trajectory_termination_subreason import (
+  TrajectoryTerminationSubreason as TrajectoryTerminationSubreason,
+)
 from trajectory.types.trajectory_upload_response import TrajectoryUploadItem as TrajectoryUploadItem
 from trajectory.types.trajectory_upload_response import (
   TrajectoryUploadResponse as TrajectoryUploadResponse,
@@ -407,6 +428,9 @@ __all__ = [
   "ChatCompletionResponseToolCall",
   "ChatCompletionTokenLogprob",
   "ChatCompletionTokenTopLogprob",
+  "CheckpointExport",
+  "CheckpointExportDownload",
+  "CheckpointExportState",
   "CompleteTrajectoryResponse",
   "CompletionTokensDetails",
   "CreateBenchmarkTaskAppendResponse",
@@ -442,7 +466,10 @@ __all__ = [
   "HeldOutRewardsByStepPage",
   "ImagePart",
   "ImageSpec",
+  "InferenceOperationResponse",
+  "InferenceOperationState",
   "IngestBenchmarkResponse",
+  "ListCheckpointExportsResponse",
   "ListDeploymentsResponse",
   "ListSupportedModelsResponse",
   "LogTrajectoryEventResponse",
@@ -528,6 +555,7 @@ __all__ = [
   "TrajectoryReward",
   "TrajectoryRewardComponent",
   "TrajectoryRolloutStatus",
+  "TrajectoryTerminationSubreason",
   "TrajectoryUploadItem",
   "TrajectoryUploadResponse",
   "UndeployResponse",

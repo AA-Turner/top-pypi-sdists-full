@@ -33,10 +33,18 @@ class KVCache:
 
     This policy applies to ``sampling_policy="segment"``. Trajectory-pinned
     sampling uses one policy throughout and keeps same-policy KV.
+    Live full-weight training requires ``on_limit="refill"`` and
+    ``allow_reprefill=True``; ``RolloutEngine`` uses these defaults when no
+    ``kv_cache`` is supplied for a live full-weight model.
 
     Attributes:
         max_staleness: Maximum policy steps between the retained KV's anchor
-            weights and the weights used for a new turn.
+            weights and the weights at prefill admission for a new turn. For
+            live full-weight runs, publications during the request can widen
+            the anchor-to-decoding policy gap beyond this bound without
+            rebuilding KV. Returned token policy spans track the actual
+            decoding policies; their training staleness is bounded separately
+            by ``AsyncTrainer.max_staleness``.
         on_limit: ``"hold"`` keeps sampling at a compatible policy;
             ``"refill"`` moves to current weights and rebuilds the prefix.
         allow_reprefill: Explicit acknowledgement of the prefix-cache miss

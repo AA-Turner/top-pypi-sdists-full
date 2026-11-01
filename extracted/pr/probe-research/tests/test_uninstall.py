@@ -26,7 +26,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import codex_hooks, uninstall, uninstall_plan
+from probe.shared.harness.harnesses.codex import hooks as codex_hooks
+from probe.cli import uninstall, uninstall_plan
 from probe.cli import uninstall_procs
 from tests.reinstall_harness import reinstall_wheels, uv_machine  # noqa: F401 -- fixtures
 
@@ -68,9 +69,9 @@ def home(tmp_path, monkeypatch):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("PROBE_TELEMETRY", "off")
     monkeypatch.setattr(tempfile, "tempdir", None)
-    from probe.sdk import journal
+    from probe.sdk.delivery import journal
 
-    monkeypatch.setattr(journal, "_private_fallback", None)
+    monkeypatch.setattr(journal.paths, "_private_fallback", None)
     return home
 
 
@@ -107,8 +108,9 @@ def researcher_files(home: Path) -> None:
 
 def install_probe(home: Path) -> dict:
     """A Probe install as the side-by-side installer and the wizard leave it."""
-    from probe.cli import agent_rules, statusline
-    from probe.sdk.config import save_context
+    from probe.cli import agent_rules
+    from probe.shared.harness.harnesses.claude_code import statusline
+    from probe.sdk.settings.settings import save_context
     from probe.service import paths
 
     share = Path(os.environ["XDG_DATA_HOME"]) / "uv"
@@ -306,7 +308,7 @@ def server(monkeypatch):
 @pytest.fixture
 def no_exec(monkeypatch):
     """Run the finisher in this process instead of exec'ing it."""
-    from probe._shared import finisher
+    from probe.shared.updates import finisher
     from probe.service import paths
 
     finished = {}
@@ -490,7 +492,8 @@ def test_offline_flag_removes_locally_and_names_the_dashboard(home, server, no_e
 
 
 def _queue_one(home: Path) -> None:
-    from probe.sdk.journal import Journal, default_root
+    from probe.sdk.delivery.journal.journal import Journal
+    from probe.sdk.delivery.journal.paths import default_root
 
     Journal(default_root()).append_http("POST", "/v1/runs", {"name": "r"})
 
@@ -597,7 +600,7 @@ def test_an_unreadable_barrier_is_finished_from_the_first_phase(home, server, no
 
 
 def test_a_barrier_past_the_point_of_no_return_is_live_without_its_owner(home):
-    from probe._shared import uninstall_barrier
+    from probe.shared.updates import uninstall_barrier
     from probe.service import client, paths
 
     paths.private_dir(paths.uninstall_dir())
@@ -646,7 +649,7 @@ def test_a_lost_retire_answer_is_finished_by_the_rerun(home, server, no_exec, ca
 
 
 def test_killed_in_the_finisher_the_copy_finishes_by_hand(home, server, monkeypatch):
-    from probe._shared import finisher
+    from probe.shared.updates import finisher
     from probe.service import paths
 
     researcher_files(home)
@@ -1001,7 +1004,8 @@ def test_with_no_terminal_and_no_yes_nothing_happens(home, server, no_exec, caps
 def test_a_custom_outbox_is_kept_not_deleted(home, server, no_exec, monkeypatch, tmp_path, capsys):
     """PROBE_OUTBOX_DIR outside Probe's folders may be the researcher's: what
     is queued there is kept, said so, and asks no D1 question."""
-    from probe.sdk.journal import Journal, default_root
+    from probe.sdk.delivery.journal.journal import Journal
+    from probe.sdk.delivery.journal.paths import default_root
 
     custom = tmp_path / "lab-outbox"
     monkeypatch.setenv("PROBE_OUTBOX_DIR", str(custom))
@@ -1092,7 +1096,7 @@ def test_a_second_run_never_calls_off_the_first_runs_uninstall(home, server, no_
     uninstall is running"), or is stopped while it waits for the install lock
     A holds: B calls off only what B wrote, so A's barrier and plan stay and
     nothing restarts the service under A."""
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
     from probe.service import paths
 
     install_probe(home)
@@ -1132,7 +1136,7 @@ def test_a_resumed_run_that_is_refused_leaves_the_uninstall_half_done_and_says_h
     knows how far that run got. Refused (unsent research), the resumed run
     never calls off: the barrier stays LIVE (also once this run is gone), the
     service is not started again, and it says the uninstall is half-done."""
-    from probe._shared import uninstall_barrier
+    from probe.shared.updates import uninstall_barrier
     from probe.service import paths
 
     install_probe(home)
@@ -1194,7 +1198,8 @@ def test_summary_drafts_are_counted_apart_and_a_rerun_online_is_not_the_advice(h
 
 def test_a_parked_team_note_counts_once_not_once_per_sidecar(home):
     """`park()` leaves the copy with its `.owner`, `.base` and `.meta`: one edit."""
-    from probe.cli import team_note_file, uninstall_notes
+    from probe.shared.notes import team_note as team_note_file
+    from probe.cli import uninstall_notes
     from probe.service import paths
 
     team = paths.state_dir() / "team-note"
@@ -1239,7 +1244,7 @@ def test_a_resumed_run_refused_at_the_lock_or_offline_says_what_finishes_it(home
                                                                            restarts, capsys, why):
     """Nothing unsent, so no --discard-unsent advice: the lock is held (an
     update, or another uninstall), or the server cannot be reached."""
-    from probe._shared import handoff, uninstall_barrier
+    from probe.shared.updates import handoff, uninstall_barrier
     from probe.service import paths
 
     install_probe(home)
@@ -1302,7 +1307,7 @@ def test_probe_repair_finishes_an_uninstall_killed_in_integrations_then_installs
     import typer
 
     import probe
-    from probe._shared import installs, uninstall_barrier
+    from probe.shared.updates import installs, uninstall_barrier
     from probe.cli import install_pipeline, repair
     from probe.service import keeper, paths
 
@@ -1452,7 +1457,7 @@ def _json_uninstall(**kwargs) -> tuple[int, dict]:
 
 @pytest.mark.parametrize("why", ["unsent_research", "live_users", "in_session", "offline", "busy", "partial", "done"])
 def test_the_json_result_says_why_as_data(home, server, no_exec, monkeypatch, why):
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
     from probe.service import paths
 
     install_probe(home)
@@ -1500,7 +1505,7 @@ def test_probe_daemon_install_after_a_halfway_uninstall_ends_with_the_cli_on_pat
     from typer.testing import CliRunner
 
     import probe
-    from probe._shared import installs, uninstall_barrier
+    from probe.shared.updates import installs, uninstall_barrier
     from probe.cli import daemon_cli, install_pipeline
 
     m = uv_machine
@@ -1572,7 +1577,7 @@ def test_an_installer_never_runs_an_uninstall_it_cannot_place(home, server, monk
 
 
 def test_the_uninstall_never_goes_on_without_the_install_lock(home, server, no_exec, monkeypatch):
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
     from probe.service import paths
 
     install_probe(home)
@@ -1593,7 +1598,7 @@ def test_an_owner_on_another_machine_is_never_cleared_resumed_or_finished(home, 
     host's owner reads as running, whatever its pid says here."""
     import socket
 
-    from probe._shared import uninstall_barrier
+    from probe.shared.updates import uninstall_barrier
     from probe.service import paths
 
     install_probe(home)
@@ -1706,7 +1711,7 @@ def test_what_probes_install_left_holding_nothing_goes_too(home, server, no_exec
 
 
 def test_configure_makes_no_kimi_folder_where_kimi_code_is_not_installed(home):
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     assert kimi_config.sync_mcp_bearer() == []
     assert not kimi_config.kimi_home().exists()
@@ -1719,7 +1724,7 @@ def test_a_new_hostname_on_the_same_machine_never_keeps_a_dead_uninstall_alive(h
     """P1: macOS renames the host when the network changes. The machine KEY
     decides; the hostname only for a record without one; and where the key
     cannot be read (the tap's copy), the pid check alone."""
-    from probe._shared import uninstall_barrier
+    from probe.shared.updates import uninstall_barrier
     from probe.service import paths
 
     paths.private_dir(paths.uninstall_dir())
@@ -1775,7 +1780,7 @@ def test_codex_trust_records_go_only_when_probes_approval_made_them_and_they_are
     """Probe records the `.hook-trust` entries its own approval made; the
     uninstall removes exactly those, while unchanged. One from an approval
     before this release (no record) stays, and nothing is said about it."""
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 
     install_probe(home)
     trust = home / ".codex" / ".hook-trust"

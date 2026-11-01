@@ -26,6 +26,7 @@ _RESOURCE_OWNERS = MappingProxyType(
         "httpx": frozenset({"Client", "AsyncClient"}),
         "asyncio": frozenset({"sleep", "CancelledError", "exceptions.CancelledError"}),
         "contextlib": frozenset({"ExitStack", "AsyncExitStack", "_BaseExitStack"}),
+        "functools": frozenset({"cache", "lru_cache", "cached_property"}),
         "subprocess": frozenset({"Popen", "TimeoutExpired"}),
         "re": frozenset({"compile", "Match", "Pattern"}),
         "operator": frozenset({"setitem", "delitem", "iadd", "iconcat", "imul", "iand", "isub", "ixor", "ior"}),
@@ -309,7 +310,14 @@ class ResourceProvenance:
                 isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
                 and node in parent.decorator_list
                 and self.context.imports.resolved_qualified_name(node)
-                in {"typing.final", "typing_extensions.final", "dataclasses.dataclass"}
+                in {
+                    "typing.final",
+                    "typing_extensions.final",
+                    "dataclasses.dataclass",
+                    "functools.cache",
+                    "functools.lru_cache",
+                    "functools.cached_property",
+                }
             )
         )
 
@@ -338,7 +346,14 @@ class ResourceProvenance:
             return None
         if not isinstance(self.parents.get(statement), ast.Module | ast.FunctionDef | ast.AsyncFunctionDef):
             return None
-        return statement.value if statement.lineno < getattr(at, "lineno", 0) else None
+        return (
+            statement.value
+            if statement.lineno
+            < getattr(  # sarj-noqa: SARJ557 -- Order heterogeneous AST markers while preserving the missing-location fallback.
+                at, "lineno", 0
+            )
+            else None
+        )
 
     def async_function(self, value: ast.expr, at: ast.AST) -> ast.AsyncFunctionDef | None:
         if self.dynamic_namespace:

@@ -67,7 +67,7 @@ from .vector_database import VectorDatabase
 from .vector_view import VectorView
 from .reference_record import ReferenceRecord
 from .api_endpoint import APIEndpoint
-from .event_group import EventGroup, TargetReadiness
+from .event_group import EventGroup, EventPrediction, TargetReadiness
 from .notebook_helper import FeatrixNotebookHelper
 from .label_utils import find_similar_labels, collapse_similar_labels
 from .null_distribution import compute_null_distribution
@@ -97,6 +97,7 @@ __all__ = [
     'APIEndpoint',
     'EventGroup',
     'TargetReadiness',
+    'EventPrediction',
     'FeatrixNotebookHelper',
     'find_similar_labels',
     'collapse_similar_labels',

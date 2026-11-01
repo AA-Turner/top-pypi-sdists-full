@@ -22,7 +22,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
 from probe.daemon import store as store_mod  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
-from probe.daemon.events import Kind  # noqa: E402
+from probe.shared.harness.events import Kind  # noqa: E402
 from probe.sdk.session_marker import WIZARD_HINT  # noqa: E402
 
 SID = "11111111-2222-3333-4444-555555555555"
@@ -167,7 +167,7 @@ def test_a_failing_model_is_retried_later_and_never_drops_events(tmp_path, monke
 
 
 def _lease(sid: str = SID) -> dict:
-    from probe.daemon import lease
+    from probe.daemon.host import lease
 
     return json.loads(lease.lease_path(sid).read_text())
 
@@ -292,7 +292,7 @@ def test_writer_model_quota_response_enters_inline_without_retrying_or_covering_
 
 def test_a_bite_cut_short_is_retried_smaller_then_skipped_loudly(tmp_path, monkeypatch):
     transcript, work = _session(tmp_path, monkeypatch)
-    monkeypatch.setattr(worker_mod, "BITE_REQUESTS", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "BITE_REQUESTS", 2)
     model, _ = _scripted(["ls"] * 20, "never reached")
     w = worker_mod.Worker(worker_mod.Session(SID, transcript, work, "claude_code", home=tmp_path / "home"),
                           replay=Replay(), model=model)
@@ -383,7 +383,10 @@ def test_a_refused_key_outranks_an_answer_the_token_limit_ate(tmp_path, monkeypa
     the lease released `unauthorized`, the range kept for when the key works --
     never a cut short that could end in skipping it."""
     transcript, work = _session(tmp_path, monkeypatch)
-    monkeypatch.setattr(worker_mod, "_key_refused", lambda deps: True)
+    monkeypatch.setattr(worker_mod.loop.failures, "_key_refused", lambda deps: True)
+    monkeypatch.setattr(worker_mod.bite.run, "_key_refused", lambda deps: True)
+    monkeypatch.setattr(worker_mod.loop.held, "_key_refused", lambda deps: True)
+    monkeypatch.setattr(worker_mod.loop.run_end, "_key_refused", lambda deps: True)
     w = worker_mod.Worker(worker_mod.Session(SID, transcript, work, "claude_code", home=tmp_path / "home"),
                           replay=Replay(), model=_thinks_to_the_limit({"n": 0}))
     w.read_new()
@@ -531,8 +534,8 @@ def test_jev_is_asked_about_a_held_command_in_every_mode_but_bypass(tmp_path, mo
     put to Jev before the researcher in every mode except bypass. Jev judges
     inline Python only (#2899), so the command is one: `python3` on PATH is this
     interpreter, outside the working folders, named by its version."""
-    from probe.daemon import command_check
-    from probe.daemon import tools as tools_mod
+    from probe.daemon.shell import command_check
+    from probe.daemon.agent import tools as tools_mod
 
     real = os.path.realpath(sys.executable)
     if not tools_mod._PYTHON_REAL.fullmatch(os.path.basename(real)):

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import httpx
 
-from probe.sdk.transport import Transport
+from probe.sdk.delivery.transport.transport import Transport
 
 _NOTICE = (
     "This run is in the trash since 2026-09-26, deleted by Alice. Nothing can be "
@@ -32,7 +32,7 @@ def test_any_other_error_keeps_its_detail() -> None:
 
 
 def _transport(responses: list[httpx.Response]) -> tuple[Transport, list[httpx.Request]]:
-    from probe.sdk.config import Settings
+    from probe.sdk.settings.settings import Settings
 
     seen: list[httpx.Request] = []
 
@@ -55,7 +55,7 @@ def test_a_retried_delete_that_finds_it_in_the_trash_succeeds(monkeypatch) -> No
     """The first attempt committed and its reply was lost (a 503 from the
     edge); the retry finds the run already in the trash. That is the delete
     having worked: the notice is the answer, not an error."""
-    monkeypatch.setattr("probe.sdk.transport.time.sleep", lambda _s: None)
+    monkeypatch.setattr("probe.sdk.delivery.transport.transport.time.sleep", lambda _s: None)
     transport, seen = _transport([httpx.Response(503), httpx.Response(410, json=_IN_TRASH)])
     assert transport.delete("/v1/runs/r-1") == _IN_TRASH
     assert [r.method for r in seen] == ["DELETE", "DELETE"]

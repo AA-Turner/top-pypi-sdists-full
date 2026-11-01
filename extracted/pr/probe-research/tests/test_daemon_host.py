@@ -1,7 +1,7 @@
 """The daemon host: every session's daemon worker in one child process of the service.
 
 Plan `~/plans/daemon-in-service/PLAN.md` (H1-H15, S1-S6, P1). These start REAL
-hosts (`probe.daemon.host`, through the service's `daemonhost.DaemonHost`) and
+hosts (`probe.daemon.host.host`, through the service's `daemonhost.DaemonHost`) and
 real workers in them, on sessions whose model endpoint is a closed local port:
 nothing reaches the network, and a worker with an empty queue does no model call.
 """
@@ -25,8 +25,8 @@ import pytest
 
 pytest.importorskip("pydantic_ai")
 
-from probe.daemon import host as host_mod  # noqa: E402
-from probe.daemon import proxy as proxy_mod  # noqa: E402
+from probe.daemon.host import host as host_mod  # noqa: E402
+from probe.daemon.host import proxy as proxy_mod  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
 from probe.service import daemonhost  # noqa: E402
 from probe.service import updater as updater_mod  # noqa: E402

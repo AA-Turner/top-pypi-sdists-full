@@ -15,6 +15,7 @@ import jsonpickle
 from jsonpickle.errors import ClassNotFoundError
 
 from bitfab.payload_budget import MAX_COMPRESSIBLE_SPAN_CARRIER_BYTES
+from bitfab.serialize import exceeds_jsonpickle_budget
 
 _MAX_COPY_BYTES = MAX_COMPRESSIBLE_SPAN_CARRIER_BYTES
 _MAX_NODES = 1_000_000
@@ -584,6 +585,8 @@ def _apply_or_keep(annotation: Any, built: Any) -> Any:
 
 
 def _encode(value: Any) -> Any:
+    if exceeds_jsonpickle_budget(value, _MAX_COPY_BYTES):
+        return None
     try:
         encoded = jsonpickle.encode(value, unpicklable=True, keys=True)
     except Exception:

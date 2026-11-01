@@ -28,12 +28,11 @@ from __future__ import annotations
 import filecmp
 import json
 import re
-import subprocess
 from pathlib import Path
 
 import pytest
 
-from probe import skill_versions
+from probe.foundation.skills import skills as skill_versions
 from tests.held_for_plugin_release import HELD_NEW_SKILLS, HELD_SKILLS, REASON
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -42,7 +41,18 @@ _CANONICAL = _ROOT / "skills"
 _PI_PLUGIN = _ROOT / "plugins" / "probe-research-pi" / "skills"
 _PI_PACKAGE_JSON = _ROOT / "plugins" / "probe-research-pi" / "package.json"
 
-# Mirrors the Makefile's sync-pi-skills list.
+
+def _vendor_plan(group: str) -> list:
+    """`make <group>`'s concrete steps, as tools/vendor.py expands plugins/VENDORED.json."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_vendor", _ROOT / "tools" / "vendor.py")
+    vendor = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vendor)
+    return vendor.plan(group)
+
+
+# Mirrors the sync-pi-skills trees (skills/profiles.json "full").
 _SYNCED = (
     "probe",
     "track-work",
@@ -104,7 +114,7 @@ def test_pi_skill_copy_matches_canonical(skill: str) -> None:
 
 
 def test_every_canonical_skill_is_covered_by_this_guard() -> None:
-    """A new skill must be added to the Makefile's sync-pi-skills list, to
+    """A new skill must be added to skills/profiles.json (the sync-pi-skills list), to
     package.json's "pi.skills", AND to `_SYNCED` here — otherwise it is
     silently missing from the pi package while every parametrized case
     above still passes."""
@@ -112,23 +122,17 @@ def test_every_canonical_skill_is_covered_by_this_guard() -> None:
     covered = set(_SYNCED)
     assert on_disk == covered, (
         f"skills/ holds {sorted(on_disk)} but this guard covers {sorted(covered)}; "
-        "add it to _SYNCED + the Makefile + package.json's pi.skills"
+        "add it to _SYNCED + skills/profiles.json + package.json's pi.skills"
     )
     assert not {s for s in HELD_NEW_SKILLS if (_PI_PLUGIN / s).exists()}, "empty HELD_NEW_SKILLS"
 
 
-def test_the_makefile_sync_list_matches_synced() -> None:
+def test_the_vendor_sync_list_matches_synced() -> None:
     """Parsed, not eyeballed — same contract as test_skills_sync.py's
-    equivalent guard, applied to the sync-pi-skills loop instead."""
-    # The loop reads agent/skills/profiles.json, so read it as make expands it.
-    import subprocess
-
-    dry_run = subprocess.run(
-        ["make", "-n", "-C", str(_ROOT), "sync-pi-skills"], capture_output=True, text=True, check=True
-    ).stdout
-    m = re.search(r"for s in ([^;]+); do", dry_run)
-    assert m, "could not parse the sync-pi-skills loop"
-    assert set(m.group(1).split()) == set(_SYNCED)
+    equivalent guard, applied to the sync-pi-skills trees instead."""
+    # The trees come from agent/skills/profiles.json, so read them as the tool expands them.
+    trees = [op for op in _vendor_plan("sync-pi-skills") if op.kind == "tree"]
+    assert {op.dest for op in trees} == {f"plugins/probe-research-pi/skills/{name}" for name in _SYNCED}
 
 
 def test_sync_pi_skills_runs_in_the_sync_plugin_composite() -> None:
@@ -162,7 +166,7 @@ def test_package_json_declares_exactly_the_synced_skills() -> None:
 
     assert declared_names == set(_SYNCED), (
         f"package.json declares {sorted(declared_names)} but _SYNCED is "
-        f"{sorted(_SYNCED)} — keep pi.skills, the Makefile loop, and _SYNCED "
+        f"{sorted(_SYNCED)} — keep pi.skills, skills/profiles.json, and _SYNCED "
         "in lockstep"
     )
 
@@ -176,11 +180,9 @@ _PI_DAEMON_SKILLS = _ROOT / "plugins" / "probe-research-pi" / "daemon-skills"
 
 
 def _hand_kept() -> list[str]:
-    """The Makefile's `DAEMON_HAND_KEPT`: the lean plugin's own skills."""
-    makefile = (_ROOT / "Makefile").read_text(encoding="utf-8")
-    m = re.search(r"^DAEMON_HAND_KEPT := (.+)$", makefile, re.MULTILINE)
-    assert m, "the Makefile no longer declares DAEMON_HAND_KEPT"
-    return m.group(1).split()
+    """plugins/VENDORED.json's `daemon_hand_kept`: the lean plugin's own skills."""
+    manifest = json.loads((_ROOT / "plugins" / "VENDORED.json").read_text(encoding="utf-8"))
+    return manifest["lists"]["daemon_hand_kept"]
 
 
 def test_pi_daemon_skills_are_byte_copies_of_the_lean_plugins() -> None:
@@ -202,14 +204,11 @@ def test_pi_daemon_skills_are_byte_copies_of_the_lean_plugins() -> None:
 
 
 def test_sync_pi_daemon_skill_copies_those_files_and_runs_in_the_composite() -> None:
-    dry = subprocess.run(
-        ["make", "-n", "-C", str(_ROOT), "sync-pi-daemon-skill"], capture_output=True, text=True, check=True
-    ).stdout
-    assert f"for s in {' '.join(_hand_kept())}; do" in dry
-    assert (
-        "cp plugins/probe-research-daemon/agent-skills/$s/SKILL.md "
-        "plugins/probe-research-pi/daemon-skills/$s/SKILL.md"
-    ) in dry
+    assert [(op.kind, op.sources, op.dest) for op in _vendor_plan("sync-pi-daemon-skill")] == [
+        ("copy", (f"plugins/probe-research-daemon/agent-skills/{name}/SKILL.md",),
+         f"plugins/probe-research-pi/daemon-skills/{name}/SKILL.md")
+        for name in _hand_kept()
+    ]
     makefile = (_ROOT / "Makefile").read_text(encoding="utf-8")
     composite = re.search(r"^sync-plugin:\s*(.+)$", makefile, re.MULTILINE)
     assert composite and "sync-pi-daemon-skill" in composite.group(1).split()

@@ -19,10 +19,10 @@ from mcp.server.fastmcp.exceptions import ToolError
 
 from probe import cli, errors
 from probe.mcp import server as server_mod
-from probe.mcp.contract import MetricMode
-from probe.mcp.server import create_server
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.shared.reads.search_contract import MetricMode
+from probe.mcp.server.server import create_server
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from tests.conftest import make_client, open_run, search_response
 
 

@@ -21,7 +21,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import capabilities, codex_hooks
+from probe.cli import capabilities
+from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 from probe.core import requests as core_requests
 from probe.core import run as core_run
 from probe.service import codextrust

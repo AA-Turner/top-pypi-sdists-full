@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import pytest
 
-from probe.sdk.client import Anchor
-from probe.sdk.filetype import file_extension, name_with_extension
-from probe.sdk.run import Run
+from probe.sdk.artifact.anchors import Anchor
+from probe.sdk.artifact.filetype import file_extension, name_with_extension
+from probe.sdk.run.run import Run
 from tests.conftest import make_client
 from tests.test_outbox import seeded_run
 

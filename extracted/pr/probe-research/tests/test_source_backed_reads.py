@@ -16,12 +16,13 @@ import json
 import httpx
 import pytest
 
-from probe.mcp.service import ResearchReadService
+from probe.mcp.tools.tools import ResearchReadService
 from probe.sdk import errors
-from probe.sdk.client import SOURCE_READ_CONTRACT, Client
-from probe.sdk.config import Settings
-from probe.sdk.reader import Reader
-from probe.sdk.transport import Transport
+from probe.sdk.client.resources.runs.metrics import SOURCE_READ_CONTRACT
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
+from probe.sdk.reads.reads import Reader
+from probe.sdk.delivery.transport.transport import Transport
 
 _TOKEN = "probe_pat_" + "a" * 32
 _SVC = "probe_svc_" + "a" * 32

@@ -29,7 +29,8 @@ import pytest
 from mcp.server.transport_security import TransportSecuritySettings
 
 import probe.mcp.server as server_mod
-from probe.mcp.server import create_server, with_auth_and_health
+from probe.mcp.server.server import create_server
+from probe.mcp.server.http import with_auth_and_health
 
 _OPEN = TransportSecuritySettings(
     enable_dns_rebinding_protection=False, allowed_hosts=["*"], allowed_origins=["*"]
@@ -164,9 +165,11 @@ def test_saturated_pool_sheds_with_a_retryable_overloaded_error(
     "overloaded" tool error — not ride toward the ingress's 300s timeout —
     and the shed call must never reach the service."""
     svc = BlockingService()
-    monkeypatch.setattr(server_mod, "_TOOL_CAPACITY", 1)
-    monkeypatch.setattr(server_mod, "_QUEUE_TIMEOUT_S", 0.5)
-    monkeypatch.setattr(server_mod, "_QUEUE_WARN_S", 0.05)
+    monkeypatch.setattr(server_mod.limits, "_TOOL_CAPACITY", 1)
+    monkeypatch.setattr(server_mod.limits, "_QUEUE_TIMEOUT_S", 0.5)
+    monkeypatch.setattr(server_mod.tool_runner, "_QUEUE_TIMEOUT_S", 0.5)
+    monkeypatch.setattr(server_mod.limits, "_QUEUE_WARN_S", 0.05)
+    monkeypatch.setattr(server_mod.tool_runner, "_QUEUE_WARN_S", 0.05)
 
     async def run() -> tuple[httpx.Response, float, httpx.Response, httpx.Response]:
         mcp = create_server(svc, transport_security=_OPEN)
@@ -244,9 +247,15 @@ def test_concurrent_callers_with_different_tokens_never_cross(
             barrier.wait(timeout=10)
             return {"data": {"mode": "search", "results": [{"paper_id": self.source.client.token}]}}
 
-    monkeypatch.setattr(server_mod, "Client", FakeClient)
-    monkeypatch.setattr(server_mod, "ResearchOSSource", FakeSource)
-    monkeypatch.setattr(server_mod, "ResearchReadService", FakeService)
+    monkeypatch.setattr(server_mod.pool, "Client", FakeClient)
+    monkeypatch.setattr(server_mod.pool, "ResearchOSSource", FakeSource)
+    monkeypatch.setattr(server_mod.server, "ResearchReadService", FakeService)
+    monkeypatch.setattr(server_mod.metric_mode, "ResearchReadService", FakeService)
+    monkeypatch.setattr(server_mod.metric_modes.coordinates, "ResearchReadService", FakeService)
+    monkeypatch.setattr(server_mod.metric_modes.grouped, "ResearchReadService", FakeService)
+    monkeypatch.setattr(server_mod.metric_modes.points, "ResearchReadService", FakeService)
+    monkeypatch.setattr(server_mod.metric_modes.series, "ResearchReadService", FakeService)
+    monkeypatch.setattr(server_mod.pool, "ResearchReadService", FakeService)
     server_mod._clients.clear()
     server_mod._sources.clear()
 
@@ -373,8 +382,8 @@ def _install_fake_factory(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, in
         def close(self) -> None:
             self.client.close()
 
-    monkeypatch.setattr(server_mod, "Client", FakeClient)
-    monkeypatch.setattr(server_mod, "ResearchOSSource", FakeSource)
+    monkeypatch.setattr(server_mod.pool, "Client", FakeClient)
+    monkeypatch.setattr(server_mod.pool, "ResearchOSSource", FakeSource)
     server_mod._clients.clear()
     server_mod._sources.clear()
     server_mod._in_flight.clear()
@@ -406,7 +415,7 @@ def test_eviction_parks_a_busy_source_and_closes_it_on_release(
     """Evicting a token whose call is mid-flight must NOT close its client —
     it parks, and the last lease release closes it."""
     closed = _install_fake_factory(monkeypatch)
-    monkeypatch.setattr(server_mod, "_MAX_CACHED_TOKENS", 2)
+    monkeypatch.setattr(server_mod.pool, "_MAX_CACHED_TOKENS", 2)
 
     lease_a = _lease("tok-a")  # in flight
     try:
@@ -429,7 +438,7 @@ def test_two_generations_of_one_token_park_and_close_independently(
     still in flight: the park slot is keyed by instance, so the generations
     must never collide (D9 — the token-keyed design closed a live client)."""
     closed = _install_fake_factory(monkeypatch)
-    monkeypatch.setattr(server_mod, "_MAX_CACHED_TOKENS", 1)
+    monkeypatch.setattr(server_mod.pool, "_MAX_CACHED_TOKENS", 1)
 
     open_leases: list = []
     try:
@@ -463,8 +472,9 @@ def test_saturation_warning_logged_when_a_call_waits(
     leave the breadcrumb log — the only server-side signal of a saturated
     pool short of an actual shed."""
     svc = BlockingService()
-    monkeypatch.setattr(server_mod, "_TOOL_CAPACITY", 1)
-    monkeypatch.setattr(server_mod, "_QUEUE_WARN_S", 0.05)
+    monkeypatch.setattr(server_mod.limits, "_TOOL_CAPACITY", 1)
+    monkeypatch.setattr(server_mod.limits, "_QUEUE_WARN_S", 0.05)
+    monkeypatch.setattr(server_mod.tool_runner, "_QUEUE_WARN_S", 0.05)
 
     async def run() -> httpx.Response:
         mcp = create_server(svc, transport_security=_OPEN)
@@ -509,8 +519,9 @@ def test_shed_is_logged_server_side(
     probe stays green while it happens — a silent shed is invisible to
     operators for as long as the overload lasts."""
     svc = BlockingService()
-    monkeypatch.setattr(server_mod, "_TOOL_CAPACITY", 1)
-    monkeypatch.setattr(server_mod, "_QUEUE_TIMEOUT_S", 0.3)
+    monkeypatch.setattr(server_mod.limits, "_TOOL_CAPACITY", 1)
+    monkeypatch.setattr(server_mod.limits, "_QUEUE_TIMEOUT_S", 0.3)
+    monkeypatch.setattr(server_mod.tool_runner, "_QUEUE_TIMEOUT_S", 0.3)
 
     async def run() -> httpx.Response:
         mcp = create_server(svc, transport_security=_OPEN)
@@ -544,8 +555,9 @@ def test_admission_slot_is_released_after_a_tool_error(
 ) -> None:
     """A tool body that raises must return its admission permit: at capacity 1
     a leaked slot would make the SECOND call shed instead of erroring."""
-    monkeypatch.setattr(server_mod, "_TOOL_CAPACITY", 1)
-    monkeypatch.setattr(server_mod, "_QUEUE_TIMEOUT_S", 1.0)
+    monkeypatch.setattr(server_mod.limits, "_TOOL_CAPACITY", 1)
+    monkeypatch.setattr(server_mod.limits, "_QUEUE_TIMEOUT_S", 1.0)
+    monkeypatch.setattr(server_mod.tool_runner, "_QUEUE_TIMEOUT_S", 1.0)
 
     class ExplodingService:
         def browse_research(self, **_kw: object) -> dict:
@@ -594,7 +606,7 @@ def test_grace_budget_covers_the_worst_case_call() -> None:
     exists to protect. This pins the arithmetic so drift fails CI."""
     import re
 
-    from probe.sdk import transport
+    from probe.sdk.delivery import transport
 
     manifest = (Path(__file__).parent.parent / "deploy" / "mcp" / "k8s.yaml").read_text()
     grace = int(re.search(r"terminationGracePeriodSeconds:\s*(\d+)", manifest).group(1))

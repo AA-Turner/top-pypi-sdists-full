@@ -13,8 +13,8 @@ import json
 import pytest
 
 from probe import cli
-from probe.sdk.client import Anchor
-from probe.sdk.config import load_context, save_context
+from probe.sdk.artifact.anchors import Anchor
+from probe.sdk.settings.settings import load_context, save_context
 
 from tests.conftest import _WS_MINE, _WS_OTHER, make_client
 
@@ -123,7 +123,7 @@ def test_workspace_delete_preserves_an_unrelated_pin_and_environment_override(
     assert cli.main(["workspace", "delete", "teammate", "--yes"]) == 0
 
     assert load_context()["workspace"] == anchor
-    from probe.sdk.config import resolve
+    from probe.sdk.settings.settings import resolve
 
     assert resolve().workspace == _WS_OTHER
 
@@ -373,7 +373,7 @@ def test_a_backend_that_ignores_part_of_is_refused_not_mislabelled():
     """The parent_id trap again for `?part_of=` (0401): an older backend returns
     every project, which would read as the parts of the one asked about."""
     from probe.sdk import errors
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     whole = "11111111-1111-1111-1111-111111111111"
     with pytest.raises(errors.NotFoundError, match="predates"):
@@ -585,7 +585,7 @@ def test_a_backend_that_ignores_parent_id_is_refused_not_mislabelled(client, mon
     Refuse rather than answer confidently and wrongly.
     """
     from probe.sdk import errors
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     with pytest.raises(errors.NotFoundError) as exc:
         Client._verify_parent_filter(

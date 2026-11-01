@@ -25,10 +25,10 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import approvals as appr
-from probe.daemon import mailbox
-from probe.daemon.mailbox import Kind
-from probe.daemon.store import store_path
+from probe.shared.mailbox import approvals as appr
+from probe.shared import mailbox
+from probe.shared.mailbox.mailbox import Kind
+from probe.daemon.store.store import store_path
 from probe.service import alertpoll, client, mailwatch
 from probe.service.protocol import ErrorCode, MailboxPart, Method, Mode, RpcError, Topic
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401 -- a fixture
@@ -1144,7 +1144,14 @@ def test_a_step_that_started_is_waited_for_and_never_answered_late(tmp_path, mon
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     path = mailbox.publish_here(_alert([21]))
     real = mailbox._read_json  # noqa: SLF001
-    monkeypatch.setattr(mailbox, "_read_json", lambda p: (time.sleep(0.5), real(p))[1])
+    monkeypatch.setattr(mailbox.layout, "_read_json", lambda p: (time.sleep(0.5), real(p))[1])
+    monkeypatch.setattr(mailbox.asks, "_read_json", lambda p: (time.sleep(0.5), real(p))[1])
+    monkeypatch.setattr(mailbox.cleanup, "_read_json", lambda p: (time.sleep(0.5), real(p))[1])
+    monkeypatch.setattr(mailbox.delivery, "_read_json", lambda p: (time.sleep(0.5), real(p))[1])
+    monkeypatch.setattr(mailbox.mailbox, "_read_json", lambda p: (time.sleep(0.5), real(p))[1])
+    monkeypatch.setattr(mailbox.posters.local, "_read_json", lambda p: (time.sleep(0.5), real(p))[1])
+    monkeypatch.setattr(mailbox.presence, "_read_json", lambda p: (time.sleep(0.5), real(p))[1])
+    monkeypatch.setattr(mailbox.worker_marker, "_read_json", lambda p: (time.sleep(0.5), real(p))[1])
 
     async def run():
         host = MailHost(log=lambda m: None)
@@ -1207,9 +1214,9 @@ def test_a_service_that_does_not_answer_is_left_alone_for_a_while(home, monkeypa
 
     from probe.service import paths
 
-    monkeypatch.setattr(mailbox, "POST_WAIT_S", 0.2)
-    monkeypatch.setattr(mailbox, "POST_GRACE_S", 0.1)
-    monkeypatch.setattr(mailbox, "_service_quiet_until", 0.0)
+    monkeypatch.setattr(mailbox.posters.service, "POST_WAIT_S", 0.2)
+    monkeypatch.setattr(mailbox.posters.service, "POST_GRACE_S", 0.1)
+    monkeypatch.setattr(mailbox.posters.service, "_service_quiet_until", 0.0)
     sock_path = paths.socket_path()
     server = socketlib.socket(socketlib.AF_UNIX, socketlib.SOCK_STREAM)
     server.bind(str(sock_path))
@@ -1316,7 +1323,14 @@ def test_a_claim_still_running_when_the_hook_gives_up_is_still_delivered_once(tm
             time.sleep(1.5)
         return real(p)
 
-    monkeypatch.setattr(mailbox, "_read_json", slow)
+    monkeypatch.setattr(mailbox.layout, "_read_json", slow)
+    monkeypatch.setattr(mailbox.asks, "_read_json", slow)
+    monkeypatch.setattr(mailbox.cleanup, "_read_json", slow)
+    monkeypatch.setattr(mailbox.delivery, "_read_json", slow)
+    monkeypatch.setattr(mailbox.mailbox, "_read_json", slow)
+    monkeypatch.setattr(mailbox.posters.local, "_read_json", slow)
+    monkeypatch.setattr(mailbox.presence, "_read_json", slow)
+    monkeypatch.setattr(mailbox.worker_marker, "_read_json", slow)
     loop = asyncio.new_event_loop()
     threading.Thread(target=loop.run_forever, daemon=True).start()
     host = MailHost(log=lambda m: None)
@@ -1343,7 +1357,7 @@ def test_a_service_killed_between_its_claim_and_its_log_line_still_delivers_once
     def killed(*args, **kwargs):
         raise SystemExit("killed between the rename and the log line")
 
-    monkeypatch.setattr(mailbox, "_log_claim", killed)
+    monkeypatch.setattr(mailbox.delivery, "_log_claim", killed)
     loop = asyncio.new_event_loop()
     threading.Thread(target=loop.run_forever, daemon=True).start()
     host = MailHost(log=lambda m: None)
@@ -1514,7 +1528,9 @@ def test_a_post_that_runs_past_its_deadline_writes_nothing(tmp_path, monkeypatch
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     alert = _alert([32])
     real = mailbox._file_name  # noqa: SLF001
-    monkeypatch.setattr(mailbox, "_file_name", lambda msg: (time.sleep(0.3), real(msg))[1])
+    monkeypatch.setattr(mailbox.mailbox, "_file_name", lambda msg: (time.sleep(0.3), real(msg))[1])
+    monkeypatch.setattr(mailbox.poster, "_file_name", lambda msg: (time.sleep(0.3), real(msg))[1])
+    monkeypatch.setattr(mailbox.posters.local, "_file_name", lambda msg: (time.sleep(0.3), real(msg))[1])
     request = protocol.need_mailbox_post({"sid": SID, "state_dir": str(tmp_path / "probe"),
                                           "message": asdict(alert), "budget": 0.1})
     request["state"] = request["state_dir"]
@@ -1538,7 +1554,14 @@ def test_a_post_past_its_deadline_deletes_nothing_either(tmp_path, monkeypatch):
     u2, u3 = unasked("u2", time.time()), unasked("u3", time.time() + 1)
     mailbox.publish_here(u3)  # the worker's own, after it gave up on the service
     real = mailbox._read_json  # noqa: SLF001
-    monkeypatch.setattr(mailbox, "_read_json", lambda p: (time.sleep(0.3), real(p))[1])
+    monkeypatch.setattr(mailbox.layout, "_read_json", lambda p: (time.sleep(0.3), real(p))[1])
+    monkeypatch.setattr(mailbox.asks, "_read_json", lambda p: (time.sleep(0.3), real(p))[1])
+    monkeypatch.setattr(mailbox.cleanup, "_read_json", lambda p: (time.sleep(0.3), real(p))[1])
+    monkeypatch.setattr(mailbox.delivery, "_read_json", lambda p: (time.sleep(0.3), real(p))[1])
+    monkeypatch.setattr(mailbox.mailbox, "_read_json", lambda p: (time.sleep(0.3), real(p))[1])
+    monkeypatch.setattr(mailbox.posters.local, "_read_json", lambda p: (time.sleep(0.3), real(p))[1])
+    monkeypatch.setattr(mailbox.presence, "_read_json", lambda p: (time.sleep(0.3), real(p))[1])
+    monkeypatch.setattr(mailbox.worker_marker, "_read_json", lambda p: (time.sleep(0.3), real(p))[1])
     request = protocol.need_mailbox_post({"sid": SID, "state_dir": str(tmp_path / "probe"),
                                           "message": asdict(u2), "budget": 0.1})
     request["state"] = request["state_dir"]

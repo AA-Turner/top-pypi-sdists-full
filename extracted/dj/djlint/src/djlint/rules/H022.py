@@ -19,7 +19,7 @@ good, so tokenizing here would drop findings the rule used to report.
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 
 import regex as re
 
@@ -72,6 +72,7 @@ _UNVISITED: Final = -2
 _NOTHING: Final = -1
 
 
+@final
 class _Span(NamedTuple):
     """Where a finding sits, standing in for the pattern match."""
 
@@ -170,6 +171,7 @@ def run(
         {
             "code": rule["name"],
             "line": get_line(span.start, line_ends),
+            "end": get_line(span.end, line_ends),
             "match": html[span.start : span.end].strip()[:20],
             "message": rule["message"],
         }

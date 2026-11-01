@@ -78,7 +78,7 @@ def _refresh() -> None:
     discover they were racing. It carries the spawner's pid, so releasing it
     means releasing THAT claim, not whatever claim happens to be there now.
     """
-    from probe import version_policy
+    from probe.shared.updates import version_policy
 
     owner = os.environ.get(version_policy.REFRESH_OWNER_ENV)
     try:
@@ -92,8 +92,8 @@ def _refresh() -> None:
 
 
 def _fetch() -> None:
-    from probe import version_policy
-    from probe.sdk.tls import ssl_context
+    from probe.shared.updates import version_policy
+    from probe.foundation.tls.tls import ssl_context
 
     version_policy.refresh(context=ssl_context())
 
@@ -104,7 +104,7 @@ def refresh_cache() -> None:
     service runs (`probe.core.run version {"refresh": true}`) when a CLI asks
     it instead of spawning this process; the service keeps it to one at a
     time itself. Never raises: a failed fetch is recorded in the cache's `ok`."""
-    from probe import version_policy
+    from probe.shared.updates import version_policy
 
     try:
         _fetch()
@@ -119,7 +119,7 @@ def _flush_update_reports(base: str) -> None:
     inside training loops (`update_report`). This process is already detached
     and already talking to the API once per TTL, so it is the cheap place."""
     try:
-        from probe.cli import update_report
+        from probe.shared.updates import update_report
 
         update_report.flush(base)
     except Exception:  # noqa: BLE001 - detached, and only telemetry
@@ -136,8 +136,9 @@ def _apply() -> int:
     behave identically when it is not spawned (no parent pid in the environment,
     so no wait).
     """
-    from probe import version_policy
-    from probe.cli import autoupdate, update_report, wizard_lock
+    from probe.shared.updates import version_policy
+    from probe.cli import autoupdate, wizard_lock
+    from probe.shared.updates import update_report
     from probe.cli.upgrading import perform_update
 
     # Single-writer across concurrent sessions. Without it, several Claude Code
@@ -174,8 +175,10 @@ def _apply_if_newer() -> int:
     a release landing between the two fetches would otherwise mean comparing
     against one version and upgrading toward another.
     """
-    from probe import __version__, version_policy
-    from probe.cli import autoupdate, update_report, updater, wizard_lock
+    from probe import __version__
+    from probe.shared.updates import version_policy
+    from probe.cli import autoupdate, updater, wizard_lock
+    from probe.shared.updates import update_report
     from probe.cli.upgrading import perform_update, update_owed_pi_package
 
     base = version_policy.base_url()

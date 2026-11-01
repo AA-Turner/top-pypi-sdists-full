@@ -22,9 +22,16 @@ import json
 import pytest
 
 from probe.cli import telemetry as tm
-from probe.sdk import outbox_worker
-from probe.sdk.journal import DrainReport, Journal
-from probe.sdk.outbox_worker import OutboxOutcome
+from probe.sdk.delivery import outbox as outbox_worker
+from probe.sdk.delivery.outbox.drain.report import DrainReport
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.outbox import OutboxOutcome
+from probe.sdk.delivery.journal.status_file import auth_blocked_since as journal_blocked_since
+
+
+def is_stuck(status: dict) -> bool:
+    """`stuck_status` asked as the banner asks it: with the journal's reading of the block."""
+    return tm.stuck_status(status, auth_blocked_since=journal_blocked_since(status))
 
 HOSTED = "https://api.research.prbe.ai"
 SELF_HOST = "https://research.internal.example.com"
@@ -48,8 +55,8 @@ def captured(monkeypatch):
     """Capture emit() records at the queue seam: no thread, no network."""
     records: list[dict] = []
     monkeypatch.setenv("PROBE_TELEMETRY", "on")
-    monkeypatch.setattr(tm, "_sender", None)
-    monkeypatch.setattr(tm, "_flush_registered", True)  # keep atexit out of tests
+    monkeypatch.setattr(tm.sender, "_sender", None)
+    monkeypatch.setattr(tm.sender, "_flush_registered", True)  # keep atexit out of tests
     monkeypatch.setattr(tm._Sender, "start", lambda self: None)
     monkeypatch.setattr(tm._Sender, "put", lambda self, rec: records.append(rec))
     return records
@@ -101,7 +108,7 @@ def test_clean_drain_reports_the_happy_path(tmp_path, monkeypatch, captured):
         DrainReport(delivered=2, remaining=1, stopped_transient=True, errors=["net"]),
         DrainReport(delivered=3, dead_lettered=1, remaining=0),
     ]
-    monkeypatch.setattr("probe.sdk.journal.drain", draining(journal, reports))
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", draining(journal, reports))
     monkeypatch.setattr(outbox_worker.time, "sleep", lambda s: None)
 
     assert outbox_worker.run(str(journal.dir)) == 0
@@ -138,7 +145,7 @@ def test_the_drained_report_says_what_the_server_answered_each_dead_letter(
             dead_letter_records=dead(404, no_such_run=True) + dead(404, None),
         ),
     ]
-    monkeypatch.setattr("probe.sdk.journal.drain", draining(journal, reports))
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", draining(journal, reports))
     monkeypatch.setattr(outbox_worker.time, "sleep", lambda s: None)
 
     assert outbox_worker.run(str(journal.dir)) == 0
@@ -156,7 +163,7 @@ def test_a_drain_with_no_dead_letters_sends_no_status_breakdown(
 ):
     journal = seeded_journal(tmp_path)
     reports = [DrainReport(delivered=1, remaining=0)]
-    monkeypatch.setattr("probe.sdk.journal.drain", draining(journal, reports))
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", draining(journal, reports))
     monkeypatch.setattr(outbox_worker.time, "sleep", lambda s: None)
 
     assert outbox_worker.run(str(journal.dir)) == 0
@@ -169,7 +176,7 @@ def test_a_drain_with_no_dead_letters_sends_no_status_breakdown(
 def test_auth_block_reports_the_state_a_human_must_fix(tmp_path, monkeypatch, captured):
     journal = seeded_journal(tmp_path)
     monkeypatch.setattr(
-        "probe.sdk.journal.drain",
+        "probe.sdk.delivery.outbox.drain.drain.drain",
         lambda j, **k: DrainReport(remaining=2, auth_blocked=True, errors=["401"]),
     )
     assert outbox_worker.run(str(journal.dir)) == 3
@@ -200,7 +207,7 @@ def test_a_worker_that_never_exits_still_reports_once(tmp_path, monkeypatch, cap
     not one per capped pass, which would turn a wedged queue into a beacon."""
     journal = seeded_journal(tmp_path)
     monkeypatch.setattr(
-        "probe.sdk.journal.drain",
+        "probe.sdk.delivery.outbox.drain.drain.drain",
         lambda j, **k: DrainReport(remaining=4, stopped_transient=True, errors=["503"]),
     )
     slept: list[float] = []
@@ -232,7 +239,7 @@ def test_broken_telemetry_never_strands_the_queue(tmp_path, monkeypatch, capture
         raise RuntimeError("posthog is on fire")
 
     monkeypatch.setattr(tm, "emit_outbox_drained", explode)
-    monkeypatch.setattr("probe.sdk.journal.drain", draining(journal, [DrainReport(remaining=0)]))
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", draining(journal, [DrainReport(remaining=0)]))
     monkeypatch.setattr(outbox_worker.time, "sleep", lambda s: None)
 
     assert outbox_worker.run(str(journal.dir)) == 0
@@ -243,7 +250,7 @@ def test_broken_telemetry_never_strands_the_queue(tmp_path, monkeypatch, capture
 def test_the_drained_report_honors_the_killswitch(tmp_path, monkeypatch, captured, env):
     journal = seeded_journal(tmp_path)
     monkeypatch.setenv(*env)
-    monkeypatch.setattr("probe.sdk.journal.drain", draining(journal, [DrainReport(remaining=0)]))
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", draining(journal, [DrainReport(remaining=0)]))
     monkeypatch.setattr(outbox_worker.time, "sleep", lambda s: None)
 
     outbox_worker.run(str(journal.dir))
@@ -257,7 +264,7 @@ def test_the_drained_report_never_leaves_a_self_host_install(tmp_path, monkeypat
     each op to that backend -- gating on the ambient config would let a worker
     draining to a self-host endpoint report to the vendor."""
     journal = seeded_journal(tmp_path, base_url=SELF_HOST)
-    monkeypatch.setattr("probe.sdk.journal.drain", draining(journal, [DrainReport(remaining=0)]))
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", draining(journal, [DrainReport(remaining=0)]))
     monkeypatch.setattr(outbox_worker.time, "sleep", lambda s: None)
 
     outbox_worker.run(str(journal.dir))
@@ -309,9 +316,9 @@ def test_a_drained_queue_with_old_scars_is_not_stuck():
     includes a dead-letter count. Dead letters are permanent, so a fully drained
     queue kept emitting "stuck" every six hours forever over one op that died
     last month -- a false positive with an unbounded tail."""
-    assert tm.stuck_status({"pending": 0, "failed": 7, "paused": False}) is False
-    assert tm.stuck_status({"pending": 3, "failed": 0, "paused": True}) is True
-    assert tm.stuck_status({"pending": 0, "auth_blocked_since": "2026-08-20T00:00:00+00:00"}) is True
+    assert is_stuck({"pending": 0, "failed": 7, "paused": False}) is False
+    assert is_stuck({"pending": 3, "failed": 0, "paused": True}) is True
+    assert is_stuck({"pending": 0, "auth_blocked_since": "2026-08-20T00:00:00+00:00"}) is True
 
 
 def test_a_refused_credential_is_stuck_too(tmp_path):
@@ -322,10 +329,12 @@ def test_a_refused_credential_is_stuck_too(tmp_path):
     both, and the root's status carries its credential queues' refusals."""
     import json
 
-    from probe.sdk.journal import CREDENTIAL_NAMESPACE, Journal, auth_blocked_since
+    from probe.sdk.delivery.ops.ops import CREDENTIAL_NAMESPACE
+    from probe.sdk.delivery.journal.journal import Journal
+    from probe.sdk.delivery.journal.status_file import auth_blocked_since
 
     refused = {"pending": 3, "refused_fingerprints": {"fp1": "2026-09-27T10:00:00+00:00"}}
-    assert tm.stuck_status(refused) is True
+    assert is_stuck(refused) is True
     assert auth_blocked_since(refused) == "2026-09-27T10:00:00+00:00"
     assert auth_blocked_since(refused, {"someone-else"}) is None
     root = Journal(str(tmp_path / "outbox"))
@@ -379,7 +388,7 @@ def test_stuck_payload_carries_ages_and_no_free_text(tmp_path, captured):
         "last_error": "AuthError: token 'sk-live-abc' rejected",
     }
 
-    assert tm.emit_outbox_stuck(status, spool_dir=str(spool), base_url=HOSTED) is True
+    assert tm.emit_outbox_stuck(status, auth_blocked_since=journal_blocked_since(status), spool_dir=str(spool), base_url=HOSTED) is True
 
     (props,) = events(captured, tm.EVENT_OUTBOX_STUCK)
     assert props["pending"] == 7
@@ -416,7 +425,7 @@ def test_a_suppressed_stuck_report_says_so_and_stamps_nothing(
     spool.mkdir()
     status = {"pending": 3, "paused": True}
 
-    assert tm.emit_outbox_stuck(status, spool_dir=str(spool), **kwargs) is False
+    assert tm.emit_outbox_stuck(status, auth_blocked_since=journal_blocked_since(status), spool_dir=str(spool), **kwargs) is False
 
     assert events(captured, tm.EVENT_OUTBOX_STUCK) == []
     assert list(spool.iterdir()) == [], "a suppressed reporter must not claim the window"
@@ -443,7 +452,7 @@ def test_the_banner_reports_the_states_no_drainer_ever_sees(monkeypatch, status)
     either, so no drainer ever reports the standing condition."""
     main = importlib.import_module("probe.cli.main")
     seen: list[dict] = []
-    monkeypatch.setattr("probe.sdk.journal.Journal.read_status", staticmethod(lambda d=None: status))
+    monkeypatch.setattr("probe.sdk.delivery.journal.journal.Journal.read_status", staticmethod(lambda d=None: status))
     monkeypatch.setattr(tm, "emit_outbox_stuck", lambda s, **kw: seen.append(s))
     monkeypatch.setattr(main, "_kick_drainer", lambda: None)
 
@@ -458,7 +467,7 @@ def test_a_broken_report_still_kicks_the_drainer(monkeypatch, capsys):
     main = importlib.import_module("probe.cli.main")
     kicked: list[bool] = []
     monkeypatch.setattr(
-        "probe.sdk.journal.Journal.read_status",
+        "probe.sdk.delivery.journal.journal.Journal.read_status",
         staticmethod(
             lambda d=None: {"pending": 3, "failed": 2, "paused": False, "auth_blocked_since": None}
         ),
@@ -499,14 +508,14 @@ def test_writes_one_queue_holds_for_a_credential_nothing_here_holds_are_stuck_af
     revoked. Judged per queue through the real `read_status` (C1 reviews: the
     fold paired one queue's oldest write with another's hold, and dropped the
     delivery namespace's hold)."""
-    from probe.sdk.journal import Journal
+    from probe.sdk.delivery.journal.journal import Journal
 
     root = tmp_path / "outbox"
     for sub, fields in queues.items():
         folder = root / sub if sub else root
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "status.json").write_text(json.dumps({**fields, "oldest_pending": _ago(fields["oldest_pending"])}))
-    assert tm.stuck_status(Journal.read_status(root)) is stuck, why
+    assert is_stuck(Journal.read_status(root)) is stuck, why
 
 
 def test_the_stuck_payload_counts_held_writes_and_refused_credentials(tmp_path, captured):
@@ -514,7 +523,7 @@ def test_the_stuck_payload_counts_held_writes_and_refused_credentials(tmp_path, 
     spool.mkdir()
     status = {"pending": 12, "held": 5, "refused_fingerprints": {"aaaa": "2026-10-22T21:48:00+00:00",
                                                                   "bbbb": "2026-10-23T17:21:00+00:00"}}
-    assert tm.emit_outbox_stuck(status, spool_dir=str(spool), base_url=HOSTED) is True
+    assert tm.emit_outbox_stuck(status, auth_blocked_since=journal_blocked_since(status), spool_dir=str(spool), base_url=HOSTED) is True
     (props,) = events(captured, tm.EVENT_OUTBOX_STUCK)
     assert (props["held"], props["refused_credentials"]) == (5, 2)
     assert "aaaa" not in repr(props), "counts, never a fingerprint"

@@ -56,10 +56,11 @@ from __future__ import annotations
 import os
 import subprocess
 from dataclasses import dataclass, field
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 from pathlib import Path
 
-from probe.cli import pi_config, plugin_cli
+from probe.shared.harness.harnesses import pi as pi_config
+from probe.shared.harness import plugins as plugin_cli
 from probe.cli.capabilities import (
     revoke_capture_device,
     MARKETPLACE,
@@ -82,7 +83,7 @@ from probe.cli.capabilities import (
 #: by hand -- same shape as `capabilities.py`'s `_TAP_TOKEN_ENV_BY_SOURCE`,
 #: which hand-mirrors the tap plugin's own table for the identical reason.
 def _source_labels() -> dict[str, str]:
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     return {h.id: h.label for h in get_registry().captured()}
 

@@ -222,7 +222,7 @@ def _outbox_status_and_logs(outbox_dir: str) -> str:
 
 
 def _outbox_sender_pids(outbox_dir: str) -> list[int]:
-    """PIDs of a detached ``probe.sdk.outbox_worker`` sender pointed at this
+    """PIDs of a detached ``probe.sdk.delivery.outbox`` sender pointed at this
     outbox -- the atexit-restarted process this test exercises delivering the
     queued close after the trial's own process is gone."""
     pids = []
@@ -368,7 +368,7 @@ def _hold_the_lease(journal, seconds: float) -> subprocess.Popen:
     """Another process holds the queue's worker lease for ``seconds``, then
     exits -- the lease goes with it, as a killed worker's does once the
     kernel has torn it down."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     holder = subprocess.Popen(
         [sys.executable, "-c", _LEASE_HOLDER, outbox_worker._lease_path(journal), str(seconds)],
@@ -381,7 +381,7 @@ def _hold_the_lease(journal, seconds: float) -> subprocess.Popen:
 
 def _spawns(monkeypatch, journal) -> list[tuple[list, bool]]:
     """Every worker `maybe_spawn` starts, with whether the lease was free then."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     spawned: list[tuple[list, bool]] = []
 
@@ -397,8 +397,8 @@ def test_the_exit_kick_waits_for_the_killed_workers_lease(tmp_path, monkeypatch)
     """The worker Ray killed still holds its lease for a moment: the kick
     waits for it to go, then starts the worker that delivers the close.
     `maybe_spawn` alone, asked while the lease is held, starts none."""
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import Journal
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.journal.journal import Journal
 
     journal = Journal(tmp_path / "outbox")
     journal.append_http("POST", "/v1/runs/r-1/writers/w-1/release", {"exit_status": "completed"})
@@ -419,8 +419,8 @@ def test_the_exit_kick_leaves_a_live_workers_queue_to_it(tmp_path, monkeypatch):
     """Negative control: a lease still held when the wait is over is a live
     worker's (a sibling trial's, on the same queue), which delivers the close:
     no second worker, and the wait is bounded."""
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import Journal
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.journal.journal import Journal
 
     journal = Journal(tmp_path / "outbox")
     journal.append_http("POST", "/v1/runs/r-1/writers/w-1/release", {"exit_status": "completed"})

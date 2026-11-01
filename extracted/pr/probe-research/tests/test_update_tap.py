@@ -19,8 +19,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import autoupdate, claude_cli, doctor, updater, upgrading
-from probe.cli.versions import Comparison, VersionStatus
+from probe.cli import autoupdate, doctor, updater, upgrading
+from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+from probe.shared.updates.updates import Comparison, VersionStatus
 
 MANIFEST = {
     "cli": {"latest": "0.179.3"},
@@ -883,7 +884,7 @@ def _update_beside_an_old_session(monkeypatch, daemons, *, scope="user", tap=("0
 def test_an_update_beside_a_session_on_the_old_tap_says_it_moves_by_itself(monkeypatch):
     """With the Probe plugin beside the tap, a session's old watcher moves to the
     new tap at its next prompt (`hooks/tap_handover.py`): no restart to ask for."""
-    from probe.cli import update_report
+    from probe.shared.updates import update_report
 
     outcome = _update_beside_an_old_session(
         monkeypatch, [("876d3d5e-bd40-47b9-a657-aecd83354a11", "0.10.12")]
@@ -921,7 +922,7 @@ def test_an_update_open_sessions_cannot_follow_still_says_restart(monkeypatch, w
 
 
 def test_a_current_tap_beside_an_old_session_stays_current_with_the_note(monkeypatch):
-    from probe.cli import update_report
+    from probe.shared.updates import update_report
 
     _stub_cli(monkeypatch)
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
@@ -940,7 +941,7 @@ def test_a_current_tap_beside_an_old_session_stays_current_with_the_note(monkeyp
 
 
 def test_a_tap_left_behind_is_still_behind_beside_an_old_session(monkeypatch):
-    from probe.cli import update_report
+    from probe.shared.updates import update_report
 
     _stub_cli(monkeypatch)
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
@@ -962,7 +963,7 @@ def test_a_tap_left_behind_is_still_behind_beside_an_old_session(monkeypatch):
 
 
 def test_sessions_on_the_new_tap_change_nothing(monkeypatch):
-    from probe.cli import update_report
+    from probe.shared.updates import update_report
 
     outcome = _update_beside_an_old_session(monkeypatch, [("s1", "0.10.16"), ("s2", "0.10.17")])
 
@@ -1184,7 +1185,7 @@ def test_anything_else_in_the_detail_is_left_alone(monkeypatch):
 
 
 def test_doctor_prints_the_attempt_as_it_stands(monkeypatch):
-    from probe._shared import autoupdate as shared
+    from probe.shared.updates import autoupdate as shared
 
     _looked(monkeypatch, [_recorder("s1", version="0.10.19"), _recorder("c1", harness="codex", version="0.10.19")])
     attempt = shared.Attempt(at=1, ok=True, to_version="0.311.0", plugin_version="0.176.0",

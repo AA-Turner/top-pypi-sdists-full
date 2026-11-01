@@ -1,7 +1,7 @@
 """The vendored root-skills core must not drift from the canonical one.
 
 `plugins/*/hooks/_root_skills_core.py` is a COPY of
-`src/probe/root_skills_core.py`, for the same reason `_session_marker.py` is: the
+`src/probe/foundation/skills/root_skills_core.py`, for the same reason `_session_marker.py` is: the
 SessionStart hook runs under the SYSTEM python, where `probe` is not importable.
 `make sync-root-skills-core` reconciles them.
 
@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 AGENT = Path(__file__).resolve().parents[1]
-CANONICAL = AGENT / "src" / "probe" / "root_skills_core.py"
+CANONICAL = AGENT / "src" / "probe" / "foundation" / "skills" / "root_skills_core.py"
 COPIES = (
     AGENT / "plugins" / "probe-research" / "hooks" / "_root_skills_core.py",
     AGENT / "plugins" / "probe-research-daemon" / "hooks" / "_root_skills_core.py",

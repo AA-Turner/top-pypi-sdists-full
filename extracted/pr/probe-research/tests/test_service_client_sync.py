@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import ast
 import filecmp
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -27,15 +28,17 @@ _COPY = _TAP_ROOT / "tap" / "service"
 _SYNCED = ("client.py", "paths.py", "procid.py", "protocol.py", "winpipe.py")
 
 
-def _makefile_list() -> list[str]:
-    for line in (_ROOT / "Makefile").read_text(encoding="utf-8").splitlines():
-        if line.startswith("SERVICE_CLIENT_FILES :="):
-            return line.split(":=", 1)[1].split()
-    raise AssertionError("Makefile has no SERVICE_CLIENT_FILES")
+def _vendored_pairs() -> set[tuple[str, str]]:
+    """What `make sync-service-client` copies: plugins/VENDORED.json's [source, copy] pairs."""
+    manifest = json.loads((_ROOT / "plugins" / "VENDORED.json").read_text(encoding="utf-8"))
+    return {tuple(pair) for step in manifest["groups"]["sync-service-client"] for pair in step["files"]}
 
 
-def test_the_makefile_syncs_exactly_these_files():
-    assert sorted(_makefile_list()) == sorted(_SYNCED)
+def test_the_vendor_manifest_syncs_exactly_these_files():
+    assert _vendored_pairs() == {
+        ((_CANONICAL / name).relative_to(_ROOT).as_posix(), (_COPY / name).relative_to(_ROOT).as_posix())
+        for name in _SYNCED
+    }
 
 
 @pytest.mark.parametrize("name", _SYNCED)

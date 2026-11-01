@@ -314,6 +314,20 @@ target_include_directories(validate_spectrogram_certify
 target_link_libraries(validate_spectrogram_certify PRIVATE doppler_lib_static ${DP_MATH_LIBRARY})
 dp_gnu_compile_options(validate_spectrogram_certify PRIVATE -O3 -funroll-loops)
 
+# power_to_db_sweep is dp_power_to_db_f32's exhaustive bound (#2094): every
+# positive finite float32 against double 10*log10, and every negative one
+# against the floor. Its sampled tier is in test_spectral_core.c, in
+# `make test`; this whole set is a CTest so the label loop below makes it a
+# `sweep`, which `make test-sweep` runs and `make test` leaves out. It reaches
+# native/tests for dp_power_to_db_test.h, the measurement both tiers share.
+add_executable(validate_power_to_db_sweep
+               ${CMAKE_CURRENT_SOURCE_DIR}/power_to_db_sweep.c)
+target_include_directories(validate_power_to_db_sweep
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_link_libraries(validate_power_to_db_sweep PRIVATE doppler_lib_static ${DP_MATH_LIBRARY})
+add_test(NAME validate_power_to_db_sweep COMMAND validate_power_to_db_sweep)
+
 # ccsds_tm_certify is the third of the C-only certifications, and measures the
 # three things this component adds ON TOP of the code it configures: the
 # interleaver's burst tolerance, the sync marker as a detector, and the
@@ -670,3 +684,20 @@ endforeach()
 #   run is the same fan-out on two chunks of dwells (doppler#2324, #2328).
 set_tests_properties(validate_rx_dynamics validate_acq_rate_pd_pfa_smoke
                      PROPERTIES LABELS threaded)
+
+# What each ordering of a hypothesis bank costs: the full pipeline (every
+# hypothesis through the shipped DelayDoppler) against the two exact ways to
+# apply a fractional carrier offset, zero-pad then roll and mix per fraction
+# (docs/design/corr2d-hypotheses.md §5, rendered by
+# docs/design/corr2d-hypotheses-measurements/record.py from --emit). CTest
+# runs --check only: the three pipelines agree, serial and pooled.
+# native/tests for dp_rng_test.h's generator only.
+add_executable(validate_corr2d_hypothesis_order
+               ${CMAKE_CURRENT_SOURCE_DIR}/corr2d_hypothesis_order.c)
+target_include_directories(validate_corr2d_hypothesis_order
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_link_libraries(validate_corr2d_hypothesis_order PRIVATE doppler_lib_static ${DP_MATH_LIBRARY} Threads::Threads)
+dp_gnu_compile_options(validate_corr2d_hypothesis_order PRIVATE -O3 -funroll-loops)
+add_test(NAME validate_corr2d_hypothesis_order
+         COMMAND validate_corr2d_hypothesis_order --check)

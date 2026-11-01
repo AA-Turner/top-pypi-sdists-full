@@ -36,8 +36,10 @@ _SYNCED = (
     "kimi_sanitize.py",
     "session_journal.py",
     "session_identity.py",
+    # Who drives a session (search hides AUTOMATED): read into the first batch's provenance.
+    "session_kind.py",
     "secrets.py",
-    # Vendored from prbe-knowledge (scripts/sync_atif_fragment.py), then synced
+    # Vendored from contracts/probe_contracts/transcripts (scripts/sync_atif_fragment.py), then synced
     # here like the rest: protocol 3's fragment builder and its renderer.
     "atif_fragment.py",
     "transcript_render.py",
@@ -111,6 +113,8 @@ def test_plugin_copies_import_standalone_without_probe() -> None:
         "assert pi_sanitize.sanitize_event({'type': 'session', 'cwd': '/x'})"
         "['subtype'] == 'session_meta'; "
         "assert kimi_sanitize.sanitize_event({'type': 'llm.request'}) is None; "
+        "import json; from tap.session_kind import session_kind; "
+        "assert session_kind([json.dumps({'entrypoint': 'sdk-cli'})]) == 'automated'; "
         "print(transcript.MAX_BATCH_BYTES)"
     )
     result = subprocess.run(

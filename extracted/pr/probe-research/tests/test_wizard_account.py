@@ -25,7 +25,7 @@ import pytest
 from probe.cli import capture, doctor, setup
 from probe.cli.actions import ACCOUNT_ACTIONS, ACTION_COPY, Action
 from probe.cli.capabilities import Capabilities, TokenSource
-from probe.sdk.config import load_context, load_file, save_context, use_context
+from probe.sdk.settings.settings import load_context, load_file, save_context, use_context
 
 
 @pytest.fixture(autouse=True)
@@ -83,7 +83,8 @@ def api(monkeypatch):
     _FakeClient.revoked = []
     _FakeClient.fails = False
     _FakeClient.email = "new@prbe.ai"
-    monkeypatch.setattr("probe.sdk.client.Client", _FakeClient)
+    monkeypatch.setattr("probe.sdk.client.client.Client", _FakeClient)
+    monkeypatch.setattr("probe.sdk.client.resources.runs.attach.Client", _FakeClient)
     return _FakeClient
 
 
@@ -254,7 +255,7 @@ def test_sign_out_does_not_leave_a_live_read_token_in_codex(api, isolate, monkey
     ~/.codex/config.toml. A machine someone had signed out of therefore still
     held working read access to the team's research.
     """
-    from probe.cli import codex_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     codex_home = isolate / "codex"
     codex_home.mkdir(parents=True, exist_ok=True)
@@ -468,7 +469,7 @@ def test_a_refused_approval_reports_failure_and_touches_nothing(api, monkeypatch
 @pytest.fixture
 def prepared_device(api, monkeypatch, tmp_path):
     """Exercise credential persistence while replacing only the browser transport."""
-    from probe.sdk import device
+    from probe.sdk.settings import device
 
     monkeypatch.setenv("PRBE_CODEX_TAP_PLUGIN_DIR", str(tmp_path / "codex-tap"))
     monkeypatch.setenv("PROBE_PI_TAP_PLUGIN_DIR", str(tmp_path / "pi-tap"))
@@ -497,7 +498,7 @@ def prepared_device(api, monkeypatch, tmp_path):
 
 
 def test_prepare_install_grants_all_agents_once_before_enabling_capture(prepared_device, monkeypatch):
-    from probe.sdk import config
+    from probe.sdk.settings import settings as config
 
     sources = ("claude_code", "codex", "pi")
     real_save = config.save_context
@@ -590,7 +591,7 @@ def test_preparing_install_preserves_environment_only_capture(prepared_device, m
 
 
 def test_declined_preparation_does_not_write_capture_markers(prepared_device, monkeypatch):
-    from probe.sdk import device
+    from probe.sdk.settings import device
 
     save_context({"token": "existing-api"})
 
@@ -950,7 +951,7 @@ def test_removing_probe_no_longer_claims_the_account_survives(monkeypatch):
     """`remove_everything` used to close with "Your account ... are untouched --
     revoke this device's tokens in Settings". It is `finish_removal`'s job now,
     and the old sentence would be describing the opposite of what happens."""
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
 
     monkeypatch.setattr(
         setup,
@@ -983,7 +984,8 @@ def test_removing_one_agent_clears_its_killswitch_and_keeps_the_devices_auto_upd
     record and all. The whole-device `probe uninstall` removes it with the
     rest of Probe's state.
     """
-    from probe.cli import autoupdate, claude_cli
+    from probe.cli import autoupdate
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli.capabilities import tap_plugin_dir
 
     autoupdate.record_attempt(
@@ -1020,7 +1022,7 @@ def test_the_killswitch_survives_a_removal_that_did_not_verify(monkeypatch, isol
     leaves something that could still upload -- and clearing `.disabled` there
     would hand it back the session it was stopped from starting.
     """
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli.capabilities import TokenSource, tap_plugin_dir
 
     monkeypatch.setattr(

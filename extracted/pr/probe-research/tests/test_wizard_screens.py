@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib
 
+import pytest
 from probe.cli import doctor, tui
 from probe.cli import setup as wizard
 from probe.cli.capabilities import Capabilities
@@ -280,23 +281,36 @@ def test_three_agents_are_a_list_not_a_chain_of_ands():
 
 def test_a_page_after_signing_out_says_finish_not_menu(entry, monkeypatch):  # noqa: F811
     """Seen in a real terminal (0.333.0): Uninstall's page said "return to the
-    menu", then the wizard ended because the device was signed out."""
+    menu", then the wizard ended because the device was signed out. The menu's
+    Uninstall is `probe uninstall` (#3511), which signs the device out and ends
+    the wizard itself: no page after it offers the menu, and the menu never
+    comes back."""
     from probe.cli.actions import Action
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
-    picks = iter([Action.UNINSTALL, Action.EXIT])
-    monkeypatch.setattr(wizard, "run_action_menu", lambda _caps: next(picks))
+    menus: list[object] = []
+
+    def menu(_caps):
+        menus.append(_caps)
+        return Action.UNINSTALL if len(menus) == 1 else Action.EXIT
+
+    monkeypatch.setattr(wizard, "run_action_menu", menu)
     monkeypatch.setattr(wizard, "interactive", lambda: True)
     monkeypatch.setattr(tui, "clear", lambda: None)
 
-    def removed(action, **_kw):
-        save_context({"token": None})  # what finishing a removal does to this device
-        return ["Removed."]
+    runs: list[dict] = []
 
-    monkeypatch.setattr(main, "_run_wizard_action", removed)
-    monkeypatch.setattr(wizard, "finish_removal", lambda: iter(()))
+    def uninstalled(**kw):
+        runs.append(kw)
+        save_context({"token": None})  # what the uninstall does to this device
+        return 0
+
+    monkeypatch.setattr(main, "_run_uninstall", uninstalled)
+    monkeypatch.setattr(main, "_run_wizard_action", lambda *a, **kw: pytest.fail("the per-agent removal ran"))
     prompts: list[str] = []
     monkeypatch.setattr(tui, "page", lambda lines, **kw: prompts.append(kw.get("prompt")))
-    CliRunner().invoke(main.app, ["wizard"])
-    assert prompts[-1] == "Press enter to finish…"
+    result = CliRunner().invoke(main.app, ["wizard"])
+    assert result.exit_code == 0, result.output
+    assert len(runs) == 1 and len(menus) == 1
+    assert prompts == []  # no wizard page after it, so none can offer the menu

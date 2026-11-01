@@ -4,8 +4,6 @@ Supports MaskFormer, Mask2Former, and OneFormer for instance, semantic, and
 panoptic segmentation via Hugging Face Transformers.
 """
 
-from __future__ import annotations
-
 import os
 from enum import Enum
 from typing import Any
@@ -250,11 +248,13 @@ def _convert_panoptic_to_binary_masks(post_processed_outputs: list[dict]) -> lis
     for post_processed_output in post_processed_outputs:
         segmentation = post_processed_output["segmentation"]
         segments_info = post_processed_output["segments_info"]
+        output: dict = {"segmentation": [], "segments_info": []}
+        # Keep an empty entry so each output stays paired with its image in a batch
         if segmentation is None or not segments_info:
+            outputs.append(output)
             continue
 
         segments_info_map = {info["id"]: info for info in segments_info}
-        output: dict = {"segmentation": [], "segments_info": []}
         for segment_id in torch.unique(segmentation).tolist():
             info = segments_info_map.get(segment_id)
             if info is not None:

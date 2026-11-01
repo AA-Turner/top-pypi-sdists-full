@@ -12,7 +12,7 @@ import subprocess
 
 import pytest
 
-from probe.cli import claude_cli
+from probe.shared.harness.harnesses.claude_code import binary as claude_cli
 
 
 def _completed(returncode=0, stdout="", stderr=""):

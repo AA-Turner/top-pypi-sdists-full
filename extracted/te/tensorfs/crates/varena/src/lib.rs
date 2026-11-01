@@ -65,6 +65,7 @@ pub struct ReclaimedBytes {
     pub streaming_limit: u64,
     pub weight_allocation: u64,
     pub allocator: u64,
+    pub room: u64,
 }
 
 #[derive(Clone, Copy)]
@@ -73,6 +74,7 @@ enum ReclaimReason {
     StreamingLimit,
     WeightAllocation,
     Allocator,
+    Room,
 }
 
 impl ReclaimedBytes {
@@ -82,6 +84,7 @@ impl ReclaimedBytes {
             ReclaimReason::StreamingLimit => &mut self.streaming_limit,
             ReclaimReason::WeightAllocation => &mut self.weight_allocation,
             ReclaimReason::Allocator => &mut self.allocator,
+            ReclaimReason::Room => &mut self.room,
         };
         *counter = counter.saturating_add(bytes as u64);
     }
@@ -263,7 +266,35 @@ pub struct Arena {
     pid: u32,
     // Lock-free view of this device's capture guards, for release paths that never wait.
     captures: Arc<AtomicUsize>,
+    room: Arc<Room>,
     state: Mutex<State>,
+}
+
+/// This process's GPU bytes on one device against the room it may hold (`make_room`): its mapped
+/// weight pages and Torch's segments through the allocation hook. A smaller room reads as a
+/// smaller card to every fill and every hooked allocation.
+struct Room {
+    /// usize::MAX: no limit.
+    limit: AtomicUsize,
+    pages: AtomicUsize,
+    torch: AtomicUsize,
+}
+
+impl Default for Room {
+    fn default() -> Self {
+        Self { limit: AtomicUsize::new(usize::MAX), pages: AtomicUsize::new(0), torch: AtomicUsize::new(0) }
+    }
+}
+
+impl Room {
+    /// Bytes `more` would put over the limit.
+    fn over(&self, more: usize) -> usize {
+        self.pages
+            .load(Ordering::Acquire)
+            .saturating_add(self.torch.load(Ordering::Acquire))
+            .saturating_add(more)
+            .saturating_sub(self.limit.load(Ordering::Acquire))
+    }
 }
 
 static ARENAS: OnceLock<Mutex<Vec<Weak<Arena>>>> = OnceLock::new();
@@ -272,6 +303,7 @@ struct DeviceActivity {
     captures: Arc<AtomicUsize>,
     replays: Arc<AtomicUsize>,
     producers: Arc<AtomicUsize>,
+    room: Arc<Room>,
 }
 
 static CAPTURES: OnceLock<Mutex<BTreeMap<i32, DeviceActivity>>> = OnceLock::new();
@@ -422,13 +454,15 @@ impl Arena {
         let mut captures = capture_counts()?;
         ensure_recovery_allowed(&captures, device)?;
         let driver = cuda::Driver::open(device)?;
-        let capturing = Arc::clone(&captures.entry(device).or_default().captures);
+        let activity = captures.entry(device).or_default();
+        let (capturing, room) = (Arc::clone(&activity.captures), Arc::clone(&activity.room));
         drop(captures);
         let arena = Arc::new(Self {
             driver,
             device,
             pid: std::process::id(),
             captures: capturing,
+            room,
             state: Mutex::new(State {
                 entries: BTreeMap::new(),
                 next_id: 1,
@@ -458,6 +492,19 @@ impl Arena {
     pub fn device(&self) -> i32 {
         self.device
     }
+
+    /// Physical pages for one region, inside this process's room on the device: over the room
+    /// reads as the driver's out of memory, so each admission treats a smaller room as a smaller
+    /// card (reclaims what it may, else refuses).
+    fn create(&self, bytes: usize) -> Result<u64> {
+        if self.room.over(bytes) != 0 {
+            return Err(Error::OutOfMemory { requested_bytes: bytes });
+        }
+        let handle = self.driver.create(bytes)?;
+        self.room.pages.fetch_add(bytes, Ordering::AcqRel);
+        Ok(handle)
+    }
+
     pub fn granularity(&self) -> usize {
         self.driver.granularity
     }
@@ -719,6 +766,7 @@ impl Arena {
             requested_bytes: bytes,
             ..ReclaimReport::default()
         };
+        // Backing nothing needs goes before any Ready page here too, as in `reclaim_contentless`.
         let mut candidates: Vec<_> = state
             .entries
             .iter()
@@ -730,7 +778,10 @@ impl Arena {
                     && !entry.preferred()
                     && (!matches!(reason, ReclaimReason::StreamingLimit) || !state.standby(entry))
             })
-            .map(|(id, entry)| (*id, state.eviction_key(entry)))
+            .map(|(id, entry)| {
+                let ready = !matches!(entry.uses.state(), Contents::Cold | Contents::Retired);
+                (*id, (ready, state.eviction_key(entry)))
+            })
             .collect();
         candidates.sort_by_key(|(_, key)| *key);
         let (mut pending, mut held) = (Vec::new(), 0);
@@ -867,6 +918,26 @@ impl Arena {
         reason: ReclaimReason,
         report: &mut ReclaimReport,
     ) -> Result<()> {
+        let was_preferred = state.entries[&id].preferred();
+        let (size, retired) = self.release_backing(state, id)?;
+        if was_preferred && !retired {
+            // Pressure permanently shortens the retained prefix. Later scans cannot rebuild it.
+            state.preferred_end = Some(state.preferred_end.map_or(id, |end| end.min(id)));
+            for (_, later) in state.entries.range_mut(id..) {
+                later.preferred = false;
+            }
+        }
+        report.reclaimed_bytes += size;
+        report.evicted_regions += 1;
+        state.evictions = state.evictions.saturating_add(1);
+        state.reclaimed_bytes = state.reclaimed_bytes.saturating_add(size as u64);
+        state.reclaimed_by_reason.add(reason, size);
+        Ok(())
+    }
+
+    /// Unmap and release a joined, unpinned region's physical pages; a retired region's
+    /// address goes too. Returns its bytes and whether it was retired.
+    fn release_backing(&self, state: &mut State, id: u64) -> Result<(usize, bool)> {
         let entry = state
             .entries
             .get(&id)
@@ -883,34 +954,22 @@ impl Arena {
         if let Err(error) = self.driver.release(handle) {
             return Err(poison(state, error));
         }
+        self.room.pages.fetch_sub(size, Ordering::AcqRel);
         let entry = state.entries.get_mut(&id).expect("locked candidate");
         // Every event is complete here; a destroy failure only leaks the event.
         for fence in entry.uses.fences().drain(..) {
             let _ = self.driver.destroy_event(fence.event);
         }
-        let was_preferred = entry.preferred();
         entry.handle = None;
         entry.uses.invalidate();
         let retired = entry.uses.state() == Contents::Retired;
-        if was_preferred && !retired {
-            // Pressure permanently shortens the retained prefix. Later scans cannot rebuild it.
-            state.preferred_end = Some(state.preferred_end.map_or(id, |end| end.min(id)));
-            for (_, later) in state.entries.range_mut(id..) {
-                later.preferred = false;
-            }
-        }
-        report.reclaimed_bytes += size;
-        report.evicted_regions += 1;
-        state.evictions = state.evictions.saturating_add(1);
-        state.reclaimed_bytes = state.reclaimed_bytes.saturating_add(size as u64);
-        state.reclaimed_by_reason.add(reason, size);
         if retired {
             if let Err(error) = self.driver.free_address(ptr, size) {
                 return Err(poison(state, error));
             }
             state.entries.remove(&id);
         }
-        Ok(())
+        Ok((size, retired))
     }
 
     pub fn stats(&self) -> Result<Stats> {
@@ -1072,6 +1131,29 @@ impl Region {
             == Contents::Ready)
     }
 
+    /// Release this region's pages now if nothing needs them: no pin, no contents, and every
+    /// user known complete (a fill aborted after its writers were checked). `CaptureActive`
+    /// during a capture or replay; while an earlier release is unfenced they stay (false) for
+    /// reclamation, which takes them before any Ready page (`reclaim_contentless`).
+    pub fn release_unready(&self) -> Result<bool> {
+        let captures = capture_counts()?;
+        ensure_recovery_allowed(&captures, self.arena.device)?;
+        let mut state = self.arena.lock()?;
+        let Some(entry) = state.entries.get(&self.id) else {
+            return Ok(false);
+        };
+        if entry.handle.is_none()
+            || entry.uses.pins() != 0
+            || !matches!(entry.uses.state(), Contents::Cold | Contents::Retired)
+            || self.arena.completion(&mut state, self.id)? != Completion::Done
+        {
+            return Ok(false);
+        }
+        let _context = self.arena.driver.enter()?;
+        self.arena.release_backing(&mut state, self.id)?;
+        Ok(true)
+    }
+
     pub fn set_preferred(&self, preferred: bool) -> Result<()> {
         let mut state = self.arena.lock()?;
         let preferred = preferred && state.preferred_end.is_none_or(|end| self.id < end);
@@ -1161,7 +1243,7 @@ impl Region {
                     });
                 }
             }
-            let handle = match self.arena.driver.create(self.rounded) {
+            let handle = match self.arena.create(self.rounded) {
                 Ok(handle) => handle,
                 Err(Error::OutOfMemory { .. }) => {
                     match admission {
@@ -1188,7 +1270,7 @@ impl Region {
                             )?;
                         }
                     }
-                    match self.arena.driver.create(self.rounded) {
+                    match self.arena.create(self.rounded) {
                         Ok(handle) => handle,
                         Err(error @ Error::OutOfMemory { .. }) => return Err(error),
                         Err(error) => return Err(poison(&mut state, error)),
@@ -1367,6 +1449,22 @@ impl Fill {
 }
 
 impl Fill {
+    /// Abort a fill whose writers are all checked complete: the pages hold no contents, and
+    /// `Region::release_unready` may release them at once instead of after a context join.
+    ///
+    /// # Safety
+    /// Every write through this fill's mapping completed in this device's primary context and
+    /// nothing submits through it again. An escaped view keeps its own Pin.
+    #[allow(unsafe_code)]
+    pub unsafe fn abort_completed(mut self) -> Arc<Region> {
+        let pin = self.pin.take().expect("uncommitted fill");
+        if pin.region().arena.pid == std::process::id() {
+            pin.region().uses.set(Contents::Cold);
+        }
+        // SAFETY: the caller proved every writer complete; unpublished contents have no reader.
+        unsafe { pin.into_completed_region() }
+    }
+
     /// Abort without waiting, returning reservation ownership for deferred final teardown.
     pub fn into_unpinned_region(mut self) -> Arc<Region> {
         let pin = self.pin.take().expect("uncommitted fill");
@@ -1566,12 +1664,68 @@ impl Drop for Arena {
                 if self.driver.release(handle).is_err() {
                     return;
                 }
+                self.room.pages.fetch_sub(entry.bytes, Ordering::AcqRel);
             }
             if self.driver.free_address(entry.ptr, entry.bytes).is_err() {
                 return;
             }
         }
     }
+}
+
+fn room(device: i32) -> Result<Arc<Room>> {
+    Ok(Arc::clone(&capture_counts()?.entry(device).or_default().room))
+}
+
+/// The room this process may hold on `device` (its weight pages plus Torch's hooked segments),
+/// None for no limit, and at once its pages above it back, in reclaim order (pins are never
+/// overridden; under a capture or replay they wait for the next fill or allocation, which the
+/// room bounds from now on). What a machine asks of an executor when another program needs the
+/// GPU (design/vram-yield.md): the one make_room for foreign pressure.
+pub fn make_room(device: i32, limit: Option<usize>) -> Result<ReclaimReport> {
+    check_process()?;
+    let room = room(device)?;
+    room.limit.store(limit.unwrap_or(usize::MAX), Ordering::Release);
+    let over = room.over(0);
+    let mut report = ReclaimReport {
+        requested_bytes: over,
+        ..ReclaimReport::default()
+    };
+    if over == 0 || is_recovery_blocked(device)? {
+        return Ok(report);
+    }
+    let Some(registry) = ARENAS.get() else {
+        return Ok(report);
+    };
+    let arenas: Vec<_> = registry
+        .lock()
+        .map_err(|_| Error::Poisoned("arena registry mutex".into()))?
+        .iter()
+        .filter_map(Weak::upgrade)
+        .filter(|arena| arena.device == device)
+        .collect();
+    for arena in arenas {
+        let need = room.over(0);
+        if need == 0 {
+            break;
+        }
+        let next = arena.reclaim_with_preference(need, true, ReclaimReason::Room)?;
+        report.reclaimed_bytes += next.reclaimed_bytes;
+        report.evicted_regions += next.evicted_regions;
+    }
+    Ok(report)
+}
+
+/// `make_room`'s current limit on `device`, None for none.
+pub fn room_limit(device: i32) -> Result<Option<usize>> {
+    let limit = room(device)?.limit.load(Ordering::Acquire);
+    Ok((limit != usize::MAX).then_some(limit))
+}
+
+/// Torch's segments on `device` through the allocation hook, which the room counts beside pages.
+pub fn note_torch_reserved(device: i32, bytes: usize) -> Result<()> {
+    room(device)?.torch.store(bytes, Ordering::Release);
+    Ok(())
 }
 
 /// Allocator-pressure entry point: native-only, one finite pass, no callbacks or external waits.

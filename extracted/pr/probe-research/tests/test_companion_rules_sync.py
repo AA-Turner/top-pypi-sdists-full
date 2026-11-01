@@ -18,7 +18,7 @@ AGENT = Path(__file__).resolve().parents[1]
 @pytest.mark.xfail("track-work" in HELD_SKILLS, strict=True, reason=REASON)
 def test_the_daemon_reads_the_same_rules_as_the_agent():
     """The same base; a daemon reads the WRITER's version of it (skill_versions)."""
-    from probe import skill_versions
+    from probe.foundation.skills import skills as skill_versions
 
     skill = skill_versions.render(AGENT / "skills" / "track-work", skill_versions.WRITER)
     vendored = (AGENT / "plugins" / "probe-research-tap" / "tap" / "companion_rules.md").read_text(encoding="utf-8")

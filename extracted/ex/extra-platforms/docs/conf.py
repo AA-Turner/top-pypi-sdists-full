@@ -1,14 +1,13 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
-
-import tomllib  # type: ignore[import-not-found]  # stdlib >=3.11; docs require >=3.12.
 
 project_path = Path(__file__).parent.parent.resolve()
 
 # Fetch general information about the project from pyproject.toml.
 toml_path = project_path / "pyproject.toml"
-toml_config = tomllib.loads(toml_path.read_text(encoding="utf-8"))
+toml_config = tomllib.loads(toml_path.read_text(encoding="UTF-8"))
 
 # Redistribute pyproject.toml config to Sphinx.
 project_id = toml_config["project"]["name"]
@@ -56,7 +55,8 @@ myst_enable_extensions = [
     "strikethrough",
     "tasklist",
 ]
-# XXX Allow ```mermaid``` directive to be used without curly braces (```{mermaid}```), see:
+# XXX Allow ```mermaid``` directive to be used without curly braces
+# (```{mermaid}```), see:
 # https://github.com/mgaitan/sphinxcontrib-mermaid/issues/99#issuecomment-2339587001
 myst_fence_as_directive = ["mermaid"]
 
@@ -73,11 +73,12 @@ click_extra_fail_on_warnings = ["myst.xref_missing"]
 
 mermaid_d3_zoom = True
 
-# Enable the `{python:run}` execution directive used by docs/cli.md to render
-# the CLI `--help` screen live at build time. Disabled by default upstream since
-# click-extra `v7.15.0` because these directives execute arbitrary Python at
-# build time; without the flag every directive reference logs an "Unknown
-# directive" warning and the live block renders empty.
+# Enable the `{python:render}` and `{python:run}` execution directives. They
+# render the trait and group tables, the diagrams and the CLI `--help` screen
+# live at build time. Disabled by default upstream since click-extra `v7.15.0`
+# because these directives execute arbitrary Python at build time; without the
+# flag every directive reference logs an "Unknown directive" warning and the
+# live block renders empty.
 click_extra_enable_exec_directives = True
 
 exclude_patterns = ["_build", "_linkcheck", "html", "Thumbs.db", ".DS_Store"]
@@ -92,16 +93,10 @@ suppress_warnings = [
     # pytest.Mark type is not available during Sphinx documentation build. These are
     # cosmetic warnings that don't affect the generated documentation.
     "sphinx_autodoc_typehints.forward_reference",
-    # Example: "Ignoring "mermaid" directive without content. [myst.directive]"
-    # Explanation: The autoclasstree extension sometimes generates empty mermaid
-    # directives for certain module structures.
-    "myst.directive",
-    # Example: "/Users/kde/code/extra-platforms/tests/test_sphinx_crossrefs.py:docstring
-    # of tests.test_sphinx_crossrefs.has_linked_reference:9: ERROR: Unexpected
-    # indentation. [docutils]"
-    # Explanation: Some code examples in docstrings may have indentation that triggers
-    # reStructuredText parsing warnings. These are typically in test files and don't
-    # affect the main documentation.
+    # Example: "docs/platforms.md:390: WARNING: Ignoring "mermaid" directive without
+    # content. [docutils]"
+    # Explanation: `autoclasstree` renders an empty mermaid diagram for each
+    # `*_data` module, which defines no class.
     "docutils",
     # Example: "Domain 'click_extra.sphinx.click::click' has not implemented a
     # `resolve_any_xref` method"

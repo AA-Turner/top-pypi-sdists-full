@@ -28,7 +28,7 @@ import subprocess
 import sys
 import uuid
 
-from probe.sdk.snapshot import wire_name
+from probe.sdk.capture.code.code import wire_name
 import tempfile
 import textwrap
 import time
@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from probe.cli import telemetry as probe_telemetry
-    from ..sdk.client import Client
+    from ..sdk.client.client import Client
 else:
     #: The SDK client class: a module global so the CLI package can monkeypatch
     #: it in tests, and None until then. The SDK client imports every wire model,
@@ -51,12 +51,12 @@ import typer
 from pydantic import ValidationError
 
 from .. import __version__, errors
-from ..client_headers import client_version_headers
+from ..foundation.request_identity.request_identity import client_version_headers
 # The option enums only, from `_generated.enums` rather than `probe.models`: that
 # seam builds every wire model, ~0.5 s that every command paid at startup -- the
 # wizard, the hooks and the status line included -- whether or not it sent one.
 # `tests/test_cli_startup_imports.py` holds the CLI to this.
-from .._generated.enums import (
+from ..generated.enums import (
     AnchorLevel,
     AppPapersCitationStoreDirection as CitationDirection,
     LineageEntityType,
@@ -67,8 +67,8 @@ from .._generated.enums import (
     PaperMode,
     Scope,
 )
-from ..sdk.anchors import FILE_ANCHORS as _FILE_ANCHORS, Anchor
-from ..sdk.config import (
+from ..sdk.artifact.anchors import FILE_ANCHORS as _FILE_ANCHORS, Anchor
+from ..sdk.settings.settings import (
     DEFAULT_BASE_URL,
     WORKSPACE_HANDOVER,
     clear_context,
@@ -81,10 +81,11 @@ from ..sdk.config import (
     save_context,
     use_context,
 )
-from ..sdk import agent_session, daemon_channel, session_marker
-from ..sdk.nonfinite import to_wire as nonfinite_to_wire
-from ..sdk.tags import canonical_tags
-from ..sdk.device import (
+from ..sdk import agent_session, session_marker
+from ..sdk.run.launch import daemon_channel
+from ..sdk.reads.nonfinite import to_wire as nonfinite_to_wire
+from ..sdk.values.tags import canonical_tags
+from ..sdk.settings.device import (
     DeviceLoginError,
     DevicePrompt,
     OnboardingRequired,
@@ -94,22 +95,25 @@ from ..sdk.device import (
     hostname,
 )
 from ..sdk.errors import NotFoundError
-from ..sdk import checkpoints as _checkpoints_sdk
-from ..sdk.artifact_kinds import (
+from ..sdk.run.readback import readback as _checkpoints_sdk
+from ..sdk.artifact.kinds import (
     DEFAULT_ARTIFACT_KIND,
     USER_ARTIFACT_KINDS,
     ArtifactKind,
     normalize_artifact_kind,
 )
-from ..sdk.filetype import artifact_kind_for, name_with_extension
-from ..sdk.hashing import reference_fields
-from ..sdk.notes import FILE_NOTES_REMOVED, GROUP_NOTES_REMOVED
-from ..sdk.snapshot import (
+from ..sdk.artifact.filetype import artifact_kind_for, name_with_extension
+from ..sdk.artifact.hashing import reference_fields
+from ..sdk.reads.notes_cap import FILE_NOTES_REMOVED, GROUP_NOTES_REMOVED
+from ..sdk.capture.code.sources.directory import (
     DEFAULT_REFERENCE_OVER_BYTES as _SNAPSHOT_REFERENCE_OVER_BYTES,
 )
-from ..sdk.snapshot import UNRESOLVED_FALLBACK as _UNRESOLVED_FALLBACK
-from ..sdk.surface import Surface
-from . import plugin_cli, reads, refs, statusline
+from ..sdk.capture.code.environment import UNRESOLVED_FALLBACK as _UNRESOLVED_FALLBACK
+from ..foundation.request_identity.surface import Surface
+from ..shared.harness import plugins as plugin_cli
+from . import refs
+from ..shared.harness.harnesses.claude_code import statusline
+from ..shared.reads import reads
 
 
 # -- global connection state (set by the root callback) ---------------------
@@ -392,7 +396,7 @@ _select_fields = reads.select_fields
 
 
 def _api(client: Any, *, pretty: bool = False) -> "reads.Api":
-    """This command's Probe for the shared read bodies (`probe.cli.reads`): its
+    """This command's Probe for the shared read bodies (`probe.shared.reads.reads`): its
     client, this process's environment and settings. `pretty`: JSON laid out for
     a terminal (a command that prints passes `sys.stdout.isatty()`)."""
     return reads.Api(
@@ -407,7 +411,7 @@ def _api(client: Any, *, pretty: bool = False) -> "reads.Api":
 
 
 def _emit(printed: "reads.Printed") -> None:
-    """Print what a moved read printed (`probe.cli.reads`), and exit with its code."""
+    """Print what a moved read printed (`probe.shared.reads.reads`), and exit with its code."""
     for to_err, text, is_json in printed.parts:
         if to_err:
             print(text, file=sys.stderr)
@@ -439,7 +443,7 @@ def _print_link(kind: str, entity_id: str | None) -> None:
     Silent when the dashboard origin is unknown (see sdk.links): a link into the
     wrong deployment is worse than no link at all.
     """
-    from ..sdk.links import entity_url
+    from ..sdk.reads.links import entity_url
 
     url = entity_url(kind, entity_id)
     if url:
@@ -464,7 +468,7 @@ def _client_class():
     """`Client`: a stand-in a test put there, else the SDK's."""
     if Client is not None:
         return Client
-    from ..sdk.client import Client as sdk_client
+    from ..sdk.client.client import Client as sdk_client
 
     return sdk_client
 
@@ -572,8 +576,8 @@ def _report_undelivered(entry: dict) -> None:
 
     stderr for the same reason as `_print_link`: stdout carries the JSON a
     script parses. The line's prefix is what the Probe daemon reads to file the
-    command as `queued` rather than recorded (`sdk/write_outcome.py`)."""
-    from ..sdk import write_outcome
+    command as `queued` rather than recorded (`sdk/values/write_outcome.py`)."""
+    from ..sdk.values import write_outcome
 
     queued = bool(entry.get("queued"))
     n = _UNDELIVERED.add(entry)
@@ -601,7 +605,7 @@ def _backfill_client() -> Client:
 
 
 def _journal():
-    from ..sdk.journal import Journal
+    from ..sdk.delivery.journal.journal import Journal
 
     return Journal(_conn.spool_dir)
 
@@ -610,7 +614,7 @@ def _outbox_journals() -> list:
     """This process's outbox first, then every other one of this user on this
     machine (`Journal.discover`: ``rank-*`` dirs, the ``$TMPDIR`` fallback),
     unless ``--spool-dir`` names one (plan 1.5)."""
-    from ..sdk.journal import Journal
+    from ..sdk.delivery.journal.journal import Journal
 
     current = _journal()
     if _conn.spool_dir:
@@ -651,7 +655,7 @@ def _async_client() -> Client:
     """A journaling client for the async write paths (9A). Errors early when no
     deliverable credentials exist -- queueing an op nothing can ever deliver
     fails hours later in the drainer, which is the worst place to learn it."""
-    from ..sdk.config import resolve
+    from ..sdk.settings.settings import resolve
 
     settings = resolve(base_url=_conn.base_url)
     if not settings.token and not settings.ingest_token:
@@ -676,7 +680,7 @@ def _async_run(client: Client, run_ref: str):
     `_run_handle` applies, and otherwise none at all. It used to default to 1,
     which the server fences on any reopened run: every queued point
     dead-lettered, and a queued `run end` would have been refused."""
-    from ..sdk.run import Run
+    from ..sdk.run.run import Run
 
     handle = Run(client, {"id": run_ref})
     try:
@@ -765,7 +769,7 @@ _SERVICE_ASK_STAMP = "service-update-ask"
 _SERVICE_COMMAND = "service"
 
 #: Probe staff asked this machine to update now (research-os control/071): a
-#: `probe` command that finds the mark (`probe._shared.update_request`) hands an
+#: `probe` command that finds the mark (`probe.foundation.remote_settings.update`) hands an
 #: update to the updater at most this often, while the server keeps asking.
 _REMOTE_ASK_EVERY_S = 15 * 60
 #: Its stamp, beside `autoupdate.json` (its own window: an every-command ask the
@@ -885,7 +889,7 @@ def _version_notice() -> None:
     `last_skip`, which is what the server's update report carries.
     """
     try:
-        from probe import version_policy
+        from probe.shared.updates import version_policy
 
         if not version_policy.autoupdate_enabled():
             return
@@ -1000,7 +1004,7 @@ def _ensure_pi_pin() -> None:
     in a detached child, so this session's shim can switch to it at a later turn
     and the next session starts on it (kimi/pi update parity P1). Never fails."""
     try:
-        from . import pi_pins
+        from ..shared.harness.harnesses.pi import pins as pi_pins
 
         if not pi_pins.pin_due():
             return
@@ -1026,7 +1030,7 @@ def _extension_session_start() -> bool:
     for this command to exit, exactly as it does from a terminal."""
     import sys as _sys
 
-    from probe.harness import FAMILY_EXTENSION, get_registry
+    from probe.foundation.harness_registry import FAMILY_EXTENSION, get_registry
 
     if not hasattr(os, "fork"):
         # Windows: the update cannot detach, so it would run inline and wait
@@ -1184,7 +1188,7 @@ def _spawn_version_refresh() -> None:
     a caller in a sandbox, or a service refresh that did not land (`recent`
     with this cache still stale): the detached child, as before.
     """
-    from probe import version_policy
+    from probe.shared.updates import version_policy
 
     if not version_policy.claim_refresh():
         return  # somebody is already fetching; a burst of 8 runs makes 1 request
@@ -1342,7 +1346,7 @@ def _inside_a_run() -> bool:
     if any((os.environ.get(name) or "").strip() for name in _RUN_ENV):
         return True
     try:
-        from probe._shared import run_lock
+        from probe.foundation.durable import run_lock
 
         directory = run_lock.runs_dir()
         if not directory.is_dir():
@@ -1412,7 +1416,7 @@ def _remote_update_notice() -> None:
 
     The server marks the machine (research-os control/071) and answers its
     authenticated requests with `X-Probe-Update-Requested`; whichever of our
-    clients got that answer left the mark (`probe._shared.update_request`). This
+    clients got that answer left the mark (`probe.foundation.remote_settings.update`). This
     runs before every command, so its gates are cheapest first and nearly every
     call ends at the second one, a missing file:
 
@@ -1446,7 +1450,7 @@ def _remote_update_notice() -> None:
     if command in _UPDATE_HOT_PATH_COMMANDS or command in _REMOTE_UPDATE_SKIP_COMMANDS:
         return
     try:
-        from probe._shared import update_request
+        from probe.foundation.remote_settings import update as update_request
 
         if not update_request.fresh():
             return
@@ -1454,7 +1458,7 @@ def _remote_update_notice() -> None:
 
         if os.environ.get(SERVICE_CHILD_ENV):
             return
-        from probe import version_policy
+        from probe.shared.updates import version_policy
 
         if not version_policy.autoupdate_enabled():
             return
@@ -1496,7 +1500,7 @@ def _capture_repair_notice() -> None:
     person's browser approval. Staff can instead open a repair for ONE device
     (research-os control/073): the server answers that device's CLI token with
     `X-Probe-Capture-Repair`, whichever of our clients gets the answer leaves
-    the mark (`probe._shared.capture_repair`), and this, before every command,
+    the mark (`probe.foundation.remote_settings.capture_repair`), and this, before every command,
     acts on it.
 
     Gates, cheapest first, like `_remote_update_notice`: not a run-scoped
@@ -1536,7 +1540,7 @@ def _capture_repair_notice() -> None:
     if command in _UPDATE_HOT_PATH_COMMANDS or command in _REMOTE_UPDATE_SKIP_COMMANDS:
         return
     try:
-        from probe._shared import capture_repair
+        from probe.foundation.remote_settings import capture_repair
 
         if not capture_repair.fresh():
             return
@@ -1600,7 +1604,13 @@ def _capture_repair_notice() -> None:
                 "machine (a bug had turned it off). Turn it off any time with `probe wizard`.",
                 file=sys.stderr,
             )
-        shadowed = "claude_code" in applied.written and bool(os.environ.get("PROBE_INGEST_TOKEN"))
+        from .capabilities import consumes_cli_capture_token, tap_token_env
+
+        # A credential written to the CLI config ranks below its agent's env token.
+        shadowed = any(
+            consumes_cli_capture_token(source) and os.environ.get(tap_token_env(source))
+            for source in applied.written
+        )
         outcome = (
             "write_failed" if applied.failed
             else "env_shadowed" if shadowed
@@ -1652,7 +1662,7 @@ def _settings_request_notice() -> None:
     ):
         return
     try:
-        from probe._shared import settings_request
+        from probe.foundation.remote_settings import preferences as settings_request
 
         if not settings_request.fresh():
             return
@@ -1725,7 +1735,7 @@ def _apply_capture_repair(credentials: list, requested_at: float | None, base_ur
     the caller confirms the rest, and the server keeps only the failed agents
     open, so the next window fetches (and re-mints) only those."""
     from . import setup as wizard
-    from .capabilities import tap_plugin_dir
+    from .capabilities import consumes_cli_capture_token, tap_plugin_dir
     from .capture import AWAITING_CONFIRMATION
 
     result = _RepairApplied()
@@ -1754,9 +1764,9 @@ def _apply_capture_repair(credentials: list, requested_at: float | None, base_ur
             continue
         try:
             wizard.write_capture_credential(source, token, base_url)
-            if source == "claude_code" and (directory / ".token").exists():
-                # Claude Code's tap reads its own `.token` before the CLI config:
-                # an older pairing's would shadow the credential just written.
+            if consumes_cli_capture_token(source) and (directory / ".token").exists():
+                # Claude Code's credential went to the CLI config, which its tap reads
+                # after its own `.token`: an older pairing's would shadow it.
                 wizard.write_paired_capture_token(source, token, base_url)
             if lock is not None:
                 marker.unlink(missing_ok=True)
@@ -1867,7 +1877,7 @@ def _apply_deferred_update() -> None:
     training run. `probe exec` exists to hand back its child's exit code.
     """
     try:
-        from probe import version_policy
+        from probe.shared.updates import version_policy
 
         if not version_policy.autoupdate_enabled():
             return
@@ -1891,9 +1901,9 @@ def _lift_stale_pause(status: dict) -> bool:
     """`outbox_worker.lift_stale_pause` on this command's outbox, reported to
     the backend this command uses. Never raises."""
     try:
-        from ..sdk import outbox_worker
-        from ..sdk.config import resolve
-        from ..sdk.journal import Journal
+        from ..sdk.delivery import outbox as outbox_worker
+        from ..sdk.settings.settings import resolve
+        from ..sdk.delivery.journal.journal import Journal
 
         journal = Journal(_conn.spool_dir)
         if not os.path.lexists(journal.paused_file):
@@ -1920,7 +1930,8 @@ def _outbox_notice(*, lift: bool = True) -> None:
     not first start the drainer it is about to stop).
     """
     try:
-        from ..sdk.journal import Journal, auth_blocked_since
+        from ..sdk.delivery.journal.journal import Journal
+        from ..sdk.delivery.journal.status_file import auth_blocked_since
 
         status = Journal.read_status(_conn.spool_dir)
         if not status:
@@ -1967,7 +1978,7 @@ def _outbox_notice(*, lift: bool = True) -> None:
             # the _kick_drainer() below would turn reporting a stuck queue into
             # causing one.
             try:
-                from ..sdk.config import resolve
+                from ..sdk.settings.settings import resolve
                 from . import telemetry as telemetry_mod
 
                 # The RESOLVED backend, not the config file: `probe --base-url
@@ -1975,9 +1986,12 @@ def _outbox_notice(*, lift: bool = True) -> None:
                 # never reaches the config, so gating on the config alone let a
                 # self-host invocation emit. Only reached when the queue is
                 # actually stuck, so the resolve() is off the hot path.
+                from ..sdk.delivery.journal.paths import default_dir
+
                 telemetry_mod.emit_outbox_stuck(
                     status,
-                    spool_dir=_conn.spool_dir,
+                    auth_blocked_since=auth_blocked_since(status),
+                    spool_dir=_conn.spool_dir or str(default_dir()),
                     base_url=resolve(base_url=_conn.base_url).base_url,
                 )
             except Exception:  # noqa: BLE001 -- never let a report block the kick
@@ -1992,7 +2006,7 @@ def _outbox_notice(*, lift: bool = True) -> None:
             # at most a process every 10 minutes), even with this outbox empty
             # (a distributed job's `rank-*` ones). Here, on the CLI's path,
             # never on the SDK's write path.
-            from ..sdk import outbox_worker
+            from ..sdk.delivery import outbox as outbox_worker
 
             outbox_worker.maybe_rescue(Journal(_conn.spool_dir), status)
         if (pending or lifted) and not status.get("paused") and not blocked:
@@ -2178,7 +2192,7 @@ def _run_handle(client: Client, run_id: str, *, owns_process: bool = False):
     wrapper existed to prevent. Its beats carry no `attached` flag: holding a
     run open is not the same as the job inside it reporting.
     """
-    from ..sdk.run import Run
+    from ..sdk.run.run import Run
 
     # Every run-scoped CLI write funnels through here, which makes it the one
     # place a detached run's auto-update lease can be renewed without anyone
@@ -2507,7 +2521,8 @@ def _login(
         # write queued under it may later go out with a NEWER login of this
         # context only if that login is the same account. None clears a
         # previous login's record.
-        from ..sdk.journal import credential_fingerprint, record_account
+        from ..sdk.delivery.outbox.drain.credentials import credential_fingerprint
+        from ..sdk.delivery.outbox.drain.accounts import record_account
 
         # The login this one replaces keeps its record where writes queued under
         # it can still find it (#2041 round 3): the context holds one identity.
@@ -2611,7 +2626,7 @@ def logout() -> None:
         print(f"local config cleared (context: {name})")
         # Kimi Code's installed manifests carry the read token as a bearer header:
         # with the config cleared there is none to hold, so they go back to OAuth.
-        from probe.cli import kimi_config
+        from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
         for line in kimi_config.sync_mcp_bearer():
             print(line)
@@ -2804,7 +2819,7 @@ def update_compat(
 
     base = resolve(base_url=_conn.base_url).base_url
     if check:
-        from probe.cli import versions as versions_mod
+        from probe.shared.updates import updates as versions_mod
 
         try:
             manifest = updater.fetch_latest(base)
@@ -2852,7 +2867,7 @@ def _update_action_trigger(yes: bool):
     (older plugins: `probe update --yes`) with no terminal on either end, and is
     the only thing that does; a person at Update has one. A spawner that names
     itself in `TRIGGER_ENV` wins over both readings."""
-    from probe.cli import update_report
+    from probe.shared.updates import update_report
 
     unattended = yes and not (sys.stdin.isatty() and sys.stdout.isatty())
     return update_report.trigger_from_env(
@@ -3012,7 +3027,7 @@ def _doctor_fix_codex_hooks() -> list[str]:
     """`probe doctor --fix`: Probe's own hooks in Codex approved again, as an
     update and the Probe service's healer approve them (#3617), and what that
     did. Empty where Codex holds no copy of Probe's plugins."""
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
     from probe.cli import setup as wizard
 
     if not codex_hooks.installed_copies():
@@ -3032,8 +3047,8 @@ _REPORT_FAILURES = {
 
 
 def _doctor_send() -> None:
-    """`probe doctor --send`: one manual diagnostic report (`probe.core.report`)."""
-    from probe.core import report
+    """`probe doctor --send`: one manual diagnostic report (`probe.shared.reports`)."""
+    from probe.shared import reports as report
 
     answer = report.send(auto=False, family=report.MANUAL_FAMILY, reason=report.MANUAL_REASON)
     if answer.sent:
@@ -3135,7 +3150,7 @@ def status_command(
 
 def _installable_agent(name: str):
     """The installable registry row `--agent NAME` names: its cli_flag, id or alias."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     wanted = name.strip().lower()
     return next(
@@ -3144,7 +3159,7 @@ def _installable_agent(name: str):
 
 
 def _agent_flags() -> str:
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     return ", ".join(h.cli_flag for h in get_registry().installable() if h.cli_flag)
 
@@ -3793,7 +3808,7 @@ def _release_for_menu() -> None:
     stack = _RUN_LOCK.get()
     if stack is None:
         return
-    from probe._shared import setup_marks
+    from probe.shared.updates import setup_marks
 
     # The mark first, then the lock: an updater that looks in between sees one.
     setup_marks.mark_menu(session_marker.state_dir())
@@ -3804,7 +3819,7 @@ def _release_for_menu() -> None:
 def _unmark_menu() -> None:
     """The wizard's run ends: its menu, if it had one, waits no more."""
     try:
-        from probe._shared import setup_marks
+        from probe.shared.updates import setup_marks
 
         setup_marks.unmark_menu(session_marker.state_dir())
     except Exception:  # noqa: BLE001 -- a marker left behind names a process that is gone
@@ -3920,7 +3935,7 @@ def _wizard_session(
         # An older server's answer carries no manifest, and the wizard spawns
         # no detached refresher: fetch it when someone will read the Versions
         # row, or when auto-update will act on it.
-        from probe import version_policy
+        from probe.shared.updates import version_policy
 
         return _start_device_state(
             warm_manifest=wizard.interactive() or version_policy.autoupdate_enabled()
@@ -4959,7 +4974,8 @@ def _wizard_session(
             # server row. The last agent (often one with nothing installed) hid
             # the rest, and capabilities flipped absent -> installed between
             # passes, posting a false "Probe removed" on every auto-update.
-            from probe.cli import client_installation, update_report
+            from probe.cli import client_installation
+            from probe.shared.updates import update_report
 
             updating = chosen_action is actions_mod.Action.UPDATE
             if updating:
@@ -6057,7 +6073,7 @@ def _run_wizard_action(
 
     install_pipeline.clear_keeper_off()
     repaired: list[str] = []
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
 
     codex_hooks_before = (integration_repair.codex_hooks_digest()
                           if caps.agent_source == plugin_cli.CODEX else None)
@@ -6199,7 +6215,7 @@ def _run_wizard_action(
     elif caps.agent_source == plugin_cli.KIMI:
         # Kimi Code's plugins are files the wizard writes (kimi_config); it
         # still needs the agent itself on the machine to be worth installing.
-        from probe.cli import kimi_config
+        from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
         agent_here = kimi_config.binary_available()
         agent_name = wizard.agent_label(caps.agent_source)
@@ -6541,7 +6557,7 @@ def _run_wizard_action(
         # signed-in device, and the token being replaced has to be read while
         # it is still the stored one — after `authorize` persists, it is gone
         # locally and can only be revoked from this copy.
-        from probe.sdk.config import load_context
+        from probe.sdk.settings.settings import load_context
 
         try:
             previous_context = load_context() or {}
@@ -7568,7 +7584,7 @@ def _ensure_daemon(base: str, *, open_browser: bool = True, sign_in: bool = Fals
         # A refused key is dead weight: dropped first, so a declined approval
         # leaves NO key -- which every caller reads as "nothing moves" -- rather
         # than a saved key the server will not take.
-        from probe.sdk.config import save_context
+        from probe.sdk.settings.settings import save_context
 
         save_context({"companion_token": None})
         lines.append("The server refuses the Probe daemon's key, so it needs a new one.")
@@ -7608,7 +7624,7 @@ def _daemon_key_refused(base: str) -> bool:
     """Whether the server refuses the daemon's saved key (revoked under
     Settings › Connected clients, say). False with no key saved, or when the
     server cannot be reached: an outage is not a reason to mint another key."""
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     try:
         token = str((load_context() or {}).get("companion_token") or "")
@@ -7671,7 +7687,7 @@ def _authorize_companion(base_url: str, *, open_browser: bool = True, sign_in: b
     # From this device's sign-in when the caller showed the daemon's consent
     # (`sign_in`): no browser. Otherwise, or when the device cannot (no
     # installation-bound sign-in, an older server), the browser approval.
-    from probe._shared.telemetry import DESKTOP_HUMAN_ENV
+    from probe.analytics.analytics import DESKTOP_HUMAN_ENV
 
     desktop = os.environ.get(DESKTOP_HUMAN_ENV) == "1"
     from_sign_in = wizard.mint_from_sign_in(wizard.COMPANION_GRANT, base_url=base_url) if sign_in or desktop else None
@@ -8155,7 +8171,8 @@ app.add_typer(capy_app, name="capy", hidden=True)
 app.command("approvals")(approvals_cmd)
 
 # -- summaries and Metrics-center visuals, kept by the recorder (writer-owns-summary)
-from .summary_cli import summary_app, visuals_app  # noqa: E402 -- registration, not use
+from ..shared.notes.summary.checkout_push import summary_app  # noqa: E402 -- registration, not use
+from ..shared.notes.summary.visuals import visuals_app  # noqa: E402 -- registration, not use
 
 app.add_typer(summary_app, name="summary")
 app.add_typer(visuals_app, name="visuals")
@@ -8253,7 +8270,7 @@ def _verify_read(token: str, base_url: str) -> tuple[str, dict | None]:
     """`_verify` through the SDK's transport alone, with the same answers: a
     `Client` imports every wire model (~0.5 s), and the wizard asks this under
     its first spinner (`capabilities.ask_mcp_token_verdict`)."""
-    from ..sdk.transport import Transport
+    from ..sdk.delivery.transport.transport import Transport
 
     settings = resolve(base_url=base_url, token=token)
     try:
@@ -8389,7 +8406,7 @@ def mcp_headers() -> None:
             file=sys.stderr,
         )
         raise typer.Exit(1)
-    from ..sdk import workspace_limit as wl
+    from ..sdk.settings import workspace_limit as wl
 
     headers = {"Authorization": f"Bearer {settings.mcp_token}"}
     try:
@@ -8489,7 +8506,7 @@ MCP_CALL_MATCHED = "probe mcp call"
 
 def _mcp_bridge(matched: str):
     """The bridge's target, once this session is inline; else the refusal (exit 2)."""
-    from . import mcp_bridge
+    from ..shared.reads import mcp_bridge
 
     refused = mcp_bridge.refusal(matched)
     if refused:
@@ -9389,7 +9406,7 @@ def set_tags_opt() -> Any:
 #: eight verbs offer it and a help string that drifts between them is a
 #: different promise on each.
 #:
-#: The DEFAULT is resolved in the SDK, not here (`sdk/client.py::_authored_by`),
+#: The DEFAULT is resolved in the SDK, not here (`sdk/client/client.py::_authored_by`),
 #: so `probe` and a Python caller answer the question the same way: under a
 #: coding agent it is `agent`, and in a bare terminal NOTHING is sent and the
 #: server applies the inference it always has.
@@ -9404,7 +9421,7 @@ class AuthoredBy(str, Enum):
     """Who composed the text on this write.
 
     Mirrors `app.core.authorship.Authorship` and the generated
-    `probe._generated.models.Authorship`; spelled here because this is a typer
+    `probe.generated.models.Authorship`; spelled here because this is a typer
     choice surface and the two spellings are pinned together by
     `agent/tests/test_authorship_default.py`.
     """
@@ -9417,7 +9434,7 @@ def _authored_by_value(choice: "AuthoredBy | None") -> str | None:
     """The wire value for `--authored-by`, or None to let the SDK decide.
 
     None here does NOT mean "human". It means the caller did not say, and the
-    resolution then happens once, in `sdk/client.py::_authored_by` -- so the
+    resolution then happens once, in `sdk/client/client.py::_authored_by` -- so the
     CLI and a Python caller can never answer the question differently.
     """
     return choice.value if choice is not None else None
@@ -9520,6 +9537,8 @@ def project_create(
     linked --part-of it, and nothing moves or is inherited. With --part-of and
     no --workspace it is filed in the first target's workspace.
     """
+    from . import filed_workspace
+
     targets = list(dict.fromkeys([*(part_of or []), *([parent] if parent else [])]))
     with _client() as c:
         created = c.create_project(
@@ -9536,8 +9555,11 @@ def project_create(
             tags=tag or None,
             authored_by=_authored_by_value(authored_by),
         )
-    _print_json(created)
-    _print_link("project", created.get("id"))
+        # The JSON first: the name read is bounded, but never between a
+        # successful create and the id a script waits for.
+        _print_json(created)
+        _print_link("project", created.get("id"))
+        filed_workspace.say_filed(c, created)
 
 
 @project_app.command("list")
@@ -10229,7 +10251,7 @@ def _cite_cell(value: Any, width: int | None = None) -> str:
 
 def _cite_table(headers: list[str], rows: list[list[str]], indent: str = "  ") -> None:
     """Left-aligned columns padded to their widest cell; the last one ragged."""
-    widths = [max([len(h), *(len(r[i]) for r in rows)]) for i, h in enumerate(headers)]
+    widths = [max([len(h)] + [len(r[i]) for r in rows]) for i, h in enumerate(headers)]
     for line in [headers, *rows]:
         cells = [cell.ljust(widths[i]) for i, cell in enumerate(line[:-1])]
         print(indent + "  ".join([*cells, line[-1]]).rstrip())
@@ -10638,10 +10660,10 @@ def paper_find(
     """
     from pydantic_core import to_jsonable_python
 
-    from ..mcp import continuation
-    from ..mcp.budget import InvalidBudget, serialize
-    from ..mcp.service import ResearchReadService
-    from ..mcp.source import ResearchOSSource
+    from ..mcp.delivery import delivery as continuation
+    from ..foundation.token_budget.token_budget import InvalidBudget, serialize
+    from ..mcp.tools.tools import ResearchReadService
+    from ..mcp.source.source import ResearchOSSource
 
     if query is not None and query_option is not None and query != query_option:
         raise typer.BadParameter("give the query once: as QUERY or as --query", param_hint="'--query'")
@@ -10779,7 +10801,7 @@ def _write_paper_find_snapshot(path: Path, payload: dict) -> None:
 #: The most `probe docs` prints, in characters: whole sections, best first, up
 #: to the one that would pass it. The first section always prints.
 DOCS_PRINT_CHARS = 8_000
-#: The longest question `GET /public/v1/docs` takes (`probe.mcp.contract.
+#: The longest question `GET /public/v1/docs` takes (`probe.shared.reads.search_contract.
 #: DOCS_QUERY_MAX_CHARS`, not imported: `probe.mcp` loads the whole MCP service).
 DOCS_QUERY_MAX_CHARS = 512
 
@@ -10888,7 +10910,7 @@ def project_reference_add(
     part-of link. `project get` shows them apart: `references` and
     `part_of_links`.
     """
-    from ..sdk.client import ProjectRelation
+    from ..sdk.client.resources.projects.papers import ProjectRelation
 
     with _client() as c:
         c.add_project_reference(
@@ -11213,7 +11235,7 @@ def run_start(
         "       This command is refused in the next release.",
         err=True,
     )
-    from ..sdk.client import Rewind
+    from ..sdk.client.resources.runs.reopen.conflict import Rewind
 
     with _client() as c:
         run = c.run(
@@ -11493,7 +11515,7 @@ def run_tag(
             lambda wanted: handle.set_tags(wanted, strict=True),
         )
         _print_json(result)
-    from . import owed
+    from ..shared.notes import owed
 
     # A result tagged not to trust owes a note on what to believe instead (notes
     # parity N3); one no longer tagged so owes nothing (`--remove invalid`, `--set`).
@@ -11571,7 +11593,7 @@ def run_end(
     Making async the default here would reopen that from the other side.
     """
     if _resolve_write_mode(write_mode) is True:
-        from ..sdk.durable import now_iso
+        from ..foundation.durable.durable import now_iso
 
         with _async_client() as c:
             # set_status, not finish(): finish() flushes synchronously, which is
@@ -11583,8 +11605,8 @@ def run_end(
         # is worth handing back even though the status is still in flight.
         _print_link("run", run)
         return
-    from ..sdk.journal import drain
-    from ..sdk.run import WAITING_PROMOTE_TIMEOUT
+    from ..sdk.delivery.outbox.drain.drain import drain
+    from ..sdk.run.closing.drain import WAITING_PROMOTE_TIMEOUT
 
     journal = _journal()
     # Every queue: a PROBE_TOKEN or in-code writer's ops live in their own
@@ -11604,7 +11626,7 @@ def run_end(
         return [op for queue in queues for _, op in listing(queue) if op.get("run_ref") == run]
 
     def queued_of_run() -> list[dict]:
-        from ..sdk.journal import _write_epoch_of
+        from ..sdk.delivery.ops.ops import _write_epoch_of
 
         def current(op: dict) -> bool:
             theirs = _write_epoch_of(op)
@@ -11684,7 +11706,7 @@ def run_end(
             err=True,
         )
         raise typer.Exit(2)
-    from ..sdk.durable import now_iso as _now_iso
+    from ..foundation.durable.durable import now_iso as _now_iso
 
     with _client() as c:
         # set_status, not finish(): the run-scoped barrier above already
@@ -12164,8 +12186,8 @@ def exec(
     named_outputs = (
         [p for p in output_paths if isinstance(p, str) and p] if isinstance(output_paths, list) and not hands_off else []
     )
-    from ..sdk import exclusions as _exclusions
-    from ..sdk import outputs as _sdk_outputs
+    from ..sdk.recording_rules import recording_rules as _exclusions
+    from ..sdk.capture import outputs as _sdk_outputs
 
     exec_cwd = cwd if isinstance(cwd, str) and cwd else None
     # `.probe.config` `hash` where the command runs, or any `hash`/`read`/`off`
@@ -12218,7 +12240,7 @@ def exec(
             parent_id = _ref(c, "run", parent).row["id"] if parent else None
             # The command rides the run's "run started" message to the daemon,
             # and names the launch the retry detector compares (L6).
-            from ..sdk import launch as _launch
+            from ..sdk.run.launch import launch as _launch
 
             with daemon_channel.launch_command(argv), _launch.launching(
                 argv, cwd if isinstance(cwd, str) else None
@@ -12318,7 +12340,7 @@ def exec(
                 os.environ[_sdk_outputs.LOG_ENV] = "0"
             named = None
             if named_inputs or named_outputs:
-                from ..sdk import inputs as _sdk_inputs
+                from ..sdk.capture import lineage as _sdk_inputs
 
                 named = _sdk_inputs.NamedFiles(
                     c, handle.id, inputs=named_inputs, outputs=named_outputs, base=exec_cwd
@@ -12869,7 +12891,7 @@ def coordinates(run: str = run_ref()) -> None:
 # The coding-agent status line is ONE global slot in the agent's settings, with
 # no plugin manifest field for it, so getting our segment there means editing a
 # file we do not own. That makes it an explicit, reversible command rather than
-# something the wizard does silently -- see probe.cli.statusline.
+# something the wizard does silently -- see probe.shared.harness.harnesses.claude_code.statusline.
 statusline_app = typer.Typer(
     no_args_is_help=True, help="the tracked/untracked segment in Claude Code's status line"
 )
@@ -12916,8 +12938,8 @@ def statusline_install(
 
     # Run from inside Kimi Code, the slot is Kimi's footer settings (the registry says
     # which slot each agent has).
-    from probe.harness import get_registry
-    from probe.harness import registry as harness_registry
+    from probe.foundation.harness_registry import get_registry
+    from probe.foundation.harness_registry import harness_registry as harness_registry
 
     row = get_registry().find(named) if named is not None else None
     if named is not None and (row is None or not row.statusline):
@@ -13035,7 +13057,7 @@ def _resolve_agent_session(session: str | None, *, read: bool = False) -> str:
     `read`: a command that only reads the session (`session status`, the
     `companion` logs) falls back to the session the Probe daemon watches. The
     daemon's `probe` calls run with a stripped environment that names no
-    coding agent, only `PROBE_DAEMON_SESSION` (`daemon/worker.py::probe_env`),
+    coding agent, only `PROBE_DAEMON_SESSION` (`daemon/worker/worker.py::probe_env`),
     so its `probe session status` answered "no session id" (62 times in 14
     days for one pi user) and it went hunting for the id with `printenv`, each
     hunt a question for the researcher. A fallback, after the agent's own
@@ -13053,7 +13075,7 @@ def _resolve_agent_session(session: str | None, *, read: bool = False) -> str:
 def _daemon_session() -> "str | None":
     """The session the Probe daemon watches, when the daemon runs this command:
     its `probe` calls carry no coding agent's variables, only
-    `PROBE_DAEMON_SESSION` (`daemon/worker.py::probe_env`), and no coding agent's
+    `PROBE_DAEMON_SESSION` (`daemon/worker/worker.py::probe_env`), and no coding agent's
     shell carries that one. None anywhere else."""
     if agent_session.session_id_from_env() is not None:
         return None
@@ -13546,7 +13568,7 @@ def _initializing_agent() -> "str | None":
     tool's children), so without the second rung every pi session seeded as
     if no agent had called."""
     from probe.cli.daemon_cli import calling_agent
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     detected = calling_agent()
     if detected is not None:
@@ -13567,7 +13589,7 @@ def session_owed(
     invalid. `--send-back`: in an inline session only, the words the agent is
     sent back with at the end of its turn, each item at most twice, else
     nothing. Host-facing (the plugin's Stop hook, pi's extension), so hidden."""
-    from . import owed
+    from ..shared.notes import owed
 
     resolved = _resolve_agent_session(session, read=True)
     if not session_marker.valid_session_id(resolved):
@@ -13597,7 +13619,7 @@ def session_export(
     Written by Probe when the session ends; a session still running has none
     yet. The trajectory never carries tool arguments or tool output.
     """
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     # `source` is part of the document's identity: an unnamed one is asked of
     # each captured agent in turn, never defaulted (a default would read every
@@ -13802,8 +13824,8 @@ def _codex_env_warning(session_id: str) -> str | None:
     default where its hooks could not read the state Codex was started with
     (issue 3620: no /proc to read it from), else None. A machine default the
     researcher set is their choice for these sessions too: nothing to say."""
-    from .codex_hooks import ENV_WARNING, launch_env_unreadable
-    from .plugin_cli import CODEX
+    from ..shared.harness.harnesses.codex.hooks import ENV_WARNING, launch_env_unreadable
+    from ..shared.harness.plugins import CODEX
 
     agent = agent_session.detect_agent()
     if agent is None or agent.label != CODEX or not launch_env_unreadable():
@@ -13972,7 +13994,7 @@ def session_default(
             print(session_marker.DAEMON_SWITCH_REFUSAL, file=sys.stderr)
             raise typer.Exit(2)
 
-        from ..sdk.config import ConfigUnreadable
+        from ..sdk.settings.settings import ConfigUnreadable
 
         try:
             # Shared with the wizard's Settings screen. It raises rather than
@@ -14518,17 +14540,17 @@ def _ping_presign(
     local-only enqueue, and the drainer re-presigns on every attempt anyway.
     """
     try:
-        from ..sdk.transport import Transport
+        from ..sdk.delivery.transport.transport import Transport
 
         if context is not None:
             # Same principal as the drain will use (red team: an ambient env
             # token could register the intent row under a different tenant
             # than the one the op's pinned context delivers to).
-            from ..sdk.journal import _settings_for_op
+            from ..sdk.delivery.outbox.drain.credentials import _settings_for_op
 
             settings = _settings_for_op(context)
         else:
-            from ..sdk.config import resolve
+            from ..sdk.settings.settings import resolve
 
             settings = resolve(base_url=_conn.base_url)
         if not settings.token:
@@ -14641,7 +14663,7 @@ def _artifact_enqueue(
             # (`journal._placed`, X21): no network here, and a move before
             # delivery cannot dead-letter it.
             if anchor is Anchor.EXPERIMENT:
-                from ..sdk.journal import UNPLACED_PROJECT
+                from ..sdk.delivery.ops.ops import UNPLACED_PROJECT
 
                 path = f"/v1/projects/{UNPLACED_PROJECT}/experiments/{anchor_id}/artifacts"
             elif anchor is Anchor.PROJECT:
@@ -14660,7 +14682,7 @@ def _artifact_enqueue(
         # A FIFO, device, or procfs stream would block fingerprint/snapshot
         # forever -- async promises bounded enqueue time (codex).
         raise typer.BadParameter(f"{path} is not a regular file")
-    from ..sdk.journal import INLINE_HASH_MAX_BYTES
+    from ..sdk.delivery.journal.headroom import INLINE_HASH_MAX_BYTES
 
     run_only = anchor is Anchor.RUN
     if run_only and in_parts:
@@ -14753,9 +14775,9 @@ def _artifact_enqueue_multipart(
     multipart op's id, or ``unstaged`` when the bytes could not be staged (the
     caller then uploads synchronously, as for any unstaged file).
     """
-    from ..sdk import multipart as _multipart
+    from ..sdk.artifact.storage_handlers import multipart as _multipart
     from ..sdk.redaction import default_scrub, scrub_string
-    from ..sdk.run import _NOT_QUEUED
+    from ..sdk.run.files.uploads import _NOT_QUEUED
     from ..sdk.secret_gate import CredentialInPath
     from ..sdk.secret_gate import _check_path as _check_upload_path
 
@@ -14797,7 +14819,7 @@ def _outbox_lasts(client: Client) -> bool:
     disk), so a queued multipart op will be carried by the detached worker.
     Unknown storage counts as lasting, as `multipart.settle_reason` does."""
     try:
-        from ..sdk import ephemeral
+        from ..sdk.run.launch import ephemeral
 
         return bool(ephemeral.describe(str(client.journal.dir)).get("durable", True))
     except Exception:  # noqa: BLE001 -- unknown storage: trust the worker
@@ -14807,7 +14829,7 @@ def _outbox_lasts(client: Client) -> bool:
 def _queue_is_deliverable() -> bool:
     """What `_async_client` insists on: a credential the background drainer can
     use. Without one the synchronous path stands."""
-    from ..sdk.config import resolve
+    from ..sdk.settings.settings import resolve
 
     settings = resolve(base_url=_conn.base_url)
     return bool(settings.token or settings.ingest_token)
@@ -14817,7 +14839,7 @@ def _goes_in_parts(anchor: Anchor, path: str | None, *, uri: str | None, referen
     """A run-anchored upload of a regular file over the 64 MiB inspection limit."""
     if anchor is not Anchor.RUN or uri is not None or reference or not path:
         return False
-    from ..sdk import multipart as _multipart
+    from ..sdk.artifact.storage_handlers import multipart as _multipart
 
     return os.path.isfile(path) and _multipart.over_threshold(path)
 
@@ -14971,7 +14993,7 @@ def _drain_colliding_uploads(anchor: Anchor, anchor_id: str | None, name: str) -
         # Scope the drain to the runs those ops belong to. Machine-wide flush is
         # deliberately not used: 747d2a46 removed it from this very path because
         # it dragged a neighbour's whole backlog through one artifact upload.
-        from ..sdk.journal import drain
+        from ..sdk.delivery.outbox.drain.drain import drain
 
         # wait_for_lock=False: the default BLOCKS on the drain flock until the
         # background worker finishes its whole pass, and a blocked wait is not an
@@ -15111,7 +15133,7 @@ def _plan_manifest_row(
         # A researcher's `.probe.config` excludes this row's file: refused like
         # any bad row (named by line), so nothing about it is recorded. One
         # checker (`config`) serves all the rows: rows in a folder share it.
-        from probe.sdk import exclusions as _exclusions
+        from probe.sdk.recording_rules import recording_rules as _exclusions
 
         verdict = config.check(local) if config is not None else _exclusions.excluded(local, hot=True)
         if verdict.excluded:
@@ -15244,7 +15266,7 @@ def _artifact_add_manifest(
         failures[lineno] = {"line": lineno, "error": message}
 
     # -- pass 1: parse, validate, resolve each distinct anchor exactly once ---
-    from probe.sdk import exclusions as _exclusions
+    from probe.sdk.recording_rules import recording_rules as _exclusions
 
     config = _exclusions.checker(hot=True)
     client: Client | None = None
@@ -15369,7 +15391,7 @@ def _artifact_add_anchored_multipart(
 
     The single presigned PUT these anchors have cannot take it: the credential
     gate's 64 MiB inspection limit refuses it before the request. So it goes
-    the way a run's big file goes (`sdk/multipart.py`): STAGED into the outbox
+    the way a run's big file goes (`sdk/artifact/storage_handlers/multipart/multipart.py`): STAGED into the outbox
     and queued, returning at once, the worker sending the parts later -- or,
     under an explicit ``--sync``, or with no queue to carry it (a client that
     cannot drain), or bytes that cannot be staged, sent in parts now.
@@ -15379,7 +15401,7 @@ def _artifact_add_anchored_multipart(
     ``PROBE_ARTIFACT_OPAQUE_POLICY=block`` (multipart bytes reach storage
     before anything reads them). False leaves the write to today's path.
     """
-    from ..sdk import multipart as _multipart
+    from ..sdk.artifact.storage_handlers import multipart as _multipart
     from ..sdk import secret_gate as _gate
 
     if not os.path.isfile(path) or not _multipart.over_threshold(path):
@@ -16702,7 +16724,7 @@ def _snapshot_ref_verdicts(refs: list[tuple[str, str]]) -> dict[str, str | None]
     import uuid
 
     from ..sdk.errors import NotFoundError, ScopeError, ValidationError
-    from ..sdk.snapshot import SNAPSHOT_REFS_PREFIX
+    from ..sdk.capture.code.snapshot_refs import SNAPSHOT_REFS_PREFIX
 
     verdicts: dict[str, str | None] = {}
     ids: dict[str, str] = {}
@@ -16774,13 +16796,12 @@ def snapshot_prune_refs(
     <sha>` restores one until git's gc removes the objects, and `git fetch FILE
     'refs/probe/snapshots/*:refs/probe/snapshots/*'` restores from a bundle.
     """
-    from ..sdk.snapshot import (
-        SnapshotError,
-        _repo_check,
+    from ..sdk.capture.code.code import SnapshotError
+    from ..sdk.capture.code.git import _repo_check
+    from ..sdk.capture.code.snapshot_refs import (
         bundle_snapshot_refs,
         old_snapshot_refs,
-        prune_snapshot_refs,
-    )
+        prune_snapshot_refs)
 
     in_repo, reason = _repo_check(cwd)
     if not in_repo:
@@ -16929,7 +16950,7 @@ def snapshot_show(
 
 def _capture_rows(c: Client, run_id: str) -> list[dict]:
     """The run's complete per-file capture rows (0193); see sdk.restore."""
-    from ..sdk.restore import capture_rows
+    from ..sdk.run.readback.restore import capture_rows
 
     return capture_rows(c, run_id)
 
@@ -16962,7 +16983,7 @@ def _restore_captured_tree(
     record's `lockfiles` list, which carries path+sha256 for VISIBILITY, not bytes.
     Returns the ``restore_snapshot`` result dict.
     """
-    from ..sdk.restore import restore_snapshot
+    from ..sdk.run.readback.restore import restore_snapshot
 
     record = c.transport.get(f"/v1/execution-records/{env_ref}")
     manifest = ((record or {}).get("code") or {}).get("manifest") or {}
@@ -16971,7 +16992,7 @@ def _restore_captured_tree(
     # run holds: a file is taken from the rows first, then from the archive, so
     # a run snapshotted under both storages (the default flip, a partial
     # capture re-run as an archive) restores every byte Probe has.
-    from ..sdk.restore import capture_blob_fetch
+    from ..sdk.run.readback.restore import capture_blob_fetch
 
     rows = _capture_rows(c, run_id)
     blob_fetch = (
@@ -17092,8 +17113,10 @@ def _fold_drain_reports(parts: list) -> Any:
 def _drain_foreground(run_ref: str | None = None, *, every_dir: bool = False) -> None:
     """Shared body of `probe outbox drain` and its `probe flush` alias.
     ``every_dir``: every outbox of this user on this machine (plan 1.5)."""
-    from .._shared import telemetry
-    from ..sdk.journal import DiscardCounts, drain, prune_credential_queues
+    from .. import analytics as telemetry
+    from ..sdk.delivery.journal.failures.discards import DiscardCounts
+    from ..sdk.delivery.outbox.drain.drain import drain
+    from ..sdk.delivery.journal.paths import prune_credential_queues
 
     journals = _outbox_journals() if every_dir else [_journal()]
     parts = []
@@ -17144,7 +17167,7 @@ def _drain_foreground(run_ref: str | None = None, *, every_dir: bool = False) ->
             err=True,
         )
         try:
-            from ..sdk.journal import Journal
+            from ..sdk.delivery.journal.journal import Journal
 
             held_ops = [
                 op for journal in journals for q in journal.namespaces() for _, op in q.pending()
@@ -17227,7 +17250,7 @@ def outbox_watch(
     once: bool = typer.Option(False, "--once", help="drain once and exit"),
 ) -> None:
     """Continuously drain the outbox in the foreground."""
-    from ..sdk.journal import drain
+    from ..sdk.delivery.outbox.drain.drain import drain
     from ._watch import watch
 
     journal = _journal()
@@ -17254,7 +17277,7 @@ def outbox_retry(
     ),
 ) -> None:
     """Requeue dead-lettered op(s) and kick the drainer."""
-    from ..sdk import outbox_worker
+    from ..sdk.delivery import outbox as outbox_worker
 
     moved = 0
     for journal in _outbox_journals() if every_dir else [_journal()]:
@@ -17298,7 +17321,7 @@ def outbox_discard(
     machine will send as things stand (`probe outbox drain` says why). Another
     job's `PROBE_TOKEN` writes are left for that job, unless `--credential`
     names that credential's fingerprint."""
-    from .._shared import telemetry
+    from .. import analytics as telemetry
 
     if credential is not None and not held:
         raise typer.BadParameter("--credential goes with --held")
@@ -17341,19 +17364,20 @@ def outbox_adopt(
     same team and user as the login stored here, checked with the server --
     and never for `/ingest` writes. Recorded for good (a later sign-in does
     not undo it), then delivered now, in the foreground."""
-    from ..sdk import outbox_worker
-    from ..sdk.config import current_context_name
-    from ..sdk.journal import (
+    from ..sdk.delivery import outbox as outbox_worker
+    from ..sdk.settings.settings import current_context_name
+    from ..sdk.delivery.journal.journal import (
         Journal,
+        now_iso,
+        write_text_atomic)
+    from ..sdk.delivery.outbox.drain.adoption import (
         NotAdoptable,
         adopt_credential,
-        adoption_account,
+        adoption_account)
+    from ..sdk.delivery.outbox.drain.credentials import (
         credential_fingerprint,
-        now_iso,
-        op_credential,
-        queued_ops,
-        write_text_atomic,
-    )
+        op_credential)
+    from ..sdk.delivery.ops.ops import queued_ops
 
     fp = credential.strip().lower()
     if not re.fullmatch(r"[0-9a-f]{16}", fp):
@@ -17496,7 +17520,7 @@ def outbox_pause(
     """Suspend background delivery from this machine (the outbox's own switch,
     not the capture killswitch) for --hours, 24 by default. Enqueues still work:
     every write made meanwhile, runs included, waits for the pause to end."""
-    from ..sdk.journal import DEFAULT_PAUSE_HOURS, MAX_PAUSE_HOURS
+    from ..sdk.delivery.journal.failures.pause import DEFAULT_PAUSE_HOURS, MAX_PAUSE_HOURS
 
     if hours is not None and not 0 < hours <= MAX_PAUSE_HOURS:
         raise typer.BadParameter(
@@ -17515,7 +17539,7 @@ def outbox_pause(
 @outbox_app.command("resume")
 def outbox_resume() -> None:
     """Resume background delivery and kick the drainer."""
-    from ..sdk import outbox_worker
+    from ..sdk.delivery import outbox as outbox_worker
 
     journal = _journal()
     journal.resume()
@@ -17573,7 +17597,7 @@ def sync_offline(
     something is not, 1 when no offline run was found at all. Every write is one
     request (a 1M-step run is ~1M POSTs): the outbox's coalesced drain does not
     merge an offline run's writes yet."""
-    from ..sdk import offline
+    from ..sdk.delivery import offline
 
     root = directory if directory is not None else (Path(_conn.spool_dir) if _conn.spool_dir else None)
     dirs = offline.find_offline_dirs(root)
@@ -17723,9 +17747,9 @@ def agent_rules_refresh() -> None:
     while it works, because the block rewrite is a whole-file read-modify-write
     and several agent sessions can share one home directory.
     """
-    from ..sdk.durable import file_lock
+    from ..foundation.durable.durable import file_lock
     from . import agent_rules
-    from .team_note_file import instruction_lock_path
+    from ..shared.notes.team_note.render import instruction_lock_path
 
     path = agent_rules.memory_path()
     try:
@@ -17807,7 +17831,7 @@ def notes_show(
     # the shared reader is written against the entity spelling, so an unadapted
     # sub-note read is silently advisory-free. `_sub_note_row_for_headroom`
     # exists for exactly this and is a no-op on an entity row.
-    from ..sdk.notes import read_advisory
+    from ..sdk.reads.notes_cap import read_advisory
 
     document = _sub_note_row_for_headroom(document)
     advisory = read_advisory(document, version=document.get("notes_version"))
@@ -17859,8 +17883,8 @@ def notes_checkout(
     `git add -A` from committing them. `push` finds it from the same
     `--run`/`--project` flag, so there is no path to remember.
     """
-    from . import notes_file
-    from ..sdk.config import resolve
+    from ..shared.notes import notes as notes_file
+    from ..sdk.settings.settings import resolve
 
     with _client() as c:
         kind, entity_id, label = _note_target(
@@ -17921,8 +17945,8 @@ def notes_push(
     replaces whatever is on the server -- an operator escape hatch, never a step
     in a routine, because it deletes anything written since you checked out.
     """
-    from . import notes_file
-    from ..sdk.config import resolve
+    from ..shared.notes import notes as notes_file
+    from ..sdk.settings.settings import resolve
 
     with _client() as c:
         kind, entity_id, label = _note_target(
@@ -18052,7 +18076,7 @@ def _sub_note_row_for_headroom(row: object) -> object:
     row (journaled write) passes through — no server saw it, so there is no
     fullness to adapt.
     """
-    from ..sdk.notes import UNPREFIXED_KEYS
+    from ..sdk.reads.notes_cap import UNPREFIXED_KEYS
 
     if not isinstance(row, dict):
         return row
@@ -18117,7 +18141,7 @@ def _headroom_fields(row: object) -> dict[str, int]:
     always had, as the server kept `notes_*_chars`: a script reading them goes
     on parsing, and they now measure the character backstop, not the cap.
     """
-    from ..sdk.notes import TOKENS_KEY, notes_fullness, notes_limit
+    from ..sdk.reads.notes_cap import TOKENS_KEY, notes_fullness, notes_limit
 
     if not isinstance(row, dict):
         return {}
@@ -18148,7 +18172,7 @@ def _note_landed(kind: str, entity_id: str) -> None:
     `probe run tag RUN invalid` owes one)."""
     if kind != "run":
         return
-    from . import owed
+    from ..shared.notes import owed
 
     owed.settle(owed.NOTE, {f"run:{entity_id}"})
 
@@ -18171,7 +18195,7 @@ def _notes_write(kind: str, label: str, write):
     30,000-token notes limit"; current ones: "the 1,000-token notes limit", or
     the character backstop's) and the sub-note body 422's own sentence.
     """
-    from ..sdk.notes import full_note_message
+    from ..sdk.reads.notes_cap import full_note_message
 
     try:
         return write()
@@ -18196,7 +18220,7 @@ def _report_notes_headroom(row: object, kind: str, label: str) -> None:
     numbers -- `headroom_warning` returns None rather than guessing, because a
     client-side cap table would let this print a fullness the server never said.
     """
-    from ..sdk.notes import headroom_warning
+    from ..sdk.reads.notes_cap import headroom_warning
 
     message = headroom_warning(row, kind=kind, label=label)
     if message is not None:
@@ -18481,7 +18505,7 @@ def _refuse_over_cap(row: object, text: str, kind: str, label: str, *, appending
     HOW FAR, IN THE UNIT IT IS OVER (notes parity N4, as the server's 422):
     the token cap whenever the text is past it, else the backstop, each with
     how many to cut -- a text under the token cap is never told it is over it."""
-    from ..sdk.notes import full_note_message, notes_limit, tokens_past_cap
+    from ..sdk.reads.notes_cap import full_note_message, notes_limit, tokens_past_cap
 
     if not isinstance(row, dict):
         return
@@ -18764,7 +18788,7 @@ def notes_append(
         print(f"appended to the {_TEAM_LABEL}", file=sys.stderr)
         _print_json(_team_payload(row, chars=len(text)))
         return
-    from ..sdk.notes import append_to_document
+    from ..sdk.reads.notes_cap import append_to_document
 
     def change(document: str) -> tuple[str, str, str]:
         joined = append_to_document(document, text)
@@ -18822,7 +18846,7 @@ def notes_edit(
         print(f"edited the {_TEAM_LABEL}", file=sys.stderr)
         _print_json(_team_payload(row, removed=len(old), added=len(new)))
         return
-    from ..sdk.notes import edit_match_count
+    from ..sdk.reads.notes_cap import edit_match_count
 
     with _client() as c:
         kind, entity_id, sub_id, label = _note_carrier(
@@ -18955,7 +18979,7 @@ def _notes_status_row(item: dict) -> dict | None:
         "tokens": tokens,
         "limit_tokens": limit,
         "remaining_tokens": max(0, limit - tokens),
-        # floor, matching probe.sdk.notes: never print 100% for a document that
+        # floor, matching probe.sdk.reads.notes_cap: never print 100% for a document that
         # still accepts a write.
         "percent": math.floor(100 * tokens / limit),
         "updated_at": item.get("updated_at"),
@@ -18988,7 +19012,7 @@ def notes_status(
     that has already been losing writes. A document the server has not counted
     yet is not ranked, and the summary says how many there were.
     """
-    from ..sdk.notes import NOTES_WARN_FRACTION
+    from ..sdk.reads.notes_cap import NOTES_WARN_FRACTION
 
     rows: list[dict] = []
     unmeasured = 0
@@ -19107,15 +19131,15 @@ def notes_audit_advisory(
     telling never arrived. `--peek` looks without claiming, so a person checking
     the line does not silence the next real dispatch.
     """
-    from ..sdk.config import resolve
-    from . import team_note_file
+    from ..sdk.settings.settings import resolve
+    from ..shared.notes import team_note as team_note_file
 
     if not force and team_note_file.session_is_automated():
         return
     advisory = team_note_file.advisory_for_source(source, settings=resolve(base_url=_conn.base_url))
     holder = os.environ.get(team_note_file.AUDIT_SESSION_ENV) or None
     if advisory and holder and _daemon_records(holder):
-        # The daemon audits a session it records (`probe.daemon.audit`): a line here
+        # The daemon audits a session it records (`probe.daemon.lanes.audit`): a line here
         # would start a second auditor, from any plugin version.
         return
     if advisory and not peek and not team_note_file.claim_audit_dispatch(holder=holder):
@@ -19167,8 +19191,8 @@ def notes_sync(
     Exit status is 0 for anything that settled and 2 for a conflict, so a hook
     can tell "nothing to do" from "a human needs to look at this".
     """
-    from ..sdk.config import resolve
-    from . import team_note_file
+    from ..sdk.settings.settings import resolve
+    from ..shared.notes import team_note as team_note_file
 
     settings = resolve(base_url=_conn.base_url)
     where = team_note_file.paths_for(settings)
@@ -19860,7 +19884,7 @@ def edge_add(
             # the caller wanted holds, so it is not a failure -- but it says so
             # and names the edge, rather than printing a row it did not write.
             # Any other 409 (a second genealogy parent) is a refusal: exit 1.
-            from ..sdk.journal import edge_already_exists
+            from ..sdk.delivery.ops.classify import edge_already_exists
 
             if not (exc.existing_id and edge_already_exists(exc)):
                 raise
@@ -19879,7 +19903,7 @@ def edge_add(
 
 
 #: A session event id as the Probe daemon's transcript shows it:
-#: `<stream>:<offset>:<index>` (`probe/daemon/events.py`).
+#: `<stream>:<offset>:<index>` (`probe/shared/harness/events.py`).
 _EVENT_ID = re.compile(r"\S+:\d+:\d+")
 
 
@@ -19965,10 +19989,10 @@ def version_list(experiment_id: str = typer.Argument(...)) -> None:
 #: Printed under `error: ...` when Probe refused the credential itself and the
 #: Probe daemon ran the command (`PROBE_DAEMON_SESSION` is set). The daemon reads
 #: this exact line as "my key was refused": it stops and hands the session back
-#: (`probe/daemon/tools.py`). A 401, or a 403 naming a gone team or membership;
-#: a 403 for a missing scope is an ordinary failure (`sdk/key_refusal.py`).
+#: (`probe/daemon/agent/tools/tools.py`). A 401, or a 403 naming a gone team or membership;
+#: a 403 for a missing scope is an ordinary failure (`sdk/settings/key_refusal.py`).
 # Printed by `reads.report_error`; re-exported here, where callers and tests read it.
-from ..sdk.key_refusal import KEY_REFUSED_LINE  # noqa: E402,F401
+from ..sdk.settings.key_refusal import KEY_REFUSED_LINE  # noqa: E402,F401
 
 #: What a loose-file write prints once the server has frozen them (C6).
 FILES_FROZEN = (
@@ -20119,8 +20143,9 @@ def _remind_summary(args: list[str], *, offline: bool = False) -> None:
     the first one landing on an entity prints its note's opening
     (`first_touch.show`) -- not when the write was only queued (`offline`):
     Probe did not answer it, and would not answer the read."""
-    from . import first_touch, owed
-    from .summary_cli import remind
+    from . import first_touch
+    from ..shared.notes import owed
+    from ..shared.notes.summary.first_write import remind
 
     for step in (lambda: owed.after_write(args), lambda: remind(args),
                  lambda: None if offline else first_touch.show(args)):
@@ -20145,13 +20170,13 @@ def _label_session() -> str | None:
 def _label_status_line(args: list[str]) -> None:
     """The agent's own write -- inline mode, `--directed`, a session the daemon
     does not record -- names its project on the status line, as the daemon's do
-    (`probe.daemon.scope`). Never raises into the command's exit, Ctrl-C during
+    (`probe.daemon.session.scope`). Never raises into the command's exit, Ctrl-C during
     the lookup included: the command already did its job."""
     session_id = _label_session()
     if session_id is None:
         return
     try:
-        from probe.daemon import scope
+        from probe.daemon.session import scope
 
         scope.stamp_from_cli(args, session_id, lambda: _client(raise_permanent=False))
     except (Exception, KeyboardInterrupt):  # noqa: BLE001 -- a label
@@ -20167,7 +20192,7 @@ def _label_status_line_soon(ref: str | None) -> None:
 
     def label() -> None:
         try:
-            from probe.daemon import scope
+            from probe.daemon.session import scope
 
             scope.stamp_ref_from_cli(session_id, ref, lambda: _client(raise_permanent=False))
         except Exception:  # noqa: BLE001 -- a label

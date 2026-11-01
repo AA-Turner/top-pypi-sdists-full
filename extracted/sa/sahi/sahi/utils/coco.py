@@ -1,7 +1,5 @@
 """COCO dataset format utilities and classes for handling annotations and predictions."""
 
-from __future__ import annotations
-
 import copy
 import os
 import random
@@ -159,12 +157,14 @@ class CocoAnnotation:
                 segmentation=annotation_dict["segmentation"],
                 category_id=annotation_dict["category_id"],
                 category_name=category_name,
+                iscrowd=annotation_dict.get("iscrowd", 0),
             )
         else:
             return cls(
                 bbox=annotation_dict["bbox"],
                 category_id=annotation_dict["category_id"],
                 category_name=category_name,
+                iscrowd=annotation_dict.get("iscrowd", 0),
             )
 
     @classmethod
@@ -235,7 +235,7 @@ class CocoAnnotation:
             shapely_annotation = ShapelyAnnotation.from_coco_bbox(bbox=bbox)
         self._shapely_annotation = shapely_annotation
 
-    def get_sliced_coco_annotation(self, slice_bbox: list[int]) -> CocoAnnotation:
+    def get_sliced_coco_annotation(self, slice_bbox: list[int]) -> "CocoAnnotation":
         """Get the annotation sliced by a bounding box.
 
         Args:
@@ -955,7 +955,7 @@ class Coco:
         # overwrite instance
         self.__dict__ = updated_coco.__dict__
 
-    def merge(self, coco: Coco, desired_name2id: dict | None = None, verbose: int = 1) -> None:
+    def merge(self, coco: "Coco", desired_name2id: dict | None = None, verbose: int = 1) -> None:
         """Combine the images/annotations/categories of given coco object with current one.
 
         Args:
@@ -1404,7 +1404,7 @@ class Coco:
         with open(yaml_path, "w") as outfile:
             yaml.dump(data, outfile, default_flow_style=None)
 
-    def _copy_without_images(self) -> Coco:
+    def _copy_without_images(self) -> "Coco":
         """Return a new Coco with the same settings and categories but no images."""
         coco = Coco(
             name=self.name,
@@ -1416,7 +1416,7 @@ class Coco:
         coco.categories = copy.deepcopy(self.categories)
         return coco
 
-    def get_subsampled_coco(self, subsample_ratio: int = 2, category_id: int | None = None) -> Coco:
+    def get_subsampled_coco(self, subsample_ratio: int = 2, category_id: int | None = None) -> "Coco":
         """Subsample images and return as Coco object.
 
         Args:
@@ -1465,7 +1465,7 @@ class Coco:
                 if add_this_image:
                     images_that_doesnt_contain_category.append(image)
 
-        if category_id:
+        if category_id is not None:
             selected_images = images_that_contain_category
             # add images that does not contain given category without subsampling
             for image_ind in range(len(images_that_doesnt_contain_category)):
@@ -1477,7 +1477,7 @@ class Coco:
 
         return subsampled_coco
 
-    def get_upsampled_coco(self, upsample_ratio: int = 2, category_id: int | None = None) -> Coco:
+    def get_upsampled_coco(self, upsample_ratio: int = 2, category_id: int | None = None) -> "Coco":
         """Upsample images and return as Coco object.
 
         Args:
@@ -1517,7 +1517,7 @@ class Coco:
 
     def get_area_filtered_coco(
         self, min: int = 0, max_val: float = float("inf"), intervals_per_category: dict | None = None
-    ) -> Coco:
+    ) -> "Coco":
         """Filter annotations by area and return remaining images as Coco object.
 
         Args:
@@ -1550,7 +1550,7 @@ class Coco:
 
         return area_filtered_coco
 
-    def get_coco_with_clipped_bboxes(self) -> Coco:
+    def get_coco_with_clipped_bboxes(self) -> "Coco":
         """Limits overflowing bounding boxes to image dimensions."""
         from sahi.slicing import annotation_inside_slice
 
@@ -1562,8 +1562,7 @@ class Coco:
                 file_name=coco_img.file_name, height=coco_img.height, width=coco_img.width, id=coco_img.id
             )
             for coco_ann in coco_img.annotations:
-                ann_dict: dict = coco_ann.json
-                if annotation_inside_slice(annotation=ann_dict, slice_bbox=img_dims):
+                if annotation_inside_slice(annotation={"bbox": coco_ann.bbox}, slice_bbox=img_dims):
                     shapely_ann = coco_ann.get_sliced_coco_annotation(img_dims)
                     bbox = ShapelyAnnotation.to_xywh(shapely_ann._shapely_annotation)
                     coco_ann_from_shapely = CocoAnnotation(
@@ -1571,6 +1570,7 @@ class Coco:
                         category_id=coco_ann.category_id,
                         category_name=coco_ann.category_name,
                         image_id=coco_ann.image_id,
+                        iscrowd=coco_ann.iscrowd,
                     )
                     coco_image.add_annotation(coco_ann_from_shapely)
                 else:
@@ -1688,8 +1688,7 @@ def export_single_yolo_image_and_corresponding_txt(
     dw = 1.0 / (width)
     dh = 1.0 / (height)
     # set annotation filepath
-    image_file_suffix = Path(yolo_image_path).suffix
-    yolo_annotation_path = yolo_image_path.replace(image_file_suffix, ".txt")
+    yolo_annotation_path = Path(yolo_image_path).with_suffix(".txt")
     # create annotation file
     annotations = coco_image.annotations
     with open(yolo_annotation_path, "w") as outfile:
@@ -1978,7 +1977,7 @@ def create_coco_dict(
             for coco_annotation in coco_annotations:
                 # create coco annotation object
                 out_annotation = {
-                    "iscrowd": 0,
+                    "iscrowd": coco_annotation.iscrowd,
                     "image_id": image_id,
                     "bbox": coco_annotation.bbox,
                     "segmentation": coco_annotation.segmentation,
@@ -2116,7 +2115,7 @@ class DatasetClassCounts:
         """Calculate the frequency of images that contain each category."""
         return {cid: count / self.total_images for cid, count in self.counts.items()}
 
-    def __add__(self, o: DatasetClassCounts) -> DatasetClassCounts:
+    def __add__(self, o: "DatasetClassCounts") -> "DatasetClassCounts":
         """Add two DatasetClassCounts objects together."""
         total = self.total_images + o.total_images
         exclusive_keys = set(o.counts.keys()) - set(self.counts.keys())

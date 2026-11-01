@@ -56,12 +56,12 @@ Probe for" line and the daemon reader's, word for word
 (`tests/test_prose_anchors.py`).
 
 THE PROMPT IS WRITTEN HERE, not composed. It lived in fragments in
-`probe/doctrine.py` until 2026-09-13, because the MCP instruction sheet once
+`probe/foundation/skills/doctrine.py` until 2026-09-13, because the MCP instruction sheet once
 rendered the same sentences and the two had drifted -- a routing rework reached
 one surface and not the other, and agents got two contradictory doctrines in the
 same session. That sheet stopped carrying the write doctrine on 2026-09-05, so
 no fragment had a second reader and the indirection only hid the text from the
-person editing it. `probe/doctrine.py` keeps the destination VOCABULARY, which
+person editing it. `probe/foundation/skills/doctrine.py` keeps the destination VOCABULARY, which
 `tests/test_doctrine_sync.py` censuses against the track-work skill.
 """
 
@@ -72,8 +72,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from probe._compat import StrEnum
-from probe.sdk.durable import through_symlink, write_text_atomic
+from probe.foundation.compat.compat import StrEnum
+from probe.foundation.durable.durable import through_symlink, write_text_atomic
 
 BEGIN_MARKER = "<!-- probe-research:begin (managed by `probe wizard`) -->"
 END_MARKER = "<!-- probe-research:end -->"
@@ -265,7 +265,7 @@ def memory_path(source: str | None = None) -> Path:
     the "logic in a third place" this factoring was meant to end.
     """
     from probe.cli.capabilities import agent_source
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     if source is None:
         # Nothing named: the environment decides, with agent_source()'s rules

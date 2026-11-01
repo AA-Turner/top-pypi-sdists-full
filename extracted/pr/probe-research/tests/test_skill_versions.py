@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from probe import skill_versions
-from probe.daemon import bite as bite_mod
-from probe.daemon import toolset
+from probe.foundation.skills import skills as skill_versions
+from probe.daemon.worker.bite import bite as bite_mod
+from probe.daemon.agent import toolset
 
 _ROOT = Path(__file__).resolve().parent.parent
 TRACK_WORK = _ROOT / "skills" / "track-work"

@@ -1,7 +1,7 @@
 """Messages sent to the session through Probe reach its agent (swarm visibility G7).
 
 The worker's run-alert lane also polls `GET /v1/sessions/{sid}/messages` on its
-tick (`probe.daemon.session_messages`): each message not yet in the mailbox is
+tick (`probe.daemon.lanes.session_messages`): each message not yet in the mailbox is
 PUBLISHED first, then acked `acked`; once a hook has claimed it the poller acks
 `delivered_to_agent`. The server is never reached: `probe_api` runs against an
 httpx MockTransport, and the lane against a fake server holding the rows.
@@ -24,10 +24,12 @@ import pytest
 # test_daemon_run_alerts.py; agent-ci installs the package without it.
 pytest.importorskip("pydantic_ai")
 
-from probe._compat import UTC  # noqa: E402
-from probe.daemon import lease, mailbox, probe_api  # noqa: E402
-from probe.daemon import run_alerts as ra  # noqa: E402
-from probe.daemon import session_messages as sm  # noqa: E402
+from probe.foundation.compat.compat import UTC  # noqa: E402
+from probe.daemon.host import lease  # noqa: E402
+from probe.daemon.session import probe_api
+from probe.shared import mailbox
+from probe.daemon.lanes import run_alerts as ra  # noqa: E402
+from probe.daemon.lanes import session_messages as sm  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
 
 SID = "11111111-2222-3333-4444-555555555555"
@@ -47,7 +49,9 @@ def _isolated(tmp_path, monkeypatch):
     (tmp_path / "state" / "probe" / "sessions").mkdir(parents=True)
     (lease.sessions_dir() / f"{SID}.state").write_text("daemon")
     (lease.sessions_dir() / f"{SID}.profile").write_text("daemon")
-    monkeypatch.setattr(worker_mod, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.env, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.bite.run, "probe_env", lambda sid: dict(ENV))
+    monkeypatch.setattr(worker_mod.loop.failures, "probe_env", lambda sid: dict(ENV))
 
 
 def _worker(tmp_path: Path) -> worker_mod.Worker:
@@ -174,7 +178,7 @@ def test_a_message_is_published_then_acked_then_reported_shown_once_a_hook_took_
     lane = ra.RunAlertLane(_worker(tmp_path))
     order: list[str] = []
     real_publish = mailbox.publish
-    monkeypatch.setattr(mailbox, "publish", lambda m: (order.append("publish"), real_publish(m))[1])
+    monkeypatch.setattr(mailbox.poster, "publish", lambda m: (order.append("publish"), real_publish(m))[1])
     real_ack = probe.ack
 
     async def ack(env, sid, mid, state, instance, **kw):
@@ -241,11 +245,11 @@ def test_a_crash_before_the_publish_loses_nothing(tmp_path, monkeypatch):
     def die(msg):
         raise OSError("disk full")
 
-    monkeypatch.setattr(mailbox, "publish", die)
+    monkeypatch.setattr(mailbox.poster, "publish", die)
     with pytest.raises(OSError):
         _tick(lane)
     assert probe.acks == [] and _inbox_waiting() == [], "nothing acked that was not published"
-    monkeypatch.setattr(mailbox, "publish", real)
+    monkeypatch.setattr(mailbox.poster, "publish", real)
     assert _tick(lane) == 1
     assert [m.id for m in _inbox_waiting()] == [mailbox.inbox_message_id(row["id"])]
 
@@ -300,7 +304,9 @@ def test_the_poll_waits_its_interval_and_a_refused_key_waits_longer(tmp_path, mo
 
 def test_no_key_no_request(tmp_path, monkeypatch):
     probe = FakeProbe(monkeypatch, [_row()])
-    monkeypatch.setattr(worker_mod, "probe_env", lambda sid: {"PROBE_DAEMON_SESSION": SID})
+    monkeypatch.setattr(worker_mod.env, "probe_env", lambda sid: {"PROBE_DAEMON_SESSION": SID})
+    monkeypatch.setattr(worker_mod.bite.run, "probe_env", lambda sid: {"PROBE_DAEMON_SESSION": SID})
+    monkeypatch.setattr(worker_mod.loop.failures, "probe_env", lambda sid: {"PROBE_DAEMON_SESSION": SID})
     assert _tick(ra.RunAlertLane(_worker(tmp_path))) == 0 and probe.polls == 0
 
 
@@ -443,7 +449,7 @@ def test_a_copy_another_daemon_holds_is_dropped(tmp_path, monkeypatch):
 
 
 def test_the_daemon_names_itself_by_this_machines_device_id(tmp_path, monkeypatch):
-    from probe.sdk import device_identity
+    from probe.sdk.settings import device_identity
 
     probe = FakeProbe(monkeypatch, [_row()])
     monkeypatch.setattr(device_identity, "device_instance_id", lambda: "device-" + "d" * 20)
@@ -786,7 +792,13 @@ def test_a_message_as_hook_showed_never_reaches_b_after_as_daemon_died(tmp_path,
     row = _row("stop the lr=3e-3 run")
     probe = HttpProbe([row])
     try:
-        monkeypatch.setattr(worker_mod, "probe_env", lambda sid: {"PROBE_TOKEN": "pk_daemon",
+        monkeypatch.setattr(worker_mod.env, "probe_env", lambda sid: {"PROBE_TOKEN": "pk_daemon",
+                                                                  "PROBE_BASE_URL": probe.url,
+                                                                  "PROBE_DAEMON_SESSION": SID})
+        monkeypatch.setattr(worker_mod.bite.run, "probe_env", lambda sid: {"PROBE_TOKEN": "pk_daemon",
+                                                                  "PROBE_BASE_URL": probe.url,
+                                                                  "PROBE_DAEMON_SESSION": SID})
+        monkeypatch.setattr(worker_mod.loop.failures, "probe_env", lambda sid: {"PROBE_TOKEN": "pk_daemon",
                                                                   "PROBE_BASE_URL": probe.url,
                                                                   "PROBE_DAEMON_SESSION": SID})
         a = _machine(monkeypatch, tmp_path, "a", "machine-a-" + "a" * 16, active=None)
@@ -903,7 +915,7 @@ def test_a_claim_never_marked_shown_is_put_back_and_never_reported(tmp_path, mon
     assert probe.acks == [(row["id"], probe_api.ACK_ACKED)], "never reported shown"
     assert mailbox.where(SID, message_id) is mailbox.Where.CLAIMED, "within the grace: still claimed"
 
-    monkeypatch.setattr(mailbox, "UNSHOWN_RETURN_S", 0.0)
+    monkeypatch.setattr(mailbox.inbox, "UNSHOWN_RETURN_S", 0.0)
     assert _tick(lane) == 0
     assert [m.id for m in _inbox_waiting()] == [message_id], "it waits again"
     assert probe.acks == [(row["id"], probe_api.ACK_ACKED)]
@@ -994,7 +1006,7 @@ def test_a_current_hooks_claim_never_marked_shown_waits_again_even_with_no_heart
     ((path, _),) = mailbox.waiting(SID)
     assert hook.claim(SID, path, "PostToolUse") is not None  # no heartbeat touched
     assert mailbox.read_alive(SID) is None and _claim_lines(message_id)[-1]["shows"] == 1
-    monkeypatch.setattr(mailbox, "UNSHOWN_RETURN_S", 0.0)
+    monkeypatch.setattr(mailbox.inbox, "UNSHOWN_RETURN_S", 0.0)
     assert _tick(lane) == 0
     assert [m.id for m in _inbox_waiting()] == [message_id], "it waits again"
     assert (row["id"], probe_api.ACK_DELIVERED_TO_AGENT) not in probe.acks
@@ -1015,7 +1027,7 @@ def test_an_older_hooks_service_claim_counts_as_shown_beside_a_current_hooks_hea
     (token_file,) = mailbox.claimed_dir(SID).glob(f"*-{message_id}.1_abc.json")
     os.rename(token_file, token_file.with_name(path.name))  # the older hook's receipt, no line of its own
     mailbox.touch_alive(SID, by="PostToolUse")  # a current hook ran here too
-    monkeypatch.setattr(mailbox, "UNSHOWN_RETURN_S", 0.0)
+    monkeypatch.setattr(mailbox.inbox, "UNSHOWN_RETURN_S", 0.0)
     assert _tick(lane) == 0
     assert _inbox_waiting() == [], "never put back"
     assert (row["id"], probe_api.ACK_DELIVERED_TO_AGENT) in probe.acks

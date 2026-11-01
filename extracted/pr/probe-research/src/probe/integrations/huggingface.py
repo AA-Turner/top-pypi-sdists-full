@@ -158,8 +158,10 @@ except ImportError as _missing:
     ) from _missing
 
 import probe
-from probe.sdk import fluent, hashing, safe_warn
-from probe.sdk.config import env_run_id as _env_run_id
+from probe.sdk import fluent
+from probe.sdk.artifact import hashing
+from probe.foundation.safe_warn import safe_warn
+from probe.sdk.settings.settings import env_run_id as _env_run_id
 
 from . import _checkpoints, _rank_lease
 from ._worker_exit import (
@@ -742,7 +744,8 @@ class ProbeCallback(TrainerCallback):
         revisions only, never content. Off with read capture
         (``capture_reads=False``, ``PROBE_CAPTURE_READS=0``). Never raises,
         ``strict`` or not: a provenance record is never a reason to stop."""
-        from probe.sdk import catalog, inputs
+        from probe.sdk import catalog
+        from probe.sdk.capture import lineage as inputs
 
         from . import _hub
 

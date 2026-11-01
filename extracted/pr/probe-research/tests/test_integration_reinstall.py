@@ -207,7 +207,8 @@ def test_codex_repairs_only_the_current_profile_and_preserves_disabled_plugins(d
     `codex_config.write_top_level` keeps it. The repair rewrites only the
     target's own bytes, so following the link carries no Probe token."""
     import tomlkit
-    from probe.cli import claude_cli, codex_config
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
     session_marker.write_recorder("codex", session_marker.RECORDER_DAEMON)
@@ -293,7 +294,7 @@ def test_large_real_claude_ledger_does_not_inherit_the_private_journal_limit(dev
 @pytest.mark.parametrize("fails", [False, True])
 @pytest.mark.parametrize("relative", [False, True])
 def test_pi_reclones_physical_package_without_changing_tracking_off_or_profile(device, tmp_path, monkeypatch, fails, relative):
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     home = tmp_path / "pi-agent"
     monkeypatch.chdir(tmp_path)
@@ -330,7 +331,7 @@ root.mkdir(parents=True)
 
 
 def test_pi_local_fork_is_preserved_and_refused(device, tmp_path, monkeypatch):
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     home = tmp_path / "pi-agent"
     home.mkdir()

@@ -6,8 +6,9 @@ import threading
 
 import pytest
 
-from probe.sdk import diagnostics, failure_context
-from probe.sdk.unit_context import FailureContext, UnitContext, current, failure_values
+from probe.sdk import diagnostics
+from probe.sdk.run.context import failure as failure_context
+from probe.sdk.run.context.context import FailureContext, UnitContext, current, failure_values
 from tests.conftest import make_client, open_run
 
 

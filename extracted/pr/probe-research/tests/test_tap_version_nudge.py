@@ -210,7 +210,8 @@ def test_probe_update_actually_issues_the_tap_update(monkeypatch) -> None:
     call deleted, because `manual_plugin_commands()` further down the file also
     names the constant. It certified nothing.
     """
-    from probe.cli import claude_cli, updater
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.cli import updater
 
     issued: list[list[str]] = []
 
@@ -241,7 +242,8 @@ def test_a_missing_tap_does_not_mark_the_update_incomplete(monkeypatch) -> None:
     is treated as fatal, which is exactly how an earlier version of this test
     survived its own mutant.
     """
-    from probe.cli import claude_cli, updater
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.cli import updater
 
     def _fake_run(args, *, timeout):
         ok = updater.TAP_PLUGIN_ID not in args  # the tap is "not installed"

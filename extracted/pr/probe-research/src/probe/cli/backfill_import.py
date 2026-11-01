@@ -12,7 +12,7 @@ import shlex
 import time
 import uuid
 
-from ..sdk.durable import file_lock, fsync_directory, write_text_atomic
+from ..foundation.durable.durable import file_lock, fsync_directory, write_text_atomic
 from . import backfill_delivery as delivery
 from . import backfill_evidence as evidence
 from . import backfill_github as github
@@ -310,8 +310,8 @@ def _background_payload(coverage, client, folder, agent, concurrency, records, c
 
 
 def _background_client(payload):
-    from ..sdk.client import Client
-    from ..sdk.config import resolve
+    from ..sdk.client.client import Client
+    from ..sdk.settings.settings import resolve
 
     # Resolve credentials afresh from the saved context. Pin the reviewed
     # workspace, while retaining backend/tenant checks before any state write.
@@ -535,7 +535,7 @@ def _flush_uploads(client, *, retry_network: bool, report=None, progress=None,
     the schedule and can wait far longer than a foreground process should. This
     only changes what happens when there is no supervisor.
     """
-    from ..sdk import durable
+    from ..foundation.durable import durable
     from .import_jobs import RetryableJobError, is_retryable_error
 
     attempts = flush_attempts()
@@ -562,7 +562,7 @@ def _flush_uploads(client, *, retry_network: bool, report=None, progress=None,
         sleeping through the backoff for that would add two minutes to every
         ordinary partial run.
         """
-        from ..sdk.journal import drain
+        from ..sdk.delivery.outbox.drain.drain import drain
 
         try:
             return drain(client.journal, client_factory=client._outbox_client_factory(),

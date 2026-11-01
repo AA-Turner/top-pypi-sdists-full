@@ -47,8 +47,8 @@ def captured(monkeypatch):
     and a test here that forgot to ask for the records would otherwise start a
     real sender thread."""
     records: list[dict] = []
-    monkeypatch.setattr(tm, "_sender", None)
-    monkeypatch.setattr(tm, "_flush_registered", True)
+    monkeypatch.setattr(tm.sender, "_sender", None)
+    monkeypatch.setattr(tm.sender, "_flush_registered", True)
     monkeypatch.setattr(tm._Sender, "start", lambda self: None)
     monkeypatch.setattr(tm._Sender, "put", lambda self, rec: records.append(rec))
     return records
@@ -60,7 +60,7 @@ def approving(monkeypatch):
     context = tm.TelemetryContext(
         session_id="wizardsession", via=tm.Via.WIZARD, invoked_by=tm.InvokedBy.HUMAN,
     )
-    monkeypatch.setattr(tm, "_current", context)
+    monkeypatch.setattr(tm.analytics, "_current", context)
     return context
 
 
@@ -118,7 +118,7 @@ def test_the_approving_session_rides_the_record_not_the_payload(queued, approvin
 
 def test_an_approval_made_with_telemetry_off_records_no_session(queued, monkeypatch):
     monkeypatch.setenv("PROBE_TELEMETRY", "off")
-    monkeypatch.setattr(tm, "_current", None)
+    monkeypatch.setattr(tm.analytics, "_current", None)
     job = _enqueue()
     assert jobs.get_job(job["id"])["origin"] is None
 
@@ -134,7 +134,7 @@ def test_a_finished_import_reports_under_the_session_that_approved_it(
     job = _enqueue()
     monkeypatch.setattr(jobs, "_dispatch", lambda *args: ["Finished."])
     captured.clear()
-    monkeypatch.setattr(tm, "_current", None)  # a fresh process knows nothing
+    monkeypatch.setattr(tm.analytics, "_current", None)  # a fresh process knows nothing
     assert jobs.run_worker(job["id"]) == 0
     done = _props(captured, tm.EVENT_IMPORT_JOB_FINISHED)
     assert done["outcome"] == tm.ImportJobOutcome.SUCCEEDED

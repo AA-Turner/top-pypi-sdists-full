@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 11.9.0
+Version: 11.10.0
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -284,42 +284,49 @@ For more documentation on Pywikibot see our `docs <https://doc.wikimedia.org/pyw
 Roadmap
 =======
 
-Release 11.9
-============
+Release 11.10
+=============
 
-* Add support for mlwwikivoyage. (T441175)
-* Update translations (i18n).
+* Enable lexeme creation through LexemePage.editEntity().
+  See Creating Lexemesfor further information. (T442295)
+* Initialize LexemePagecollections for unsaved entities.
+  (T442290)
 * Various performance, stability, and code quality improvements.
-* Fix ZIP discovery and duplicate import paths in config.register_families_folder.
-* Unify negative page generator options. (T219282)
-* Keep the sign of negative POSIX timestamps.
-* Use the page.BasePage.sitein page.BasePage.change_categorywhen calling
-  textlib.replaceCategoryLinksto respect category namespaces and footer rules.
-* Validate pywikibot.Link.titlelength in UTF-8 bytes within pywikibot.Link.parse.
-* Normalize usernames in pagegenerators.UserEditFilterGeneratorto match
-  canonical API names.
-* Verify zero-byte stashes against the empty hash in tools.compute_file_hash.
-* Accept optional leading hyphens and period or hyphen separators in beta/rc suffixes
-  in tools.MediaWikiVersion. Raise ValueError instead of AssertionError
-  for malformed suffixes.
-* Prevent setting a class property on an instance with tools.classproperty.
-* Make API cache writes of data.api.CachedRequestatomic and failure-safe.
-  (T438266)
-* Map claims for wbeditentity of page.MediaInfo. (T376955)
-* Avoid reading streamed HTTP responses to detect encoding in comms.http.fetch.
-* Add *timespec* parameter to Timestamp.isoformat()
-  method. (T439983, T440120)
-* Allow global -user optionto override OAuth authentication.
-  (T420084)
-* The *force* parameter of pywikibot.Usermethods was renamed to
-  *refresh* (T433225)
-* Support custom Timestamp ISO separators and restores round-trip compatibility
-  between Timestamp.isoformat()and
-  Timestamp.fromISOformat(). (T396723)
-* Suggest installing all requirements for missing dependencies with
-  pwbwrapper.
-* Support legacy encoded section titles. (T133276)
-
+* Serialize nested form and sense edits in page.SubEntityCollection
+  
+  (T189321)
+* Add ignore_save_related_errors
+  and ignore_server_errorsattributes
+  to bot.BaseBotand use them in userPut(). (T156908)
+* Add support for Scribunto redirects. (T417129)
+* Serialize term removals and empty feature sets in page.LexemeSubEntity
+  and LexemeForm. (T189321)
+* Reload page.WikibaseEntityentity
+  state after successful saves. (T189321)
+* Preserve fields during data normalization in LexemePage
+  and LexemeForm. (T189321)
+* Find headings followed by a multiline comment with textlib.get_regexes('header')
+  . (T209712)
+* Always set the comment of a page.Contribution. (T442114)
+* Keep sub-entity indexes of page.SubEntityCollection
+  aligned after mutations. (T189321)
+* Replace recursive orchestration of site.Uploader.
+  (T434936)
+* Fix APISite.interwiki_prefix()
+  functionality. (T312699)
+* Normalize IPv6 addresses in user titles like MediaWiki within
+  pywikibot.Link.parse. (T329819)
+* An IP range in CIDR notation is accepted as *user* in APISite.usercontribs()
+  . (T362377)
+* The *strict* parameter was added to tools.is_ip_networkto ignore host
+  bits if set to ``False``.
+* Fix result of textlib.replaceCategoryLinkswithout category links.
+* Avoid mutating class attribute BaseBot.available_options
+  with BaseBot.update_options. (T439883)
+* Update translations (i18n).
+* Reject nested wikilinks in file captions with textlib.FILE_LINK_REGEX. (T396721)
+* Speed up parsing of API ISO timestamps in Timestamp._from_iso8601()
+  .
 
 Deprecations
 ============

@@ -12,6 +12,7 @@ Segment interface - per-segment validator and matcher.
 
 from __future__ import annotations
 
+import dataclasses
 import sys
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
@@ -19,6 +20,14 @@ from xml.etree.ElementTree import Element
 
 import pyx12.segment
 
+from ..error_codes import (
+    IEA_ELE_POSITION_TO_CODE,
+    ISA_ELE_POSITION_TO_CODE,
+    SEG_2_SYNTAX_RELATIONAL,
+    SEG_3_TOO_MANY_ELEMENTS,
+    SEG_8_HAS_DATA_ELEMENT_ERRORS,
+    SEG_10_SYNTAX_EXCLUSIVE,
+)
 from ..error_item import EleError
 from ..errors import EngineError
 from ..path import X12Path
@@ -33,26 +42,71 @@ if TYPE_CHECKING:
 
 def apply_segment_errors(node: segment_if, seg_data: pyx12.segment.Segment, errh: Any) -> bool:
     """Drive a segment validation: run is_valid_errors and forward errors
-    with cursor maintenance. Per-element errors carry map_node from the
-    leaf and trigger add_ele(map_node) when the cursor changes. Seg-level
-    errors (too many elements, too many sub-elements, syntax violations,
-    mandatory composite missing, composite-not-used) leave map_node=None;
-    they have no element to attach to, so they route through seg_error
-    with X12 IK3 code "8" ("segment has data element errors") — the only
-    IK3 code that semantically fits these data-element-level issues.
-    Their original IK4 codes ("3", "10", "1", "5", "2") collide with
-    different IK3 semantics and would produce wrong or dropped 999
-    output."""
+    with cursor maintenance.
+
+    Routing rule: any element- or composite-level error (``err_cde`` with
+    prefix ``ELE_`` or ``COMP_``, identified by a non-None ``map_node``)
+    is preserved in ``err_ele.errors`` with its specific pyx12 code, AND
+    triggers a single ``SEG_8_HAS_DATA_ELEMENT_ERRORS`` in
+    ``err_seg.errors``. SEG-level validator errors (``map_node`` is
+    ``None``) collapse to that same single ``SEG_8`` (their specific
+    ``SEG_3_*`` / ``SEG_2_*`` / ``SEG_10_*`` codes are dropped per
+    PR #161 spec correctness — emitting them as IK3-04 would map to
+    wrong X12 semantics).
+
+    Exactly one ``SEG_8`` per segment, no matter how many element /
+    composite / seg-validator errors fired. The first SEG-level
+    validator error's err_str / err_val is preserved on the SEG_8
+    emission for diagnostic detail; if only element/composite errors
+    fired, a generic err_str is used.
+
+    Errors whose pyx12 code is in ``errh.suppress_error_codes`` are
+    filtered out before reaching the err_handler tree. ``ok`` still
+    reflects whether the validator found any errors (suppression does
+    not flip a bad segment to good)."""
     ok, errors = node.is_valid_errors(seg_data)
+    # Upgrade element-level errors on envelope segments (ISA / IEA) to
+    # canonical ISA_* pyx12 codes via the position map. Keeps element
+    # validators in map_if/ ignorant of envelope context; the visitor
+    # for TA1 emission can then dereference via x12_code_for instead of
+    # the legacy position-based lookup on err_str substrings.
+    pos_map: dict[int, str] | None = None
+    if node.id == "ISA":
+        pos_map = ISA_ELE_POSITION_TO_CODE
+    elif node.id == "IEA":
+        pos_map = IEA_ELE_POSITION_TO_CODE
+    if pos_map is not None:
+        errors = [
+            dataclasses.replace(e, err_cde=pos_map[e.map_node.seq])
+            if (e.map_node is not None and getattr(e.map_node, "seq", None) in pos_map)
+            else e
+            for e in errors
+        ]
+    suppressed: set[str] = getattr(errh, "suppress_error_codes", set()) or set()
+    if suppressed:
+        errors = [e for e in errors if e.err_cde not in suppressed]
     prev_cursor = None
+    needs_seg_8 = False
+    seg_8_err_str = "Segment has data element errors"
+    seg_8_err_val: str | None = None
     for e in errors:
         if e.map_node is None:
-            errh.seg_error("8", e.err_str, e.err_val)
+            # SEG-level validator error: preserve the first one's err_str
+            # and err_val on the SEG_8 emission for diagnostic detail.
+            if not needs_seg_8:
+                seg_8_err_str = e.err_str
+                seg_8_err_val = e.err_val
+            needs_seg_8 = True
             continue
+        # Element- or composite-level error: keep it in err_ele.errors
+        # with its specific pyx12 code.
         if e.map_node is not prev_cursor:
             errh.add_ele(e.map_node)
             prev_cursor = e.map_node
         errh.ele_error(e.err_cde, e.err_str, e.err_val, e.refdes)
+        needs_seg_8 = True
+    if needs_seg_8:
+        errh.seg_error(SEG_8_HAS_DATA_ELEMENT_ERRORS, seg_8_err_str, seg_8_err_val)
     return ok
 
 
@@ -378,7 +432,7 @@ class segment_if(x12_node):
         """
         Pure validator parallel to is_valid: returns (ok, errors) without
         touching an error handler. Seg-level errors (too many elements,
-        too many sub-elements, syntax) leave map_node unset (=None);
+        syntax) leave map_node unset (=None);
         per-element errors carry map_node from the element validator so
         a cursor-tracking wrapper can replay add_ele/ele_error in the
         original order.
@@ -396,7 +450,14 @@ class segment_if(x12_node):
             )
             ref_des = "%02i" % (child_count + 1)
             err_value = seg_data.get_value(ref_des)
-            errors.append(EleError(err_cde="3", err_str=err_str, err_val=err_value, refdes=ref_des))
+            errors.append(
+                EleError(
+                    err_cde=SEG_3_TOO_MANY_ELEMENTS,
+                    err_str=err_str,
+                    err_val=err_value,
+                    refdes=ref_des,
+                )
+            )
             valid = False
 
         dtype: list[str | None] = []
@@ -410,22 +471,6 @@ class segment_if(x12_node):
                 # returns either a Composite or None — Element only appears for
                 # element-typed positions.
                 assert comp_data is None or isinstance(comp_data, pyx12.segment.Composite)
-                subele_count = child_node.get_child_count()
-                if seg_data.ele_len(ref_des) > subele_count and child_node.usage != "N":
-                    subele_node = child_node.children[subele_count + 1]
-                    err_str = 'Too many sub-elements in composite "%s" (%s)' % (
-                        subele_node.name,
-                        subele_node.refdes,
-                    )
-                    err_value = seg_data.get_value(ref_des)
-                    errors.append(
-                        EleError(
-                            err_cde="3",
-                            err_str=err_str,
-                            err_val=err_value,
-                            refdes=ref_des,
-                        )
-                    )
                 ok, comp_errors = child_node.is_valid_errors(comp_data)
                 valid &= ok
                 errors += comp_errors
@@ -464,7 +509,7 @@ class segment_if(x12_node):
             if not bResult:
                 # When is_syntax_valid returns False, syn_err is the message string.
                 assert syn_err is not None
-                code = "10" if syn[0] == "E" else "2"
+                code = SEG_10_SYNTAX_EXCLUSIVE if syn[0] == "E" else SEG_2_SYNTAX_RELATIONAL
                 errors.append(EleError(err_cde=code, err_str=syn_err, refdes=syn[1]))
                 valid = False
 

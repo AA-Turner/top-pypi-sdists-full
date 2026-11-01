@@ -16,9 +16,10 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from probe.sdk import errors
-from probe.sdk import journal as journal_mod
-from probe.sdk.journal import Journal, drain
-from probe.sdk.safe_warn import DeliveryNotices
+from probe.sdk.delivery import journal as journal_mod
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain.drain import drain
+from probe.foundation.safe_warn.safe_warn import DeliveryNotices
 from probe.sdk.session_marker import WIZARD_HINT
 
 from tests.conftest import make_client, open_run
@@ -192,7 +193,7 @@ def test_a_credential_queues_notices_start_from_that_queue(app, tmp_path, monkey
     in `Client.__init__`. The notices' baseline is read from THAT queue: read
     from the shared one, a process resuming a run announced the dead letters
     its queue already held for that run as its own, new ones."""
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
     from tests.served_fake_app import serve
     from tests.test_outbox_credential_stamp import ENV_A, STORED_B, _login
 
@@ -233,7 +234,7 @@ def test_a_refused_credential_is_said_as_an_auth_block(app, tmp_path, monkeypatc
     a training process whose token was revoked never said so. The poller
     reads its own credential's refusal too; another credential's does not
     count."""
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
     from tests.served_fake_app import serve
     from tests.test_outbox import seeded_run
     from tests.test_outbox_credential_stamp import ENV_A, STORED_B, _login
@@ -431,7 +432,7 @@ def test_a_signal_landing_in_a_notice_still_stops_the_process(stop):
         with pytest.raises(stop):
             notices.summary()
         with pytest.raises(stop):
-            from probe.sdk import safe_warn
+            from probe.foundation.safe_warn import safe_warn
 
             safe_warn.warn("probe: anything")
     assert notices._lock.acquire(timeout=1), "the lock was left held"
@@ -440,7 +441,7 @@ def test_a_signal_landing_in_a_notice_still_stops_the_process(stop):
 
 def test_a_broken_warning_hook_is_still_swallowed():
     """The control: anything else a warning raises stays ours to absorb."""
-    from probe.sdk import safe_warn
+    from probe.foundation.safe_warn import safe_warn
 
     notices = DeliveryNotices()
     with warnings.catch_warnings():
@@ -461,7 +462,7 @@ class _Unrepresentable:
 
 
 def test_a_ctrl_c_while_describing_a_value_reaches_the_caller():
-    from probe.sdk import safe_warn
+    from probe.foundation.safe_warn import safe_warn
 
     with pytest.raises(KeyboardInterrupt):
         safe_warn.describe(_Unrepresentable(KeyboardInterrupt()))
@@ -480,7 +481,7 @@ def test_a_ctrl_c_mid_append_stops_the_process_and_is_no_dropped_write(
     import os
     import threading
 
-    from probe.sdk import durable
+    from probe.foundation.durable import durable
 
     clock = _Clock()
     client = _client(app, tmp_path, clock)
@@ -572,7 +573,7 @@ def test_the_auth_reminder_text_changes_so_it_repeats(app, tmp_path, monkeypatch
     client = _client(app, tmp_path, clock)
     start = clock.now
     monkeypatch.setattr(
-        client_mod, "_minutes_since", lambda stamp: 7 + int((clock.now - start) // 60)
+        "probe.sdk.delivery.notices._minutes_since", lambda stamp: 7 + int((clock.now - start) // 60)
     )
     blocked = (datetime.now(timezone.utc) - timedelta(minutes=7)).isoformat()
     _status_with(client.journal, auth_blocked_since=blocked)

@@ -36,7 +36,8 @@ def _where_the_outbox_is() -> dict:
     """The released SDK's own verdict on its queue's storage (best effort:
     internal API, so a rename must not break the loop)."""
     try:
-        from probe.sdk import ephemeral, journal
+        from probe.sdk.run.launch import ephemeral
+        from probe.sdk.delivery import journal
 
         directory = str(journal.default_dir())
         return {"dir": directory, **ephemeral.describe(directory)}

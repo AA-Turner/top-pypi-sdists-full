@@ -11,7 +11,7 @@ import pytest
 
 from probe.cli import computer_workspace as cw
 from probe.cli import tui
-from probe.sdk.config import load_context, save_context
+from probe.sdk.settings.settings import load_context, save_context
 from tests.conftest import _WS_MINE, _WS_OTHER, FakeApp, make_client
 
 pytestmark = pytest.mark.usefixtures("real_computer_workspace")
@@ -26,7 +26,8 @@ def app(monkeypatch) -> FakeApp:
     def factory(**kw):
         return make_client(app, workspace=kw["settings"].workspace)
 
-    monkeypatch.setattr("probe.sdk.client.Client", factory)
+    monkeypatch.setattr("probe.sdk.client.client.Client", factory)
+    monkeypatch.setattr("probe.sdk.client.resources.runs.attach.Client", factory)
     return app
 
 
@@ -235,7 +236,8 @@ def test_an_unreachable_server_never_blocks_the_install(app, monkeypatch):
     def down(*_a, **_k):
         raise ConnectionError("no route to host")
 
-    monkeypatch.setattr("probe.sdk.client.Client", down)
+    monkeypatch.setattr("probe.sdk.client.client.Client", down)
+    monkeypatch.setattr("probe.sdk.client.resources.runs.attach.Client", down)
 
     lines = cw.choose(asking=True)
 
@@ -245,7 +247,8 @@ def test_an_unreachable_server_never_blocks_the_install(app, monkeypatch):
 
 def test_signed_out_does_nothing(monkeypatch):
     monkeypatch.delenv("PROBE_TOKEN", raising=False)
-    monkeypatch.setattr("probe.sdk.client.Client", lambda **_k: pytest.fail("no credential"))
+    monkeypatch.setattr("probe.sdk.client.client.Client", lambda **_k: pytest.fail("no credential"))
+    monkeypatch.setattr("probe.sdk.client.resources.runs.attach.Client", lambda **_k: pytest.fail("no credential"))
 
     assert cw.choose(asking=True) == []
 
@@ -267,7 +270,7 @@ def test_a_limited_computer_is_not_asked_and_keeps_its_workspace(app, monkeypatc
 
 def test_the_picker_lists_every_workspace_whatever_the_environment_limits(app, monkeypatch):
     """PROBE_WORKSPACE_LIMIT narrows one process's reads, never the picker's list."""
-    from probe.sdk import workspace_limit as wl
+    from probe.sdk.settings import workspace_limit as wl
 
     monkeypatch.setenv(wl.LIMIT_ENV, _WS_MINE)
 
@@ -276,7 +279,8 @@ def test_the_picker_lists_every_workspace_whatever_the_environment_limits(app, m
         client.settings.workspace_limit = kw["settings"].workspace_limit
         return client
 
-    monkeypatch.setattr("probe.sdk.client.Client", limited)
+    monkeypatch.setattr("probe.sdk.client.client.Client", limited)
+    monkeypatch.setattr("probe.sdk.client.resources.runs.attach.Client", limited)
     seen = {}
 
     def pick(rows, selected):

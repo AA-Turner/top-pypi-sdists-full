@@ -41,8 +41,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import mailbox
-from probe.daemon.mailbox import Kind
+from probe.shared import mailbox
+from probe.shared.mailbox.mailbox import Kind
 from probe.service import client
 from probe.service.caller import Bound
 from probe.service.protocol import ErrorCode, Method, Mode, RpcError

@@ -243,7 +243,7 @@ def test_dataset_download_writes_a_hosted_version_and_names_a_reference(fake, ru
 def _stored_version(fake, run_id, tmp_path, name: str, data: bytes) -> dict:
     """A team dataset version over a file Probe stores: the run's uploaded
     file, pinned with `from_artifact_id` (the one-file `/files` path)."""
-    from probe.sdk.anchors import Anchor
+    from probe.sdk.artifact.anchors import Anchor
 
     path = tmp_path / f"{len(data)}-{name}.jsonl"
     path.write_bytes(data)

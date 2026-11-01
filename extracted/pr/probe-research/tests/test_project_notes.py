@@ -21,8 +21,8 @@ import io
 import pytest
 
 from probe import cli
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
 from tests.conftest import make_client
 

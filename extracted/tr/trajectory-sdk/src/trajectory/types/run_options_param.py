@@ -6,6 +6,11 @@ from typing import Literal, TypedDict
 
 
 class RunOptionsParam(TypedDict, total=False):
+  load_weights_only: bool | None
+  """
+  Load parent checkpoint weights with fresh training state; defaults to false, which resumes
+  optimizer, schedule and global step.
+  """
   intelligent_density_training: bool | None
   """
   Enable intelligent density training.
@@ -24,7 +29,7 @@ class RunOptionsParam(TypedDict, total=False):
   """
   train_on_timeout: bool | None
   """
-  Train on execution and sandbox timeouts, using zero when no reward is recorded.
+  Train on execution timeouts, using zero when no reward is recorded.
   """
   evaluation_enabled: bool | None
   """
@@ -154,7 +159,7 @@ class RunOptionsParam(TypedDict, total=False):
   """
   On an endpoint created for the run, maximum assistant output tokens across all steps of one
   trajectory, including steps after context compaction, so it can exceed the model's context
-  window. Reaching this cap during a reply can end the trajectory as LIMIT_REACHED before the
+  window. Reaching this cap during a reply can end the trajectory as TRUNCATION before the
   harness logs reward.
   """
   max_turns_per_trajectory: int | None

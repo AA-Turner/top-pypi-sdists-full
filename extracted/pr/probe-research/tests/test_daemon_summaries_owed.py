@@ -1,7 +1,7 @@
 """A writer run that creates a project or experiment, or sets an experiment's
 conclusion, owes that entity's summary (writer-owns-summary plan 3.5, bench
 2026-10-16: one daemon-trial-2 replay set two conclusions and pushed no summary).
-The CLI keeps what is owed (`probe.cli.owed`, notes parity N3), and the writer's
+The CLI keeps what is owed (`probe.shared.notes.owed`, notes parity N3), and the writer's
 output validator sends the run back ONCE for what it did not push
 (`agent.SUMMARY_OWED`); a team whose summaries are still the lane's owes
 nothing.
@@ -25,7 +25,7 @@ from unittest import mock
 import pytest
 
 from probe import cli
-from probe.daemon import tools
+from probe.daemon.agent import tools
 from tests.conftest import make_client, open_run
 from tests.test_cli_summary import SummaryServer
 
@@ -78,7 +78,8 @@ class RealCli:
 @pytest.fixture
 def real_cli(server, monkeypatch):
     probe = RealCli()
-    monkeypatch.setattr(tools, "run_probe_process", probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", probe)
     return probe
 
 
@@ -86,7 +87,7 @@ def real_cli(server, monkeypatch):
 def team_mode(monkeypatch):
     """What `probe_api.summaries_mode` answers (default: a recorder team), and
     how many times it was asked."""
-    from probe.daemon import probe_api
+    from probe.daemon.session import probe_api
 
     state = {"mode": "recorder", "asked": 0}
 
@@ -365,7 +366,7 @@ def test_a_chart_title_in_a_409_never_says_lane(tmp_path, server, real_cli):
 
 
 def test_a_refused_key_in_the_mode_read_hands_recording_back(tmp_path, monkeypatch):
-    from probe.daemon import probe_api
+    from probe.daemon.session import probe_api
 
     async def refused(env, kind, ref):
         raise probe_api.KeyRefused("401")

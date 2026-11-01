@@ -148,7 +148,7 @@ def hold(
     owns = client is None
     if owns:
         if client_factory is None:
-            from probe.sdk.client import Client
+            from probe.sdk.client.client import Client
 
             client_factory = Client
         client = client_factory()
@@ -186,7 +186,7 @@ def _attach(client: Any, run_id: str, write_epoch: int | None, rank: int) -> Any
     if not client.supports_feature(LEASES_FEATURE):
         log.debug("probe: rank %s: the server takes no writer leases; this rank holds none", rank)
         return None
-    from probe.sdk.client import _writer_lease
+    from probe.sdk.client.resources.runs.reopen.conflict import _writer_lease
 
     session_id = str(uuid.uuid4())
     # Rank fields from the launcher's environment, as rank 0's own lease reads
@@ -225,7 +225,7 @@ def _process_ending(in_flight: BaseException | None) -> str | None:
         if any(cls.__name__ == "SIGTERMException" for cls in type(in_flight).__mro__):
             # Lightning's SIGTERM: a code-less exit that is not a success.
             return "failed"
-        from probe.sdk.run import _status_for_system_exit
+        from probe.sdk.run.closing.status import _status_for_system_exit
 
         return _status_for_system_exit(in_flight.code, in_flight.__context__)[0]
     return "failed" if isinstance(in_flight, Exception) else None

@@ -30,7 +30,9 @@ import warnings
 
 import pytest
 
-from probe.sdk import errors, journal as journal_module, multipart, outbox_worker
+from probe.sdk import errors
+from probe.sdk.delivery import journal as journal_module, outbox as outbox_worker
+from probe.sdk.artifact.storage_handlers import multipart
 from tests.conftest import make_client, open_run
 
 MiB = 1024 * 1024
@@ -242,7 +244,7 @@ def test_a_later_metric_is_delivered_before_the_checkpoints_next_slice(mp_app, m
 def test_finish_says_how_many_are_still_uploading_and_does_not_wait(mp_app, mp_client, tmp_path, monkeypatch):
     # A client a detached worker delivers for (the default: a login's token,
     # the default transport), on durable disk. Pin it: a CI runner's outbox
-    # disk reads as ephemeral (probe.sdk.ephemeral.describe), which sends the
+    # disk reads as ephemeral (probe.sdk.run.launch.ephemeral.describe), which sends the
     # op down the disposable-machine path (a reference row) instead.
     monkeypatch.setenv("PROBE_EPHEMERAL", "0")
     mp_client._auto_drain = True
@@ -373,11 +375,11 @@ def test_no_room_to_stage_records_a_reference_and_warns(mp_app, mp_client, tmp_p
     def other_filesystem(src, dst):
         raise OSError(errno.EXDEV, "Invalid cross-device link")
 
-    monkeypatch.setattr(multipart.os, "link", other_filesystem)
+    monkeypatch.setattr(multipart.staging.os, "link", other_filesystem)
     # Review P2: 300 MiB free is more than twice 200 MiB, but a copy would
     # leave 100 MiB -- under the outbox's own floor (#2054), which the copy
     # must respect like every other staging.
-    monkeypatch.setattr(multipart, "_free_bytes", lambda _directory: 300 * MiB)
+    monkeypatch.setattr(multipart.staging, "_free_bytes", lambda _directory: 300 * MiB)
     monkeypatch.setattr(mp_client.journal, "_free_floor", lambda: 128 * MiB)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -397,7 +399,7 @@ def test_a_copy_is_staged_when_the_outbox_is_on_another_filesystem(mp_app, mp_cl
     def other_filesystem(src, dst):
         raise OSError(errno.EXDEV, "Invalid cross-device link")
 
-    monkeypatch.setattr(multipart.os, "link", other_filesystem)
+    monkeypatch.setattr(multipart.staging.os, "link", other_filesystem)
     run.log_artifact("ckpt", path=str(big))
     [op] = _multipart_ops(mp_client.journal)
     assert op["multipart"]["stage_mode"] in ("copy", "reflink")
@@ -520,7 +522,7 @@ def test_staged_bytes_are_bounded_by_free_space_counting_every_upload_still_wait
     space until the trainer deletes its own copy, then pins those bytes; so
     staging counts every waiting upload's staged file against the free space
     left above the floor, and past it records a reference row instead."""
-    monkeypatch.setattr(multipart, "_free_bytes", lambda _directory: 120 * MiB)
+    monkeypatch.setattr(multipart.staging, "_free_bytes", lambda _directory: 120 * MiB)
     monkeypatch.setattr(mp_client.journal, "_free_floor", lambda: 0)
     run = open_run(mp_client, experiment="e", name="r")
     first = _sparse(tmp_path / "ckpt-1.pt", 70 * MiB, head=b"one")
@@ -541,14 +543,16 @@ def test_one_upload_at_a_time_the_oldest_first(mp_app, mp_client, tmp_path, monk
     has it all; only then does the next start."""
     mp_app.multipart_verify_polls = 2
     # A slow link: each visit gets one part out before its slice runs out.
-    monkeypatch.setattr(multipart, "SLICE_SECONDS", 0.05)
+    from probe.sdk.delivery.ops.op_handlers import multipart_upload
+
+    monkeypatch.setattr(multipart_upload, "SLICE_SECONDS", 0.05)
     real = multipart._send_parts
 
     def one_part(client, upload, state, numbers, deadline, save):
         real(client, upload, state, numbers[:1], deadline, save)
         time.sleep(max(0.0, deadline - time.monotonic()))
 
-    monkeypatch.setattr(multipart, "_send_parts", one_part)
+    monkeypatch.setattr(multipart.parts, "_send_parts", one_part)
     run = open_run(mp_client, experiment="e", name="r")
     a = _sparse(tmp_path / "a.pt", 130 * MiB, head=b"a")
     b = _sparse(tmp_path / "b.pt", 130 * MiB, head=b"b")
@@ -598,7 +602,7 @@ def test_partial_copies_and_orphans_are_collected_at_the_start_of_a_pass(mp_app,
     staged = multipart.staged_dir(mp_client.journal)
     (staged / ".deadbeef.tmp").write_bytes(b"half a copy")
     (staged / "cafef00d.src").write_bytes(b"an orphan")
-    monkeypatch.setattr(multipart, "_ORPHAN_GRACE_SECONDS", -1)
+    monkeypatch.setattr(multipart.staging, "_ORPHAN_GRACE_SECONDS", -1)
     journal_module.drain(mp_client.journal, only_ops=set(), client_factory=mp_client._outbox_client_factory())
     names = os.listdir(staged)
     assert ".deadbeef.tmp" not in names and "cafef00d.src" not in names
@@ -611,13 +615,13 @@ def test_the_hash_runs_in_the_background_and_does_not_hold_the_pass(mp_app, mp_c
     import threading
 
     gate = threading.Event()
-    real = multipart.fingerprint
+    real = multipart.parts.fingerprint
 
     def slow(path):
         assert gate.wait(10)
         return real(path)
 
-    monkeypatch.setattr(multipart, "fingerprint", slow)
+    monkeypatch.setattr(multipart.parts, "fingerprint", slow)
     run = open_run(mp_client, experiment="e", name="r")
     big = _sparse(tmp_path / "ckpt.pt", 70 * MiB)
     run.log_artifact("ckpt", path=str(big))
@@ -636,7 +640,8 @@ def test_a_worker_counts_a_slice_of_parts_as_progress(tmp_path, monkeypatch):
     """Review P2: after each 20 s slice the worker slept to the soonest OTHER
     lane's backoff (64 parts: 311 s instead of 75 s). A slice is progress:
     straight into the next pass."""
-    from probe.sdk.journal import DrainReport, Journal, LaneStall
+    from probe.sdk.delivery.outbox.drain.report import DrainReport, LaneStall
+    from probe.sdk.delivery.journal.journal import Journal
 
     journal = Journal(tmp_path / "outbox")
     journal._ensure()
@@ -646,10 +651,10 @@ def test_a_worker_counts_a_slice_of_parts_as_progress(tmp_path, monkeypatch):
             DrainReport(remaining=0),
         ]
     )
-    monkeypatch.setattr(journal_module, "drain", lambda *_a, **_k: next(reports))
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", lambda *_a, **_k: next(reports))
     long_sleeps = []
     monkeypatch.setattr(
-        outbox_worker, "_sleep_until_new_work", lambda *a, **k: long_sleeps.append(a[-1])
+        outbox_worker.outbox, "_sleep_until_new_work", lambda *a, **k: long_sleeps.append(a[-1])
     )
     monkeypatch.setattr(outbox_worker.time, "sleep", lambda _s: None)
     assert outbox_worker._run_leased(journal) == 0
@@ -705,7 +710,8 @@ def test_a_multipart_server_still_takes_small_files_through_the_single_put(mp_ap
 def test_a_worker_waiting_on_the_verifier_says_so(tmp_path, monkeypatch, capsys):
     """Review nit: the backoff line printed `?` for a lane waiting on the
     server's verifier (a wait records a stall, not an error)."""
-    from probe.sdk.journal import DrainReport, Journal, LaneStall
+    from probe.sdk.delivery.outbox.drain.report import DrainReport, LaneStall
+    from probe.sdk.delivery.journal.journal import Journal
 
     journal = Journal(tmp_path / "outbox")
     journal._ensure()
@@ -715,8 +721,8 @@ def test_a_worker_waiting_on_the_verifier_says_so(tmp_path, monkeypatch, capsys)
             DrainReport(remaining=0),
         ]
     )
-    monkeypatch.setattr(journal_module, "drain", lambda *_a, **_k: next(reports))
-    monkeypatch.setattr(outbox_worker, "_sleep_until_new_work", lambda *a, **k: None)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", lambda *_a, **_k: next(reports))
+    monkeypatch.setattr(outbox_worker.outbox, "_sleep_until_new_work", lambda *a, **k: None)
     monkeypatch.setattr(outbox_worker.time, "sleep", lambda _s: None)
     assert outbox_worker._run_leased(journal) == 0
     out = capsys.readouterr().out
@@ -730,7 +736,7 @@ def test_a_busy_upload_tries_again_within_a_minute_however_long_it_waits(
     to the next create once that upload has been idle 10 min (its uploader is
     gone), so the lane must not back off to its 300 s ceiling meanwhile: it
     tries again at least every `BUSY_MAX_WAIT_SECONDS`."""
-    from probe.sdk.journal import LaneBackoff
+    from probe.sdk.delivery.outbox.drain.lanes import LaneBackoff
 
     run = open_run(mp_client, experiment="e", name="r")
     big = _sparse(tmp_path / "ckpt.pt", 70 * MiB, head=b"busy")
@@ -779,7 +785,7 @@ def test_a_synchronous_upload_waits_past_the_servers_idle_takeover(
         "state": "uploading",
     }
     slept = []
-    monkeypatch.setattr(multipart.time, "sleep", slept.append)
+    monkeypatch.setattr(multipart.multipart.time, "sleep", slept.append)
     with pytest.raises(errors.ConflictError):
         run.log_artifact("ckpt", path=str(big), strict=True)
     assert sum(slept) > 600, slept
@@ -794,8 +800,8 @@ def test_no_copy_staging_refuses_across_filesystems(mp_client, tmp_path, monkeyp
     def other_filesystem(src, dst):
         raise OSError(errno.EXDEV, "Invalid cross-device link")
 
-    monkeypatch.setattr(multipart.os, "link", other_filesystem)
-    monkeypatch.setattr(multipart, "try_clone", lambda src, dst: False)
+    monkeypatch.setattr(multipart.staging.os, "link", other_filesystem)
+    monkeypatch.setattr(multipart.staging, "try_clone", lambda src, dst: False)
     with pytest.raises(multipart.StageRefused, match="another filesystem"):
         multipart.stage(mp_client.journal, str(big), "op-x", allow_copy=False)
     assert multipart.stage(mp_client.journal, str(big), "op-y")["stage_mode"] == "copy"

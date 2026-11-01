@@ -5,11 +5,11 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from probe.client_headers import client_headers_scope, client_version_headers
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
-from probe.sdk.surface import SURFACE_HEADER, TOOL_HEADER, Surface
-from probe.sdk.transport import Transport
+from probe.foundation.request_identity.request_identity import client_headers_scope, client_version_headers
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
+from probe.foundation.request_identity.surface import SURFACE_HEADER, TOOL_HEADER, Surface
+from probe.sdk.delivery.transport.transport import Transport
 
 
 @pytest.mark.parametrize("kind", ["cli", "plugin", "sdk", "tap"])
@@ -277,7 +277,7 @@ def test_put_file_reopens_file_and_resends_full_bytes_on_retry(
     re-open the file and resend the WHOLE body. A consumed handle would send truncated
     bytes that the server stores and `confirm` records as a complete (corrupt) artifact.
     """
-    monkeypatch.setattr("probe.sdk.transport.time.sleep", lambda *_: None)
+    monkeypatch.setattr("probe.sdk.delivery.transport.transport.time.sleep", lambda *_: None)
     payload = b"abcdefgh" * 200_000  # 1.6 MB, spans multiple 1 MiB chunks
     blob = tmp_path / "big.bin"
     blob.write_bytes(payload)

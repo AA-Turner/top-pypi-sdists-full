@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from probe.sdk import errors
-from probe.sdk.journal import Journal
+from probe.sdk.delivery.journal.journal import Journal
 from probe.sdk.redaction import default_scrub, is_sensitive_key, scrub_string
 
 from tests.conftest import make_client

@@ -16,8 +16,9 @@ import tempfile
 
 import pytest
 
-from probe.sdk.restore import RestoreError, restore_snapshot, verify_restored_tree
-from probe.sdk.snapshot import build_pending_archive, capture_manifest
+from probe.sdk.run.readback.restore import RestoreError, restore_snapshot, verify_restored_tree
+from probe.sdk.capture.code.archive import build_pending_archive
+from probe.sdk.capture.code.sources.git import capture_manifest
 
 
 def _git(cwd, *args):

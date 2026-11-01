@@ -105,9 +105,7 @@ class UvVenv(Python, ABC):
         result["seed"] = self.conf["uv_seed"]
         if self.conf["uv_python_preference"] != "none":
             result["python_preference"] = self.conf["uv_python_preference"]
-        env_dir = cast("Path", self.conf["env_dir"])
-        if not env_dir.is_absolute():
-            env_dir = cast("Path", self.core["tox_root"]) / env_dir
+        env_dir = cast("Path", self.core["tox_root"]) / cast("Path", self.conf["env_dir"])
         result["venv"] = str(self.venv_dir.relative_to(env_dir))
         return result
 
@@ -172,7 +170,7 @@ class UvVenv(Python, ABC):
                 version=str(spec),
                 is_64=spec.architecture == 64,  # ruff:ignore[magic-value-comparison]
                 platform=sys.platform,
-                extra={"architecture": spec.architecture},
+                extra={"architecture": spec.architecture, "requested_micro": spec.micro},
                 free_threaded=bool(spec.free_threaded),
                 machine=spec.machine,
             )
@@ -253,10 +251,7 @@ class UvVenv(Python, ABC):
 
     @property
     def venv_dir(self) -> Path:
-        result = cast("Path", self.conf["env_dir"])
-        if not result.is_absolute():
-            result = cast("Path", self.core["tox_root"]) / result
-        return result
+        return cast("Path", self.core["tox_root"]) / cast("Path", self.conf["env_dir"])
 
     @property
     def environment_variables(self) -> dict[str, str]:
@@ -352,6 +347,9 @@ class UvVenv(Python, ABC):
 
         uv_imp = imp or ""
         free_threaded_tag = "+freethreaded" if free_threaded else ""
+        version = f"{base.major}.{base.minor}"
+        if (micro := self.base_python.extra.get("requested_micro")) is not None:
+            version = f"{version}.{micro}"
         if not base.major:  # pragma: win32 no cover
             version_spec = f"{uv_imp}"
         elif not base.minor:
@@ -381,11 +379,11 @@ class UvVenv(Python, ABC):
             base_python_machine = (self.base_python.machine or "").lower()
             uv_machine = machine_map.get(base_python_machine, machine_fallback)
             uv_libc = self._LIBC_MAP.get(uv_os, {}).get(self.base_python.extra.get("libc", "").lower(), "none")
-            version_spec = f"{uv_imp}-{base.major}.{base.minor}{free_threaded_tag}" + (
+            version_spec = f"{uv_imp}-{version}{free_threaded_tag}" + (
                 f"-{uv_os}-{uv_machine}-{uv_libc}" if all([uv_machine, uv_os, uv_libc]) else ""
             )
         else:
-            version_spec = f"{uv_imp}{base.major}.{base.minor}{free_threaded_tag}"
+            version_spec = f"{uv_imp}{version}{free_threaded_tag}"
         return version_spec
 
     @cached_property

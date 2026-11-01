@@ -2,10 +2,7 @@ import sys
 import os
 import subprocess
 
-try:
-    from unittest import mock
-except ImportError:
-    import mock  # pyright: ignore[reportMissingModuleSource]
+from unittest import mock
 import pytest
 
 import nodeenv
@@ -65,6 +62,33 @@ def test_write(tmpdir, name, content_var):
     assert bin_dir.join(name).read() == fix_content(content, tmpdir)
 
 
+@pytest.mark.skipif(nodeenv.is_WIN, reason='activate.fish is POSIX only')
+def test_activate_fish_has_no_caret_redirect(tmpdir):
+    """Generated activate.fish must not contain caret stderr redirects.
+
+    fish 3.1+ treats ^ as a normal character (stderr-nocaret default), so a
+    trailing ^/dev/null on the PATH set line would land in PATH as a literal
+    entry (#400).  This check does not need fish installed.
+    """
+    bin_dir = tmpdir.join('bin')
+    bin_dir.mkdir()
+    for n in FILES:
+        bin_dir.join(n).write(n)
+
+    with mock.patch.object(sys, 'argv', ['nodeenv', str(tmpdir)]):
+        opts = nodeenv.parse_args()
+        nodeenv.install_activate(str(tmpdir), opts)
+
+    content = bin_dir.join('activate.fish').read()
+    assert '^/dev/null' not in content
+    path_lines = [ln for ln in content.splitlines()
+                  if ln.lstrip().startswith('set -gx PATH')]
+    assert path_lines, 'expected a set -gx PATH line in activate.fish'
+    assert all('2>/dev/null' not in ln and '^/dev/null' not in ln
+               for ln in path_lines)
+    assert '$NODE_VIRTUAL_ENV/lib/node_modules/.bin' in content
+
+
 @pytest.mark.parametrize('name, content_var', FILES.items())
 def test_python_virtualenv(tmpdir, name, content_var):
     if nodeenv.is_WIN:
@@ -88,6 +112,9 @@ def test_python_virtualenv(tmpdir, name, content_var):
         disable_prompt = nodeenv.DISABLE_PROMPT.get(name, '')
         enable_prompt = nodeenv.ENABLE_PROMPT.get(name, '')
         content = name + '\n' + disable_prompt + content + enable_prompt
+        # and leave bin/ out of PATH, the venv's activate put it there
+        content = content.replace('$NODE_VIRTUAL_ENV/__BIN_NAME__:', '')
+        content = content.replace(' "$NODE_VIRTUAL_ENV/__BIN_NAME__"', '')
     assert bin_dir.join(name).read() == fix_content(content, tmpdir)
 
 
@@ -238,6 +265,79 @@ def test_python_virtualenv_with_custom_prompt(tmpdir):
             assert 'NODE_VIRTUAL_ENV_DISABLE_PROMPT' in content
 
 
+# python's activate puts the venv's bin/ on PATH already, so the part
+# `nodeenv -p` appends to it must not put it there a second time
+# https://github.com/ekalinin/nodeenv/issues/332
+PATH_LINES = {
+    'activate': ('PATH="$NODE_VIRTUAL_ENV/lib/node_modules/.bin:'
+                 '$NODE_VIRTUAL_ENV/bin:$PATH"'),
+    'activate.fish': ('set -gx PATH "$NODE_VIRTUAL_ENV/lib/node_modules/.bin" '
+                      '"$NODE_VIRTUAL_ENV/bin" $PATH'),
+}
+VENV_PATH_LINES = {
+    'activate': 'PATH="$NODE_VIRTUAL_ENV/lib/node_modules/.bin:$PATH"',
+    'activate.fish': ('set -gx PATH "$NODE_VIRTUAL_ENV/lib/node_modules/.bin" '
+                      '$PATH'),
+}
+
+
+def _path_lines(content):
+    return [line for line in content.splitlines()
+            if line.startswith(('PATH=', 'set -gx PATH '))]
+
+
+def _install_python_virtualenv(tmpdir, *extra_args):
+    argv = ['nodeenv', '-p'] + list(extra_args)
+    with mock.patch.object(sys, 'argv', argv):
+        opts = nodeenv.parse_args()
+        nodeenv.install_activate(str(tmpdir), opts)
+
+
+@pytest.mark.skipif(nodeenv.is_WIN, reason='activate.fish is POSIX only')
+@pytest.mark.parametrize('name', sorted(VENV_PATH_LINES))
+def test_python_virtualenv_puts_bin_on_path_once(tmpdir, name):
+    bin_dir = tmpdir.join('bin')
+    bin_dir.mkdir()
+    for n in FILES:
+        bin_dir.join(n).write(n)
+
+    _install_python_virtualenv(tmpdir)
+
+    assert _path_lines(bin_dir.join(name).read()) == [VENV_PATH_LINES[name]]
+
+
+@pytest.mark.skipif(nodeenv.is_WIN, reason='activate.fish is POSIX only')
+@pytest.mark.parametrize('name', sorted(VENV_PATH_LINES))
+def test_python_virtualenv_rerun_leaves_activate_alone(tmpdir, name):
+    bin_dir = tmpdir.join('bin')
+    bin_dir.mkdir()
+    bin_dir.join('node').write('')
+    for n in FILES:
+        bin_dir.join(n).write(n)
+
+    _install_python_virtualenv(tmpdir)
+    content = bin_dir.join(name).read()
+    _install_python_virtualenv(tmpdir)
+
+    assert bin_dir.join(name).read() == content
+
+
+@pytest.mark.skipif(nodeenv.is_WIN, reason='activate.fish is POSIX only')
+@pytest.mark.parametrize('name', sorted(PATH_LINES))
+def test_python_virtualenv_own_activate_keeps_bin(tmpdir, name):
+    # a conda env has no bin/activate: nodeenv -p writes it from scratch
+    # and puts bin/ on PATH itself, also when a rerun with other options
+    # appends to the file nodeenv wrote
+    bin_dir = tmpdir.join('bin')
+    bin_dir.mkdir()
+    bin_dir.join('node').write('')
+
+    _install_python_virtualenv(tmpdir)
+    _install_python_virtualenv(tmpdir, '--isolate-npm')
+
+    assert _path_lines(bin_dir.join(name).read()) == [PATH_LINES[name]] * 2
+
+
 @pytest.mark.parametrize('extra_args', ([], ['--isolate-npm']))
 def test_all_placeholders_replaced(tmpdir, extra_args):
     """Test that all placeholders are properly replaced in generated files"""
@@ -381,16 +481,17 @@ def test_isolate_npm_fish_content(tmpdir):
         in content
     assert ('set -gx npm_config_init_module '
             '"$NODE_VIRTUAL_ENV/.npm-init.js"') in content
-    guard = 'if set -q NODE_VIRTUAL_ENV'
+    guard = '    if test -n "$_OLD_NODE_VIRTUAL_PATH"'
     assert guard in content
+    # Nested if/end lines are indented further; this end closes the guard.
+    restore_scope = content.split(guard, 1)[1].split('\n    end', 1)[0]
     for var in ISOLATED_NPM_VARS:
         assert 'set -gx _OLD_%s $%s' % (var, var) in content
         restore = 'set -gx %s $_OLD_%s' % (var, var)
         assert restore in content
         assert 'set -e _OLD_%s' % var in content
         assert 'set -e %s' % var in content
-        # the restore must sit inside the guard, after it
-        assert content.index(guard) < content.index(restore)
+        assert restore in restore_scope
 
 
 @pytest.mark.skipif(nodeenv.is_WIN, reason='--isolate-npm is POSIX only')
@@ -521,6 +622,12 @@ def test_win_python_virtualenv_appends_to_activate(tmpdir, fake_win):
     content = bin_dir.join('activate').read()
     assert content.startswith('# python venv activate\n')
     assert 'NODE_VIRTUAL_ENV_DISABLE_PROMPT=1' in content
+    # and still puts Scripts on PATH: before python 3.12 the venv's
+    # activate puts it there as a `C:\...` path, which the shell splits
+    # at the colon (#332)
+    # https://github.com/python/cpython/issues/103088
+    assert ('PATH="$NODE_VIRTUAL_ENV/Scripts/node_modules/.bin:'
+            '$NODE_VIRTUAL_ENV/Scripts:$PATH"') in content
 
 
 # python's venv writes these for cmd and PowerShell, and `nodeenv -p`
@@ -558,6 +665,42 @@ def test_win_activate_ps1_keeps_a_previous_deactivate(tmpdir, fake_win):
         content.index('function global:deactivate')
     # ... and put back and called on a real (destructive) deactivate
     assert 'copy-item function:_OLD_NODE_DEACTIVATE' in content
+
+
+# npx exports npm_config_prefix, and npm.cmd runs the npm it finds under
+# that prefix instead of its own: cmd and PowerShell have to point it at
+# the environment, the way the posix activate already does
+# https://github.com/ekalinin/nodeenv/issues/309
+BAT_PREFIX = 'set "npm_config_prefix=%NODE_VIRTUAL_ENV%\\Scripts"'
+BAT_SAVE = 'set "_OLD_VIRTUAL_NPM_CONFIG_PREFIX=%npm_config_prefix%"'
+PS1_PREFIX = '$env:npm_config_prefix = "$env:NODE_VIRTUAL_ENV\\Scripts"'
+PS1_SAVE = 'copy-item env:npm_config_prefix env:_OLD_VIRTUAL_NPM_CONFIG_PREFIX'
+PS1_RESTORE = ('copy-item env:_OLD_VIRTUAL_NPM_CONFIG_PREFIX '
+               'env:npm_config_prefix')
+
+
+def test_win_activate_bat_points_npm_at_scripts(tmpdir, fake_win):
+    content = _install_win(tmpdir).join('activate.bat').read()
+
+    assert BAT_PREFIX in content
+    # the inherited value is saved first, so deactivate.bat can restore it
+    assert content.index(BAT_SAVE) < content.index(BAT_PREFIX)
+
+
+def test_win_deactivate_bat_restores_npm_config_prefix(tmpdir, fake_win):
+    content = _install_win(tmpdir).join('deactivate.bat').read()
+
+    assert 'set "npm_config_prefix=%_OLD_VIRTUAL_NPM_CONFIG_PREFIX%"' \
+        in content
+
+
+def test_win_activate_ps1_points_npm_at_scripts(tmpdir, fake_win):
+    content = _install_win(tmpdir).join('Activate.ps1').read()
+
+    assert PS1_PREFIX in content
+    assert PS1_SAVE in content
+    # ... and put back by deactivate
+    assert PS1_RESTORE in content
 
 
 @pytest.mark.skipif(nodeenv.is_WIN, reason='system node is POSIX only')

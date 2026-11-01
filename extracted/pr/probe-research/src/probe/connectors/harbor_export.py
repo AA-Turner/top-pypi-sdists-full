@@ -14,7 +14,7 @@ import re
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
-from ..sdk.durable import file_lock, now_iso as _now, read_json, write_text_atomic
+from ..foundation.durable.durable import file_lock, now_iso as _now, read_json, write_text_atomic
 from .harbor import (
     EXPORT_CONNECTOR,
     EXPORT_SCHEMA_VERSION,
@@ -23,7 +23,7 @@ from .harbor import (
 )
 
 if TYPE_CHECKING:
-    from ..sdk.client import Client
+    from ..sdk.client.client import Client
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -237,7 +237,7 @@ def consume_export_request(
                 == correlation.get("external_key")
             )
 
-            from ..sdk.run import Run
+            from ..sdk.run.run import Run
 
             run = Run(client, client.get_run(run_id))
             argument_step = arguments.get("step_index")

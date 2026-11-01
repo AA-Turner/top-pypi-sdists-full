@@ -19,11 +19,11 @@ import httpx
 import pytest
 
 from probe import cli
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
-from probe.sdk.journal import Journal
-from probe.sdk.transport import Transport
-from probe.sdk.write_outcome import NOT_QUEUED_PREFIX, QUEUED_PREFIX
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.transport.transport import Transport
+from probe.sdk.values.write_outcome import NOT_QUEUED_PREFIX, QUEUED_PREFIX
 from tests.conftest import FakeApp
 from tests.conftest import _WS_MINE
 
@@ -143,7 +143,7 @@ def test_an_edge_that_already_exists_prints_its_id_and_exits_0(wired, capsys, mo
 def test_only_the_exact_edge_409_counts_as_already_linked(wired, capsys):
     """The outbox's rule (`journal.edge_already_exists`: the message STARTS so),
     not a substring anywhere in whatever the server said."""
-    from probe.sdk.journal import edge_already_exists
+    from probe.sdk.delivery.ops.classify import edge_already_exists
     from probe.sdk.errors import ConflictError
 
     near = "this run already has a genealogy parent; lineage edge already exists elsewhere"

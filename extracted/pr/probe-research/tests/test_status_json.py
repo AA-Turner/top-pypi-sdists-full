@@ -31,12 +31,15 @@ from types import SimpleNamespace
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import autoupdate, capabilities, doctor, pi_config, plugin_cli, setup, versions, wizard_lock
+from probe.cli import autoupdate, capabilities, doctor, setup, wizard_lock
+from probe.shared.harness.harnesses import pi as pi_config
+from probe.shared.harness import plugins as plugin_cli
+from probe.shared.updates import updates as versions
 from probe.cli import status as status_impl
 from probe.cli.capabilities import DeviceState, DeviceStateOutcome, McpState
-from probe.cli.versions import VersionStatus
+from probe.shared.updates.updates import VersionStatus
 from probe.sdk import agent_session, session_marker
-from probe.sdk.config import resolve, save_context
+from probe.sdk.settings.settings import resolve, save_context
 
 main = importlib.import_module("probe.cli.main")
 
@@ -1001,7 +1004,7 @@ _LIMITED = "11111111-1111-1111-1111-111111111111"
 
 
 def _limit_this_computer(machine, **workspace) -> None:
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     save_context({"workspace": {"id": _LIMITED, "project": None, "limit": True, "name": "Eng", "slug": "eng",
                                 **workspace}})
@@ -1030,7 +1033,7 @@ def test_the_workspace_limit_is_read_locally_with_the_environment_on_top(machine
 
 
 def test_the_whole_team_and_the_pin_alone_are_no_limit(machine):
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     save_context({"workspace": {"id": _LIMITED, "project": None}})
     local, _, _ = status()

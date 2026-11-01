@@ -12,11 +12,11 @@ from uuid import NAMESPACE_URL, uuid5
 
 import pytest
 
-from probe.mcp.browse_delivery import invoke
-from probe.mcp.budget import Budget, serialize
-from probe.mcp.continuation import ContinuationError, binding, decode
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.mcp.delivery.browse import invoke
+from probe.foundation.token_budget.token_budget import Budget, serialize
+from probe.mcp.delivery.delivery import ContinuationError, binding, decode
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 
 
 def node(kind, label, **fields):

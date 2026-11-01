@@ -76,8 +76,8 @@ def live_app(monkeypatch):
     monkeypatch.setenv("PROBE_BASE_URL", "http://api.invalid:9")
     monkeypatch.setenv("PROBE_TELEMETRY", "on")
 
-    from probe.mcp import accounting
-    from probe.mcp.server import http_app
+    from probe.mcp.delivery import accounting
+    from probe.mcp.server.http import http_app
 
     monkeypatch.setenv(accounting.ANALYTICS_ENV, "1")
 
@@ -159,6 +159,18 @@ _ENTITY_EXPLICIT_VIEW = {
 }
 
 
+_RUN_ID = "0b7f3c1e-5a4d-4f6e-9b8a-2c1d3e4f5a6b"
+_ENTITY_BY_ID_AND_SLUG = {
+    "jsonrpc": "2.0",
+    "id": 6,
+    "method": "tools/call",
+    "params": {
+        "name": "entity",
+        "arguments": {"refs": [f"run:{_RUN_ID}", "run:some-run-slug"]},
+    },
+}
+
+
 def test_a_real_tool_call_is_counted_and_attributed(live_app) -> None:
     app, captured = live_app
     results = _run(app, captured, [_INIT, _LIST, _CALL])
@@ -180,7 +192,7 @@ def test_a_real_tool_call_is_counted_and_attributed(live_app) -> None:
     assert props["agent_session_id"] == "385cbaab-3a35-4e8f-91d7-cc57826261e4"
     assert props["client_kind"] == "plugin"
     assert entry["timestamp"], "no emit-time stamp: the series would be on ingest time"
-    from probe.mcp.budget import count_tokens
+    from probe.foundation.token_budget.token_budget import count_tokens
 
     result = json.loads(body)["result"]
     assert "structuredContent" not in result
@@ -249,3 +261,18 @@ def test_a_tool_without_a_view_argument_carries_none(live_app) -> None:
 
     assert len(captured) == 1
     assert "view" not in captured[0]["properties"]
+
+
+def test_a_read_names_the_ids_it_opened_through_the_real_sdk(live_app) -> None:
+    """`note_refs` runs in the worker thread on the RESUMED arguments, so it must
+    reach the request's holder the way `note_tool` does. Ids only: the slug the
+    caller typed never reaches the event."""
+    app, captured = live_app
+    _run(app, captured, [_INIT, _ENTITY_BY_ID_AND_SLUG])
+
+    assert len(captured) == 1
+    props = captured[0]["properties"]
+    assert props["tool"] == "entity"
+    assert props["read_ids"] == [f"run:{_RUN_ID}"]
+    assert props["read_ref_count"] == 2
+    assert "some-run-slug" not in json.dumps(captured[0])

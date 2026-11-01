@@ -406,7 +406,7 @@ def test_the_real_report_read_sends_what_the_watch_hands_it(service_home, monkey
     names the local server: nothing leaves this machine."""
     import uuid
 
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     api = Api()
     try:

@@ -17,7 +17,7 @@ import uuid
 
 import typer
 
-from probe.sdk.durable import file_lock, write_text_atomic
+from probe.foundation.durable.durable import file_lock, write_text_atomic
 
 app = typer.Typer(help="Desktop app's versioned JSON interface.")
 MAX_INPUT = 1024 * 1024
@@ -38,8 +38,8 @@ def _closed_object(pairs):
 
 
 def _client():
-    from probe.sdk.client import Client
-    from probe.sdk.config import current_context_name, resolve
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import current_context_name, resolve
     # Explicit settings prevent ambient credential refresh from adopting a new
     # login halfway through one response. Pin the context name at the same time.
     context = current_context_name()
@@ -115,7 +115,7 @@ def _job_matches(job, identity):
 
 def _job_sources(job):
     """Display the approved transcript producers, never a label or folder worker."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
     if job.get("kind") != "transcripts":
         return []
     files = (job.get("payload") or {}).get("files")
@@ -363,7 +363,7 @@ def start_backfill(key):
         if saved["transcripts"]:
             remember(import_jobs.enqueue("transcripts", saved["transcripts"],
                 f"{len(saved['transcripts']['files'])} selected agent sessions"))
-        from probe.sdk.client import Client
+        from probe.sdk.client.client import Client
         def factory():
             return Client(settings=settings, async_writes=False, auto_drain=False, attribution="backfill")
         for index, folder in enumerate(saved["folders"]):
@@ -499,7 +499,7 @@ def _received(sessions, identity=None):
 
 
 def snapshot_delivery(identity=None):
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
     rows = get_registry().captured()
     sessions, state, text = _live_sessions()
     received = _received(sessions, identity)
@@ -523,7 +523,8 @@ def snapshot_delivery(identity=None):
 
 def analytics_policy():
     """Only a boolean crosses native IPC; configuration remains CLI-owned."""
-    from probe.sdk import config, _telemetry_core as core
+    from probe.sdk.settings import settings as config
+    from probe.analytics import core as core
     try:
         if core.telemetry_disabled():
             return {"enabled": False, "resolved": True}
@@ -538,7 +539,7 @@ def analytics_policy():
 
 
 def complete_onboarding(request):
-    from probe.sdk.transport import deadline_scope
+    from probe.sdk.delivery.transport.deadlines import deadline_scope
     expected = {key: request.get(key) for key in ("userId", "customerId")}
     if not all(expected.values()):
         raise ValueError("The signed-in account is required to finish onboarding.")
@@ -572,7 +573,7 @@ def setup_options(client, request=None):
     """Expose the wizard's settings-only options through its own readers/writers."""
     from . import setup, doctor
     from .capabilities import agent_target
-    from probe.sdk import workspace_limit as wl
+    from probe.sdk.settings import workspace_limit as wl
 
     with wl.without_limit():
         identity = _scope(_identity(client))
@@ -599,7 +600,7 @@ def setup_options(client, request=None):
         lines = setup.apply_settings({setting: request["enabled"]}, caps_by_source=caps)
         actual = setup.read_settings(caps)
         if setting is setup.Setting.REASONING_SUMMARIES:
-            from . import reasoning_summaries as reasoning
+            from ..shared.harness import reasoning_summaries as reasoning
 
             target = reasoning.State.ON if request["enabled"] else reasoning.State.OFF
             failed = [reasoning.LABELS[source] for source in setup.reasoning_sources(caps)
@@ -625,7 +626,7 @@ def setup_options(client, request=None):
 def computer_workspace(client):
     """The wizard's filing picker and preselection, separate from the read limit."""
     from . import computer_workspace as cw, workspace_limit_cmd
-    from probe.sdk import workspace_limit as wl
+    from probe.sdk.settings import workspace_limit as wl
 
     with wl.without_limit():
         identity = _identity(client)
@@ -644,7 +645,8 @@ def computer_workspace(client):
 
 def set_computer_workspace(client, request):
     from . import computer_workspace as cw, workspace_limit_cmd
-    from probe.sdk import errors, workspace_limit as wl
+    from probe.sdk import errors
+    from probe.sdk.settings import workspace_limit as wl
 
     expected = {key: request.get(key) for key in ("userId", "customerId")}
     with wl.without_limit():
@@ -737,7 +739,7 @@ def _dispatch(request):
             # limit. A limit naming a since-deleted workspace makes the API refuse
             # every limited request (422 `workspace_limit_unknown`), and the shell
             # that holds Settings, where that limit is fixed, must still open.
-            from probe.sdk import workspace_limit as _workspace_limit
+            from probe.sdk.settings import workspace_limit as _workspace_limit
 
             with _workspace_limit.without_limit():
                 return client.transport.get("/v1/desktop/profile")
@@ -783,7 +785,7 @@ def dispatch(request):
             # session. A pipe never becomes interactive: provenance is separate.
             try:
                 from . import telemetry
-                from probe.sdk import _telemetry_core as core
+                from probe.analytics import core as core
                 telemetry.TelemetryContext.start(via=telemetry.Via.COMMAND, interactive=False,
                     base_url=core.effective_base_url(core.read_cli_config()))
             except Exception:

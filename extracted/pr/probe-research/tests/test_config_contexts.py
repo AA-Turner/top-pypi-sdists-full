@@ -18,7 +18,7 @@ import os
 
 import pytest
 
-from probe.sdk.config import (
+from probe.sdk.settings.settings import (
     CONFIG_VERSION,
     DEFAULT_BASE_URL,
     DEFAULT_CONTEXT,
@@ -71,7 +71,7 @@ def test_migration_preserves_unrecognized_keys():
 
 
 def test_missing_file_is_empty_dict():
-    # mcp/server.py calls .get() on this unguarded — it must never be None.
+    # mcp/server/server.py calls .get() on this unguarded — it must never be None.
     assert load_file() == {}
     assert load_context() == {}
     assert resolve().base_url == DEFAULT_BASE_URL

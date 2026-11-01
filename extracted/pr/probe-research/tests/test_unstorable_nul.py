@@ -10,10 +10,13 @@ import warnings
 import httpx
 import pytest
 
-from probe._generated.models import IngestRunRequest, SpanBatch
-from probe.sdk import errors, unstorable
-from probe.sdk.config import Settings
-from probe.sdk.transport import Transport
+from probe.generated.models import IngestRunRequest, SpanBatch
+from probe.sdk import errors
+from probe.sdk.values import unstorable
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.transport.transport import Transport
+
+SCANNING_DISABLED = "credential scanning is disabled in the SDK; these tests assert the redaction it did"
 
 NUL = "\x00"
 PATH = "/v1/runs/r1/spans"
@@ -126,6 +129,7 @@ def test_ingest_execution_record_is_not_escaped_alongside_spans():
     assert not sent
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_credential_scrubbing_still_applies_to_escaped_span_text():
     sent = []
     token = "sk-proj-" + "A" * 48

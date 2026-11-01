@@ -16,7 +16,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import capabilities, claude_cli, integration_repair, plugin_cli
+from probe.cli import capabilities, integration_repair
+from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+from probe.shared.harness import plugins as plugin_cli
 
 M = capabilities.MARKETPLACE
 
@@ -149,7 +151,7 @@ def test_codex_says_the_hooks_line_whenever_probes_hook_entries_changed(homes, m
 
 
 def test_pi_with_its_extension_filtered_out_is_repaired(homes, tmp_path):
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     settings = pi_config.settings_path()
     settings.parent.mkdir(parents=True, exist_ok=True)
@@ -163,7 +165,7 @@ def test_pi_with_its_extension_filtered_out_is_repaired(homes, tmp_path):
 
 
 def test_a_kimi_record_whose_files_are_gone_is_put_back(homes, monkeypatch):
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     root = kimi_config.managed_root() / "probe-research@1.0.0"
     doc = {"version": kimi_config.INSTALLED_VERSION, "plugins": [

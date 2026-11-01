@@ -24,9 +24,9 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.shared.memory import create_connected_server_and_client_session
 
-from probe.mcp import continuation
-from probe.mcp.budget import Budget, count_tokens
-from probe.mcp.server import create_server
+from probe.mcp.delivery import delivery as continuation
+from probe.foundation.token_budget.token_budget import Budget, count_tokens
+from probe.mcp.server.server import create_server
 
 _OPEN = TransportSecuritySettings(enable_dns_rebinding_protection=False)
 _SMALL = {
@@ -624,7 +624,7 @@ def test_oversized_or_malformed_cursor_is_rejected_without_a_source_read():
 
 def test_health_reports_an_unavailable_reference_tokenizer(monkeypatch):
     import probe.mcp.server as server_module
-    from probe.mcp.budget import TokenizerUnavailable
+    from probe.foundation.token_budget.token_budget import TokenizerUnavailable
 
     def unavailable(_):
         raise TokenizerUnavailable("broken assets")
@@ -639,7 +639,8 @@ def test_health_reports_an_unavailable_reference_tokenizer(monkeypatch):
         ) as client:
             healthy = await client.get("/healthz")
             assert healthy.status_code == 200
-            monkeypatch.setattr(server_module, "count_tokens", unavailable)
+            monkeypatch.setattr(server_module.http, "count_tokens", unavailable)
+            monkeypatch.setattr(server_module.retired, "count_tokens", unavailable)
             failed = await client.get("/healthz")
             assert failed.status_code == 503
             assert failed.json() == {"error": "mcp_tokenizer_unavailable"}
@@ -649,7 +650,7 @@ def test_health_reports_an_unavailable_reference_tokenizer(monkeypatch):
 
 @pytest.mark.parametrize("failure", [False, True])
 def test_delivery_measurements_match_actual_text_and_never_capture_it(monkeypatch, failure):
-    from probe.mcp import accounting
+    from probe.mcp.delivery import accounting
 
     measurements = []
     monkeypatch.setattr(accounting, "note_delivery", lambda **counts: measurements.append(counts))
@@ -673,7 +674,7 @@ def test_delivery_measurements_match_actual_text_and_never_capture_it(monkeypatc
     {"data": {"missing": [{"reason": "source_changed: arbitrary record content"}]}},
 ])
 def test_content_cannot_impersonate_a_stale_read_measurement(monkeypatch, payload):
-    from probe.mcp import accounting
+    from probe.mcp.delivery import accounting
 
     measurements = []
     monkeypatch.setattr(accounting, "note_delivery", lambda **counts: measurements.append(counts))
@@ -815,7 +816,7 @@ def test_a_short_note_then_a_long_one_starts_at_the_minimum_budget(first_words):
 
 
 def _walk_pinned_notes_batch(ids, notes, *, verbose):
-    from probe.mcp.delivery_context import pin_document
+    from probe.mcp.delivery.context import pin_document
 
     class NotesService(_Service):
         def get_entity(self, ref, *args, **kwargs):
@@ -861,8 +862,8 @@ def test_a_docs_search_crosses_the_real_wire_as_one_whole_page(client, app):
     reads it: through the hosted HTTP transport and the continuation layer.
     Every page is a whole envelope -- never JSON fragments of one -- within the
     budget asked for, and the cut section's `retry_with` reads it whole."""
-    from probe.mcp.service import ResearchReadService
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.tools.tools import ResearchReadService
+    from probe.mcp.source.source import ResearchOSSource
 
     text = "\n\n".join(f"Paragraph {i}: " + "word " * 120 for i in range(20))
     app.docs_response = {

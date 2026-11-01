@@ -46,20 +46,20 @@ import os
 import sys
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 from pathlib import Path
 from urllib.parse import urlparse
 
 from probe.cli import (
     agent_rules,
     autoupdate,
-    claude_cli,
-    codex_config,
-    pi_config,
-    plugin_cli,
-    reasoning_summaries,
-    root_skills,
-)
+    root_skills)
+from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+from probe.shared.harness.harnesses.codex import config as codex_config
+from probe.shared.harness.harnesses import pi as pi_config
+from probe.shared.harness import (
+    plugins as plugin_cli,
+    reasoning_summaries)
 from probe.cli.capabilities import (
     CODEX_MCP_NAME,
     CODEX_TAP_PLUGIN_NAME,
@@ -76,12 +76,13 @@ from probe.cli.capabilities import (
     agent_source,
     agent_target,
     capture_token_sources,
+    consumes_cli_capture_token,
     tap_plugin_dir,
     tracking_plugin_name,
 )
 from probe.cli.tui import CONTENT_WIDTH
-from probe.cli.versions import VersionStatus
-from probe.cli.versions import overall as overall_version_status
+from probe.shared.updates.updates import VersionStatus
+from probe.shared.updates.updates import overall as overall_version_status
 from probe.cli.capture import AWAITING_CONFIRMATION, OffMode, clear_killswitch, turn_off
 
 #: How long the whole apply phase may spend before it stops STARTING new work.
@@ -136,7 +137,7 @@ FRESH_DEFAULTS: dict[Capability, bool] = {
 #: exactly two sources, and pi's addition is what made that stop being true.
 #: Look a source up here (via `agent_label`) instead of adding another branch.
 def _installable_rows():
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     return get_registry().installable()
 
@@ -150,7 +151,7 @@ def agent_logo(source: str) -> bytes | None:
     colored background style"): its brand mark in white on a circle of its
     brand colour, rendered by `agent/tools/render_harness_icons.py` into
     `probe/cli/icons/<registry icon stem>.png`."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     harness = get_registry().find(source)
     if harness is None or not harness.icon:
@@ -280,7 +281,7 @@ def agent_label(sources: tuple[str, ...] | list[str] | str) -> str:
 
 def instruction_files(sources: tuple[str, ...] | list[str] | str) -> str:
     """Name the real global instruction files for the selected agents."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     normalized = (sources,) if isinstance(sources, str) else tuple(sources)
     names: list[str] = []
@@ -2601,7 +2602,7 @@ def daemon_availability(base_url: str | None = None) -> "tuple[bool | None, str 
     import threading
 
     try:
-        from probe.sdk.config import resolve
+        from probe.sdk.settings.settings import resolve
 
         settings = resolve(base_url=base_url) if base_url else resolve()
     except Exception:  # noqa: BLE001 - an unreadable config is "cannot tell"
@@ -2612,8 +2613,8 @@ def daemon_availability(base_url: str | None = None) -> "tuple[bool | None, str 
 
     def ask() -> None:
         try:
-            from probe.sdk.surface import Surface
-            from probe.sdk.transport import Transport
+            from probe.foundation.request_identity.surface import Surface
+            from probe.sdk.delivery.transport.transport import Transport
 
             transport = Transport(settings, max_retries=0, surface=Surface.CLI.value)
             try:
@@ -2643,7 +2644,7 @@ def daemon_availability(base_url: str | None = None) -> "tuple[bool | None, str 
 
 def companion_token_held() -> bool:
     """Whether this context already holds the daemon's credential."""
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     try:
         return bool((load_context() or {}).get("companion_token"))
@@ -2762,11 +2763,12 @@ def write_paired_capture_token(source: str, token: str, base_url: str) -> None:
 
 
 def write_capture_credential(source: str, token: str, base_url: str) -> None:
-    """Where `authorize` would put one agent's capture credential. claude_code:
-    the CLI config's `ingest_token` (its hooks read that); every other agent:
-    its tap folder's `.token` (`write_paired_capture_token`). Raises OSError."""
-    if source == "claude_code":
-        from probe.sdk.config import save_context
+    """Where `authorize` would put one agent's capture credential. claude_code
+    (`consumes_cli_capture_token`): the CLI config's `ingest_token` (its hooks
+    read that); every other agent: its tap folder's `.token`
+    (`write_paired_capture_token`). Raises OSError."""
+    if consumes_cli_capture_token(source):
+        from probe.sdk.settings.settings import save_context
 
         save_context({"ingest_token": token})
         return
@@ -2806,8 +2808,8 @@ def authorize(
     them disabled until installation is confirmed. Existing disabled markers
     are preserved, and a declined authorization writes no marker.
     """
-    from probe.sdk.config import resolve, save_context
-    from probe.sdk.device import (
+    from probe.sdk.settings.settings import resolve, save_context
+    from probe.sdk.settings.device import (
         DeviceLoginError,
         OnboardingRequired,
         capture_credentials_by_source,
@@ -3209,7 +3211,7 @@ LEAN_SETTINGS_FILTER = "settings-filter"
 def live_daemon_sessions() -> int:
     """How many sessions the daemon records for (the lean plugin's `<sid>.profile`
     mark) have a worker running right now."""
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
     from probe.sdk import session_marker
 
     try:
@@ -3230,7 +3232,7 @@ def live_daemon_sessions() -> int:
 
 def revoke_companion(base_url: str) -> list[str]:
     """Release the Probe daemon's key and forget it. Best-effort, like every revoke."""
-    from probe.sdk.config import load_context, save_context
+    from probe.sdk.settings.settings import load_context, save_context
 
     token = str((load_context() or {}).get("companion_token") or "")
     if not token:
@@ -3242,7 +3244,7 @@ def revoke_companion(base_url: str) -> list[str]:
 
 def _forget_recorder(source: str) -> list[str]:
     from probe.sdk import session_marker
-    from probe.sdk.config import ConfigUnreadable
+    from probe.sdk.settings.settings import ConfigUnreadable
 
     try:
         session_marker.write_recorder(source, session_marker.RECORDER_AGENT)
@@ -3258,8 +3260,8 @@ def _instruction_file_lock(path):
     as present could write the note back the moment after an opt-out removed
     both, and report nothing.
     """
-    from probe.cli.team_note_file import instruction_lock_path
-    from probe.sdk.durable import file_lock
+    from probe.shared.notes.team_note.render import instruction_lock_path
+    from probe.foundation.durable.durable import file_lock
 
     return file_lock(instruction_lock_path(path))
 
@@ -3338,7 +3340,7 @@ def needs_capture_pairing(source: str) -> bool:
     """A settings-entry daemon profile (pi) whose agent holds no capture token
     of its own yet: the switch pairs it first (`pair_capture`), OUTSIDE the
     switch's spinner, because the approval prints a link to open."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     harness = get_registry().get(source)
     return harness.lean_profile == LEAN_SETTINGS_FILTER and not capture_token_sources(source)
@@ -3365,9 +3367,9 @@ def mint_from_sign_in(grant: str, *, base_url: str, source: str | None = None) -
     than staying live and unheld.
     """
     from probe.sdk import errors
-    from probe.sdk.client import Client
-    from probe.sdk.config import load_context, resolve
-    from probe.sdk.surface import Surface
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import load_context, resolve
+    from probe.foundation.request_identity.surface import Surface
 
     settings = resolve(base_url=base_url)
     try:
@@ -3409,7 +3411,7 @@ def pair_capture(source: str, *, base_url: str, open_browser: bool = True, sign_
     agent's folder goes too."""
     from probe.cli.capabilities import agent_target
     from probe.cli.capture import clear_stray_pi_killswitch
-    from probe._shared.telemetry import DESKTOP_HUMAN_ENV
+    from probe.analytics.analytics import DESKTOP_HUMAN_ENV
 
     desktop = os.environ.get(DESKTOP_HUMAN_ENV) == "1"
 
@@ -3445,7 +3447,7 @@ def daemon_package_ready(source: str) -> _Ready:
     agent's own capture token, and a switch that then stopped here would leave
     the agent capturing on agent, which it did not do before.
     """
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     label = agent_label(source)
     lines: list[str] = []
@@ -3518,9 +3520,9 @@ def apply_recorder(caps: Capabilities, value: str, *, base_url: str, rules: bool
     has happened and what did not follow is named with its fix.
     """
     from probe.sdk import session_marker
-    from probe.sdk.config import ConfigUnreadable
+    from probe.sdk.settings.settings import ConfigUnreadable
 
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     source = caps.agent_source
     label = agent_label(source)
@@ -3567,7 +3569,7 @@ def apply_recorder(caps: Capabilities, value: str, *, base_url: str, rules: bool
     else:
         want, drop = TRACKING_PLUGIN_NAME, DAEMON_PLUGIN_NAME
     if by_settings:
-        from probe.cli import pi_config
+        from probe.shared.harness.harnesses import pi as pi_config
 
         result = pi_config.set_profile(daemon)
         if not result.ok:
@@ -3635,7 +3637,7 @@ def apply_recorder(caps: Capabilities, value: str, *, base_url: str, rules: bool
     if daemon and source == "codex":
         # The wizard wrote Codex's MCP table itself; left behind, the MCP's tools
         # and instructions would still reach an agent the daemon reads for.
-        from probe.cli import codex_config
+        from probe.shared.harness.harnesses.codex import config as codex_config
 
         try:
             codex_config.remove_mcp_server(TRACKING_PLUGIN_NAME)
@@ -3675,7 +3677,7 @@ def _reuse_approval_for_codex_mcp(notes: list[str]) -> bool:
     plugin manifest to read the URL from, an unparseable config -- because the
     OAuth flow below still works and a slower install beats a wrong one.
     """
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     try:
         token = (load_context() or {}).get("mcp_token")
@@ -3709,7 +3711,7 @@ def _reuse_approval_for_codex_mcp(notes: list[str]) -> bool:
 
 def current_mcp_token() -> str | None:
     """The read token this device holds, or None."""
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     try:
         return (load_context() or {}).get("mcp_token") or None
@@ -3723,8 +3725,9 @@ def _record_login_account(base_url: str | None, token: str, ingest_token: str | 
     follow a later same-account re-login and waited forever. One `/v1/me`,
     5 s, best-effort: the wizard goes on either way."""
     try:
-        from probe.sdk.config import Settings, resolve, save_context
-        from probe.sdk.journal import _identity_of, credential_fingerprint, record_account
+        from probe.sdk.settings.settings import Settings, resolve, save_context
+        from probe.sdk.delivery.outbox.drain.credentials import _identity_of, credential_fingerprint
+        from probe.sdk.delivery.outbox.drain.accounts import record_account
 
         who = _identity_of(Settings(base_url=base_url or resolve().base_url, token=token))
         if who is None:
@@ -3743,7 +3746,7 @@ def _context_base_url() -> str:
     thing to compare the Codex endpoint against: the two values were written by
     one `save_context` call and describe one account.
     """
-    from probe.sdk.config import DEFAULT_BASE_URL, load_context
+    from probe.sdk.settings.settings import DEFAULT_BASE_URL, load_context
 
     try:
         return str((load_context() or {}).get("base_url") or DEFAULT_BASE_URL)
@@ -3769,7 +3772,7 @@ def _same_deployment(mcp_url: str, base_url: str) -> bool:
     crossing that involves production, which is the one with a blast radius
     beyond the person who configured it.
     """
-    from probe.sdk.config import DEFAULT_BASE_URL
+    from probe.sdk.settings.settings import DEFAULT_BASE_URL
 
     mcp_is_stock = urlparse(mcp_url).netloc == urlparse(codex_config.PRODUCTION_MCP_URL).netloc
     api_is_stock = urlparse(base_url).netloc == urlparse(DEFAULT_BASE_URL).netloc
@@ -3808,7 +3811,7 @@ def codex_mcp_token_drifted() -> bool:
 def mcp_token_drifted() -> bool:
     """Any agent-held copy of the read token (Codex's config, Kimi Code's
     installed manifest) differs from the one this device holds."""
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     return codex_mcp_token_drifted() or kimi_config.mcp_bearer_drifted()
 
@@ -3818,7 +3821,7 @@ def sync_mcp_token() -> list[str]:
     Codex's config.toml and Kimi Code's installed manifest. The one call every
     token replacement makes (`authorize()`, `probe mcp token set`, the wizard's
     drift repair), so no copy is left answering 401."""
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     return [*sync_codex_mcp_token(), *kimi_config.sync_mcp_bearer()]
 
@@ -3917,7 +3920,7 @@ def _sync_codex_limit_only() -> list[str]:
 
     With no user-level table at all -- the plugin's own OAuth declaration -- nothing
     is written (it would shadow that sign-in): while limited, CODEX_UNLIMITED_NOTICE."""
-    from probe.sdk.workspace_limit import stored_headers
+    from probe.sdk.settings.workspace_limit import stored_headers
 
     url = codex_config.plugin_mcp_url(CODEX_MCP_NAME, marketplace=MARKETPLACE)
     if not url or not _same_deployment(url, _context_base_url()):
@@ -3942,7 +3945,7 @@ def _sync_codex_limit_only() -> list[str]:
 def _codex_limit_drifted() -> bool:
     """Codex's table carries other workspace-limit headers than the Probe config
     stores now. False when there is nothing to compare."""
-    from probe.sdk.workspace_limit import stored_headers
+    from probe.sdk.settings.workspace_limit import stored_headers
 
     try:
         configured = codex_config.configured_limit_headers(CODEX_MCP_NAME)
@@ -3987,7 +3990,7 @@ def codex_hooks_waiting() -> bool:
     Probe may give (`codex_hooks.waiting`, `approve`'s own rule). Asks Codex
     (one app-server start, ~0.2s, at most STATUS_TIMEOUT_S) only where a Probe
     plugin copy is in Codex's cache."""
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 
     try:
         if not codex_hooks.installed_copies():
@@ -4007,7 +4010,7 @@ def approve_codex_hooks(only: frozenset[str] | None = None) -> tuple[list[str], 
     plugins' hooks are approved (`codex_hooks.approvable`). Never a failure line:
     a hook left waiting is what `/hooks` already fixes, so the line names it
     instead of failing the install."""
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 
     try:
         outcome = codex_hooks.approve(only=only)
@@ -4054,7 +4057,7 @@ def apply_auto_update(want: bool) -> list[str]:
 def statusline_installed() -> bool:
     """Whether the tracking segment is already in the agent's status line."""
     try:
-        from probe.cli import statusline
+        from probe.shared.harness.harnesses.claude_code import statusline
 
         return bool(statusline.status().get("installed"))
     except Exception:  # noqa: BLE001 - a probe that fails must not block the wizard
@@ -4074,7 +4077,7 @@ def apply_statusline() -> list[str]:
     and `probe statusline uninstall` restores it exactly. Failure is reported and
     never fatal -- a status line is not worth failing an install over.
     """
-    from probe.cli import statusline
+    from probe.shared.harness.harnesses.claude_code import statusline
 
     source = agent_source()
     root = statusline.discover_plugin_root(source)
@@ -4097,7 +4100,7 @@ def apply_statusline() -> list[str]:
 def statusline_catch_up_due(source: str | None) -> bool:
     """The one-time footer catch-up would do something now: owed, not already
     there, and the plugin it renders from is on disk."""
-    from probe.cli import statusline
+    from probe.shared.harness.harnesses.claude_code import statusline
 
     if not source or not statusline.catch_up_owed(source):
         return False
@@ -4113,7 +4116,7 @@ def catch_up_statusline(source: str | None = None) -> list[str]:
     machine without it. Once per agent (`statusline.mark_caught_up`): whatever
     happens here, a later uninstall is never undone. Not once the plugin is
     missing from disk (a later run tries again)."""
-    from probe.cli import statusline
+    from probe.shared.harness.harnesses.claude_code import statusline
     from probe.cli.capabilities import agent_target
 
     selected = source or agent_source()
@@ -4135,7 +4138,7 @@ def remove_statusline() -> list[str]:
     """Take the tracking segment out of Claude Code's status line, restoring
     exactly what it wrapped: Uninstall's half of `apply_statusline` (R3). Left
     behind, the status line keeps running a renderer nobody maintains."""
-    from probe.cli import statusline
+    from probe.shared.harness.harnesses.claude_code import statusline
 
     source = agent_source()
     try:
@@ -4166,10 +4169,10 @@ def seed_team_note_block() -> list[str]:
     that cannot reach the API must still install everything else.
     """
     try:
-        from probe.cli import team_note_file
-        from probe.sdk.client import Client
-        from probe.sdk.config import resolve
-        from probe.sdk.surface import Surface
+        from probe.shared.notes import team_note as team_note_file
+        from probe.sdk.client.client import Client
+        from probe.sdk.settings.settings import resolve
+        from probe.foundation.request_identity.surface import Surface
 
         settings = resolve()
         if not getattr(settings, "token", None):
@@ -4195,7 +4198,7 @@ def seed_team_note_block() -> list[str]:
 
 def _current_harness():
     """The registry row of the agent this wizard run configures."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     return get_registry().get(agent_source())
 
@@ -4925,7 +4928,7 @@ def describe_versions(caps: Capabilities) -> list[str]:
     The rows around this one say what is switched ON. None of them say whether
     what is switched on is the version we publish, and until now the only surface
     that did was `probe doctor` -- a command you have to already suspect
-    something to run. The comparison is the same one (`probe.cli.versions`), so
+    something to run. The comparison is the same one (`probe.shared.updates.updates`), so
     the two can disagree only by being differently WORDED, never differently
     graded.
 
@@ -5152,7 +5155,7 @@ def saved_accounts() -> list[SavedAccount]:
     config.load_file -- because for them the same shrug would overwrite the
     file.)
     """
-    from probe.sdk.config import DEFAULT_CONTEXT, load_file
+    from probe.sdk.settings.settings import DEFAULT_CONTEXT, load_file
 
     data = load_file()
     contexts = data.get("contexts")
@@ -5177,9 +5180,9 @@ def account_email(base_url: str | None = None) -> str | None:
     nice to have, never load-bearing, and an offline laptop must still be able
     to finish the flow.
     """
-    from probe.sdk.client import Client
-    from probe.sdk.surface import Surface
-    from probe.sdk.config import resolve
+    from probe.sdk.client.client import Client
+    from probe.foundation.request_identity.surface import Surface
+    from probe.sdk.settings.settings import resolve
 
     settings = resolve(base_url=base_url)
     if not settings.token:
@@ -5706,7 +5709,7 @@ def apply_settings(
     while the capability stayed off. `_run_settings_action` owns that route.
     """
     from probe.sdk import session_marker
-    from probe.sdk.config import ConfigUnreadable
+    from probe.sdk.settings.settings import ConfigUnreadable
 
     lines: list[str] = []
     for setting, value in changes.items():
@@ -6192,7 +6195,7 @@ class ConsentView(StrEnum):
 #: device's sign-in (`main._authorize_companion`) never opens the browser
 #: approval, so these are the SAME words that page shows a daemon-only request:
 #: `CONSENT_SUMMARY` and `GRANT_COPY[ApiGrant.Companion]` in
-#: dashboard/src/lib/scopes.ts. `agent/tests/test_consent_copy_sync.py` holds
+#: dashboard/src/shared/domain/permissions/scopes.ts. `agent/tests/test_consent_copy_sync.py` holds
 #: the two copies equal; change them together.
 DAEMON_CONSENT_LEAD = "It will be able to:"
 DAEMON_CONSENT_SUMMARY: tuple[str, ...] = (
@@ -6567,9 +6570,9 @@ def _revoke(token: str, *, base_url: str, what: str) -> list[str]:
     rotation we cannot prove.
     """
     from probe.sdk import errors
-    from probe.sdk.client import Client
-    from probe.sdk.surface import Surface
-    from probe.sdk.config import Settings, resolve
+    from probe.sdk.client.client import Client
+    from probe.foundation.request_identity.surface import Surface
+    from probe.sdk.settings.settings import Settings, resolve
 
     endpoint = base_url or resolve().base_url
     try:
@@ -6805,7 +6808,7 @@ def sign_in(
     sources in this same approval; those credentials remain disabled until the
     install confirmation. An environment-only credential is left to its owner.
     """
-    from probe.sdk.config import current_context_name, load_context
+    from probe.sdk.settings.settings import current_context_name, load_context
 
     # The FILE, not `resolve()`: an exported PROBE_TOKEN belongs to whoever
     # exported it (CI, a colleague's shell profile) and is not ours to revoke.
@@ -6903,7 +6906,7 @@ def release_credentials() -> list[str]:
     better off, never worse: revoke while we still hold the secret, and clear
     the disk even when the network call did not land.
     """
-    from probe.sdk.config import clear_context, current_context_name, load_context
+    from probe.sdk.settings.settings import clear_context, current_context_name, load_context
 
     context = current_context_name()
     stored = load_context()
@@ -7020,7 +7023,7 @@ def remove_account(name: str) -> list[str]:
     """Delete a saved account that is NOT the active one (`probe context delete`
     before it was removed). The active one leaves by Sign out, which also
     revokes its token and stops capture."""
-    from probe.sdk.config import delete_context
+    from probe.sdk.settings.settings import delete_context
 
     if next((a for a in saved_accounts() if a.name == name and not a.active), None) is None:
         return [f"No other account is saved as “{name}”; nothing was removed."]
@@ -7038,7 +7041,7 @@ def switch_account(
     need a browser round trip to move between credentials this machine already
     holds.
     """
-    from probe.sdk.config import DEFAULT_BASE_URL, load_context, resolve, use_context
+    from probe.sdk.settings.settings import DEFAULT_BASE_URL, load_context, resolve, use_context
 
     use_context(name)
     stored = load_context(name)
@@ -7108,7 +7111,7 @@ def remove_everything(caps: Capabilities) -> list[str]:
     if caps.agent_source in reasoning_summaries.SOURCES:
         messages.extend(reasoning_summaries.undo_for_agent(caps.agent_source))
 
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     if get_registry().get(caps.agent_source).statusline:
         messages.extend(remove_statusline())
@@ -7260,7 +7263,7 @@ def restart_notice(
     # re-run Install). "Restart Claude Code" about a Claude that is not on
     # the machine reads as success guidance for work that never ran.
     if caps.agent_source == plugin_cli.KIMI:
-        from probe.cli import kimi_config
+        from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
         if not kimi_config.binary_available():
             return []

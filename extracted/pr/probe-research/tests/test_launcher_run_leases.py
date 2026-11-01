@@ -28,7 +28,8 @@ import time
 import pytest
 
 from probe import cli
-from probe.sdk import fluent, outputs
+from probe.sdk import fluent
+from probe.sdk.capture import outputs
 from tests.conftest import make_client
 
 
@@ -105,7 +106,7 @@ def _now() -> str:
     date months away from wall-clock time."""
     from datetime import datetime
 
-    from probe._compat import UTC
+    from probe.foundation.compat.compat import UTC
 
     return datetime.now(UTC).isoformat()
 
@@ -381,7 +382,7 @@ def test_a_requeue_after_the_sigterm_close_continues_the_preempted_run(
 def reporter(app, monkeypatch, tmp_path):
     """The output helper's client, pointed at the fake (test_writer_gone.py)."""
     client = make_client(app, tmp_spool=tmp_path / "helper-spool")
-    monkeypatch.setattr(outputs, "_recovery_client", lambda record: (client, client.journal))
+    monkeypatch.setattr(outputs.recovery, "_recovery_client", lambda record: (client, client.journal))
     return client
 
 

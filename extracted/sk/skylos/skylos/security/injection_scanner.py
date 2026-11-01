@@ -28,6 +28,8 @@ MAX_SCANNABLE_FILE_BYTES = 1_000_000
 MAX_FINDINGS_PER_FILE = 128
 MAX_SCAN_FILES = 512
 MAX_SCAN_FINDINGS = 1024
+MAX_PATTERN_EVIDENCE = 16
+MAX_PATTERN_TEXT_CHARS = 240
 
 _DETERMINERS = r"(?:(?:all|the|your|any|every|those|these|my|our|their)\s+)*"
 _CREDENTIAL_TOKEN_KINDS = (
@@ -46,6 +48,24 @@ _CLAUSE_START = (
     r"|\b(?:please|then|now|also|just|always|must|should|shall|will|can|could"
     r"|would|may|might|to|you|(?<!input\s)and)\s+)"
 )
+_SKIP_DIRECTIVE_RE = re.compile(
+    r"skip\s+(security|analysis|review|scanning|checks?)\b", re.I
+)
+_COMPOUND_CHECK_SUBJECT_RE = re.compile(
+    r"(?:^|[.!?\n\"'])[ \t]*(?:[-*+][ \t]+)?"
+    r"(?:the|a|an|this|that|these|those)[ \t]+"
+    r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*-$",
+    re.I,
+)
+_CHECK_VERIFICATION_RE = {
+    "check": re.compile(
+        r"\s{1,16}(?:now\s{1,16})?(?:verifies|validates|confirms|ensures)\b", re.I
+    ),
+    "checks": re.compile(
+        r"\s{1,16}(?:now\s{1,16})?(?:verify|validate|confirm|ensure)\b", re.I
+    ),
+}
+_COMPOUND_CHECK_PREFIX_CHARS = 192
 
 _PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"ignore\s+(all\s+)?previous\s+instructions?", re.I), "HIGH"),
@@ -66,10 +86,7 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"pretend\s+(you\s+are|to\s+be)\b", re.I), "HIGH"),
     (re.compile(r"new\s+instructions?:\s", re.I), "HIGH"),
     (re.compile(r"do\s+not\s+(flag|report|detect|scan|warn|alert)\b", re.I), "MEDIUM"),
-    (
-        re.compile(r"skip\s+(security|analysis|review|scanning|checks?)\b", re.I),
-        "MEDIUM",
-    ),
+    (_SKIP_DIRECTIVE_RE, "MEDIUM"),
     (re.compile(r"approve\s+all\s+(changes?|code|commits?)\b", re.I), "MEDIUM"),
     (re.compile(r"mark\s+(this|all|everything)\s+(as\s+)?safe\b", re.I), "MEDIUM"),
     (
@@ -133,6 +150,66 @@ _PROMPT_KEYS_RE = re.compile(
     r"""(?:\s*[:=]|"|')""",
     re.I,
 )
+
+
+def _pattern_matches(pattern: re.Pattern, text: str):
+    """Keep individual directives, excluding a narrow descriptive noun shape."""
+    for match in pattern.finditer(text):
+        if pattern is _SKIP_DIRECTIVE_RE:
+            predicate = _CHECK_VERIFICATION_RE.get(match.group(1).lower())
+            if (
+                predicate is not None
+                and _COMPOUND_CHECK_SUBJECT_RE.search(
+                    text,
+                    max(0, match.start() - _COMPOUND_CHECK_PREFIX_CHARS),
+                    match.start(),
+                )
+                and predicate.match(text, match.end())
+            ):
+                continue
+        yield match
+
+
+def _instruction_pattern_evidence(
+    text: str, segment_type: str, line_no: int, primary: re.Pattern
+) -> dict:
+    """Describe the matched instructions without treating their context as safe.
+
+    Offsets refer to extracted, normalized text. Config decoders and comment
+    trimming can change line layout, so they are not claimed as source lines.
+    """
+    signals = []
+    complete = True
+    patterns = sorted(_PATTERNS, key=lambda item: item[0] is not primary)
+    for pattern, severity in patterns:
+        for match in _pattern_matches(pattern, text):
+            if len(signals) >= MAX_PATTERN_EVIDENCE:
+                complete = False
+                break
+            end = text.find("\n", match.end())
+            if end < 0:
+                end = len(text)
+            context = text[
+                match.start() : min(end, match.start() + MAX_PATTERN_TEXT_CHARS)
+            ].strip()
+            signals.append(
+                {
+                    "matched_text": match.group()[:MAX_PATTERN_TEXT_CHARS],
+                    "matched_text_truncated": len(match.group()) > MAX_PATTERN_TEXT_CHARS,
+                    "context": context,
+                    "base_severity": severity,
+                    "line_offset_in_extracted_text": text.count("\n", 0, match.start()),
+                }
+            )
+        if not complete:
+            break
+    return {
+        "segment_type": segment_type,
+        "segment_start_line": line_no,
+        "normalization": "NFKC and horizontal whitespace",
+        "signals": signals,
+        "complete": complete,
+    }
 
 
 def scan_file(
@@ -266,14 +343,24 @@ def scan_file(
 
     is_high_risk_file = basename.lower() in _HIGH_RISK_FILENAMES
     seen_findings: set[tuple[int, str]] = set()
+    pattern_finding_indices: dict[tuple[int, str], int] = {}
+    severity_order = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
 
     for text, line_no, segment_type in segments:
         normalized = normalize(text)
 
-        for pattern, base_severity in _PATTERNS:
+        # A broad medium signal must not mask a higher-risk instruction later
+        # in the same text merely because its regex appears first in the list.
+        matched_patterns = [
+            (pattern, severity)
+            for pattern, severity in _PATTERNS
+            if next(_pattern_matches(pattern, normalized), None) is not None
+        ]
+        matched_patterns.sort(key=lambda item: severity_order[item[1]], reverse=True)
+        for pattern, base_severity in matched_patterns:
             if high_only and base_severity != "HIGH":
                 continue
-            if pattern.search(normalized):
+            if next(_pattern_matches(pattern, normalized), None) is not None:
                 severity = _adjust_severity(
                     base_severity, segment_type, is_high_risk_file
                 )
@@ -290,26 +377,42 @@ def scan_file(
 
                 dedup_key = (line_no, finding_type)
                 if dedup_key in seen_findings:
-                    break
+                    previous_index = pattern_finding_indices.get(dedup_key)
+                    if (
+                        previous_index is None
+                        or severity_order[findings[previous_index]["severity"]]
+                        >= severity_order[severity]
+                    ):
+                        break
+                else:
+                    previous_index = None
                 seen_findings.add(dedup_key)
 
-                snippet = text.strip()[:100]
-                if len(text.strip()) > 100:
+                pattern_evidence = _instruction_pattern_evidence(
+                    normalized, segment_type, line_no, pattern
+                )
+                matched_context = pattern_evidence["signals"][0]["context"]
+                snippet = matched_context[:100]
+                if len(matched_context) > 100:
                     snippet += "..."
 
-                findings.append(
-                    _make_finding(
-                        filepath,
-                        line_no,
-                        finding_type,
-                        severity,
-                        "prompt_injection",
-                        "prompt_injection",
-                        f"Prompt injection pattern in {segment_type}: '{snippet}'. "
-                        f"This may attempt to manipulate AI agents processing this content.",
-                        rule_id=rule_id,
-                    )
+                finding = _make_finding(
+                    filepath,
+                    line_no,
+                    finding_type,
+                    severity,
+                    "prompt_injection",
+                    "prompt_injection",
+                    f"Prompt injection pattern in {segment_type}: '{snippet}'. "
+                    f"This may attempt to manipulate AI agents processing this content.",
+                    rule_id=rule_id,
                 )
+                finding["metadata"] = {"instruction_pattern": pattern_evidence}
+                if previous_index is None:
+                    pattern_finding_indices[dedup_key] = len(findings)
+                    findings.append(finding)
+                else:
+                    findings[previous_index] = finding
                 if len(findings) >= MAX_FINDINGS_PER_FILE:
                     return findings
                 break
@@ -318,7 +421,7 @@ def scan_file(
     for decoded_text, line_no in decoded_blobs:
         normalized = normalize(decoded_text)
         for pattern, base_severity in _PATTERNS:
-            if pattern.search(normalized):
+            if next(_pattern_matches(pattern, normalized), None) is not None:
                 snippet = decoded_text.strip()[:80]
                 payload_severity, payload_rule = high_signal("HIGH")
                 findings.append(

@@ -21,13 +21,13 @@ import tarfile
 
 import pytest
 
-from probe.sdk.snapshot import (
+from probe.sdk.capture.code.code import (
     SnapshotError,
+    is_inside_tree)
+from probe.sdk.capture.code.archive import (
     _HashingReader,
-    build_pending_archive,
-    capture_manifest,
-    is_inside_tree,
-)
+    build_pending_archive)
+from probe.sdk.capture.code.sources.git import capture_manifest
 from tests.test_snapshot_upload import _members
 
 
@@ -143,7 +143,7 @@ def test_a_same_size_edit_between_the_verify_pass_and_the_stream_is_rebuilt_once
 
 
 def test_a_tree_that_will_not_hold_still_raises_after_one_rebuild(repo, tmp_path, monkeypatch):
-    import probe.sdk.snapshot as _snapshot_mod
+    import probe.sdk.capture.code as _snapshot_mod
 
     manifest = capture_manifest(str(repo))
     calls = {"n": 0}
@@ -155,7 +155,7 @@ def test_a_tree_that_will_not_hold_still_raises_after_one_rebuild(repo, tmp_path
             raise _snapshot_mod._ChangedUnderStream(entry["path"])
         return real(archive, cwd, entry)
 
-    monkeypatch.setattr(_snapshot_mod, "_archive_entry", always_changing)
+    monkeypatch.setattr(_snapshot_mod.archive, "_archive_entry", always_changing)
     dest = tmp_path / "code.tar.gz"
     with pytest.raises(SnapshotError, match="re-run the snapshot"):
         build_pending_archive(str(repo), manifest, str(dest))
@@ -180,7 +180,7 @@ def test_a_regular_file_swapped_for_a_fifo_is_changed_and_never_blocks(repo, tmp
 
 def test_a_symlink_swapped_in_between_lstat_and_open_is_changed(repo, tmp_path, monkeypatch):
     """O_NOFOLLOW: the race the lstat cannot close is closed on the descriptor."""
-    import probe.sdk.snapshot as _snapshot_mod
+    import probe.sdk.capture.code as _snapshot_mod
 
     manifest = capture_manifest(str(repo))
     real_lstat = os.lstat
@@ -198,7 +198,7 @@ def test_a_symlink_swapped_in_between_lstat_and_open_is_changed(repo, tmp_path, 
 
 
 def test_a_file_that_vanishes_between_lstat_and_open_is_missing(repo, tmp_path, monkeypatch):
-    import probe.sdk.snapshot as _snapshot_mod
+    import probe.sdk.capture.code as _snapshot_mod
 
     manifest = capture_manifest(str(repo))
     real_lstat = os.lstat
@@ -345,7 +345,7 @@ def _archive_with(tmp_path, members: dict[str, bytes]):
 def test_restore_never_writes_through_a_symlinked_parent(tmp_path):
     """Found by review: entry `a -> /outside` then `a/victim.txt` made makedirs
     follow the link and unlink+overwrite a file outside the destination."""
-    from probe.sdk.restore import restore_snapshot
+    from probe.sdk.run.readback.restore import restore_snapshot
 
     outside = tmp_path / "outside"
     outside.mkdir()
@@ -368,7 +368,7 @@ def test_restore_never_writes_through_a_symlinked_parent(tmp_path):
 
 
 def test_restore_refuses_a_member_larger_than_the_manifest_says(tmp_path):
-    from probe.sdk.restore import restore_snapshot
+    from probe.sdk.run.readback.restore import restore_snapshot
 
     small = b"x\n"
     manifest = {
@@ -384,7 +384,7 @@ def test_restore_refuses_a_member_larger_than_the_manifest_says(tmp_path):
 
 
 def test_restore_refuses_a_malformed_manifest_before_touching_disk(tmp_path):
-    from probe.sdk.restore import RestoreError, restore_snapshot
+    from probe.sdk.run.readback.restore import RestoreError, restore_snapshot
 
     manifest = {"entries": [{"path": "ok.py", "mode": "100644", "sha256": "0" * 64, "size": 0}, {"path": "broken"}]}
     dest = tmp_path / "dest"

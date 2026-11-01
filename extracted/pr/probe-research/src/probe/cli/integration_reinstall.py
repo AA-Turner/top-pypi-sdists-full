@@ -14,11 +14,15 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from probe.cli import capabilities, claude_cli, codex_config, pi_config, plugin_cli
+from probe.cli import capabilities
+from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+from probe.shared.harness.harnesses.codex import config as codex_config
+from probe.shared.harness.harnesses import pi as pi_config
+from probe.shared.harness import plugins as plugin_cli
 from probe.core import events
-from probe.harness import FAMILY_EXTENSION, Harness, get_registry
+from probe.foundation.harness_registry import FAMILY_EXTENSION, Harness, get_registry
 from probe.sdk import session_marker
-from probe.sdk.durable import through_symlink, write_text_atomic
+from probe.foundation.durable.durable import through_symlink, write_text_atomic
 
 _LIMIT = 8192
 #: The hook-plugin harnesses whose settings and plugin ledger this repairs.
@@ -366,7 +370,7 @@ def _pi_repair() -> None:
 def run(sources: tuple[str, ...] | list[str]) -> bool:
     from probe.cli import telemetry
 
-    from probe.sdk.config import resolve
+    from probe.sdk.settings.settings import resolve
 
     tel = telemetry.TelemetryContext.start(via=telemetry.Via.WIZARD, interactive=False,
                                           base_url=resolve().base_url)

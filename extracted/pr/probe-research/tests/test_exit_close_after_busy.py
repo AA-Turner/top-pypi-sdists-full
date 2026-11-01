@@ -70,7 +70,10 @@ def wired(app, tmp_path, monkeypatch):
     def factory(*_a, **_kw):
         return make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True)
 
-    monkeypatch.setattr(fluent, "Client", factory)
+    monkeypatch.setattr(fluent.fluent, "Client", factory)
+    monkeypatch.setattr(fluent.attach, "Client", factory)
+    monkeypatch.setattr(fluent.bindings, "Client", factory)
+    monkeypatch.setattr(fluent.run_openers.online, "Client", factory)
     app.seed_experiment("e1")
 
 

@@ -36,6 +36,100 @@ def _readonly_array(value, dtype):
     return array
 
 
+# Span arrays that a checkpoint may move to disk once committed.
+_SPAN_ARRAYS = (
+    "logprobs",
+    "sampler_topk_ids",
+    "sampler_topk_logprobs",
+    "sampling_log_masses",
+)
+
+
+class _Spilled:
+    """A read-only array stored in a checkpoint segment and read on access.
+
+    ``holder`` names the segment record and reads from it; ``offset`` is
+    relative to that record, so compaction can move the record by updating
+    only the holder.
+    """
+
+    __slots__ = ("holder", "offset", "shape", "dtype")
+
+    def __init__(self, holder, offset, shape, dtype):
+        self.holder, self.offset = holder, offset
+        self.shape, self.dtype = tuple(shape), np.dtype(dtype)
+
+    def __len__(self):
+        return self.shape[0]
+
+    @property
+    def nbytes(self):
+        return math.prod(self.shape) * self.dtype.itemsize
+
+    def read(self):
+        return self.holder.read([self])[0]
+
+    def __array__(self, dtype=None, copy=None):
+        array = self.read()
+        return array if dtype is None else array.astype(dtype)
+
+    def __deepcopy__(self, memo):
+        # The stored bytes never change; copies share them.
+        return self
+
+    def __reduce__(self):
+        return self.read().__reduce__()
+
+    def __repr__(self):
+        return f"_Spilled(shape={self.shape}, dtype={self.dtype.str})"
+
+
+def _materialized(value):
+    return value.read() if isinstance(value, _Spilled) else value
+
+
+def _read_spans(spans, *, topk):
+    """Return private copies of ``spans`` with spilled arrays read.
+
+    Each segment record is read once. Positions line up with ``spans``.
+    Top-K candidates are read only if ``topk``.
+    """
+    names = _SPAN_ARRAYS if topk else ("logprobs", "sampling_log_masses")
+    # A committing save may spill arrays concurrently: use one snapshot each.
+    snapshots = [
+        (dict(span.__dict__), [dict(c) for c in span._chunks]) for span in spans
+    ]
+    wanted = {}
+    for values, chunks in snapshots:
+        for value in (
+            *(values[name] for name in names),
+            *(c["tokens"] for c in chunks if c["type"] == "text"),
+        ):
+            if isinstance(value, _Spilled):
+                wanted.setdefault(value.holder, []).append(value)
+    arrays = {}
+    for holder, values in wanted.items():
+        arrays.update(zip(map(id, values), holder.read(values), strict=True))
+
+    def resolved(value):
+        return arrays.get(id(value), value) if isinstance(value, _Spilled) else value
+
+    # Copies built from the snapshots, even of spans with nothing spilled yet:
+    # a commit may replace a live span's arrays while the caller uses them.
+    result = []
+    for values, chunks in snapshots:
+        for name in names:
+            values[name] = resolved(values[name])
+        values["_chunks"] = tuple(
+            {**c, "tokens": resolved(c["tokens"])} if c["type"] == "text" else c
+            for c in chunks
+        )
+        span = object.__new__(Span)
+        span.__dict__.update(values)
+        result.append(span)
+    return result
+
+
 def encode_state(value):
     """Encode image handles and bytes without copying numeric arrays."""
     if isinstance(value, ImageHandle):
@@ -178,9 +272,17 @@ class Span:
                 raise ValueError(
                     "top-k arrays must have matching [generated tokens, K] shapes"
                 )
-            # Never narrow caller-supplied IDs; wire/checkpoint arrays are int32.
-            if ids.dtype.kind not in "iu" or not np.can_cast(
-                ids.dtype, np.int32, casting="safe"
+            # Never narrow caller-supplied ID arrays; wire/checkpoint arrays are
+            # int32. Lists (such as JSON-restored state) carry no dtype, so they
+            # convert when every value fits.
+            limits = np.iinfo(np.int32)
+            if ids.dtype.kind not in "iu" or not (
+                np.can_cast(ids.dtype, np.int32, casting="safe")
+                or (
+                    not isinstance(sampler_topk_ids, np.ndarray)
+                    and limits.min <= ids.min()
+                    and ids.max() <= limits.max
+                )
             ):
                 raise ValueError("top-k ID dtype must convert losslessly to int32")
             head_ids = _readonly_array(ids, np.int32)
@@ -205,14 +307,33 @@ class Span:
             ("routing_num_tokens", routing_num_tokens),
             ("run", run),
         ):
-            object.__setattr__(self, name, value)
+            # Bypass the frozen dataclass and the read-on-access properties.
+            self.__dict__[name] = value
 
     @property
     def chunks(self) -> list[ModelInputChunk]:
         return [
-            {**c, "tokens": c["tokens"].tolist()} if c["type"] == "text" else dict(c)
+            {**c, "tokens": _materialized(c["tokens"]).tolist()}
+            if c["type"] == "text"
+            else dict(c)
             for c in self._chunks
         ]
+
+    def _chunk_arrays(self):
+        return [
+            {**c, "tokens": _materialized(c["tokens"])}
+            if c["type"] == "text"
+            else dict(c)
+            for c in self._chunks
+        ]
+
+    def _with_policy_step(self, policy_step):
+        """Return this span stamped with ``policy_step``, sharing its arrays."""
+        if policy_step < 0:
+            raise ValueError("generated spans require a nonnegative policy_step")
+        span = object.__new__(Span)
+        span.__dict__.update(self.__dict__, policy_step=policy_step)
+        return span
 
     def __len__(self):
         return sum(
@@ -221,24 +342,36 @@ class Span:
         )
 
     def state_dict(self):
+        return self._state(read=True)
+
+    def _state(self, *, read):
+        """Return span state; without ``read``, spilled arrays stay references."""
+        values = self.__dict__
+        array = _materialized if read else (lambda value: value)
         return encode_state(
             {
                 **(
                     {
-                        "sampler_topk_ids": self.sampler_topk_ids,
-                        "sampler_topk_logprobs": self.sampler_topk_logprobs,
+                        "sampler_topk_ids": array(values["sampler_topk_ids"]),
+                        "sampler_topk_logprobs": array(values["sampler_topk_logprobs"]),
                     }
-                    if self.sampler_topk_ids is not None
+                    if values["sampler_topk_ids"] is not None
                     else {}
                 ),
                 **(
-                    {"sampling_log_masses": self.sampling_log_masses}
-                    if self.sampling_log_masses is not None
+                    {"sampling_log_masses": array(values["sampling_log_masses"])}
+                    if values["sampling_log_masses"] is not None
                     else {}
                 ),
                 "kind": self.kind,
-                "chunks": self.chunks,
-                "logprobs": None if self.logprobs is None else self.logprobs.tolist(),
+                # Token and logprob arrays are immutable; share them uncopied.
+                "chunks": [
+                    {**c, "tokens": array(c["tokens"])}
+                    if c["type"] == "text"
+                    else dict(c)
+                    for c in self._chunks
+                ],
+                "logprobs": array(values["logprobs"]),
                 "policy_step": self.policy_step,
                 "retained_kv": self.retained_kv,
                 "routing_handle": self.routing_handle,
@@ -253,6 +386,20 @@ class Span:
                 "run": self.run,
             }
         )
+
+
+def _span_array(name):
+    def get(span):
+        return _materialized(span.__dict__[name])
+
+    return property(get, doc=f"The span's {name} array, read from disk if spilled.")
+
+
+# A checkpoint replaces committed arrays with ``_Spilled`` references to save
+# memory; these properties keep reading them as ordinary arrays.
+for _name in _SPAN_ARRAYS:
+    setattr(Span, _name, _span_array(_name))
+del _name
 
 
 class Trajectory:
@@ -413,6 +560,33 @@ class Trajectory:
         max_staleness: int | None = None,
         requirements: LossRequirements | None = None,
     ) -> list[dict]:
+        """Return one training datum per conditioning run.
+
+        Token ids, attention masks, behavior logprobs, advantages, and
+        sampling log masses are NumPy arrays. Text chunks in ``model_input``
+        share the trajectory's read-only token arrays.
+        """
+        return self._data(
+            advantage,
+            current_step=current_step,
+            max_staleness=max_staleness,
+            requirements=requirements,
+        )[0]
+
+    def _data(
+        self,
+        advantage,
+        *,
+        current_step=None,
+        max_staleness=None,
+        requirements=None,
+        masks=False,
+    ):
+        """Return ``to_data`` datums and, optionally, each datum's loss mask.
+
+        The mask is 1.0 at every position that ``to_data`` would assign an
+        advantage to, independent of the advantage's value.
+        """
         if self.dropped:
             raise ValueError("dropped trajectories cannot enter training")
         if not math.isfinite(advantage):
@@ -426,10 +600,16 @@ class Trajectory:
             type(mask_end) is not int or mask_end < 0  # bool is not an offset
         ):
             raise ValueError("loss_mask_end must be a nonnegative token offset")
-        data = []
+        data, loss_masks = [], []
+        # Read spilled arrays once per segment record rather than per span.
+        all_spans = _read_spans(
+            self._spans,
+            topk=requirements is not None and requirements.top_logprobs is not None,
+        )
+        recovered = {id(s) for s in all_spans[: self._routing_recovery_start]}
         generated_before = 0  # generated tokens in earlier spans, across runs
         for run in range(self.run + 1):
-            spans = [s for s in self._spans if s.run == run]
+            spans = [s for s in all_spans if s.run == run]
             generated = [i for i, s in enumerate(spans) if s.kind == "generated"]
             if not generated:
                 continue
@@ -447,6 +627,7 @@ class Trajectory:
             masses = np.zeros(n, dtype=np.float32) if True in with_masses else None
             old = np.zeros(n, dtype=np.float32)
             adv = np.zeros(n, dtype=np.float32)
+            mask = np.zeros(n, dtype=np.float32) if masks else None
             metadata = {}
             if requirements is not None:
                 if requirements.policy_age:
@@ -516,21 +697,26 @@ class Trajectory:
                         if mask_end is not None:
                             keep = max(0, min(keep, mask_end - generated_before))
                         adv[offset - 1 : offset - 1 + keep] = advantage
+                        if mask is not None:
+                            mask[offset - 1 : offset - 1 + keep] = 1.0
                     generated_before += len(span)
                 offset += len(span)
-            chunks = [c for s in spans for c in s.chunks]
-            datum = {"old_logprobs": old.tolist(), "advantages": adv.tolist()}
+            chunks = [dict(c) for s in spans for c in s._chunks]
+            datum = {"old_logprobs": old, "advantages": adv}
             if masses is not None:
-                datum["sampling_log_masses"] = masses.tolist()
+                datum["sampling_log_masses"] = masses
             if metadata:
                 datum["sampling_metadata"] = metadata
             if any(c["type"] == "image" for c in chunks):
                 datum["model_input"] = chunks
             else:
-                datum["input_ids"] = [t for c in chunks for t in c["tokens"]]
-                datum["attention_mask"] = [1] * n
+                # int64 matches the wire dtype the client gives integer lists.
+                datum["input_ids"] = np.concatenate(
+                    [c["tokens"] for c in chunks], dtype=np.int64
+                )
+                datum["attention_mask"] = np.ones(n, dtype=np.int64)
             last = spans[-1]
-            if any(last is s for s in self._spans[: self._routing_recovery_start]):
+            if id(last) in recovered:
                 datum["_rl_recovered_routing"] = True
             if last.routing_handle is not None:
                 if last.routing_num_tokens != n - 1:
@@ -541,9 +727,16 @@ class Trajectory:
             elif any(s.routing_handle is not None for s in spans):
                 raise ValueError("routing disappeared before the final sampled segment")
             data.append(datum)
-        return data
+            loss_masks.append(mask)
+        return data, loss_masks
 
     def state_dict(self):
+        """Return recoverable state for ``from_state_dict``.
+
+        Token ids, logprobs, and sampler candidates are the span's read-only
+        NumPy arrays, shared rather than copied, so the state is not plain
+        JSON. Checkpoints store these arrays in a binary sidecar.
+        """
         return encode_state(
             {
                 "version": 1,
@@ -575,7 +768,7 @@ class Trajectory:
             ):
                 raise ValueError("invalid trajectory run boundary")
             previous = s.run
-        result = cls(spans[0].chunks, id=state.get("id"))
+        result = cls(list(spans[0]._chunks), id=state.get("id"))
         result.__dict__.update(state)
         result._spans = spans
         return result

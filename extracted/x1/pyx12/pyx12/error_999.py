@@ -20,6 +20,7 @@ import random
 import time
 from typing import Any, TextIO
 
+import pyx12.error_codes
 import pyx12.error_visitor
 import pyx12.segment
 import pyx12.x12file
@@ -116,39 +117,24 @@ class error_999_visitor(pyx12.error_visitor.error_visitor):
         self.wr.Write(gs_seg)
 
     def __get_isa_errors(self, err_isa: Any) -> list[str]:
+        """Build list of TA1 Interchange Note Codes for the err_isa node.
+
+        Top-level err_isa.errors and element-level err_ele.errors carry
+        ISA_* pyx12 codes (post PR 3); dereference via the table.
+        Insertion order is preserved so the first emitted error wins
+        when only the first TA1 code is reported.
         """
-        Build list of TA1 level errors
-        Only the first error is used
-        """
-        isa_ele_err_map = {
-            1: "010",
-            2: "011",
-            3: "012",
-            4: "013",
-            5: "005",
-            6: "006",
-            7: "007",
-            8: "008",
-            9: "014",
-            10: "015",
-            11: "016",
-            12: "017",
-            13: "018",
-            14: "019",
-            15: "020",
-            16: "027",
-        }
-        iea_ele_err_map = {1: "021", 2: "018"}
-        err_codes = [err[0] for err in err_isa.errors]
+        err_codes: list[str] = []
+        for err_cde, _err_str in err_isa.errors:
+            spec = pyx12.error_codes.ERROR_CODES.get(err_cde)
+            if spec is not None and spec.level == "ISA" and spec.ik_code is not None:
+                err_codes.append(spec.ik_code)
         for elem in err_isa.elements:
-            for err_cde, err_str, bad_value in elem.errors:
-                # Ugly
-                if "ISA" in err_str:
-                    err_codes.append(isa_ele_err_map[elem.ele_pos])
-                elif "IEA" in err_str:
-                    err_codes.append(iea_ele_err_map[elem.ele_pos])
-        # return unique codes
-        return list(set(err_codes))
+            for err_cde, _err_str, _bad_value in elem.errors:
+                spec = pyx12.error_codes.ERROR_CODES.get(err_cde)
+                if spec is not None and spec.level == "ISA" and spec.ik_code is not None:
+                    err_codes.append(spec.ik_code)
+        return list(dict.fromkeys(err_codes))
 
     def visit_root_post(self, errh: Any) -> None:
         """
@@ -324,26 +310,29 @@ class error_999_visitor(pyx12.error_visitor.error_visitor):
         :param err_seg: Segment error handler
         :type err_seg: L{error_handler.err_seg}
         """
-        valid_IK3_codes = ("1", "2", "3", "4", "5", "6", "7", "8", "I4", "I6", "I7", "I8", "I9")
         seg_base = pyx12.segment.Segment("IK3", "~", "*", ":")
         seg_base.set("01", err_seg.seg_id)
         seg_base.set("02", "%i" % err_seg.seg_count)
         if err_seg.ls_id:
             seg_base.set("03", err_seg.ls_id)
-        # else:
-        #    seg_base.set('')
         seg_str = seg_base.format("~", "*", ":")
-        errors = [x[0] for x in err_seg.errors]
-        if "SEG1" in errors:
-            if "8" not in errors:
-                errors.append("8")
-            errors = [x for x in errors if x != "SEG1"]
-        for err_cde in list(set(errors)):
-            if err_cde in valid_IK3_codes:  # unique codes
-                seg_data = pyx12.segment.Segment(seg_str, "~", "*", ":")
-                seg_data.set("IK304", err_cde)
-                self.wr.Write(seg_data)
-        if err_seg.child_err_count() > 0 and "8" not in errors:
+        # Every err_cde reaching this point is a pyx12 code from
+        # pyx12.error_codes.ERROR_CODES (PRs #175-#178 migrated all
+        # producers). None spec or None ik_code means the code does not
+        # surface in the 5010 IK3 channel (e.g. parser HL1/HL2/LX).
+        emitted: set[str] = set()
+        for err_cde in [x[0] for x in err_seg.errors]:
+            spec = pyx12.error_codes.ERROR_CODES.get(err_cde)
+            if spec is None or spec.ik_code is None:
+                continue
+            ik_code = spec.ik_code
+            if ik_code in emitted:
+                continue
+            seg_data = pyx12.segment.Segment(seg_str, "~", "*", ":")
+            seg_data.set("IK304", ik_code)
+            self.wr.Write(seg_data)
+            emitted.add(ik_code)
+        if err_seg.child_err_count() > 0 and "8" not in emitted:
             seg_data = pyx12.segment.Segment(seg_str, "~", "*", ":")
             seg_data.set("IK304", "8")
             self.wr.Write(seg_data)
@@ -353,26 +342,6 @@ class error_999_visitor(pyx12.error_visitor.error_visitor):
         :param err_ele: Segment error handler
         :type err_ele: L{error_handler.err_ele}
         """
-        valid_IK4_codes = (
-            "1",
-            "2",
-            "3",
-            "4",
-            "5",
-            "6",
-            "7",
-            "8",
-            "9",
-            "10",
-            "12",
-            "13",
-            "I10",
-            "I11",
-            "I12",
-            "I13",
-            "I6",
-            "I9",
-        )
         seg_base = pyx12.segment.Segment("IK4", "~", "*", ":")
         seg_base.set("01-1", "%i" % (err_ele.ele_pos))
         if err_ele.subele_pos:
@@ -383,9 +352,11 @@ class error_999_visitor(pyx12.error_visitor.error_visitor):
             seg_base.set("02", err_ele.ele_ref_num)
         seg_str = seg_base.format("~", "*", ":")
         for err_cde, err_str, bad_value in err_ele.errors:
-            if err_cde in valid_IK4_codes:
-                seg_data = pyx12.segment.Segment(seg_str, "~", "*", ":")
-                seg_data.set("IK403", err_cde)
-                if bad_value:
-                    seg_data.set("IK404", bad_value)
-                self.wr.Write(seg_data)
+            spec = pyx12.error_codes.ERROR_CODES.get(err_cde)
+            if spec is None or spec.ik_code is None:
+                continue
+            seg_data = pyx12.segment.Segment(seg_str, "~", "*", ":")
+            seg_data.set("IK403", spec.ik_code)
+            if bad_value:
+                seg_data.set("IK404", pyx12.error_visitor.ascii_only(bad_value))
+            self.wr.Write(seg_data)

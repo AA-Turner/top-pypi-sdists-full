@@ -369,26 +369,28 @@ psd_db_ref (const dp_psd_kernel_t *k)
 }
 
 /* pwr[0..n) read against the kernel's reference -- the one conversion
- * every averaged readout and both single-frame readouts go through.  Linear
- * (full-scale^2 units, into `lin`) and dBFS with the -200 dB floor (into
- * `db`) come from the SAME double quotient, so the dB reading is exactly
- * 10*log10 of the linear one before either is rounded to float.  Taking the
- * log of the float-rounded linear value instead would move dB by up to an
- * ulp, and frame_db is pinned byte-for-byte (#1894's kernel promotion).
- * Either output may be NULL. */
+ * every averaged readout and both single-frame readouts go through.  The
+ * quotient pwr / (cg^2 * full_scale^2) is taken in double and rounded to
+ * float once.  A linear reading (full-scale^2 units) is that float, and a
+ * dB reading is dp_power_to_db_f32 of it, the library's one dB conversion
+ * (#2094), whose floor is PSD's -200 dB.  So a dB reading is that function
+ * of the linear one, bit for bit, and a caller who converts linear readings
+ * gets exactly PSD's dB.  pwr is the kernel's own scratch: a dB reading
+ * leaves the quotient in it.  Exactly one of lin and db is non-NULL. */
 static void
-psd_read_power (const dp_psd_kernel_t *k, const float *pwr, float *lin,
-                float *db, size_t n)
+psd_read_power (const dp_psd_kernel_t *k, float *pwr, float *lin, float *db,
+                size_t n)
 {
   const double ref = psd_db_ref (k);
-  for (size_t i = 0; i < n; i++)
+  if (lin)
     {
-      const double p = (double)pwr[i] / ref;
-      if (lin)
-        lin[i] = (float)p;
-      if (db)
-        db[i] = (float)(10.0 * log10 (fmax (p, PSD_FLOOR)));
+      for (size_t i = 0; i < n; i++)
+        lin[i] = (float)((double)pwr[i] / ref);
+      return;
     }
+  for (size_t i = 0; i < n; i++)
+    pwr[i] = (float)((double)pwr[i] / ref);
+  dp_power_to_db_f32 (pwr, n, db);
 }
 
 /* Fill out[0..n-1] with the averaged power spectrum in dBFS, where n is
@@ -623,10 +625,12 @@ dp_psd_occupied_bw (dp_psd_state_t *state, double fraction)
    * averager already holds DC-centred and in double (avg->acc), so there is
    * nothing to copy or widen.  Before any frame it is handed no bins, so it
    * still answers NaN for a bad fraction and 0 for a good one.  The power is
-   * not divided by cg^2: OBW is a ratio of power sums, so the scale cancels
-   * -- and without the division equal bins sum exactly, so an edge landing
-   * exactly on a bin boundary resolves exactly.  The private copy this
-   * replaced divided, and missed such a tie by one bin. */
+   * not divided by cg^2, and in mean mode not by the count either (avg->acc
+   * is the per-bin SUM, #2094): OBW is a ratio of power sums, so any
+   * constant scale cancels -- and without a division equal bins sum
+   * exactly, so an edge landing exactly on a bin boundary resolves exactly.
+   * The private copy this replaced divided, and missed such a tie by one
+   * bin.  test_psd_core.c pins it equal to OBW over the mean. */
   const size_t n = state->avg->count ? state->k.nfft : 0;
   return dp_obw_from_power (state->avg->acc, n, state->fs, fraction);
 }

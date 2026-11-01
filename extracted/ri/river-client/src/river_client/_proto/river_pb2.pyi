@@ -686,14 +686,16 @@ class UnloadModelResponse(_message.Message):
     def __init__(self, type: _Optional[str] = ...) -> None: ...
 
 class UploadImageRequest(_message.Message):
-    __slots__ = ("idempotency_key", "data", "session_id")
+    __slots__ = ("idempotency_key", "data", "session_id", "unscoped")
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
     DATA_FIELD_NUMBER: _ClassVar[int]
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    UNSCOPED_FIELD_NUMBER: _ClassVar[int]
     idempotency_key: str
     data: bytes
     session_id: str
-    def __init__(self, idempotency_key: _Optional[str] = ..., data: _Optional[bytes] = ..., session_id: _Optional[str] = ...) -> None: ...
+    unscoped: bool
+    def __init__(self, idempotency_key: _Optional[str] = ..., data: _Optional[bytes] = ..., session_id: _Optional[str] = ..., unscoped: bool = ...) -> None: ...
 
 class ImageHandle(_message.Message):
     __slots__ = ("id", "sha256", "byte_count", "width", "height", "session_id")

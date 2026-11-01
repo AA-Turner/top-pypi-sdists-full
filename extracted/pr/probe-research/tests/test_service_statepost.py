@@ -188,7 +188,8 @@ def test_the_real_services_status_snapshots(tmp_path):
 
 
 def _queued(root, fp, base_url):
-    from probe.sdk.journal import CREDENTIAL_NAMESPACE, Journal
+    from probe.sdk.delivery.ops.ops import CREDENTIAL_NAMESPACE
+    from probe.sdk.delivery.journal.journal import Journal
 
     queue = Journal(str(root / CREDENTIAL_NAMESPACE / fp),
                     context={"name": None, "base_url": base_url, "principal": {"source": "env", "fingerprint": fp}})
@@ -198,14 +199,14 @@ def _queued(root, fp, base_url):
 
 @pytest.fixture
 def outbox_home(tmp_path, monkeypatch):
-    from probe.sdk.journal import Journal
+    from probe.sdk.delivery.journal.journal import Journal
 
     monkeypatch.setattr(Journal, "discover", staticmethod(lambda: []))
     return tmp_path / "outbox"
 
 
 def test_the_outbox_read_counts_discards_where_they_wait(outbox_home):
-    from probe.sdk.journal import Journal
+    from probe.sdk.delivery.journal.journal import Journal
 
     queue = _queued(outbox_home, "ab" * 8, HOSTED)
     Journal(str(outbox_home)).discard_held(credential="ab" * 8)
@@ -259,7 +260,7 @@ def test_discards_are_dated_by_when_they_were_queued_not_their_file(outbox_home)
 def test_every_outbox_root_is_counted(outbox_home, tmp_path, monkeypatch):
     """Codex: a distributed job's `rank-*` roots and the fallback outbox were
     checked for servers but their pending writes and blocks were not added."""
-    from probe.sdk.journal import Journal
+    from probe.sdk.delivery.journal.journal import Journal
 
     other = tmp_path / "rank-1"
     Journal(str(other), context={"name": None, "base_url": HOSTED}).append_http("POST", "/v1/runs/r/metrics", {})
@@ -312,7 +313,7 @@ def test_a_corrupt_dead_letter_is_counted_but_a_corrupt_queued_write_is_unproven
 
 @pytest.mark.parametrize("where", ["delivery-v1/ops", "multipart/ops"])
 def test_receipt_and_multipart_writes_are_checked_too(outbox_home, where):
-    from probe.sdk.journal import DELIVERY_NAMESPACE
+    from probe.sdk.delivery.ops.ops import DELIVERY_NAMESPACE
 
     queue = _queued(outbox_home, "ab" * 8, HOSTED)
     folder = queue.dir / where.replace("delivery-v1", DELIVERY_NAMESPACE)
@@ -322,7 +323,7 @@ def test_receipt_and_multipart_writes_are_checked_too(outbox_home, where):
 
 
 def test_tombstones_and_half_pruned_discards_are_counted(outbox_home):
-    from probe.sdk.journal import DELIVERY_NAMESPACE
+    from probe.sdk.delivery.ops.ops import DELIVERY_NAMESPACE
 
     tombstones = outbox_home / DELIVERY_NAMESPACE / "discarded"
     leftover = outbox_home / "credential-v1" / f".pruned-{'ab' * 8}-1-2" / "discarded"
@@ -734,8 +735,8 @@ def captured(tmp_path, monkeypatch):
     monkeypatch.delenv("PROBE_BASE_URL", raising=False)
     records: list = []
     monkeypatch.setenv("PROBE_TELEMETRY", "on")
-    monkeypatch.setattr(tm, "_sender", None)
-    monkeypatch.setattr(tm, "_flush_registered", True)
+    monkeypatch.setattr(tm.sender, "_sender", None)
+    monkeypatch.setattr(tm.sender, "_flush_registered", True)
     monkeypatch.setattr(tm._Sender, "start", lambda self: None)
     monkeypatch.setattr(tm._Sender, "put", lambda self, rec: records.append(rec))
     return records

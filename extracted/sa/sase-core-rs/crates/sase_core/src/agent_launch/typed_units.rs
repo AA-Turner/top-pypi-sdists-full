@@ -42,6 +42,9 @@ use crate::queue_directive::{
     collect_queue_fields_with_flags, QueueArgWire, QueueFieldsWire,
     QueueOccurrenceWire,
 };
+use crate::wait_target::{
+    effective_wait_target, parse_wait_target, WaitReferenceKind, WaitTarget,
+};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub fn plan_typed_launch_units(
@@ -116,6 +119,39 @@ pub fn plan_typed_launch_units_with_flags(
 pub(crate) struct RawLaunchUnit {
     pub(crate) unit: LaunchUnitWire,
     pub(crate) raw_waits: Vec<RawWaitTarget>,
+    original_prompt: Option<String>,
+    deferred_strip: Vec<(usize, usize)>,
+    pub(crate) forwarded_candidates: Vec<ForwardedWaitCandidate>,
+}
+
+impl RawLaunchUnit {
+    pub(crate) fn restrip_wait_spans(&mut self, extra: &[[usize; 2]]) {
+        let Some(original) = self.original_prompt.as_deref() else {
+            return;
+        };
+        if extra.is_empty() {
+            return;
+        }
+        let mut regions = self.deferred_strip.clone();
+        regions.extend(extra.iter().map(|span| (span[0], span[1])));
+        if let LaunchUnitPayloadWire::Agent(agent) = &mut self.unit.payload {
+            agent.prompt =
+                strip_prompt_regions(original, &regions).trim().to_string();
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ForwardedWaitCandidate {
+    pub(crate) span: [usize; 2],
+    pub(crate) agent_names: Vec<String>,
+    pub(crate) target: WaitTarget,
+}
+
+struct ParsedWaitOccurrence {
+    has_typed_keys: bool,
+    has_wait_target: bool,
+    candidate: Option<ForwardedWaitCandidate>,
 }
 
 #[derive(Debug, Clone)]
@@ -124,6 +160,7 @@ pub(crate) struct RawWaitTarget {
     pub(crate) source: Option<String>,
     pub(crate) source_span: Option<[usize; 2]>,
     pub(crate) for_epic: Option<bool>,
+    pub(crate) wait_target: Option<WaitTarget>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -167,6 +204,8 @@ fn classify_typed_launch_unit(
     let mut proc_code: Option<CodeValueWire> = None;
     let mut proc_options: BTreeMap<String, String> = BTreeMap::new();
     let mut raw_waits = Vec::new();
+    let mut forwarded_candidates = Vec::new();
+    let mut mixed_wait_target_spans = Vec::new();
     let mut agent_identity = slot.repeat_name.clone();
     let mut agent_identity_explicit = agent_identity.is_some();
     let mut agent_identity_force_reuse = false;
@@ -334,14 +373,21 @@ fn classify_typed_launch_unit(
                 ));
             }
             "wait" => {
-                regions_to_remove.push((directive.start, directive.end));
-                parse_wait_directive(
+                let parsed = parse_wait_directive(
                     prompt,
                     &directive,
                     &logical_id,
                     &mut raw_waits,
                     diagnostics,
                 );
+                if parsed.has_typed_keys && parsed.has_wait_target {
+                    mixed_wait_target_spans.push(span);
+                }
+                if let Some(candidate) = parsed.candidate {
+                    forwarded_candidates.push(candidate);
+                } else {
+                    regions_to_remove.push((directive.start, directive.end));
+                }
             }
             "queue" => {
                 regions_to_remove.push((directive.start, directive.end));
@@ -600,6 +646,32 @@ fn classify_typed_launch_unit(
         ));
     }
 
+    let forwarding_unit = proc_code.is_none() && condition.is_none();
+    if forwarding_unit {
+        for span in mixed_wait_target_spans {
+            diagnostics.push(typed_unit_diagnostic(
+                "wait-target-typed-mixed-keys",
+                "`target=` cannot share a `%wait` with `unit=` or `proc=`. Move the `unit=`/`proc=` waits into their own `%wait`.",
+                &logical_id,
+                Some(span),
+            ));
+        }
+    } else {
+        for candidate in forwarded_candidates.drain(..) {
+            regions_to_remove.push((candidate.span[0], candidate.span[1]));
+        }
+    }
+    let original_prompt = if forwarding_unit && !forwarded_candidates.is_empty()
+    {
+        Some(prompt.to_string())
+    } else {
+        None
+    };
+    let deferred_strip = if original_prompt.is_some() {
+        regions_to_remove.clone()
+    } else {
+        Vec::new()
+    };
     let cleaned_prompt = strip_prompt_regions(prompt, &regions_to_remove)
         .trim()
         .to_string();
@@ -742,6 +814,12 @@ fn classify_typed_launch_unit(
         })
     };
 
+    let reject_turn = matches!(payload, LaunchUnitPayloadWire::Proc(_))
+        || condition.is_some();
+    if reject_turn {
+        reject_typed_turn_waits(&raw_waits, &logical_id, diagnostics);
+    }
+
     RawLaunchUnit {
         unit: LaunchUnitWire {
             logical_id,
@@ -752,6 +830,27 @@ fn classify_typed_launch_unit(
             wait_for_epics_of: Vec::new(),
         },
         raw_waits,
+        original_prompt,
+        deferred_strip,
+        forwarded_candidates,
+    }
+}
+
+fn reject_typed_turn_waits(
+    raw_waits: &[RawWaitTarget],
+    logical_id: &str,
+    diagnostics: &mut Vec<LaunchPlanDiagnosticWire>,
+) {
+    for wait in raw_waits {
+        if wait.wait_target != Some(WaitTarget::Turn) {
+            continue;
+        }
+        diagnostics.push(typed_unit_diagnostic(
+            "wait-target-turn-typed-unsupported",
+            "`target=turn` cannot wait on a typed %proc or %if launch: their admission path cannot honor a pinned turn. Use `target=session` or omit the target.",
+            logical_id,
+            wait.source_span,
+        ));
     }
 }
 
@@ -1072,7 +1171,7 @@ fn parse_wait_directive(
     logical_id: &str,
     raw_waits: &mut Vec<RawWaitTarget>,
     diagnostics: &mut Vec<LaunchPlanDiagnosticWire>,
-) {
+) -> ParsedWaitOccurrence {
     let span = [directive.start, directive.end];
     let source = Some(prompt[directive.start..directive.end].to_string());
     let mut args = Vec::new();
@@ -1094,15 +1193,23 @@ fn parse_wait_directive(
             source,
             source_span: Some(span),
             for_epic: None,
+            wait_target: None,
         });
-        return;
+        return ParsedWaitOccurrence {
+            has_typed_keys: false,
+            has_wait_target: false,
+            candidate: None,
+        };
     }
-    // Per-occurrence `for_epic=` applies to every agent target in its own
-    // `%wait(...)`. Collect agent targets first so validation mirrors the
-    // Python launcher with identical messages.
+    // Per-occurrence `for_epic=` / `target=` apply to every agent target
+    // in their own `%wait(...)`. Collect agent targets first so
+    // validation mirrors the Python launcher with identical messages.
     let mut occurrence_agents: Vec<String> = Vec::new();
     let mut raw_for_epic: Option<String> = None;
     let mut has_for_epic = false;
+    let mut raw_wait_target: Option<String> = None;
+    let mut has_wait_target = false;
+    let mut has_typed_keys = false;
     for arg in &args {
         let (name, value_raw) = split_named_directive_arg(arg);
         match name.as_deref() {
@@ -1116,6 +1223,14 @@ fn parse_wait_directive(
                 has_for_epic = true;
                 raw_for_epic =
                     Some(unquote_directive_arg_value(value_raw.trim()));
+            }
+            Some("target") => {
+                has_wait_target = true;
+                raw_wait_target =
+                    Some(unquote_directive_arg_value(value_raw.trim()));
+            }
+            Some("unit") | Some("proc") => {
+                has_typed_keys = true;
             }
             None => {
                 let value = unquote_directive_arg_value(value_raw.trim());
@@ -1181,12 +1296,113 @@ fn parse_wait_directive(
                                         break;
                                     }
                                 }
+                                if value
+                                    && existing.wait_target
+                                        == Some(WaitTarget::Turn)
+                                {
+                                    diagnostics.push(typed_unit_diagnostic(
+                                        "wait-target-turn-for-epic",
+                                        "`target=turn` cannot combine with for_epic=true. A turn wait is never armed for epic-follow.",
+                                        logical_id,
+                                        Some(span),
+                                    ));
+                                }
                             }
                         }
                     }
                     let _ = conflict;
                 }
                 explicit_value = Some(value);
+            }
+        }
+    }
+    let mut parsed_wait_target: Option<WaitTarget> = None;
+    if has_wait_target {
+        if occurrence_agents.is_empty() {
+            diagnostics.push(typed_unit_diagnostic(
+                "wait-target-without-agent",
+                "%wait(target=...) needs an agent target in the same %wait, e.g. %wait(planner, target=turn). bead=, hood=, proc=, unit=, and time= waits have no session/turn.",
+                logical_id,
+                Some(span),
+            ));
+        } else {
+            let raw_text = raw_wait_target.clone().unwrap_or_default();
+            match parse_wait_target(raw_text.trim()) {
+                Err(error) => diagnostics.push(typed_unit_diagnostic(
+                    error.code,
+                    &error.message,
+                    logical_id,
+                    Some(span),
+                )),
+                Ok(target) => {
+                    if target == WaitTarget::Turn
+                        && explicit_value == Some(true)
+                    {
+                        diagnostics.push(typed_unit_diagnostic(
+                            "wait-target-turn-for-epic",
+                            "`target=turn` cannot combine with for_epic=true. A turn wait is never armed for epic-follow.",
+                            logical_id,
+                            Some(span),
+                        ));
+                    }
+                    for agent in &occurrence_agents {
+                        if target == WaitTarget::Turn {
+                            if let Ok(Some(_)) =
+                                crate::agent_tribe::parse_tribe_reference(agent)
+                            {
+                                if let Err(error) = effective_wait_target(
+                                    Some(WaitTarget::Turn),
+                                    WaitReferenceKind::Tribe,
+                                    agent,
+                                ) {
+                                    diagnostics.push(typed_unit_diagnostic(
+                                        error.code,
+                                        &error.message,
+                                        logical_id,
+                                        Some(span),
+                                    ));
+                                }
+                            }
+                        }
+                        for existing in raw_waits.iter() {
+                            if let RawWaitTargetKind::Agent(name) =
+                                &existing.target
+                            {
+                                if name == agent {
+                                    if target == WaitTarget::Turn
+                                        && existing.for_epic == Some(true)
+                                    {
+                                        diagnostics.push(
+                                            typed_unit_diagnostic(
+                                                "wait-target-turn-for-epic",
+                                                "`target=turn` cannot combine with for_epic=true. A turn wait is never armed for epic-follow.",
+                                                logical_id,
+                                                Some(span),
+                                            ),
+                                        );
+                                    }
+                                    if let Some(previous) = existing.wait_target
+                                    {
+                                        if previous != target {
+                                            diagnostics.push(
+                                                typed_unit_diagnostic(
+                                                    "wait-target-conflict",
+                                                    &format!(
+                                                        "Conflicting target= values for %wait target '{agent}'."
+                                                    ),
+                                                    logical_id,
+                                                    Some(span),
+                                                ),
+                                            );
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    parsed_wait_target = Some(target);
+                }
             }
         }
     }
@@ -1200,6 +1416,7 @@ fn parse_wait_directive(
                 span,
                 source.clone(),
                 None,
+                None,
             )),
             Some("agent") => raw_waits.push(raw_wait(
                 "agent",
@@ -1207,12 +1424,14 @@ fn parse_wait_directive(
                 span,
                 source.clone(),
                 explicit_value,
+                parsed_wait_target,
             )),
             Some("proc") => raw_waits.push(raw_wait(
                 "proc",
                 value,
                 span,
                 source.clone(),
+                None,
                 None,
             )),
             Some("bead") => raw_waits.push(raw_wait(
@@ -1221,6 +1440,7 @@ fn parse_wait_directive(
                 span,
                 source.clone(),
                 None,
+                None,
             )),
             Some("time") => raw_waits.push(raw_wait(
                 "time",
@@ -1228,8 +1448,10 @@ fn parse_wait_directive(
                 span,
                 source.clone(),
                 None,
+                None,
             )),
-            Some("for_epic") => {}
+            Some("for_epic") | Some("target") => {}
+            Some("hood") if parsed_wait_target.is_some() => {}
             Some("runners") => diagnostics.push(typed_unit_diagnostic(
                 "wait-queue-runners-moved",
                 "%wait(runners=...) has moved to %queue. Use %queue(capacity=N) or %q:N, and keep dependencies on %wait.",
@@ -1269,7 +1491,7 @@ fn parse_wait_directive(
             Some(key) => diagnostics.push(typed_unit_diagnostic(
                 "unknown-wait-target",
                 &format!(
-                    "Unsupported keyword on %wait: {key}=. Use unit=, agent=, proc=, bead=, hood=, time=, or for_epic=. Queue controls belong on %queue."
+                    "Unsupported keyword on %wait: {key}=. Use unit=, agent=, proc=, bead=, hood=, time=, for_epic=, or target=. Queue controls belong on %queue."
                 ),
                 logical_id,
                 Some(span),
@@ -1279,8 +1501,24 @@ fn parse_wait_directive(
                 source: source.clone(),
                 source_span: Some(span),
                 for_epic: explicit_value,
+                wait_target: parsed_wait_target,
             }),
         }
+    }
+    let candidate = match parsed_wait_target {
+        Some(target) if !occurrence_agents.is_empty() && !has_typed_keys => {
+            Some(ForwardedWaitCandidate {
+                span,
+                agent_names: occurrence_agents,
+                target,
+            })
+        }
+        _ => None,
+    };
+    ParsedWaitOccurrence {
+        has_typed_keys,
+        has_wait_target,
+        candidate,
     }
 }
 
@@ -1290,6 +1528,7 @@ fn raw_wait(
     span: [usize; 2],
     source: Option<String>,
     for_epic: Option<bool>,
+    wait_target: Option<WaitTarget>,
 ) -> RawWaitTarget {
     let target = match kind {
         "unit" => RawWaitTargetKind::Unit(value),
@@ -1304,5 +1543,6 @@ fn raw_wait(
         source,
         source_span: Some(span),
         for_epic,
+        wait_target,
     }
 }

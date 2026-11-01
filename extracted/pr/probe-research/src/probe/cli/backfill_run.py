@@ -63,7 +63,7 @@ from . import backfill_plan_tool as tool_mod
 from . import backfill_projects as projects_mod
 from . import backfill_prompts as prompts
 from .import_agent_settings import AgentSettings, Lane, cached, launch_kwargs
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 
 def _env_concurrency(name: str, default: int) -> int:
     raw = os.environ.get(name)
@@ -450,7 +450,7 @@ def _read_classification_cache(path: Path | None) -> dict | None:
 def _write_classification_cache(path: Path | None, value: dict) -> None:
     if path is None:
         return
-    from ..sdk.durable import file_lock, write_text_atomic
+    from ..foundation.durable.durable import file_lock, write_text_atomic
 
     try:
         text = json.dumps(
@@ -2067,7 +2067,7 @@ def enqueue_manifests(
                 continue
             # Retain the original for diagnosis. Only validated, confined rows
             # can cross the upload boundary, even on legacy/recovery paths.
-            from ..sdk.durable import write_text_atomic
+            from ..foundation.durable.durable import write_text_atomic
 
             manifest = manifest.with_suffix(".validated.jsonl")
             write_text_atomic(manifest, "".join(json.dumps(row) + "\n" for row in checked.rows))
@@ -2137,7 +2137,7 @@ def watch_outbox(total: int, *, stream=None, poll: float = WATCH_POLL_S) -> list
 
     from probe.cli import tui
 
-    from ..sdk.journal import Journal
+    from ..sdk.delivery.journal.journal import Journal
     from .main import _conn
 
     journal = Journal(_conn.spool_dir)
@@ -2278,7 +2278,7 @@ def execute(
             )
         if back_to_selection:
             raise
-        from ..sdk.journal import DEFAULT_PAUSE_HOURS
+        from ..sdk.delivery.journal.failures.pause import DEFAULT_PAUSE_HOURS
 
         return ["Stopped. Nothing further was read or uploaded.",
                 "Anything already queued keeps uploading — `probe outbox status` "

@@ -805,6 +805,11 @@ fn validate_shortform_inputs_with_snapshot(
     snapshot: Option<&ModelValiditySnapshot>,
 ) {
     validate_shortform_duplicates(builder);
+    let sole_repeatable = inputs
+        .iter()
+        .filter(|(_, raw)| input_bool_field(raw, "repeatable"))
+        .count()
+        <= 1;
 
     for (idx, (name_value, raw)) in inputs.iter().enumerate() {
         let source = builder
@@ -876,6 +881,18 @@ fn validate_shortform_inputs_with_snapshot(
                     .and_then(|source| source.field("description")),
                 item_range,
             );
+            let keyword_only = validate_input_keyword_only(
+                builder,
+                yaml_mapping_get(mapping, "keyword_only"),
+                source
+                    .as_ref()
+                    .and_then(|source| source.field("keyword_only")),
+                item_range,
+            );
+            let last_positional = !inputs
+                .iter()
+                .skip(idx + 1)
+                .any(|(_, later)| !input_bool_field(later, "keyword_only"));
             validate_input_repeatable(
                 builder,
                 yaml_mapping_get(mapping, "repeatable"),
@@ -883,7 +900,9 @@ fn validate_shortform_inputs_with_snapshot(
                     .as_ref()
                     .and_then(|source| source.field("repeatable")),
                 item_range,
-                idx + 1 == inputs.len(),
+                last_positional,
+                sole_repeatable,
+                keyword_only,
             );
         }
         validate_nested_input_unknown_keys(builder, source.as_ref());
@@ -896,6 +915,17 @@ fn validate_longform_inputs_with_snapshot(
     snapshot: Option<&ModelValiditySnapshot>,
 ) {
     let mut seen_names = HashMap::<String, (usize, usize)>::new();
+    let sole_repeatable = inputs
+        .iter()
+        .filter(|item| {
+            item.as_mapping().is_some_and(|mapping| {
+                yaml_mapping_get(mapping, "repeatable")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+            })
+        })
+        .count()
+        <= 1;
     for (idx, item) in inputs.iter().enumerate() {
         let source = builder
             .index
@@ -1002,6 +1032,19 @@ fn validate_longform_inputs_with_snapshot(
                 .and_then(|source| source.field("description")),
             item_range,
         );
+        let keyword_only = validate_input_keyword_only(
+            builder,
+            yaml_mapping_get(mapping, "keyword_only"),
+            source
+                .as_ref()
+                .and_then(|source| source.field("keyword_only")),
+            item_range,
+        );
+        let last_positional = !inputs.iter().skip(idx + 1).any(|later| {
+            later.as_mapping().is_none_or(|mapping| {
+                !input_bool_field_from_mapping(mapping, "keyword_only")
+            })
+        });
         validate_input_repeatable(
             builder,
             yaml_mapping_get(mapping, "repeatable"),
@@ -1009,7 +1052,9 @@ fn validate_longform_inputs_with_snapshot(
                 .as_ref()
                 .and_then(|source| source.field("repeatable")),
             item_range,
-            idx + 1 == inputs.len(),
+            last_positional,
+            sole_repeatable,
+            keyword_only,
         );
         validate_longform_unknown_keys(builder, source.as_ref());
     }
@@ -1250,13 +1295,17 @@ fn validate_input_choices(
         .map(|scalar| scalar.range)
         .or_else(|| source.map(|field| field.value_range))
         .unwrap_or(fallback_range);
-    if named_type.is_some_and(|name| name == "effort") {
+    if !catalog_choices.is_empty() {
         if choices.is_some() {
+            let name = named_type.unwrap_or("enum");
             builder.push(
                 range,
                 DiagnosticSeverity::Error,
                 "invalid_macro_frontmatter_input_choices",
-                "Macro input `effort` already defines its values; remove `choices`",
+                format!(
+                    "Macro input `{name}` already defines its values; \
+                     remove `choices`"
+                ),
             );
         }
         return catalog_choices.to_vec();
@@ -1558,7 +1607,9 @@ fn validate_input_repeatable(
     repeatable: Option<&Value>,
     source: Option<&KeyValueSource>,
     fallback_range: (usize, usize),
-    is_final: bool,
+    is_last_positional: bool,
+    is_sole_repeatable: bool,
+    keyword_only: bool,
 ) {
     let Some(repeatable) = repeatable else {
         return;
@@ -1577,14 +1628,72 @@ fn validate_input_repeatable(
         );
         return;
     };
-    if enabled && !is_final {
-        builder.push(
-            range,
-            DiagnosticSeverity::Error,
-            "non_final_macro_frontmatter_repeatable_input",
-            "A repeatable macro input must be the final positional input",
-        );
+    if enabled {
+        if keyword_only {
+            builder.push(
+                range,
+                DiagnosticSeverity::Error,
+                "invalid_macro_frontmatter_input_keyword_only_repeatable",
+                "A keyword-only macro input cannot be repeatable",
+            );
+        }
+        if !is_sole_repeatable {
+            builder.push(
+                range,
+                DiagnosticSeverity::Error,
+                "multiple_macro_frontmatter_repeatable_inputs",
+                "At most one macro input may be repeatable",
+            );
+        }
+        if !keyword_only && !is_last_positional {
+            builder.push(
+                range,
+                DiagnosticSeverity::Error,
+                "non_final_macro_frontmatter_repeatable_input",
+                "A repeatable macro input must be the last positional input",
+            );
+        }
     }
+}
+
+fn validate_input_keyword_only(
+    builder: &mut FrontmatterDiagnosticBuilder<'_>,
+    keyword_only: Option<&Value>,
+    source: Option<&KeyValueSource>,
+    fallback_range: (usize, usize),
+) -> bool {
+    let Some(keyword_only) = keyword_only else {
+        return false;
+    };
+    let range = source
+        .and_then(|field| field.scalar.as_ref())
+        .map(|scalar| scalar.range)
+        .or_else(|| source.map(|field| field.value_range))
+        .unwrap_or(fallback_range);
+    match keyword_only.as_bool() {
+        Some(enabled) => enabled,
+        None => {
+            builder.push(
+                range,
+                DiagnosticSeverity::Error,
+                "invalid_macro_frontmatter_input_keyword_only",
+                "Macro input keyword_only must be true or false",
+            );
+            false
+        }
+    }
+}
+
+fn input_bool_field(value: &Value, field: &str) -> bool {
+    value
+        .as_mapping()
+        .is_some_and(|mapping| input_bool_field_from_mapping(mapping, field))
+}
+
+fn input_bool_field_from_mapping(mapping: &Mapping, field: &str) -> bool {
+    yaml_mapping_get(mapping, field)
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
 }
 
 fn validate_input_description(
@@ -1630,7 +1739,12 @@ fn validate_nested_input_unknown_keys(
     for field in source.fields {
         if matches!(
             field.key.as_str(),
-            "type" | "default" | "description" | "repeatable" | "choices"
+            "type"
+                | "default"
+                | "description"
+                | "repeatable"
+                | "keyword_only"
+                | "choices"
         ) {
             continue;
         }
@@ -1661,6 +1775,7 @@ fn validate_longform_unknown_keys(
                 | "default"
                 | "description"
                 | "repeatable"
+                | "keyword_only"
                 | "choices"
         ) {
             continue;
@@ -3324,6 +3439,47 @@ mod tests {
     }
 
     #[test]
+    fn validates_keyword_only_inputs_and_positional_repeatable_rules() {
+        let accepted = validate(
+            "---\ninput:\n  names:\n    type: agent\n    repeatable: true\n  target:\n    type: word\n    keyword_only: true\n---\n",
+        );
+        assert!(!has_error(&accepted), "{accepted:?}");
+        assert!(accepted.iter().all(|diagnostic| {
+            diagnostic.code != "unknown_macro_frontmatter_input_field"
+        }));
+
+        let accepted_longform = validate(
+            "---\ninput:\n  - name: names\n    type: agent\n    repeatable: true\n  - name: target\n    type: word\n    keyword_only: true\n---\n",
+        );
+        assert!(!has_error(&accepted_longform), "{accepted_longform:?}");
+        assert!(accepted_longform.iter().all(|diagnostic| {
+            diagnostic.code != "unknown_macro_frontmatter_input_field"
+        }));
+
+        let invalid_type = validate(
+            "---\ninput:\n  target:\n    type: word\n    keyword_only: yes\n---\n",
+        );
+        assert!(invalid_type.iter().any(|diagnostic| {
+            diagnostic.code == "invalid_macro_frontmatter_input_keyword_only"
+        }));
+
+        let repeatable_keyword_only = validate(
+            "---\ninput:\n  target:\n    type: word\n    repeatable: true\n    keyword_only: true\n---\n",
+        );
+        assert!(repeatable_keyword_only.iter().any(|diagnostic| {
+            diagnostic.code
+                == "invalid_macro_frontmatter_input_keyword_only_repeatable"
+        }));
+
+        let multiple_repeatables = validate(
+            "---\ninput:\n  names:\n    type: agent\n    repeatable: true\n  extras:\n    type: agent\n    repeatable: true\n---\n",
+        );
+        assert!(multiple_repeatables.iter().any(|diagnostic| {
+            diagnostic.code == "multiple_macro_frontmatter_repeatable_inputs"
+        }));
+    }
+
+    #[test]
     fn validate_accepts_known_good_block() {
         let text = "---\ndescription: Refactor the auth module\ntags: refactor, backend\ninput:\n  service: word\n---\n";
         assert!(!has_error(&validate(text)), "{:?}", validate(text));
@@ -3557,6 +3713,41 @@ mod tests {
             skipped.iter().all(|diagnostic| diagnostic.code
                 != "invalid_macro_frontmatter_input_default"),
             "{skipped:?}"
+        );
+    }
+
+    #[test]
+    fn wait_target_named_enum_defaults_and_rejects_authored_choices() {
+        let ok = validate(
+            "---\ninput:\n  target:\n    type: wait_target\n    default: session\n---\n",
+        );
+        assert!(!has_error(&ok), "{ok:?}");
+
+        let bad = validate(
+            "---\ninput:\n  target:\n    type: wait_target\n    default: Session\n---\n",
+        );
+        let found = bad
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.code == "invalid_macro_frontmatter_input_default"
+            })
+            .expect("wait_target default error");
+        assert_eq!(found.severity, DiagnosticSeverity::Error);
+        assert!(
+            found.message.contains("session"),
+            "unexpected message: {}",
+            found.message
+        );
+
+        let authored = validate(
+            "---\ninput:\n  target:\n    type: wait_target\n    choices: [session]\n---\n",
+        );
+        assert!(
+            authored.iter().any(|diagnostic| {
+                diagnostic.code == "invalid_macro_frontmatter_input_choices"
+                    && diagnostic.message.contains("`wait_target`")
+            }),
+            "{authored:?}"
         );
     }
 

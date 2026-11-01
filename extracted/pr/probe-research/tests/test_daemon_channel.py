@@ -19,7 +19,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.sdk import agent_session, daemon_channel
+from probe.sdk import agent_session
+from probe.sdk.run.launch import daemon_channel
 
 SID = "11111111-2222-4333-8444-555555555555"
 ENV = {"CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": SID}

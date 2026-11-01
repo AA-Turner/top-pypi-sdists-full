@@ -1,5 +1,5 @@
 """kimi/pi update parity P1/P7: the pi package's pins and the proof that open
-pi sessions switch to the new version with no /reload (`probe.cli.pi_pins`)."""
+pi sessions switch to the new version with no /reload (`probe.shared.harness.harnesses.pi.pins`)."""
 
 from __future__ import annotations
 
@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import pi_config, pi_pins
+from probe.shared.harness.harnesses import pi as pi_config
+from probe.shared.harness.harnesses.pi import pins as pi_pins
 
 #: (SHIM_API, digest of the shim's files): see `test_the_frozen_shim_files_change_only_with_their_api`.
 #: (1, a094d27e96a07523) until notes parity forwarded `agent_before_settle`: an open pi on the
@@ -52,7 +53,7 @@ def _clone(root: Path, version: str = "0.7.0") -> Path:
 def pi(tmp_path, monkeypatch):
     clone = tmp_path / "agent" / "git" / "github.com" / "prbe-ai" / "research-os-agent"
     package = _clone(clone)
-    monkeypatch.setattr(pi_config, "installed_package_dir", lambda env=None: package)
+    monkeypatch.setattr(pi_config.package_update, "installed_package_dir", lambda env=None: package)
     # Only the pi processes a test starts: other sessions on a shared box run pi too.
     real = pi_pins._pi_pids
 
@@ -92,12 +93,12 @@ def test_an_update_pi_has_not_finished_is_never_pinned(pi):
 def test_a_package_before_the_shim_or_a_local_checkout_is_not_pinned(tmp_path, monkeypatch):
     old = tmp_path / "old" / "plugins" / "probe-research-pi"
     old.mkdir(parents=True)
-    monkeypatch.setattr(pi_config, "installed_package_dir", lambda env=None: old)
+    monkeypatch.setattr(pi_config.package_update, "installed_package_dir", lambda env=None: old)
     assert pi_pins.pin_installed() is None and pi_pins.pin_due() is False
     local = tmp_path / "checkout" / "probe-research-pi"
     (local / "src").mkdir(parents=True)
     (local / "src" / "impl.ts").write_text("")
-    monkeypatch.setattr(pi_config, "installed_package_dir", lambda env=None: local)
+    monkeypatch.setattr(pi_config.package_update, "installed_package_dir", lambda env=None: local)
     assert pi_pins.pin_installed() is None
 
 
@@ -133,7 +134,7 @@ def test_a_moved_clone_rewrites_current(pi, monkeypatch, tmp_path):
     moved = tmp_path / "moved" / "research-os-agent"
     moved.parent.mkdir()
     pi.rename(moved)
-    monkeypatch.setattr(pi_config, "installed_package_dir", lambda env=None: moved / "plugins" / "probe-research-pi")
+    monkeypatch.setattr(pi_config.package_update, "installed_package_dir", lambda env=None: moved / "plugins" / "probe-research-pi")
     assert pi_pins.pin_due() is True
     pi_pins.pin_installed()
     assert pi_pins.read_current()["from"] == str(moved) and pi_pins.pin_due() is False
@@ -319,11 +320,11 @@ def test_sessions_follow_reads_every_live_pi_process(pi):
 
 def test_the_update_says_no_restart_only_when_open_sessions_switch(pi, monkeypatch):
     from probe.cli import upgrading
-    from probe.cli.claude_cli import Result
+    from probe.shared.harness.harnesses.claude_code.binary import Result
 
     versions = iter([(0, 6, 3), (0, 7, 0)])
-    monkeypatch.setattr(pi_config, "installed_package_version", lambda env=None: next(versions))
-    monkeypatch.setattr(pi_config, "update_package", lambda env=None: Result(ok=True, detail="updated"))
+    monkeypatch.setattr(pi_config.package_update, "installed_package_version", lambda env=None: next(versions))
+    monkeypatch.setattr(pi_config.package_update, "update_package", lambda env=None: Result(ok=True, detail="updated"))
     monkeypatch.setattr(pi_pins, "sessions_follow", lambda titles: True)
     step = upgrading._update_pi_package()
     assert step.lines[-1].endswith("(open pi sessions switch to it at their next turn, no restart needed)")

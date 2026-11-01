@@ -522,52 +522,50 @@ MIME_TYPES = {
 
 
 def _signature_html(s):
-    s = s[:14].lstrip()
-    return s and b"<!doctype html".startswith(s.lower())
+    s = s.lstrip()
+    return s and b"<!doctype html".startswith(s[:14].lower())
 
 
 # https://en.wikipedia.org/wiki/List_of_file_signatures
 SIGNATURE_CHECKS = {
-    "jpg" : lambda s: s[0:3] == b"\xFF\xD8\xFF",
-    "png" : lambda s: s[0:8] == b"\x89PNG\r\n\x1A\n",
-    "gif" : lambda s: s[0:6] in (b"GIF87a", b"GIF89a"),
-    "bmp" : lambda s: s[0:2] == b"BM",
-    "webp": lambda s: (s[0:4] == b"RIFF" and
-                       s[8:12] == b"WEBP"),
-    "avif": lambda s: s[4:11] == b"ftypavi" and s[11] in b"fs",
-    "heic": lambda s: (s[4:10] == b"ftyphe" and s[10:12] in (
-                       b"ic", b"im", b"is", b"ix", b"vc", b"vm", b"vs")),
-    "svg" : lambda s: s[0:5] == b"<?xml",
-    "ico" : lambda s: s[0:4] == b"\x00\x00\x01\x00",
-    "cur" : lambda s: s[0:4] == b"\x00\x00\x02\x00",
-    "psd" : lambda s: s[0:4] == b"8BPS",
-    "mp4" : lambda s: (s[4:8] == b"ftyp" and s[8:11] in (
-                       b"mp4", b"avc", b"iso")),
-    "m4v" : lambda s: s[4:11] == b"ftypM4V",
-    "mov" : lambda s: s[4:12] == b"ftypqt  ",
-    "webm": lambda s: s[0:4] == b"\x1A\x45\xDF\xA3",
-    "ogg" : lambda s: s[0:4] == b"OggS",
-    "wav" : lambda s: (s[0:4] == b"RIFF" and
-                       s[8:12] == b"WAVE"),
-    "mp3" : lambda s: (s[0:3] == b"ID3" or
-                       s[0:2] in (b"\xFF\xFB", b"\xFF\xF3", b"\xFF\xF2")),
-    "aac" : lambda s: s[0:2] in (b"\xFF\xF9", b"\xFF\xF1"),
-    "m3u8": lambda s: s[0:7] == b"#EXTM3U",
+    "jpg" : lambda s: s.startswith(b"\xFF\xD8\xFF"),
+    "png" : lambda s: s.startswith(b"\x89PNG\r\n\x1A\n"),
+    "gif" : lambda s: s.startswith((b"GIF87a", b"GIF89a")),
+    "bmp" : lambda s: s.startswith(b"BM"),
+    "webp": lambda s: s.startswith(b"RIFF") and s[8:12] == b"WEBP",
+    "avif": lambda s: s.startswith((b"ftypavif", b"ftypavis"), 4),
+    "heic": lambda s: (s[4:10] == b"ftyphe" and s[10:12] in {
+                       b"ic", b"im", b"is", b"ix", b"vc", b"vm", b"vs"}),
+    "svg" : lambda s: s.startswith(b"<?xml"),
+    "ico" : lambda s: s.startswith(b"\x00\x00\x01\x00"),
+    "cur" : lambda s: s.startswith(b"\x00\x00\x02\x00"),
+    "psd" : lambda s: s.startswith(b"8BPS"),
+    "mp4" : lambda s: s.startswith((b"ftypmp4", b"ftypavc", b"ftypiso"), 4),
+    "m4v" : lambda s: s.startswith(b"ftypM4V", 4),
+    "mov" : lambda s: s.startswith(b"ftypqt  ", 4),
+    "webm": lambda s: s.startswith(b"\x1A\x45\xDF\xA3"),
+    "ogg" : lambda s: s.startswith(b"OggS"),
+    "wav" : lambda s: s.startswith(b"RIFF") and s[8:12] == b"WAVE",
+    "mp3" : lambda s: s.startswith(
+        (b"ID3", b"\xFF\xFB", b"\xFF\xF3", b"\xFF\xF2")),
+    "aac" : lambda s: s.startswith((b"\xFF\xF9", b"\xFF\xF1")),
+    "m3u8": lambda s: s.startswith(b"#EXTM3U"),
     "mpd" : lambda s: b"<MPD" in s,
-    "zip" : lambda s: s[0:4] in (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08"),
-    "rar" : lambda s: s[0:6] == b"Rar!\x1A\x07",
-    "7z"  : lambda s: s[0:6] == b"\x37\x7A\xBC\xAF\x27\x1C",
-    "pdf" : lambda s: s[0:5] == b"%PDF-",
-    "swf" : lambda s: s[0:3] in (b"CWS", b"FWS"),
+    "zip" : lambda s: s.startswith(
+        (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")),
+    "rar" : lambda s: s.startswith(b"Rar!\x1A\x07"),
+    "7z"  : lambda s: s.startswith(b"\x37\x7A\xBC\xAF\x27\x1C"),
+    "pdf" : lambda s: s.startswith(b"%PDF-"),
+    "swf" : lambda s: s.startswith((b"CWS", b"FWS")),
     "html": _signature_html,
     "htm" : _signature_html,
-    "blend": lambda s: s[0:7] == b"BLENDER",
+    "blend": lambda s: s.startswith(b"BLENDER"),
     # unfortunately the Wavefront .obj format doesn't have a signature,
     # so we check for the existence of Blender's comment
-    "obj" : lambda s: s[0:11] == b"# Blender v",
+    "obj" : lambda s: s.startswith(b"# Blender v"),
     # Celsys Clip Studio Paint format
     # https://github.com/rasensuihei/cliputils/blob/master/README.md
-    "clip": lambda s: s[0:8] == b"CSFCHUNK",
+    "clip": lambda s: s.startswith(b"CSFCHUNK"),
     # check 'bin' files against all other file signatures
     "bin" : lambda s: False,
 }

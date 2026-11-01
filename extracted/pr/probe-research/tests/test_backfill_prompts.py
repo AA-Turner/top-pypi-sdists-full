@@ -333,8 +333,8 @@ def test_the_record_prompt_carries_the_skills_verbatim_and_no_rules_of_its_own()
     """Judgment comes only from the researcher's skills (Richard 2026-09-26):
     each one's main-agent version is in the prompt whole, and none of the
     import's retired writing rules is."""
-    from probe import skill_versions
-    from probe.daemon.bite import SHARED_SKILLS, skills_root, skills_text
+    from probe.foundation.skills import skills as skill_versions
+    from probe.daemon.worker.bite.bite import SHARED_SKILLS, skills_root, skills_text
 
     skills = skills_text(SHARED_SKILLS, reader=skill_versions.MAIN_AGENT)
     text = _record(skills=skills)

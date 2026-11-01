@@ -1,7 +1,5 @@
 """High-level prediction API for object detection."""
 
-from __future__ import annotations
-
 import os
 import time
 from collections.abc import Callable, Generator
@@ -115,7 +113,7 @@ def get_prediction(
         >>> from sahi.predict import get_prediction
         >>> model = AutoDetectionModel.from_pretrained(
         ...     model_type="ultralytics",
-        ...     model_path="yolo11n.pt",
+        ...     model_path="yolo26n.pt",
         ...     confidence_threshold=0.3,
         ... )
         >>> # run with a different threshold without changing the model
@@ -275,7 +273,7 @@ def get_sliced_prediction(
         >>> from sahi.predict import get_sliced_prediction
         >>> model = AutoDetectionModel.from_pretrained(
         ...     model_type="ultralytics",
-        ...     model_path="yolo11n.pt",
+        ...     model_path="yolo26n.pt",
         ...     confidence_threshold=0.3,
         ... )
         >>> # sweep thresholds without recreating the model
@@ -364,12 +362,15 @@ def get_sliced_prediction(
         ]
         object_prediction_list = []
         slices_processed = 0
+        # These properties build a new list on each access, so read them once
+        slice_images = slice_image_result.images
+        slice_starting_pixels = slice_image_result.starting_pixels
         for batch_ind in slice_iterator:
             batch_start = batch_ind * batch_size
             batch_end = min(batch_start + batch_size, num_slices)
-            batch_images = [slice_image_result.images[i] for i in range(batch_start, batch_end)]
+            batch_images = slice_images[batch_start:batch_end]
             batch_shifts: list[list[int | float]] = [
-                list(slice_image_result.starting_pixels[i]) for i in range(batch_start, batch_end)
+                list(starting_pixel) for starting_pixel in slice_starting_pixels[batch_start:batch_end]
             ]
             current_batch_size = len(batch_images)
 
@@ -706,6 +707,7 @@ def predict(
     # iterate over source images
     durations_in_seconds["prediction"] = 0
     durations_in_seconds["slice"] = 0
+    durations_in_seconds["export_files"] = 0
 
     input_type_str = "video frames" if source_is_video else "images"
     for ind, image_path in enumerate(
@@ -775,6 +777,10 @@ def predict(
                 "Prediction time is: {:.2f} ms".format(prediction_result.durations_in_seconds["prediction"] * 1000)
             )
 
+        # The exports below copy what they draw on, so they can share one array of the image
+        if export_crop or not novisual or view_video:
+            image_as_arr = np.ascontiguousarray(image_as_pil)
+
         if dataset_json_path:
             if source_is_video is True:
                 raise NotImplementedError("Video input type not supported with coco formatted dataset json")
@@ -804,7 +810,7 @@ def predict(
                 output_dir = str(visual_with_gt_dir / Path(relative_filepath).parent)
                 color = (0, 255, 0)  # original annotations in green
                 result = visualize_object_predictions(
-                    np.ascontiguousarray(image_as_pil),
+                    image_as_arr,
                     object_prediction_list=object_prediction_gt_list,
                     rect_th=visual_bbox_thickness,
                     text_size=visual_text_size,
@@ -836,7 +842,7 @@ def predict(
         if export_crop:
             output_dir = str(crop_dir / Path(relative_filepath).parent)
             crop_object_predictions(
-                image=np.ascontiguousarray(image_as_pil),
+                image=image_as_arr,
                 object_prediction_list=object_prediction_list,
                 output_dir=output_dir,
                 file_name=filename_without_extension,
@@ -851,7 +857,7 @@ def predict(
         if not novisual or view_video:
             output_dir = str(visual_dir / Path(relative_filepath).parent)
             result = visualize_object_predictions(
-                np.ascontiguousarray(image_as_pil),
+                image_as_arr,
                 object_prediction_list=object_prediction_list,
                 rect_th=visual_bbox_thickness,
                 text_size=visual_text_size,
@@ -872,8 +878,7 @@ def predict(
             cv2.imshow(f"Prediction of {video_file_name!s}", result["image"])
             cv2.waitKey(1)
 
-        time_end = time.time() - time_start
-        durations_in_seconds["export_files"] = time_end
+        durations_in_seconds["export_files"] += time.time() - time_start
 
     # export coco results
     if dataset_json_path:
@@ -1075,7 +1080,7 @@ def predict_fiftyone(
                     exclude_classes_by_name=exclude_classes_by_name,
                     exclude_classes_by_id=exclude_classes_by_id,
                 )
-                durations_in_seconds["prediction"] += prediction_result.durations_in_seconds["prediction"]
+            durations_in_seconds["prediction"] += prediction_result.durations_in_seconds["prediction"]
 
             # Save predictions to dataset
             sample[model_type] = fo.Detections(detections=prediction_result.to_fiftyone_detections())

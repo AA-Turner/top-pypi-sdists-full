@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import ast
 import json
-from probe._compat import tomllib
+from probe.foundation.compat.compat import tomllib
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -55,7 +55,7 @@ def _manifest() -> dict:
 
 def test_bundled_command_index_matches_cli_source() -> None:
     """A CLI edit must not publish an index that the daemon has to rebuild."""
-    from probe.daemon import cli_spec
+    from probe.shared.command_rules import cli_spec
 
     spec = json.loads(cli_spec.SPEC_PATH.read_text(encoding="utf-8"))
     assert spec.get("cli_source") == cli_spec.source_sha(), (
@@ -142,7 +142,7 @@ def test_tap_package_and_runtime_report_the_advertised_version() -> None:
     assert json.loads((tap / ".codex-plugin" / "plugin.json").read_text())["version"] == expected
     # Every captured hook-plugin harness loads the tap through its own manifest
     # (Kimi Code: .kimi-plugin), and each must name the advertised release.
-    from probe.harness import FAMILY_HOOK_PLUGIN, get_registry
+    from probe.foundation.harness_registry import FAMILY_HOOK_PLUGIN, get_registry
 
     for harness in get_registry().captured():
         if harness.family != FAMILY_HOOK_PLUGIN:

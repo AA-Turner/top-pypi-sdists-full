@@ -20,7 +20,8 @@ from probe.cli import backfill as bf
 from probe.cli import backfill_run
 from probe.cli import bootstrap
 from probe.cli import doctor as doctor_mod
-from probe.cli import plugin_cli, setup, tui
+from probe.shared.harness import plugins as plugin_cli
+from probe.cli import setup, tui
 from probe.cli import telemetry as tm
 from probe.cli.actions import Action
 from probe.cli.capabilities import Capabilities
@@ -45,8 +46,8 @@ def captured(monkeypatch):
     """Telemetry ON, records captured at the queue seam — no thread, no network."""
     monkeypatch.setenv("PROBE_TELEMETRY", "on")
     records: list[dict] = []
-    monkeypatch.setattr(tm, "_sender", None)
-    monkeypatch.setattr(tm, "_flush_registered", True)
+    monkeypatch.setattr(tm.sender, "_sender", None)
+    monkeypatch.setattr(tm.sender, "_flush_registered", True)
     monkeypatch.setattr(tm._Sender, "start", lambda self: None)
     monkeypatch.setattr(tm._Sender, "put", lambda self, rec: records.append(rec))
     return records
@@ -162,7 +163,7 @@ def test_menu_loop_emits_one_started_and_per_iteration_action_chosen(
     wizard_stubs.append(Capabilities())
     monkeypatch.setattr(setup, "interactive", lambda: True)
     def signed_in(**kwargs):
-        from probe.sdk.config import save_context
+        from probe.sdk.settings.settings import save_context
 
         save_context({"token": "probe_pat_menu_test"})
         return setup.SignInResult(ok=True, lines=[])
@@ -202,7 +203,7 @@ def test_a_default_switched_on_the_menu_row_is_saved_by_the_loop(
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
 
     def signed_in(**kwargs):
-        from probe.sdk.config import save_context
+        from probe.sdk.settings.settings import save_context
 
         save_context({"token": "probe_pat_menu_test"})
         return setup.SignInResult(ok=True, lines=[])
@@ -736,7 +737,7 @@ def test_a_default_saved_on_the_menu_row_is_still_counted_as_the_defaults_action
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
 
     def signed_in(**kwargs):
-        from probe.sdk.config import save_context
+        from probe.sdk.settings.settings import save_context
 
         save_context({"token": "probe_pat_menu_test"})
         return setup.SignInResult(ok=True, lines=[])
@@ -768,7 +769,7 @@ def test_switching_the_default_then_pressing_enter_on_it_counts_once(
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
 
     def signed_in(**kwargs):
-        from probe.sdk.config import save_context
+        from probe.sdk.settings.settings import save_context
 
         save_context({"token": "probe_pat_menu_test"})
         return setup.SignInResult(ok=True, lines=[])

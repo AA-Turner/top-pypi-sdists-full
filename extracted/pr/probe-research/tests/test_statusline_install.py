@@ -17,7 +17,7 @@ import sys
 import pytest
 
 from probe import cli
-from probe.cli import statusline
+from probe.shared.harness.harnesses.claude_code import statusline
 from probe.sdk import session_marker
 
 

@@ -14,10 +14,11 @@ import time
 import pytest
 
 from probe.sdk import errors
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
-from probe.sdk.journal import DrainReport, Journal
-from probe.sdk.outbox_worker import _lease_path
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.outbox.drain.report import DrainReport
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.lease import _lease_path
 
 from tests.conftest import make_client
 from tests.test_outbox import seeded_run
@@ -96,7 +97,7 @@ def test_close_joins_the_exporter(app, tmp_path):
 
 
 def test_maybe_spawn_defers_to_a_live_exporter(app, tmp_path, monkeypatch):
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True, drain_interval=0.05)
 
@@ -134,11 +135,17 @@ def test_interval_honors_the_miles_floor(app, tmp_path):
 def test_exporter_supersedes_the_worker_kick(tmp_path, monkeypatch):
     kicks: list = []
     monkeypatch.setattr(
-        "probe.sdk.outbox_worker.maybe_spawn", lambda d=None: kicks.append(d) or True
+        "probe.sdk.delivery.outbox.drainers.detached.maybe_spawn", lambda d=None: kicks.append(d) or True
+    )
+    monkeypatch.setattr(
+        "probe.sdk.delivery.outbox.outbox.maybe_spawn", lambda d=None: kicks.append(d) or True
+    )
+    monkeypatch.setattr(
+        "probe.sdk.delivery.outbox.rescuer.maybe_spawn", lambda d=None: kicks.append(d) or True
     )
     drains: list = []
     monkeypatch.setattr(
-        "probe.sdk.exporter.drain", lambda j, **kw: drains.append(1) or DrainReport()
+        "probe.sdk.delivery.outbox.drainers.in_process.drain", lambda j, **kw: drains.append(1) or DrainReport()
     )
     # Default transport, so the worker WOULD have been kicked -- drain_interval
     # must reroute delivery to the in-process exporter instead.

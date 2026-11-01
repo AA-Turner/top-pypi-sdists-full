@@ -50,13 +50,16 @@ class EvalProgressResponse(BaseModel):
   """Structured failure details when the evaluation failed."""
 
   terminal_rollouts: int
-  """Rollouts of the run that have reached a terminal status."""
+  """
+    Historical terminal attempts across executions, including failures; not logical
+    completion progress.
+    """
 
   total_rollouts: int
   """Rollouts the run's config schedules: its sampled tasks times the group size."""
 
+  remaining_rollouts: int | None = None
+  """Original target minus completed, scored attempts; failures remain retryable work."""
+
   live: EvalLiveSummary | None = None
-  """
-    Consistent execution and scoring snapshot for native evaluations; absent for historical
-    runs.
-    """
+  """Execution and scoring snapshot; absent until available."""

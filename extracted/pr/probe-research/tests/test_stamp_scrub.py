@@ -50,7 +50,9 @@ def test_a_stamped_log_costs_the_same_scrubs_as_an_unstamped_one(app, tmp_path, 
     run.log(metrics, step=0)  # warm any first-call work
 
     stamped = _count_scrubs(monkeypatch, lambda: run.log(metrics, step=1))
-    monkeypatch.setattr(run_module, "_log_stamp", lambda: None)  # no wall_clock at all
+    monkeypatch.setattr(run_module.metrics.values, "_log_stamp", lambda: None)  # no wall_clock at all
+    monkeypatch.setattr(run_module.metrics.metrics, "_log_stamp", lambda: None)  # no wall_clock at all
+    monkeypatch.setattr(run_module.metrics.pending, "_log_stamp", lambda: None)  # no wall_clock at all
     unstamped = _count_scrubs(monkeypatch, lambda: run.log(metrics, step=2))
 
     assert stamped == unstamped
@@ -116,7 +118,7 @@ def test_a_credential_elsewhere_in_a_stamped_body_is_still_scrubbed():
 def _read_rows(n: int = 50) -> list[dict]:
     import hashlib
 
-    from probe.sdk import inputs
+    from probe.sdk.capture import lineage as inputs
 
     rows = []
     for i in range(n):
@@ -169,7 +171,7 @@ def test_a_read_field_that_is_not_its_shape_is_scrubbed(field, value):
 def test_read_and_write_rows_with_row_counts_keep_the_lift(monkeypatch):
     """Data catalog C9: a row count rides read and write rows; the lift still
     applies (a count is an int, never text) and the body is byte-identical."""
-    from probe.sdk import inputs
+    from probe.sdk.capture import lineage as inputs
 
     seen_at = "2026-10-13T00:00:01.000001+00:00"
     sha = "a" * 64

@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import statusline
+from probe.shared.harness.harnesses.claude_code import statusline
 
 AGENT = Path(__file__).resolve().parents[1]
 PLUGIN = AGENT / "plugins" / "probe-research"

@@ -18,10 +18,9 @@ import ast
 import inspect
 import json
 import os
-import re
 import subprocess
 import sys
-from importlib import import_module
+import tomllib
 from pathlib import Path
 from textwrap import dedent
 
@@ -50,6 +49,7 @@ from extra_platforms import (
     WSL1,
     WSL2,
     Shell,
+    _process_tree,
     agent_data as agent_data_module,
     architecture_data as architecture_data_module,
     ci_data as ci_data_module,
@@ -75,17 +75,10 @@ from extra_platforms import (
     terminal_data as terminal_data_module,
     trait as trait_module,
 )
-from extra_platforms._deprecated import DEPRECATED_ALIASES, REMOVAL_VERSION
 from extra_platforms.detection import _CATEGORY_ENV_SIGNALS, _unrecognized_message
 from extra_platforms.pytest import skip_hermetic_build
 
 from .conftest import github_runner_os
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib  # type: ignore[import-not-found]
-
 
 PROJECT_ROOT = Path(__file__).parent.parent
 """The root path of the project."""
@@ -93,7 +86,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 """The path to the ``pyproject.toml`` file."""
 
-PYPROJECT = tomllib.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
+PYPROJECT = tomllib.loads(PYPROJECT_PATH.read_text(encoding="UTF-8"))
 """The parsed content of the ``pyproject.toml`` file."""
 
 
@@ -195,7 +188,7 @@ def test_pyproject_classifiers():
 
 def test_module_root_declarations():
     def fetch_module_implements(module) -> set[str]:
-        """Fetch all methods, classes and constants implemented locally in a module's file."""
+        """Fetch the methods, classes and constants a module's own file defines."""
         members = set()
         tree = ast.parse(Path(inspect.getfile(module)).read_bytes())
         for node in tree.body:
@@ -293,7 +286,7 @@ def test_current_funcs():
         # is a legitimate detection alongside the primary shell. A packager
         # running an `osc build` chroot from a fish terminal gets fish in the
         # ancestor tree, above the bash chain rpmbuild runs the tests with.
-        ancestor_names = detection_module._parent_process_exe_names()
+        ancestor_names = _process_tree.parent_process_names()
         extra_shells = {
             shell
             for shell in ALL_SHELLS
@@ -450,15 +443,15 @@ def test_group_membership_funcs():
         assert getattr(extra_platforms, group.detection_func_id) is func
 
         assert isinstance(func(), bool)
-        assert func() == any(t in group for t in current_traits())
+        assert func() == any(trait.current for trait in group)
 
         assert group.symbol_id in func.__doc__
 
 
 def test_group_detection_type_stubs():
     """Check all is_*() group detection type stubs are defined and sorted."""
-    init_file = Path(inspect.getfile(extra_platforms))
-    tree = ast.parse(init_file.read_text(encoding="utf-8"))
+    detection_file = Path(inspect.getfile(detection_module))
+    tree = ast.parse(detection_file.read_text(encoding="UTF-8"))
 
     # Collect all function definitions in the TYPE_CHECKING block.
     stub_names: list[str] = []
@@ -490,27 +483,25 @@ def test_invalidate_caches():
     registry = detection_module._detection_registry
     for func in registry.values():
         func()
-    for trait in ALL_TRAITS:
-        assert trait.current in (True, False)
     current_traits()
 
-    # Every cached callable of the detection module, and the group detection
-    # functions generated at the package root.
+    # Every cached callable of the detection modules, the trait and group
+    # detection functions of the registry included.
     cached = {
         name: func
-        for name, func in (*vars(detection_module).items(), *registry.items())
+        for module in (detection_module, _process_tree)
+        for name, func in vars(module).items()
         if callable(func) and hasattr(func, "cache_info")
     }
+    assert registry.keys() <= cached.keys()
     assert all(
         func.cache_info().currsize  # type: ignore[attr-defined]
         for func in registry.values()
     )
-    assert all("current" in vars(trait) for trait in ALL_TRAITS)
 
     invalidate_caches()
 
     assert not [name for name, func in cached.items() if func.cache_info().currsize]
-    assert not [trait.id for trait in ALL_TRAITS if "current" in vars(trait)]
 
 
 @pytest.mark.parametrize(
@@ -552,7 +543,7 @@ def test_multiple_shells_match(monkeypatch, fresh_caches):
         monkeypatch.setitem(registry, func_name, lambda m=should_match: m)
     monkeypatch.setattr(detection_module, "_active_env_var_shell_ids", frozenset)
     monkeypatch.setattr(detection_module, "_resolved_shell_id", lambda: None)
-    monkeypatch.setattr(detection_module, "_parent_process_exe_names", frozenset)
+    monkeypatch.setattr(_process_tree, "parent_process_names", frozenset)
 
     with pytest.raises(RuntimeError, match="Multiple shells match"):
         current_shell()
@@ -583,7 +574,7 @@ def test_unrecognized_message_format():
     ("category", "gating_var"),
     (
         ("terminal", "TERM"),
-        ("CI", "CI"),
+        ("ci", "CI"),
         ("agent", "LLM"),
     ),
 )
@@ -592,17 +583,7 @@ def test_category_env_signals_gating_var(category, gating_var):
     assert _CATEGORY_ENV_SIGNALS[category][0] == gating_var
 
 
-def test_shell_env_signals_cover_version_vars():
-    """Every shell startup variable in the registry is reported on a shell miss."""
-    version_vars = {
-        env_var
-        for shell in ALL_SHELLS
-        if (env_var := getattr(shell, "version_env_var", None))
-    }
-    assert version_vars <= set(_CATEGORY_ENV_SIGNALS["shell"])
-
-
-@pytest.mark.parametrize("category", ("shell", "terminal", "CI", "agent"))
+@pytest.mark.parametrize("category", ("shell", "terminal", "ci", "agent"))
 def test_unrecognized_message_reports_set_category_vars(monkeypatch, category):
     """A set category variable, and its value, appear in that category's report."""
     primary_var = _CATEGORY_ENV_SIGNALS[category][0]
@@ -757,13 +738,45 @@ def test_docstrings_are_generated_on_first_read(flags):
     }
 
 
+def test_typing_is_not_imported():
+    """The package loads no `typing` itself, which nothing needs at runtime.
+
+    Annotations need `typing` under `TYPE_CHECKING` only. A dataclass reads a
+    `ClassVar` field at runtime, so the class metadata of traits and groups goes
+    through class keyword arguments instead.
+
+    Runs in a fresh interpreter, and only counts the modules the package import
+    adds: a coverage hook started with the interpreter may load `typing` first.
+
+    The count also starts after `dataclasses` loads. `dataclasses` imports
+    `inspect`, which imports `typing` from CPython 3.13.13 on the 3.13 branch
+    ([python/cpython#146491](https://github.com/python/cpython/pull/146491)).
+    On these releases the test misses a `typing` import by the package. Every
+    other Python version still catches it.
+    """
+    script = (
+        "import sys, dataclasses; before = set(sys.modules); import extra_platforms; "
+        "print(' '.join(sorted(set(sys.modules) - before)))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        encoding="UTF-8",
+        check=True,
+    )
+    loaded = result.stdout.split()
+    # Control: the package itself loaded in that interpreter.
+    assert "extra_platforms.detection" in loaded
+    assert "typing" not in loaded
+
+
 def test_subprocess_and_shutil_are_not_imported_at_module_level():
     """No module of the package imports `subprocess` or `shutil` when it loads.
 
     Both serve only the detection paths that spawn a process, which import them
-    in the function body. The check reads the source, because `sys.modules`
-    cannot tell: on Python 3.10 the standard library `platform` module imports
-    `subprocess` itself.
+    in the function body. The check reads the source rather than `sys.modules`,
+    so it also covers the modules the package loads lazily, like `_windows.py`.
     """
     offenders = []
     package_dir = Path(inspect.getfile(extra_platforms)).parent
@@ -797,40 +810,3 @@ def test_subprocess_and_shutil_are_not_imported_at_module_level():
         "subprocess or shutil imported at module level in "
         + ", ".join(sorted(offenders))
     )
-
-
-# Registry-derived: every alias in DEPRECATED_ALIASES gets a case, so a new entry
-# cannot slip in without test coverage.
-@pytest.mark.parametrize(
-    ("module_id", "deprecated_id", "replacement_id"),
-    [
-        (module_id, deprecated_id, replacement_id)
-        for module_id, aliases in sorted(DEPRECATED_ALIASES.items())
-        for deprecated_id, replacement_id in sorted(aliases.items())
-    ],
-)
-def test_deprecated_aliases(module_id, deprecated_id, replacement_id):
-    """A deprecated alias resolves to its replacement, with a warning at the caller.
-
-    The alias stays out of the advertised API, unlike its replacement.
-    """
-    module = import_module(module_id)
-    with pytest.deprecated_call(
-        match=f"{re.escape(deprecated_id)} is deprecated and will be removed in "
-        f"extra-platforms {re.escape(REMOVAL_VERSION)}, "
-        f"use {re.escape(replacement_id)} instead."
-    ) as record:
-        assert getattr(module, deprecated_id) is getattr(module, replacement_id)
-    assert record[0].filename == __file__
-
-    advertised = getattr(module, "__all__", ())
-    assert deprecated_id not in advertised
-    if advertised:
-        assert replacement_id in advertised
-
-
-@pytest.mark.parametrize("module_id", sorted(DEPRECATED_ALIASES))
-def test_unknown_attribute(module_id):
-    """An unknown attribute still raises a standard AttributeError."""
-    with pytest.raises(AttributeError, match="has no attribute 'DOES_NOT_EXIST'"):
-        _ = import_module(module_id).DOES_NOT_EXIST

@@ -24,6 +24,9 @@ pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the service is 
 #: probe.sdk.errors). Not the service's to change, but pinned: a heavy import
 #: added to the package's __init__ lands on the service's start path.
 PACKAGE_PARENTS = frozenset({"probe", "probe.errors", "probe.sdk", "probe.sdk.errors"})
+#: The update child's contract the service shares with the CLI (agent:12: one definition where the
+#: service restated it): stdlib only, pinned by name like the parents above.
+UPDATE_CONTRACT = frozenset({"probe.shared", "probe.shared.updates", "probe.shared.updates.step"})
 #: The interpreter's own environment hooks (a venv's site customisation).
 ENVIRONMENT = ("__main__", "_virtualenv", "_distutils_hack", "__editable__")
 #: Sum of `-X importtime` self times, interpreter start included. ~65 ms on the
@@ -54,6 +57,7 @@ def test_the_start_path_imports_only_the_stdlib_and_the_service():
         for name in modules
         if name.split(".")[0] not in stdlib
         and name not in PACKAGE_PARENTS
+        and name not in UPDATE_CONTRACT
         and name != "probe.service"
         and not name.startswith("probe.service.")
         and not name.startswith(ENVIRONMENT)
@@ -63,14 +67,21 @@ def test_the_start_path_imports_only_the_stdlib_and_the_service():
         assert heavy not in modules
 
 
-def test_import_time_is_under_budget():
+def _import_us() -> int:
     _, stderr = _selftest()
     total_us = 0
     for line in stderr.splitlines():
         if not line.startswith("import time:") or "self [us]" in line:
             continue
         total_us += int(line.split(":", 1)[1].split("|")[0].strip())
-    assert 0 < total_us < IMPORT_BUDGET_MS * 1000, f"start path imports took {total_us / 1000:.0f} ms"
+    return total_us
+
+
+def test_import_time_is_under_budget():
+    # Preemption only ever ADDS time to a run, so the fastest of a few is the
+    # cost of the imports; a real regression is slow in every one of them.
+    best_us = min(_import_us() for _ in range(5))
+    assert 0 < best_us < IMPORT_BUDGET_MS * 1000, f"start path imports took {best_us / 1000:.0f} ms (best of 5)"
 
 
 def _rss_kb(pid: int) -> int:

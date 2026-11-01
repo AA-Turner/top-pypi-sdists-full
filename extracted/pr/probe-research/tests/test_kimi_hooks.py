@@ -200,7 +200,7 @@ def test_a_kimi_session_is_never_read_as_bypass(isolated):
     """A resumed Kimi session writes no new `permission.set_mode`, so the auto
     mode of a `kimi -p` start would outlive a resume into the TUI. Unknown is
     "ask": neither the hooks nor the daemon read Kimi's mode."""
-    from probe.daemon.adapters import for_source
+    from probe.shared.harness.lookup import for_source
 
     io = _io()
     row = io._hook_harness.current()
@@ -448,7 +448,7 @@ def test_no_kimi_post_tool_hook_claims_a_daemon_message(isolated, rel):
     """reads_hook claims a mailbox message before printing it, and Kimi drops
     PostToolUse output: the answer would vanish. The PostToolUse entry tells the
     dispatcher so (`--unshown`), and the next prompt delivers it."""
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     sid = "c1c22c25-6382-4e79-8f00-a1a45e3c8e77"
     answer = mailbox.Message(id=mailbox.new_message_id(), session=sid, kind=mailbox.Kind.ANSWER, ask="a1b2c3",
@@ -863,7 +863,7 @@ def test_parity_a_guarded_write_is_refused_and_a_plain_one_allowed(isolated, rel
 def test_parity_a_prompt_gets_the_daemon_answer_waiting_for_it(isolated, tmp_path, monkeypatch, rel):
     """CRITICAL. Five prompt routes in parallel through the dispatcher give Kimi
     the context five entries did: the daemon's answer, once, claimed once."""
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     root = AGENT / rel
     sid = _KIMI_SID.split("_", 1)[1]
@@ -888,7 +888,7 @@ def test_a_kimi_started_inside_another_agent_still_gets_its_own_answer(isolated,
     the PARENT's inbox, found nothing, skipped the route (Kimi's own answer was
     never delivered, on any prompt) and started a new turn for the parent. The
     per-script entry ran the hook on Kimi's own id. Review of #3292 (P2)."""
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     root = AGENT / rel
     sid = _KIMI_SID.split("_", 1)[1]

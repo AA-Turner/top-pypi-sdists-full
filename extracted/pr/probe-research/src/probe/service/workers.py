@@ -97,17 +97,17 @@ HUNG_TICK_S = 600.0
 #: Test-only overrides (API v1, "Lifecycle"). Nothing in production sets them.
 POLL_ENV = "PROBE_SERVICE_WORKER_POLL_S"
 BACKOFF_ENV = "PROBE_SERVICE_WORKER_BACKOFF_S"
-#: Told to every worker (`probe.daemon.worker.SUPERVISOR_*`): this supervisor
+#: Told to every worker (`probe.daemon.worker.worker.SUPERVISOR_*`): this supervisor
 #: follows the switch into inline itself, knows read-only inline, and retries
 #: after EXIT_RETRY_LIBS -- as the tap's does.
 SUPERVISOR_ENV = {"PROBE_TAP_FOLLOWS_INLINE": "1", "PROBE_TAP_READ_ONLY_INLINE": "1", "PROBE_TAP_RETRIES_LIBS": "1"}
-#: `{"pid", "start", "sid"}` of this service (`probe.daemon.worker.SUPERVISOR_PID_ENV`):
+#: `{"pid", "start", "sid"}` of this service (`probe.daemon.worker.supervisor.SUPERVISOR_PID_ENV`):
 #: the worker's supervisor by identity, so one started just before this service
 #: exits (an update's restart) sees it gone -- exited, unreaped or its pid reused
 #: -- and finishes and leaves; by `getppid()` alone, read after its imports, it
 #: would take init for its parent.
 SUPERVISOR_PID_ENV = "PROBE_DAEMON_SUPERVISOR"
-#: "1" on every worker (`probe.daemon.worker.ENTER_CWD_ENV`): it is started from
+#: "1" on every worker (`probe.daemon.worker.startup.ENTER_CWD_ENV`): it is started from
 #: its state folder, never the project's (a hung mount there would stall the
 #: service), so it moves into `--cwd` itself -- with or without the identity.
 ENTER_CWD_ENV = "PROBE_DAEMON_ENTER_CWD"
@@ -131,7 +131,7 @@ def _env_float(name: str, default: float) -> float:
 
 
 def safe_sid(sid: str) -> str:
-    """The session's file stem under `<state>/daemon` (`probe.daemon.store.store_path`)."""
+    """The session's file stem under `<state>/daemon` (`probe.daemon.store.store.store_path`)."""
     return "".join(c for c in sid if c.isalnum() or c in "-_") or "session"
 
 

@@ -28,11 +28,13 @@ from trajectory._exceptions import (
   BadGatewayError,
   BadRequestError,
   ConflictError,
+  GatewayTimeoutError,
   InternalServerError,
   NotFoundError,
   PaymentRequiredError,
   PermissionDeniedError,
   RateLimitError,
+  RequestEntityTooLargeError,
   ServiceUnavailableError,
   UnprocessableEntityError,
 )
@@ -139,7 +141,7 @@ class SyncPage(BaseModel, Generic[PageItemT]):
 
   items: list[PageItemT]
   next_cursor: str | None = None
-  has_more: bool
+  has_more: bool = False
 
   _client: "APIClient" = PrivateAttr()
   _options: FinalRequestOptions = PrivateAttr()
@@ -596,11 +598,13 @@ class APIClient:
       403: PermissionDeniedError,
       404: NotFoundError,
       409: ConflictError,
+      413: RequestEntityTooLargeError,
       422: UnprocessableEntityError,
       429: RateLimitError,
       500: InternalServerError,
       502: BadGatewayError,
       503: ServiceUnavailableError,
+      504: GatewayTimeoutError,
     }
     error_type = error_types.get(response.status_code, APIStatusError)
     return error_type(response, body)

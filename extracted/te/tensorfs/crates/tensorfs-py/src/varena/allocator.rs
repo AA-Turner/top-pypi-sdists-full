@@ -39,6 +39,8 @@ struct Device {
     retries: u64,
     reclaimed: usize,
     refusals: u64,
+    /// First refusals returned to Torch, each of which frees its whole cache before its retry.
+    cache_refusals: u64,
 }
 #[derive(Default)]
 struct Book {
@@ -98,7 +100,12 @@ fn allocate(output: *mut *mut c_void, bytes: usize) -> i32 {
     // more for the same size, and raises OOM only if that fails too. So a first refusal goes back
     // to Torch untouched, and only its retry may evict weights.
     let retry = row.refused.take() == Some(bytes);
-    if let Some(limit) = row.limit {
+    // The development cap and the room the machine left this process (`varena::make_room`).
+    let room = match varena::room_limit(device) {
+        Ok(room) => room,
+        Err(error) => return error_code(error),
+    };
+    if let Some(limit) = row.limit.into_iter().chain(room).min() {
         let resident = match varena::resident_bytes(device) {
             Ok(n) => n,
             Err(e) => return error_code(e),
@@ -115,6 +122,7 @@ fn allocate(output: *mut *mut c_void, bytes: usize) -> i32 {
             }
             if !retry {
                 row.refused = Some(bytes);
+                row.cache_refusals += 1;
                 return 2;
             }
             match varena::reclaim(device, need) {
@@ -144,6 +152,7 @@ fn allocate(output: *mut *mut c_void, bytes: usize) -> i32 {
         if !retry {
             // Torch clears CUDA's OOM error itself before it frees its cache.
             row.refused = Some(bytes);
+            row.cache_refusals += 1;
             return status;
         }
         // Torch normally consumes a failed cudaMalloc's error before recovery. The hook
@@ -169,6 +178,7 @@ fn allocate(output: *mut *mut c_void, bytes: usize) -> i32 {
         let pointer = unsafe { *output } as usize;
         if pointer != 0 {
             row.reserved = row.reserved.saturating_add(bytes);
+            let _ = varena::note_torch_reserved(device, row.reserved);
             book.pointers.insert(pointer, (device, bytes));
         }
     }
@@ -195,6 +205,7 @@ unsafe extern "C" fn free(pointer: *mut c_void) -> i32 {
             if let Some((device, bytes)) = book.pointers.remove(&(pointer as usize)) {
                 let row = book.devices.entry(device).or_default();
                 row.reserved = row.reserved.saturating_sub(bytes);
+                let _ = varena::note_torch_reserved(device, row.reserved);
             }
         }
         status
@@ -264,6 +275,9 @@ pub(super) fn stats(device: i32) -> Result<BTreeMap<&'static str, u64>, String> 
         ("oom_retries", row.retries),
         ("reclaimed_bytes", row.reclaimed as u64),
         ("budget_refusals", row.refusals),
+        ("cache_refusals", row.cache_refusals),
+        // TensorFS decode streams the process has created (`io::decode::streams_created`).
+        ("decode_streams", tensorfs::io::decode::streams_created()),
         ("activation_admission_limit", row.limit.unwrap_or(0) as u64),
     ]))
 }

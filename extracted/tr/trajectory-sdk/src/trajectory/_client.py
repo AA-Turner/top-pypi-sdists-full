@@ -16,13 +16,14 @@ if TYPE_CHECKING:
   from trajectory.resources.agents import Agents
   from trajectory.resources.artifacts import Artifacts
   from trajectory.resources.benchmarks.benchmarks import Benchmarks
+  from trajectory.resources.beta.beta import Beta
   from trajectory.resources.billing import Billing
   from trajectory.resources.chat.chat import Chat
   from trajectory.resources.datasets import Datasets
   from trajectory.resources.deployments import Deployments
   from trajectory.resources.diagnostics import Diagnostics
   from trajectory.resources.evals.evals import Evals
-  from trajectory.resources.inference import Inference
+  from trajectory.resources.inference.inference import Inference
   from trajectory.resources.model_slugs import ModelSlugs
   from trajectory.resources.organizations import Organizations
   from trajectory.resources.responses import Responses
@@ -159,6 +160,12 @@ class Client(APIClient):
     return Diagnostics(self)
 
   @cached_property
+  def beta(self) -> Beta:
+    from trajectory.resources.beta.beta import Beta
+
+    return Beta(self)
+
+  @cached_property
   def chat(self) -> Chat:
     from trajectory.resources.chat.chat import Chat
 
@@ -184,7 +191,7 @@ class Client(APIClient):
 
   @cached_property
   def inference(self) -> Inference:
-    from trajectory.resources.inference import Inference
+    from trajectory.resources.inference.inference import Inference
 
     return Inference(self)
 

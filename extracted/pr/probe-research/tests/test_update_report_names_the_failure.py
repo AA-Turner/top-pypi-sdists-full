@@ -32,7 +32,10 @@ import os
 
 import pytest
 
-from probe.cli import autoupdate, claude_cli, kimi_config, update_report, updater, upgrading
+from probe.cli import autoupdate, updater, upgrading
+from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+from probe.shared.harness.harnesses.kimi_code import config as kimi_config
+from probe.shared.updates import update_report
 
 MANIFEST = {
     "cli": {"latest": "0.296.0"},

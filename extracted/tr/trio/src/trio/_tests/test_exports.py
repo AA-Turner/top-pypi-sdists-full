@@ -19,7 +19,7 @@ import pytest
 
 import trio
 import trio.testing
-from trio._tests.pytest_plugin import RUN_SLOW, skip_if_optional_else_raise
+from trio._tests.pytest_plugin import RUN_SLOW, maybe_ignore_import_error
 
 from .. import _core, _util
 from .._core._tests.tutil import slow
@@ -33,7 +33,7 @@ mypy_cache_updated = False
 try:  # If installed, check both versions of this class.
     from typing_extensions import Protocol as Protocol_ext
 except ImportError:  # pragma: no cover
-    Protocol_ext = Protocol
+    Protocol_ext = Protocol  # type: ignore[assignment]
 
 
 def _ensure_mypy_cache_updated() -> None:
@@ -41,7 +41,7 @@ def _ensure_mypy_cache_updated() -> None:
     try:
         from mypy.api import run
     except ImportError as error:
-        skip_if_optional_else_raise(error)
+        maybe_ignore_import_error(error)
 
     global mypy_cache_updated
     if not mypy_cache_updated:
@@ -121,11 +121,6 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 # won't be reflected in trio.socket, and this shouldn't cause downstream test
 # runs to start failing.
 @pytest.mark.redistributors_should_skip
-@pytest.mark.skipif(
-    sys.version_info[:4] == (3, 14, 0, "beta"),
-    # 12 pass, 16 fail
-    reason="several tools don't support 3.14",
-)
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -159,7 +154,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         try:
             from pylint.lint import PyLinter
         except ImportError as error:
-            skip_if_optional_else_raise(error)
+            maybe_ignore_import_error(error)
 
         linter = PyLinter()
         assert module.__file__ is not None
@@ -172,7 +167,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         try:
             import jedi
         except ImportError as error:
-            skip_if_optional_else_raise(error)
+            maybe_ignore_import_error(error)
 
         # Simulate typing "import trio; trio.<TAB>"
         script = jedi.Script(f"import {modname}; {modname}.")
@@ -215,7 +210,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         try:
             import pyright  # noqa: F401
         except ImportError as error:
-            skip_if_optional_else_raise(error)
+            maybe_ignore_import_error(error)
         import subprocess
 
         res = subprocess.run(
@@ -242,6 +237,10 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
 
     # ignore warnings about deprecated module tests
     missing_names -= {"tests"}
+
+    # ignore spurious incorrect name
+    # TODO: remove when PyPy 8.0.1 or 8.1.0 gets released!
+    missing_names -= {"ALG_SET_PUB_KEY"}
 
     if missing_names:  # pragma: no cover
         print(f"{tool} can't see the following names in {modname}:")
@@ -380,7 +379,7 @@ def test_static_tool_sees_class_members(
             try:
                 import jedi
             except ImportError as error:
-                skip_if_optional_else_raise(error)
+                maybe_ignore_import_error(error)
 
             script = jedi.Script(
                 f"from {module_name} import {class_name}; {class_name}.",

@@ -7,15 +7,15 @@ from typing import Any, Iterable, Literal, Mapping, overload
 
 import httpx2
 
-from trajectory._base_client import make_request_options, serialize_header
+from trajectory._base_client import DEFAULT_TIMEOUT, make_request_options, serialize_header
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
 from trajectory._streaming import Stream
 from trajectory._types import Headers, NotGiven, Omit, not_given, omit
 from trajectory._utils import maybe_transform
+from trajectory.types.create_response_params import CreateResponseParams
 from trajectory.types.responses.create_response_result import CreateResponseResult
 from trajectory.types.responses.response_stream_event import ResponseStreamEvent
-from trajectory.types.responses.responses_create_params import ResponsesCreateParams
 
 
 class Responses(APIResource):
@@ -94,8 +94,11 @@ class Responses(APIResource):
 
       extra_body: Add additional JSON properties to the request
 
-      timeout: Override the client-level default timeout for this request, in seconds
+      timeout: Override the default timeout, in seconds; Default timeout is 90 mins for this endpoint
     """
+    if isinstance(timeout, NotGiven):
+      timeout = httpx2.Timeout(DEFAULT_TIMEOUT)
+      timeout.read = 90 * 60
     return self._post(
       "/v1/responses",
       cast_to=CreateResponseResult,
@@ -108,7 +111,7 @@ class Responses(APIResource):
           "stream": stream,
           "disable_thinking": disable_thinking,
         },
-        ResponsesCreateParams,
+        CreateResponseParams,
       ),
       options=make_request_options(
         headers={

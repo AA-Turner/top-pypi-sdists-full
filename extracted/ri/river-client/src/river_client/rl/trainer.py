@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Literal
 
+import numpy as np
+
 from river_client.client import (
     _ForwardBackwardNeedsSubBatches,
     _merge_forward_backward_sub_batch_results,
@@ -46,7 +48,13 @@ from .config import (
     acknowledge_risk,
 )
 from .custom_loss import custom_batch, loss_contract
-from .engine import call, group_from_state, group_state
+from .engine import (
+    call,
+    group_from_state,
+    group_state,
+    trajectory_capture,
+    trajectory_spill,
+)
 from .env import Env
 from .losses import (
     CISPO,
@@ -58,7 +66,7 @@ from .losses import (
 )
 from .progress import Activities
 from .streaming_custom_loss import StreamingCustomLoss
-from .trajectory import Span, decode_state
+from .trajectory import decode_state
 
 
 @dataclass
@@ -630,7 +638,14 @@ class AsyncTrainer:
             "top_p": self.engine.top_p,
             "top_k": self.engine.top_k,
             "renderer": type(self.engine.renderer).__qualname__,
-            "base_model": getattr(self.engine.model, "base_model", None),
+            # Keep the original create_model selection in the durable recipe.
+            # Canonical metadata must not invalidate existing fingerprints or
+            # make new checkpoints unreadable by alias-based clients on rollback.
+            "base_model": getattr(
+                self.engine.model,
+                "_requested_base_model",
+                getattr(self.engine.model, "base_model", None),
+            ),
             "max_importance_weight": self._loss_binding.max_importance_weight,
             "run_config": self.run_config,
             "environment": (
@@ -654,13 +669,28 @@ class AsyncTrainer:
         if self._state_write is not None:
             await self._wait_state_write(self._state_write)
         if self._full_weight:
-            # Full-weight runs make no training saves of their own (R48): a
-            # restart resumes from the server's newest committed auto checkpoint.
+            # A post-load auto save refreshes an expiring source from another
+            # run. At equal steps, keep durable saves and this run's own saves.
             latest = await self._call(
                 "auto_checkpoint", self.engine.model.latest_auto_checkpoint
             )
-            if latest is not None:
+            if latest is not None and (
+                self._base is None
+                or latest.step > self._base.step
+                or (
+                    not self._durable_base
+                    and latest.step == self._base.step
+                    and not self._base.path.startswith(
+                        f"river://{self.engine.model.training_run_id}/"
+                    )
+                    and latest.policy_version is not None
+                    and latest.policy_version == self._base.policy_version
+                )
+            ):
                 self._base = latest
+                self._durable_base = False
+        # The previous write has committed, so only newer content is copied.
+        capture = self._store.capture()
         state = {
             "version": 1,
             **self._fingerprints,
@@ -671,6 +701,7 @@ class AsyncTrainer:
             "sampling_schedule": dataclasses.asdict(self.engine.schedule),
             "base": None if self._base is None else dataclasses.asdict(self._base),
             "durable_base": self._durable_base,
+            "updates_since_save": self._updates_since_save,
             **(
                 {
                     "training_run_id": self.engine.model.training_run_id,
@@ -680,18 +711,19 @@ class AsyncTrainer:
                 if self._full_weight
                 else {}
             ),
-            "journal": copy.deepcopy(self._journal),
+            # Each committed update is written once and referenced afterwards.
+            "journal": [capture.record(update) for update in self._journal],
             "admitted_policy_steps": self._admitted_policy_steps.copy(),
             "active": sorted(self._active),
             "finished": sorted(self._finished),
             "received": sorted(self._received),
-            "pending": [group_state(g) for g in self._pending],
+            "pending": [group_state(g, capture.trajectory) for g in self._pending],
             **(
                 {"accumulating_groups": self._accumulating_groups.copy()}
                 if self._overlap and self.max_staleness > 0
                 else {}
             ),
-            "engine": await self.engine.state_dict(),
+            "engine": await self._engine_state(capture),
             **(
                 {"dataset_scheduler": self.dataset_scheduler.state_dict()}
                 if self.dataset_scheduler is not None
@@ -707,7 +739,16 @@ class AsyncTrainer:
         images = session._client._local_images if session is not None else None
 
         async def persist():
-            await self._call("checkpoint_state", self._store.save, state, images=images)
+            await self._call(
+                "checkpoint_state",
+                self._store.save,
+                state,
+                images=images,
+                spills=capture.spills,
+            )
+            # Committed journal updates live in the checkpoint; keep only
+            # references in memory and reload them if recovery replays them.
+            self._journal = [self._store.release(update) for update in self._journal]
             self._saved_model_step = state["model_step"]
             self._last_state_save = time.monotonic()
 
@@ -715,6 +756,15 @@ class AsyncTrainer:
         if not background:
             await self._wait_state_write(self._state_write)
         return self._state_write
+
+    async def _engine_state(self, capture):
+        token = trajectory_capture.set(capture.trajectory)
+        spill = trajectory_spill.set(capture.spill)
+        try:
+            return await self.engine.state_dict()
+        finally:
+            trajectory_spill.reset(spill)
+            trajectory_capture.reset(token)
 
     @staticmethod
     async def _wait_state_write(write):
@@ -768,26 +818,11 @@ class AsyncTrainer:
                         "Sample policy violates the reserved staleness bound"
                     )
                 policy_step = self.engine.model.step - age
-                if span.policy_step == policy_step:
-                    spans.append(span)
-                    continue
+                # Restamping shares the span's arrays, spilled ones included.
                 spans.append(
-                    Span(
-                        span.kind,
-                        span.chunks,
-                        logprobs=span.logprobs,
-                        sampler_topk_ids=span.sampler_topk_ids,
-                        sampler_topk_logprobs=span.sampler_topk_logprobs,
-                        sampling_log_masses=span.sampling_log_masses,
-                        policy_step=policy_step,
-                        run=span.run,
-                        policy_version=sampled,
-                        policy_spans=span.policy_spans,
-                        retained_kv=span.retained_kv,
-                        kv_cache_policy_version=span.kv_cache_policy_version,
-                        routing_handle=span.routing_handle,
-                        routing_num_tokens=span.routing_num_tokens,
-                    )
+                    span
+                    if span.policy_step == policy_step
+                    else span._with_policy_step(policy_step)
                 )
             trajectory._spans = spans
 
@@ -818,6 +853,7 @@ class AsyncTrainer:
             )
         self._base, self._journal = checkpoint, []
         self._durable_base = durable
+        self._updates_since_save = 0
         await self._save_state()
 
     async def _publish_sampling_snapshot(self, *, recovering=False):
@@ -871,20 +907,22 @@ class AsyncTrainer:
 
         The same run continues from the step the server committed, which is
         the newest auto checkpoint when its crew restarted. A new run loads
-        the newest auto checkpoint recorded before the restart, or keeps the
+        the newest training checkpoint recorded before the restart, or keeps the
         weights it was created with if there was none. No update is replayed.
         When the resumed policy is not the saved one, every unconsumed group
         is sampled again from the resumed weights, so no sample from
         discarded weights is trained on. The batch counter is kept.
 
-        Returns None when the saved rollout state applies as is. Otherwise it
-        empties that state and returns the ``(group_id, row)`` pairs to admit
-        again, in admission order; the caller must save the new state before
-        any update, or a later resume could restore the discarded rollouts.
+        Returns the groups to readmit (None when saved rollouts still apply)
+        and whether the resumed weights need a replacement checkpoint. When
+        readmitting, the caller must save the new state before any update, or
+        a later resume could restore discarded rollouts. A required checkpoint
+        must succeed before that state replaces the previous recovery base.
         """
         model = self.engine.model
         self._base = None if saved["base"] is None else Checkpoint(**saved["base"])
-        if saved["training_run_id"] == model.training_run_id:
+        same_run = saved["training_run_id"] == model.training_run_id
+        if same_run:
             await call(model.sync_committed_policy)
         elif self._base is not None:
             await self._call(
@@ -893,7 +931,23 @@ class AsyncTrainer:
         await self._refresh_policy()
         self._committed_step = model.step
         if self._policy.id == saved["policy_id"]:
-            return None
+            return None, False
+        checkpoint_recovery = False
+        if (
+            same_run
+            and self._policy.parent_id == saved["policy_id"]
+            and model.step > saved["model_step"]
+        ):
+            # An optimizer committed before the driver saved state. Its parent
+            # proves forward progress: the saved base remains a valid ancestor.
+            self._updates_since_save += model.step - saved["model_step"]
+        else:
+            # A new run loaded its base, so later updates were lost. In the
+            # same run this could be multiple unsaved updates or a rewind.
+            # Retain the old base until the caller checkpoints the resumed
+            # weights; neither step nor lineage proves which branch survived.
+            self._updates_since_save = 0
+            checkpoint_recovery = same_run
         unconsumed = set(saved["active"]) | {g["id"] for g in saved["pending"]}
         engine = saved["engine"]
         rows = {
@@ -911,12 +965,13 @@ class AsyncTrainer:
             accumulating_groups=[],
             engine={**engine, "groups": [], "outbox": []},
         )
-        return [
+        readmit = [
             (group_id, decode_state(rows[group_id]))
             for group_id in sorted(
                 unconsumed, key=lambda group_id: int(group_id.rpartition("-")[2])
             )
         ]
+        return readmit, checkpoint_recovery
 
     async def _raise_if_rewound(self, error):
         try:
@@ -981,7 +1036,7 @@ class AsyncTrainer:
             ),
         }
 
-    def _backward_data(self, data):
+    def _backward_data(self, data, *, preserve_recovery=False):
         missing = self.routing_replay and any(
             not d.get("expert_routing_handle") for d in data
         )
@@ -989,7 +1044,7 @@ class AsyncTrainer:
             {
                 k: v
                 for k, v in datum.items()
-                if k != "_rl_recovered_routing"
+                if (preserve_recovery or k != "_rl_recovered_routing")
                 and not (missing and k.startswith("expert_routing_"))
             }
             for datum in data
@@ -1073,7 +1128,7 @@ class AsyncTrainer:
             (group_count, range(first, len(self._streamed_results)))
         )
 
-    async def _submit_backward_chunk(self, data):
+    async def _submit_backward_chunk(self, data, *, prepared=None):
         await self._collect_backwards()
         if len(self._pending_backwards) >= self.max_pending_forward_backward:
             await asyncio.shield(self._pending_backwards[0][1])
@@ -1086,31 +1141,46 @@ class AsyncTrainer:
             result = await self._backward(data, zero_out=zero_out)
             self._streamed_results.append(result)
         else:
+            if prepared is None:
+                prepared = self._backward_data(data), self._backward_kwargs(data)
+            request_data, request_kwargs = prepared
             # Await submission in order, not GPU completion: seq_id and the
             # initial gradient reset must precede every later contribution.
             submission = asyncio.create_task(
                 self._call(
                     "backward_submit",
                     submit,
-                    self._backward_data(data),
-                    **self._backward_kwargs(data, zero_out=zero_out),
+                    request_data,
+                    **{**request_kwargs, "zero_out": zero_out},
                 )
             )
             try:
-                pending = await asyncio.shield(submission)
-            except _ForwardBackwardNeedsSubBatches:
-                # Preserve the existing >1-GiB upload path. Its internal
-                # sub-batches must stay behind successful earlier requests.
-                await self._collect_backwards(all_pending=True)
-                result = await self._backward(data, zero_out=zero_out)
-                self._streamed_results.append(result)
-                self._streamed_chunks.append(data)
+                while not submission.done():
+                    try:
+                        await asyncio.shield(submission)
+                    except asyncio.CancelledError as error:
+                        # Even repeated cancellation must recover an accepted
+                        # handle so finalization can drain its GPU work.
+                        cancelled = error
+                pending = submission.result()
+            except _ForwardBackwardNeedsSubBatches as split:
+                if cancelled is not None:
+                    raise cancelled
+                # Keep byte-sized uploads in the same bounded pipeline. Each
+                # piece owns its result and replay data; only the first useful
+                # piece of the update resets gradients. No optimizer is allowed
+                # until every accepted piece completes successfully.
+                # Drop ignored routing captures from replay data too, so a
+                # smaller journal chunk cannot re-enable them after a restore.
+                data = self._backward_data(data, preserve_recovery=True)
+                for sub_batch in split.sub_batch_slices:
+                    # Preserve batch-wide routing fallback and loss settings;
+                    # repartitioning must not change the payload we measured.
+                    await self._submit_backward_chunk(
+                        data[sub_batch],
+                        prepared=(request_data[sub_batch], request_kwargs),
+                    )
                 return
-            except asyncio.CancelledError as error:
-                # The submit RPC can already be accepted. Recover its handle
-                # before propagating cancellation so finalization can drain it.
-                pending = await asyncio.shield(submission)
-                cancelled = error
             index = len(self._streamed_results)
             self._streamed_results.append(None)
             task = asyncio.create_task(self._wait_backward(pending))
@@ -1264,7 +1334,9 @@ class AsyncTrainer:
                     key = (self._committed_step, group.id)
                     if key not in self._prepared_groups:
                         self._apply_policy_provenance(group.trajectories)
-                        contribution, metrics = build_batch(
+                        # Spilled arrays are read from disk; keep it off the loop.
+                        contribution, metrics = await call(
+                            build_batch,
                             [group.trajectories],
                             estimator=estimator,
                             normalize=self._loss_binding.normalize,
@@ -1289,7 +1361,7 @@ class AsyncTrainer:
                         )
                     contribution, input_tokens = self._prepared_groups[key]
                     if starting_custom and not any(
-                        any(d["advantages"]) for d in contribution
+                        np.any(d["advantages"]) for d in contribution
                     ):
                         continue
                     data.extend(contribution)
@@ -1340,7 +1412,7 @@ class AsyncTrainer:
                         )
                         self._streamed_corrections.append(
                             (
-                                sum(sum(a != 0 for a in d["advantages"]) for d in data),
+                                sum(np.count_nonzero(d["advantages"]) for d in data),
                                 correction,
                             )
                         )
@@ -1643,6 +1715,7 @@ class AsyncTrainer:
         self._n, self._submitted = 0, 0
         self._active, self._finished, self._received = set(), set(), set()
         self._pending, self._journal = [], []
+        self._updates_since_save = 0
         self._prepared_groups.clear()
         self._durable_base = False
         self._accumulating_groups = []
@@ -1668,6 +1741,30 @@ class AsyncTrainer:
             config = self._config()
             self._fingerprints["config_fingerprint"] = fingerprint(config)
             compatible_fingerprints = self._loss_binding.compatible_fingerprints(config)
+            if (
+                self.engine._live_full_weight
+                and config["sampling_policy"] == "segment"
+                and config["kv_cache"]
+                == {"max_staleness": 0, "on_limit": "refill", "allow_reprefill": True}
+            ):
+                # v0.17.0 named these defaults trajectory/hold, but full-weight
+                # sampling already used live policies without retained KV.
+                # Accept only that old spelling of the corrected defaults;
+                # every other recipe field must still match, including the
+                # existing equivalence rules for omitted/default loss options.
+                compatible_fingerprints.update(
+                    self._loss_binding.compatible_fingerprints(
+                        config
+                        | {
+                            "sampling_policy": "trajectory",
+                            "kv_cache": {
+                                "max_staleness": 0,
+                                "on_limit": "hold",
+                                "allow_reprefill": False,
+                            },
+                        }
+                    )
+                )
         self._run_key = self._fingerprints["plan_fingerprint"][:12]
         store_context = (
             StateStore(self.checkpoint) if self.checkpoint else nullcontext()
@@ -1688,9 +1785,13 @@ class AsyncTrainer:
                 and getattr(self.engine.model, "checkpoint", None) is None
             )
             with store_context as self._store:
-                saved = self._store.load() if self._store else None
+                saved = self._store.load(lazy_records=True) if self._store else None
+                resumed = bool(saved)
                 if saved:
                     self._durable_base = saved.get("durable_base", False)
+                    self._updates_since_save = saved.get(
+                        "updates_since_save", len(saved["journal"])
+                    )
                     if self.init_checkpoint is not None:
                         raise ValueError(
                             "init_checkpoint is mutually exclusive with automatic resume"
@@ -1711,10 +1812,22 @@ class AsyncTrainer:
                         {"rows": rows, "saved": saved}, image_store=self._store.images
                     )
                     rows, saved = restored["rows"], restored["saved"]
-                from river_client.images import image_handles
+                    del restored
+                from river_client.images import image_handles, map_images
 
                 self._dataset_images = list(
                     {image.sha256: image for image in image_handles(rows)}.values()
+                )
+                # Handles already uploaded to this session, by content, so
+                # lazily replayed journal records do not upload them again.
+                session_images = (
+                    {}
+                    if image_session is None
+                    else {
+                        image.sha256: image
+                        for image in image_handles((rows, saved))
+                        if image.session_id == image_session.session_id
+                    }
                 )
                 async with self.engine:
                     sampling_before = self.engine.sampling_metrics()
@@ -1724,8 +1837,11 @@ class AsyncTrainer:
                         )
                     await self._refresh_policy()
                     readmit = None
+                    checkpoint_recovery = False
                     if saved and self._full_weight:
-                        readmit = await self._resume_full_weight(saved)
+                        readmit, checkpoint_recovery = await self._resume_full_weight(
+                            saved
+                        )
                     elif saved:
                         self._base = Checkpoint(**saved["base"])
                         await self._call(
@@ -1739,7 +1855,23 @@ class AsyncTrainer:
                         # weights checkpoint before restoring newer rollout state.
                         # This preserves policy-step provenance after a rewind.
                         self._journal = saved["journal"]
-                        for update in self._journal:
+                        for record in self._journal:
+                            # Records load one at a time, not as a whole journal.
+                            update = await asyncio.to_thread(self._store.read, record)
+                            if image_session is not None and update is not record:
+                                update = await image_session.restore_images(
+                                    map_images(
+                                        update,
+                                        lambda image: session_images.get(
+                                            image.sha256, image
+                                        ),
+                                    ),
+                                    image_store=self._store.images,
+                                )
+                                session_images.update(
+                                    (image.sha256, image)
+                                    for image in image_handles(update)
+                                )
                             await self._update(
                                 update.get("data"),
                                 update["optimizer"],
@@ -1758,7 +1890,11 @@ class AsyncTrainer:
                             set(saved["finished"]),
                             set(saved["received"]),
                         )
-                        self._pending = [group_from_state(g) for g in saved["pending"]]
+                        restored_trajectories = {}
+                        self._pending = [
+                            group_from_state(g, restored_trajectories)
+                            for g in saved["pending"]
+                        ]
                         if self._overlap and self.max_staleness > 0:
                             self._accumulating_groups = saved["accumulating_groups"]
                         self._admitted_policy_steps = dict(
@@ -1781,13 +1917,18 @@ class AsyncTrainer:
                         self.engine.load_state_dict(
                             saved["engine"],
                             restart_pinned_trajectories=self.engine._latest_snapshot_sampling,
+                            trajectories=restored_trajectories,
                         )
+                        del restored_trajectories
                         if self.evaluator:
                             self.evaluator.load_state_dict(saved["eval_history"])
                         if readmit is not None:
                             for group_id, row in readmit:
                                 self._admit(row, group_id)
-                            await self._save_state()
+                            if checkpoint_recovery:
+                                await self._save_weights()
+                            else:
+                                await self._save_state()
                     else:
                         if self.init_checkpoint is not None:
                             # A full-weight run loads only with its optimizer
@@ -1802,10 +1943,13 @@ class AsyncTrainer:
                             await self._save_state()
                         elif self._store:
                             await self._save_weights()
+                    # Restored objects now own their data; release the decoded
+                    # checkpoint rather than keeping it for the whole run.
+                    saved = None
                     self._committed_step = self.engine.model.step
                     # Reconcile external effects of the last committed batch
                     # before another update, including a fully completed run.
-                    if saved and after_recovery is not None:
+                    if resumed and after_recovery is not None:
                         await after_recovery(self._n)
                     self._validate_reservations()
                     if self.evaluator:
@@ -1933,7 +2077,8 @@ class AsyncTrainer:
                                     t for g in selected for t in g.trajectories
                                 ]
                                 self._apply_policy_provenance(trajectories)
-                                data, metrics = build_batch(
+                                data, metrics = await call(
+                                    build_batch,
                                     [g.trajectories for g in backward_groups],
                                     estimator=self.advantage,
                                     normalize=self._loss_binding.normalize,
@@ -1952,7 +2097,8 @@ class AsyncTrainer:
                                     if (
                                         not self._loss_binding.train_zero_advantage_batches
                                         and not any(
-                                            any(datum["advantages"]) for datum in data
+                                            np.any(datum["advantages"])
+                                            for datum in data
                                         )
                                     ):
                                         data = []
@@ -2059,8 +2205,10 @@ class AsyncTrainer:
                                         }
                                     # A full-weight resume never replays updates
                                     # (R56), so it keeps no journal.
-                                    if self._store and not self._full_weight:
-                                        self._journal.append(update)
+                                    if self._store:
+                                        self._updates_since_save += 1
+                                        if not self._full_weight:
+                                            self._journal.append(update)
                                     self._committed_step = self.engine.model.step
                                     self._updating = False
                                     metrics.update(
@@ -2137,7 +2285,7 @@ class AsyncTrainer:
                                     )
                                 if (
                                     self._store
-                                    and len(self._journal)
+                                    and self._updates_since_save
                                     >= self.checkpoint.weights_every
                                 ):
                                     await self._save_weights(durable=self._n == steps)
@@ -2194,10 +2342,8 @@ class AsyncTrainer:
                                 raise result[0]
                         if self._store and healthy and not self._updating:
                             async with self._lock:
-                                if (
-                                    not self._full_weight
-                                    and self._n == steps
-                                    and (self._journal or not self._durable_base)
+                                if self._n == steps and (
+                                    self._updates_since_save or not self._durable_base
                                 ):
                                     await self._save_weights(durable=True)
                                 else:

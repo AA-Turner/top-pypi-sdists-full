@@ -1,6 +1,6 @@
 """Feedback about Probe for the Probe team: asked first, sent only on a yes.
 
-`probe.feedback` holds the text as a `feedback.send` question on the approvals
+`probe.shared.feedback.feedback` holds the text as a `feedback.send` question on the approvals
 board; the answer hook, pi's dialog or `probe approvals` records the person's
 pick; `probe feedback flush` sends what they said yes to. These tests run the
 board, the CLI, the hook and the daemon's settle path against a temporary state
@@ -23,9 +23,9 @@ import pytest
 from typer.testing import CliRunner
 
 from probe import __version__
-from probe import feedback as fb
-from probe.daemon import approvals as appr
-from probe.harness.registry import get_registry
+from probe.shared.feedback import feedback as fb
+from probe.shared.mailbox import approvals as appr
+from probe.foundation.harness_registry.harness_registry import get_registry
 from probe.sdk import errors, session_marker
 
 cli_main = importlib.import_module("probe.cli.main")
@@ -155,7 +155,7 @@ def test_an_answered_question_no_longer_blocks_the_next_one():
 
 
 def test_the_account_it_was_asked_under_is_kept(monkeypatch):
-    from probe.sdk import config
+    from probe.sdk.settings import settings as config
 
     monkeypatch.setattr(config, "current_context_name", lambda data=None: "lab-b")
     assert _hold().held == {"kind": "feedback", "context": "lab-b"}
@@ -189,7 +189,7 @@ def test_a_yes_sends_it_once_keyed_by_the_question():
 
 
 def test_each_yes_goes_with_the_account_it_was_asked_under(monkeypatch):
-    from probe.sdk import config
+    from probe.sdk.settings import settings as config
 
     monkeypatch.setattr(config, "current_context_name", lambda data=None: "lab-a")
     first = _hold()
@@ -402,7 +402,7 @@ def test_flush_sends_what_was_said_yes_to(monkeypatch):
 
 def test_the_daemon_profile_lets_the_agent_send_feedback():
     assert session_marker.daemon_profile_allows(["feedback", "send", TEXT]) == (True, "probe feedback send")
-    # It sends only what the person said yes to (`probe.feedback`).
+    # It sends only what the person said yes to (`probe.shared.feedback.feedback`).
     assert session_marker.daemon_profile_allows(["feedback", "flush"]) == (True, "probe feedback flush")
 
 
@@ -474,7 +474,7 @@ def test_the_hook_starts_a_flush_only_after_a_yes_to_feedback(tmp_path):
 
 def test_the_daemon_leaves_feedback_questions_alone(tmp_path):
     pytest.importorskip("pydantic_ai")
-    from probe.daemon import lease
+    from probe.daemon.host import lease
     from probe.daemon import worker as worker_mod
 
     lease.sessions_dir().mkdir(parents=True, exist_ok=True)
@@ -503,7 +503,7 @@ def test_an_answered_question_is_not_asked_again_nor_expired_by_the_terminal_lis
 
 def test_a_yes_for_an_account_no_longer_saved_stays_unsent(monkeypatch):
     from probe.cli import feedback_cli
-    from probe.sdk import config
+    from probe.sdk.settings import settings as config
 
     monkeypatch.setattr(config, "current_context_name", lambda data=None: "lab-a")
     monkeypatch.setattr(config, "load_context", lambda name=None: {})

@@ -56,7 +56,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ..sdk.durable import now_iso as _utc_now
+from ..foundation.durable.durable import now_iso as _utc_now
 from .sandbox_state import (
     BEGIN_BYTES,
     BEGIN_MANIFEST,

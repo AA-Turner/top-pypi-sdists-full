@@ -1008,7 +1008,8 @@ def test_a_waiting_worker_leaves_when_the_holder_never_lets_go(tmp_path, monkeyp
     """`worker.session_lock` waited forever for a holder that never stops (it
     hands over only after a model round). Bounded now: EXIT_RESPAWN_LATER, and
     its ask stays fresh for whoever asks next."""
-    from probe.daemon import mailbox, lease
+    from probe.shared import mailbox
+    from probe.daemon.host import lease
     from probe.daemon import worker as worker_mod
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))

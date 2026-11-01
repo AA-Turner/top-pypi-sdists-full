@@ -27,10 +27,11 @@ pytest.importorskip("pydantic_ai_harness")
 
 from pydantic_ai.models.function import FunctionModel  # noqa: E402
 
-from probe.daemon import bite as bite_mod  # noqa: E402
-from probe.daemon import lease, tools  # noqa: E402
+from probe.daemon.worker.bite import bite as bite_mod  # noqa: E402
+from probe.daemon.host import lease  # noqa: E402
+from probe.daemon.agent import tools
 from probe.daemon import worker as worker_mod  # noqa: E402
-from probe.daemon.events import Event, Kind  # noqa: E402
+from probe.shared.harness.events import Event, Kind  # noqa: E402
 from tests.test_daemon_conversation import (  # noqa: E402,F401 -- `_isolated` is an autouse fixture
     SID,
     Script,
@@ -168,7 +169,7 @@ def test_a_message_reads_at_most_five_runs_first_named_first():
 
 
 def test_the_block_is_one_line_a_run_with_the_writers_fields_and_capped():
-    from probe.cli.reads import render_json
+    from probe.shared.reads.reads import render_json
 
     long = _record(RUNS[1], description="d" * 5_000)
     block = bite_mod.runs_block([_record(RUNS[0]), long])
@@ -296,7 +297,7 @@ def test_a_conversation_carries_the_runs_on_its_fresh_start_and_on_each_next_mes
 
 
 def test_a_read_that_fails_leaves_its_run_out_unsaid(tmp_path, monkeypatch, caplog):
-    monkeypatch.setattr(worker_mod, "RUN_READ_TIMEOUT_S", 0.1)
+    monkeypatch.setattr(worker_mod.loop.modes.conversation, "RUN_READ_TIMEOUT_S", 0.1)
     answers = {RUNS[0]: "error", RUNS[1]: "garbage", RUNS[2]: "other", RUNS[3]: "raise", RUNS[4]: "slow"}
     script, replay = Script([("done", "filed")]), RunsReplay(answers)
     w = _worker(tmp_path, model=FunctionModel(script), replay=replay, mode="bites", monkeypatch=monkeypatch)
@@ -338,7 +339,7 @@ def test_a_refused_key_or_a_lost_lease_while_reading_stops_before_any_model_call
         deps.stopped = "the lease is another process's"
         return None
 
-    monkeypatch.setattr(tools, "read_in_host", refused)
+    monkeypatch.setattr(tools.probe_cli.process, "read_in_host", refused)
     assert asyncio.run(w.run_bite("run event")) is False
     assert script.calls == 0, "no model round"
     assert w.store.db.execute("SELECT outcome FROM bites ORDER BY id DESC LIMIT 1").fetchone()[0] == stop

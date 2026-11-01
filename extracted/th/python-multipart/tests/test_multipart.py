@@ -21,13 +21,17 @@ from python_multipart.exceptions import (
     QuerystringParseError,
 )
 from python_multipart.multipart import (
+    END,
+    FIELD_DATA,
     BaseParser,
     Field,
     File,
     FormParser,
     MultipartParser,
+    MultipartState,
     OctetStreamParser,
     QuerystringParser,
+    QuerystringState,
     create_form_parser,
     parse_form,
     parse_options_header,
@@ -273,6 +277,11 @@ class TestParseOptionsHeader(unittest.TestCase):
         self.assertEqual(t, b"application/json")
         self.assertEqual(p, {b"par": b"val", b"asdf": b"foo"})
 
+    def test_content_type_with_parameters_is_normalized(self) -> None:
+        t, p = parse_options_header(b"Multipart/Form-Data; boundary=abc")
+        self.assertEqual(t, b"multipart/form-data")
+        self.assertEqual(p, {b"boundary": b"abc"})
+
     def test_quoted_param(self) -> None:
         t, p = parse_options_header(b'application/json;param="quoted"')
         self.assertEqual(t, b"application/json")
@@ -341,12 +350,6 @@ class TestParseOptionsHeader(unittest.TestCase):
 
         self.assertEqual(p, {b"a": b"x;y", b"b": b'esc " quote'})
 
-    def test_preserves_content_type_case(self) -> None:
-        t, p = parse_options_header(b"Text/Plain; a=b")
-
-        self.assertEqual(t, b"Text/Plain")
-        self.assertEqual(p, {b"a": b"b"})
-
     def test_preserves_backslash_unquoting_order(self) -> None:
         _, p = parse_options_header(b'text/plain; q="a\\\\b"')
 
@@ -365,6 +368,10 @@ class TestBaseParser(unittest.TestCase):
             nonlocal called
             called += 1
 
+        def on_data(data: bytes, start: int, end: int) -> None:
+            nonlocal called
+            called += 1
+
         self.b.set_callback("foo", on_foo)  # type: ignore[arg-type]
         self.b.callback("foo")  # type: ignore[arg-type]
         self.assertEqual(called, 1)
@@ -372,6 +379,12 @@ class TestBaseParser(unittest.TestCase):
         self.b.set_callback("foo", None)  # type: ignore[arg-type]
         self.b.callback("foo")  # type: ignore[arg-type]
         self.assertEqual(called, 1)
+
+        self.b.set_callback("data", on_data)
+        self.b.callback("data", b"", 0, 0)
+        self.assertEqual(called, 1)
+        self.b.callback("data", b"x", 0, 1)
+        self.assertEqual(called, 2)
 
 
 class TestQuerystringParser(unittest.TestCase):
@@ -412,6 +425,25 @@ class TestQuerystringParser(unittest.TestCase):
         self.p.write(b"foo=bar")
 
         self.assert_fields((b"foo", b"bar"))
+
+    def test_no_callbacks(self) -> None:
+        parser = QuerystringParser()
+
+        self.assertEqual(parser.write(b"foo=bar"), 7)
+        parser.finalize()
+
+    def test_none_callbacks(self) -> None:
+        callbacks: Any = {
+            "on_field_start": None,
+            "on_field_name": None,
+            "on_field_data": None,
+            "on_field_end": None,
+            "on_end": None,
+        }
+        parser = QuerystringParser(callbacks)
+
+        self.assertEqual(parser.write(b"foo=bar"), 7)
+        parser.finalize()
 
     def test_querystring_blank_beginning(self) -> None:
         self.p.write(b"&foo=bar")
@@ -721,6 +753,15 @@ class TestQuotedPrintableDecoder(unittest.TestCase):
         self.d.write(b"\r\nbar")
         self.assert_data(b"foobar")
 
+    def test_with_escape_before_split_escape(self) -> None:
+        self.d.write(b"=41=")
+        self.d.write(b"42")
+        self.assert_data(b"AB")
+
+    def test_with_trailing_double_equals(self) -> None:
+        self.d.write(b"==")
+        self.assert_data(b"=")
+
     def test_close_and_finalize(self) -> None:
         parser = Mock()
         f = QuotedPrintableDecoder(parser)
@@ -819,6 +860,79 @@ def test_content_transfer_encoding_is_case_insensitive(content_transfer_encoding
     file = files[0]
     file.file_object.seek(0)
     assert file.file_object.read() == b"Test"
+
+
+def test_finalizes_transfer_encoding_before_callback() -> None:
+    data = (
+        b'--b\r\nContent-Disposition: form-data; name="f"\r\n'
+        b"Content-Transfer-Encoding: quoted-printable\r\n\r\n=4\r\n--b--\r\n"
+    )
+    values: list[bytes | None] = []
+    parser = FormParser("multipart/form-data", lambda field: values.append(field.value), None, boundary=b"b")
+
+    parser.write(data)
+    parser.finalize()
+
+    assert values == [b"=4"]
+
+
+def test_parser_states_remain_enum_members() -> None:
+    multipart_parser = MultipartParser(b"boundary")
+    multipart_parser.write(b"--boundary--\r\n")
+    multipart_parser.finalize()
+    assert multipart_parser.state is MultipartState.END is END
+
+    querystring_parser = QuerystringParser()
+    querystring_parser.write(b"field=value")
+    querystring_parser.finalize()
+    assert querystring_parser.state is QuerystringState.FIELD_DATA is FIELD_DATA
+
+
+def test_multipart_opening_boundary_max_size() -> None:
+    data = b"--boundary\r\n\r\nvalue\r\n--boundary--"
+    max_size = 9
+    events: list[str] = []
+    parser = MultipartParser(
+        b"boundary",
+        {"on_part_begin": lambda: events.append("begin"), "on_end": lambda: events.append("end")},
+        max_size=max_size,
+    )
+    assert parser.write(data) == max_size
+    parser.max_size = len(data)  # type: ignore[assignment]  # mypy narrows max_size to float & Number.
+    assert parser.write(data[max_size:]) == len(data) - max_size
+    parser.finalize()
+    assert events == ["begin", "end"]
+
+
+@pytest.mark.parametrize(
+    "config,first,second,message",
+    [
+        ({"MAX_FIELDS": 1}, b"a=1&", b"b=2", "Too many fields"),
+        ({"MAX_FIELD_SIZE": 3}, b"lo", b"ng=1", "Field exceeded maximum size of 3 bytes"),
+        ({"MAX_FIELD_SIZE": 3}, b"a=l", b"ong", "Field exceeded maximum size of 3 bytes"),
+    ],
+)
+def test_urlencoded_field_limits(config: dict[str, int], first: bytes, second: bytes, message: str) -> None:
+    parser = FormParser("application/x-www-form-urlencoded", None, None, config=config)
+    parser.write(first)
+    with pytest.raises(FormParserError, match=message):
+        parser.write(second)
+
+
+def test_urlencoded_field_limits_accept_exact_boundaries() -> None:
+    fields: list[Field] = []
+    parser = FormParser(
+        "application/x-www-form-urlencoded", fields.append, None, config={"MAX_FIELDS": 2, "MAX_FIELD_SIZE": 3}
+    )
+    parser.write(b"a=12&b")
+    parser.write(b"c=4")
+    parser.finalize()
+    assert [(field.field_name, field.value) for field in fields] == [(b"a", b"12"), (b"bc", b"4")]
+
+
+def test_invalid_urlencoded_field_limit() -> None:
+    with pytest.raises(ValueError, match="MAX_FIELDS must be a non-negative number"):
+        FormParser("application/x-www-form-urlencoded", None, None, config={"MAX_FIELDS": -1})
 
 
 @parametrize_class
@@ -1603,6 +1717,10 @@ class TestFormParser(unittest.TestCase):
 class TestHelperFunctions(unittest.TestCase):
     def test_create_form_parser(self) -> None:
         r = create_form_parser({"Content-Type": b"application/octet-stream"}, None, None)
+        self.assertTrue(isinstance(r, FormParser))
+
+    def test_create_form_parser_accepts_mixed_case_content_type(self) -> None:
+        r = create_form_parser({"Content-Type": b"Multipart/Form-Data; boundary=abc"}, None, None)
         self.assertTrue(isinstance(r, FormParser))
 
     def test_create_form_parser_error(self) -> None:

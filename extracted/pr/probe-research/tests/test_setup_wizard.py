@@ -17,7 +17,8 @@ import pytest
 
 from probe.cli import autoupdate, capture
 from probe.cli import capabilities as capabilities_mod
-from probe.cli import doctor, pi_config, setup
+from probe.cli import doctor, setup
+from probe.shared.harness.harnesses import pi as pi_config
 from probe.cli.capabilities import (
     ENV_INGEST_TOKEN,
     Capabilities,
@@ -57,7 +58,7 @@ def isolate(tmp_path, monkeypatch):
     # The browser-before-menu contract has its own test_wizard_auth_entry suite;
     # old interactive menu fixtures must never open a real authorization here.
     def signed_in(**kwargs):
-        from probe.sdk.config import save_context
+        from probe.sdk.settings.settings import save_context
 
         save_context({"token": "probe_pat_menu_test"})
         return setup.SignInResult(ok=True, lines=[])
@@ -162,7 +163,7 @@ def test_detectable_sources_finds_pi_without_routing_through_plugin_cli(monkeypa
     (which raises for pi -- see `plugin_cli.binary_name`'s docstring). The
     autouse `_no_ambient_pi_binary` fixture pins `pi_binary_available` off by
     default; this test flips it on explicitly to prove the wiring."""
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
 
     monkeypatch.setattr(setup, "pi_binary_available", lambda: True)
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
@@ -524,7 +525,8 @@ def test_wizard_doctor_copies_all_selected_agents_and_troubleshooting(monkeypatc
 
     from typer.testing import CliRunner
 
-    from probe.cli import actions, bootstrap, plugin_cli, tui
+    from probe.cli import actions, bootstrap, tui
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli.main import app
 
     monkeypatch.setattr(
@@ -565,8 +567,8 @@ def test_doctor_notices_codex_holding_a_token_this_device_replaced(monkeypatch, 
     """The health check used to report a rotated credential as authenticated.
     `codex mcp list` says `bearer_token` for any header at all, so the only
     local signal is the value itself."""
-    from probe.cli import codex_config
-    from probe.sdk import config as sdk_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.sdk.settings import settings as sdk_config
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
     codex_config.write_mcp_bearer(
@@ -583,8 +585,8 @@ def test_doctor_notices_codex_holding_a_token_this_device_replaced(monkeypatch, 
 
 def test_doctor_stays_quiet_when_there_is_nothing_to_compare(monkeypatch, tmp_path):
     """No entry, or no stored token, is not evidence of drift."""
-    from probe.cli import codex_config
-    from probe.sdk import config as sdk_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.sdk.settings import settings as sdk_config
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
     monkeypatch.setattr(sdk_config, "load_context", lambda: {"mcp_token": "probe_pat_new"})
@@ -608,7 +610,7 @@ def test_doctor_checks_codex_drift_even_when_codex_is_not_the_selected_agent(
     `isolate` clears PROBE_AGENT, so `agent_source()` really does return
     claude_code here -- the devbox's configuration, not a mocked stand-in.
     """
-    from probe.cli import codex_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     codex_home = tmp_path / "codex"
     codex_home.mkdir(parents=True, exist_ok=True)
@@ -881,7 +883,7 @@ def test_off_for_claude_code_clears_the_config_token_even_with_pi_installed(isol
     """pi no longer reads the probe-config `ingest_token` (D3), so Claude Code
     turning its own capture off is the last reader out and clears it, even
     while pi's package is installed."""
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     (isolate / "probe" / "config.json").write_text(
         json.dumps({"base_url": "https://api.research.prbe.ai", "ingest_token": "ros_ing_cfg"})
@@ -892,7 +894,7 @@ def test_off_for_claude_code_clears_the_config_token_even_with_pi_installed(isol
         "installed_plugins",
         lambda source=None: capabilities_mod.PluginState(verified=True),
     )
-    monkeypatch.setattr(pi_config, "package_entry_installed", lambda *a, **kw: True)
+    monkeypatch.setattr(pi_config.package_entry, "package_entry_installed", lambda *a, **kw: True)
 
     result = capture.turn_off(capture.OffMode.DISABLE)
 
@@ -1229,7 +1231,7 @@ def test_setup_requests_only_the_grants_it_still_needs():
 
 def _no_reuse(monkeypatch):
     """Force the OAuth fallback: no read token means no shortcut to take."""
-    from probe.cli import codex_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     monkeypatch.setattr(codex_config, "plugin_mcp_url", lambda _name, **_kw: None)
 
@@ -1240,8 +1242,9 @@ def test_the_browser_approval_already_held_authorizes_the_codex_mcp(monkeypatch,
     accepts a static Authorization header on a user-level entry — so sending the
     user to a second page to mint a second token buys nothing, and it is the
     step that times out. `codex mcp login` must not be reached at all."""
-    from probe.cli import codex_config, plugin_cli
-    from probe.sdk import config as sdk_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.shared.harness import plugins as plugin_cli
+    from probe.sdk.settings import settings as sdk_config
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
     monkeypatch.setattr(sdk_config, "load_context", lambda: {"mcp_token": "probe_pat_from_signin"})
@@ -1271,8 +1274,10 @@ def test_a_codex_config_we_cannot_confirm_is_put_back_exactly_as_it_was(monkeypa
     invocation is down until someone edits the file. So an unconfirmed write is
     reverted before the OAuth fallback runs, rather than left underneath it.
     """
-    from probe.cli import claude_cli, codex_config, plugin_cli
-    from probe.sdk import config as sdk_config
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.shared.harness import plugins as plugin_cli
+    from probe.sdk.settings import settings as sdk_config
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
     before = 'model = "gpt-5.6"\n\n[tui]\ntheme = "dark"\n'
@@ -1303,8 +1308,9 @@ def test_rotating_the_read_token_re_points_codex_at_the_new_one(monkeypatch, tmp
     """A rotation used to leave Codex holding the revoked token, and nothing
     said so: `codex mcp list` answers `bearer_token` for any header at all, so
     the health check stayed green while every Codex call 401'd."""
-    from probe.cli import codex_config, plugin_cli
-    from probe.sdk import config as sdk_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.shared.harness import plugins as plugin_cli
+    from probe.sdk.settings import settings as sdk_config
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
     codex_config.write_mcp_bearer(
@@ -1324,8 +1330,9 @@ def test_rotating_the_read_token_re_points_codex_at_the_new_one(monkeypatch, tmp
 
 def test_a_codex_entry_that_already_matches_is_left_untouched(monkeypatch, tmp_path):
     """A no-op re-run must not rewrite the user's config for nothing."""
-    from probe.cli import codex_config, plugin_cli
-    from probe.sdk import config as sdk_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.shared.harness import plugins as plugin_cli
+    from probe.sdk.settings import settings as sdk_config
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
     codex_config.write_mcp_bearer(
@@ -1342,8 +1349,8 @@ def test_a_codex_entry_that_already_matches_is_left_untouched(monkeypatch, tmp_p
 def test_rotation_does_not_create_a_codex_entry_on_a_machine_without_one(monkeypatch, tmp_path):
     """`probe mcp token set` on a Claude-only machine must stay a no-op.
     Creating the entry is an install decision, not a rotation one."""
-    from probe.cli import codex_config
-    from probe.sdk import config as sdk_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.sdk.settings import settings as sdk_config
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
     monkeypatch.setattr(sdk_config, "load_context", lambda: {"mcp_token": "probe_pat_new"})
@@ -1358,8 +1365,9 @@ def test_rotation_does_not_create_a_codex_entry_on_a_machine_without_one(monkeyp
 def test_a_wizard_rerun_after_a_rotation_repairs_the_codex_token(monkeypatch, tmp_path):
     """`bearer_token` used to end the step early. That is exactly the state a
     stale token is in, so the one command that should have fixed it did not."""
-    from probe.cli import codex_config, plugin_cli
-    from probe.sdk import config as sdk_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.shared.harness import plugins as plugin_cli
+    from probe.sdk.settings import settings as sdk_config
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
     codex_config.write_mcp_bearer(
@@ -1386,7 +1394,8 @@ def test_signing_in_re_points_codex_without_a_separate_command(isolate, monkeypa
     NOT `probe login`: that command never writes `mcp_token`. See
     `sync_codex_mcp_token`'s docstring.
     """
-    from probe.cli import codex_config, plugin_cli
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.shared.harness import plugins as plugin_cli
 
     codex_home = tmp_path / "codex"
     codex_home.mkdir(parents=True, exist_ok=True)
@@ -1399,7 +1408,7 @@ def test_signing_in_re_points_codex_without_a_separate_command(isolate, monkeypa
     )
     monkeypatch.setattr(plugin_cli, "codex_mcp_auth_status", lambda _name: "bearer_token")
     monkeypatch.setattr(
-        "probe.sdk.device.device_authorize",
+        "probe.sdk.settings.device.device_authorize",
         lambda base_url, **kwargs: {
             "token": "probe_pat_api",
             "id": "api-id",
@@ -1421,7 +1430,7 @@ def test_signing_in_re_points_codex_without_a_separate_command(isolate, monkeypa
 def _codex_entry(monkeypatch, tmp_path, *, token="probe_pat_old", url=None):
     """An existing Codex entry plus a resolvable plugin URL — the precondition
     every sync test shares."""
-    from probe.cli import codex_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     codex_home = tmp_path / "codex"
     codex_home.mkdir(parents=True, exist_ok=True)
@@ -1448,8 +1457,9 @@ def test_the_sync_refuses_to_write_a_token_across_deployments(isolate, monkeypat
     """The token and the URL come from different places and can disagree about
     which deployment they belong to. Writing them into one table hands a live
     read credential to a server it was not minted for, on every connect."""
-    from probe.cli import codex_config, plugin_cli
-    from probe.sdk import config as sdk_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.shared.harness import plugins as plugin_cli
+    from probe.sdk.settings import settings as sdk_config
 
     _codex_entry(monkeypatch, tmp_path)  # entry + plugin URL are the STOCK endpoint
     # ...but this device is signed in to a self-hosted deployment.
@@ -1474,8 +1484,9 @@ def test_the_sync_still_writes_when_both_halves_are_the_stock_deployment(
     """The guard above must not reject the configuration nearly everyone has:
     production splits the API and the MCP across `api.` and `mcp.`, so equal
     hosts is the wrong test and would break every normal install."""
-    from probe.cli import codex_config, plugin_cli
-    from probe.sdk import config as sdk_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.shared.harness import plugins as plugin_cli
+    from probe.sdk.settings import settings as sdk_config
 
     _codex_entry(monkeypatch, tmp_path)
     monkeypatch.setattr(
@@ -1496,7 +1507,7 @@ def test_authorize_reports_a_codex_config_write_it_could_not_make(isolate, monke
     """The refuse-to-write branch now runs on every mint, and had no coverage.
     The credentials are already on disk by this point, so it must report and
     continue — never raise out of a sign-in that actually succeeded."""
-    from probe.cli import codex_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     _codex_entry(monkeypatch, tmp_path)
 
@@ -1504,7 +1515,7 @@ def test_authorize_reports_a_codex_config_write_it_could_not_make(isolate, monke
         raise codex_config.ConfigError("disk full")
 
     monkeypatch.setattr(codex_config, "write_mcp_bearer", _boom)
-    monkeypatch.setattr("probe.sdk.device.device_authorize", _mint())
+    monkeypatch.setattr("probe.sdk.settings.device.device_authorize", _mint())
 
     granted, messages = setup.authorize(
         ["api", "mcp"], base_url="https://api.research.prbe.ai", open_browser=False
@@ -1519,12 +1530,12 @@ def test_authorize_restores_a_codex_config_it_cannot_confirm(isolate, monkeypatc
     """The rollback branch, also uncovered. `codex mcp list` failing is exactly
     what a config Codex cannot load looks like, so an unconfirmable write goes
     back byte for byte rather than being left on a user's disk."""
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
 
     codex_home = _codex_entry(monkeypatch, tmp_path)
     before = (codex_home / "config.toml").read_text(encoding="utf-8")
     monkeypatch.setattr(plugin_cli, "codex_mcp_auth_status", lambda _name: None)
-    monkeypatch.setattr("probe.sdk.device.device_authorize", _mint())
+    monkeypatch.setattr("probe.sdk.settings.device.device_authorize", _mint())
 
     _granted, messages = setup.authorize(
         ["api", "mcp"], base_url="https://api.research.prbe.ai", open_browser=False
@@ -1542,8 +1553,8 @@ def test_the_wizard_repairs_codex_drift_on_a_device_that_is_already_signed_in(
     as held once a read token is saved, and `codex mcp list` answers
     `bearer_token` for a DEAD header. The drift predicate is the wizard's own
     signal, independent of both."""
-    from probe.cli import codex_config
-    from probe.sdk import config as sdk_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.sdk.settings import settings as sdk_config
 
     _codex_entry(monkeypatch, tmp_path)
     monkeypatch.setattr(
@@ -1570,7 +1581,7 @@ def test_the_wizard_repairs_codex_drift_on_a_device_that_is_already_signed_in(
 def test_the_drift_predicate_is_silent_with_nothing_to_compare(isolate, monkeypatch, tmp_path):
     """No Codex entry, or no token held here, is not evidence of drift — this
     runs on every wizard run including on machines that never touched Codex."""
-    from probe.sdk import config as sdk_config
+    from probe.sdk.settings import settings as sdk_config
 
     codex_home = tmp_path / "codex"
     codex_home.mkdir(parents=True, exist_ok=True)
@@ -1589,7 +1600,7 @@ def test_signing_in_creates_no_codex_entry_on_a_machine_without_one(
     """The hook must stay a repair, never an install. Registering an entry a
     user never asked for would point Codex at a server on the strength of a
     login, and `plugin_mcp_url` is not consulted on this path at all."""
-    from probe.cli import codex_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     codex_home = tmp_path / "codex"
     codex_home.mkdir(parents=True, exist_ok=True)
@@ -1598,7 +1609,7 @@ def test_signing_in_creates_no_codex_entry_on_a_machine_without_one(
         codex_config, "plugin_mcp_url", lambda _name, **_kw: "https://mcp.research.prbe.ai/mcp"
     )
     monkeypatch.setattr(
-        "probe.sdk.device.device_authorize",
+        "probe.sdk.settings.device.device_authorize",
         lambda base_url, **kwargs: {
             "token": "probe_pat_api",
             "id": "api-id",
@@ -1617,8 +1628,10 @@ def test_signing_in_creates_no_codex_entry_on_a_machine_without_one(
 def test_codex_falls_back_to_its_own_login_when_the_shortcut_cannot_apply(monkeypatch, tmp_path):
     """No manifest to read the URL from — registering a guessed URL with a live
     token is worse than the extra approval, so the old path must still run."""
-    from probe.cli import claude_cli, codex_config, plugin_cli
-    from probe.sdk import config as sdk_config
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.shared.harness import plugins as plugin_cli
+    from probe.sdk.settings import settings as sdk_config
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
     monkeypatch.setattr(sdk_config, "load_context", lambda: {"mcp_token": "probe_pat_from_signin"})
@@ -1636,7 +1649,8 @@ def test_codex_falls_back_to_its_own_login_when_the_shortcut_cannot_apply(monkey
 
 
 def test_codex_mcp_login_is_verified_after_the_supported_oauth_flow(monkeypatch):
-    from probe.cli import claude_cli, plugin_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.shared.harness import plugins as plugin_cli
 
     _no_reuse(monkeypatch)
 
@@ -1651,7 +1665,8 @@ def test_codex_mcp_login_is_verified_after_the_supported_oauth_flow(monkeypatch)
 
 
 def test_codex_mcp_login_failure_is_actionable(monkeypatch):
-    from probe.cli import claude_cli, plugin_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.shared.harness import plugins as plugin_cli
 
     _no_reuse(monkeypatch)
 
@@ -1666,7 +1681,8 @@ def test_codex_mcp_login_failure_is_actionable(monkeypatch):
 
 
 def test_codex_capture_retires_the_legacy_plugin_before_using_unified_tap(monkeypatch):
-    from probe.cli import claude_cli, plugin_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.shared.harness import plugins as plugin_cli
 
     removed: list[str] = []
     monkeypatch.setattr(
@@ -1706,7 +1722,7 @@ def test_authorize_persists_every_minted_credential(isolate, monkeypatch):
             ],
         }
 
-    monkeypatch.setattr("probe.sdk.device.device_authorize", fake_device_authorize)
+    monkeypatch.setattr("probe.sdk.settings.device.device_authorize", fake_device_authorize)
 
     by_grant, messages = setup.authorize(
         ["api", "mcp", "capture"],
@@ -1740,7 +1756,7 @@ def test_codex_authorization_is_source_bound_and_writes_the_codex_token(
 
     monkeypatch.setenv("PROBE_AGENT", "codex")
     monkeypatch.setenv("PRBE_CODEX_TAP_PLUGIN_DIR", str(tmp_path))
-    monkeypatch.setattr("probe.sdk.device.device_authorize", fake_device_authorize)
+    monkeypatch.setattr("probe.sdk.settings.device.device_authorize", fake_device_authorize)
 
     by_grant, _messages = setup.authorize(
         ["capture"], base_url="https://api.research.prbe.ai", open_browser=False
@@ -1778,7 +1794,7 @@ def test_one_authorization_pairs_claude_and_codex_with_distinct_tokens(
 
     codex_state = tmp_path / "codex-tap"
     monkeypatch.setenv("PRBE_CODEX_TAP_PLUGIN_DIR", str(codex_state))
-    monkeypatch.setattr("probe.sdk.device.device_authorize", fake_device_authorize)
+    monkeypatch.setattr("probe.sdk.settings.device.device_authorize", fake_device_authorize)
 
     granted, messages = setup.authorize(
         ["capture"],
@@ -1808,7 +1824,7 @@ def test_pi_authorization_is_source_bound_and_writes_the_pi_token(isolate, monke
         return {"grants": [{"grant": "capture", "token": "ros_ing_pi", "device_id": "pi-1"}]}
 
     monkeypatch.setenv("PROBE_PI_TAP_PLUGIN_DIR", str(tmp_path))
-    monkeypatch.setattr("probe.sdk.device.device_authorize", fake_device_authorize)
+    monkeypatch.setattr("probe.sdk.settings.device.device_authorize", fake_device_authorize)
 
     by_grant, messages = setup.authorize(
         ["capture"],
@@ -1859,7 +1875,7 @@ def test_one_authorization_pairs_all_three_sources_with_distinct_tokens(
     pi_state = tmp_path / "pi-tap"
     monkeypatch.setenv("PRBE_CODEX_TAP_PLUGIN_DIR", str(codex_state))
     monkeypatch.setenv("PROBE_PI_TAP_PLUGIN_DIR", str(pi_state))
-    monkeypatch.setattr("probe.sdk.device.device_authorize", fake_device_authorize)
+    monkeypatch.setattr("probe.sdk.settings.device.device_authorize", fake_device_authorize)
 
     granted, messages = setup.authorize(
         ["capture"],
@@ -1932,7 +1948,8 @@ def test_pi_pairing_reaches_exactly_where_the_tap_daemon_will_look(
 
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap, plugin_cli
+    from probe.cli import bootstrap
+    from probe.shared.harness import plugins as plugin_cli
     import probe.cli.main  # noqa: F401
 
     cli_main = sys.modules["probe.cli.main"]
@@ -1946,7 +1963,7 @@ def test_pi_pairing_reaches_exactly_where_the_tap_daemon_will_look(
     # everything except this one call: verify_capture_credential() does a
     # genuine urllib request to `{base_url}/ingest/v1/sessions/status`, and an
     # unmocked base_url defaults to the real production API
-    # (probe.sdk.config.DEFAULT_BASE_URL). Without this, the fake token this
+    # (probe.sdk.settings.settings.DEFAULT_BASE_URL). Without this, the fake token this
     # test mints gets a real 401 from prbe.ai on every run. None (unverifiable,
     # same as a genuinely offline machine) rather than True: a fabricated True
     # would hide a real drift in what this function does for source="pi".
@@ -1971,7 +1988,7 @@ def test_pi_pairing_reaches_exactly_where_the_tap_daemon_will_look(
         sent.update(kwargs)
         return minted
 
-    monkeypatch.setattr("probe.sdk.device.device_authorize", fake_device_authorize)
+    monkeypatch.setattr("probe.sdk.settings.device.device_authorize", fake_device_authorize)
 
     result = CliRunner().invoke(
         cli_main.app,
@@ -2089,7 +2106,8 @@ def test_installed_plugins_never_asks_claude_or_codex_about_pi(monkeypatch):
     see `installed_plugins`'s own docstring on why a positive read is a fact
     worth standing behind but a negative one is not.
     """
-    from probe.cli import pi_config, plugin_cli
+    from probe.shared.harness.harnesses import pi as pi_config
+    from probe.shared.harness import plugins as plugin_cli
 
     def _must_not_run(*_args, **_kwargs):
         raise AssertionError("installed_plugins('pi') must never shell out to claude/codex")
@@ -2101,20 +2119,20 @@ def test_installed_plugins_never_asks_claude_or_codex_about_pi(monkeypatch):
             installed, "global" if installed else None, None, None, tracking_off
         )
 
-    monkeypatch.setattr(pi_config, "merged_package_entry", merged(False))
+    monkeypatch.setattr(pi_config.package_entry, "merged_package_entry", merged(False))
     absent = capabilities_mod.installed_plugins(source="pi")
     assert absent.verified is False
     assert len(absent) == 0
 
     # One package, both halves: tracking reads installed with capture...
-    monkeypatch.setattr(pi_config, "merged_package_entry", merged(True))
+    monkeypatch.setattr(pi_config.package_entry, "merged_package_entry", merged(True))
     present = capabilities_mod.installed_plugins(source="pi")
     assert present.verified is False
     assert capabilities_mod.TAP_PLUGIN_NAME in present
     assert capabilities_mod.tracking_plugin_name("pi") in present
 
     # ...unless the entry switches tracking off (capture keeps running).
-    monkeypatch.setattr(pi_config, "merged_package_entry", merged(True, tracking_off=True))
+    monkeypatch.setattr(pi_config.package_entry, "merged_package_entry", merged(True, tracking_off=True))
     off = capabilities_mod.installed_plugins(source="pi")
     assert capabilities_mod.TAP_PLUGIN_NAME in off
     assert capabilities_mod.tracking_plugin_name("pi") not in off
@@ -2128,7 +2146,9 @@ def test_apply_capture_installs_the_pi_package_entry(monkeypatch):
     `plugin_cli` (which would resolve pi's binary as "claude")."""
     from pathlib import Path
 
-    from probe.cli import claude_cli, pi_config, plugin_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.shared.harness.harnesses import pi as pi_config
+    from probe.shared.harness import plugins as plugin_cli
 
     def _must_not_run(*_args, **_kwargs):
         raise AssertionError("apply_capture() must never reach plugin_cli for pi")
@@ -2139,14 +2159,17 @@ def test_apply_capture_installs_the_pi_package_entry(monkeypatch):
     # `install_package_entry` now picks the source itself (checkout or the
     # published mirror), so the wizard calls it with NO root -- that choice
     # belongs in one place, not at every call site.
-    monkeypatch.setattr(pi_config, "local_package_root", lambda *a, **kw: fake_root)
+    monkeypatch.setattr(pi_config.package_source, "local_package_root", lambda *a, **kw: fake_root)
+    monkeypatch.setattr(pi_config.package_entry, "local_package_root", lambda *a, **kw: fake_root)
+    monkeypatch.setattr(pi_config.package_update, "local_package_root", lambda *a, **kw: fake_root)
+    monkeypatch.setattr(pi_config.profile, "local_package_root", lambda *a, **kw: fake_root)
     monkeypatch.setattr(
-        pi_config,
+        pi_config.package_entry,
         "install_package_entry",
         lambda *a, **kw: installed.append(a) or claude_cli.Result(ok=True, detail="added"),
     )
     monkeypatch.setattr(
-        pi_config,
+        pi_config.package_entry,
         "migrate_legacy_symlink",
         lambda root, **kw: claude_cli.Result(
             ok=True, detail="no legacy symlink; nothing to migrate"
@@ -2167,17 +2190,21 @@ def test_apply_capture_folds_in_the_migration_detail_when_one_happened(monkeypat
     `_install_pi_package`'s own "removed legacy symlink" prefix check."""
     from pathlib import Path
 
-    from probe.cli import claude_cli, pi_config
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.shared.harness.harnesses import pi as pi_config
 
     fake_root = Path("/fake/probe-research-pi")
-    monkeypatch.setattr(pi_config, "local_package_root", lambda *a, **kw: fake_root)
+    monkeypatch.setattr(pi_config.package_source, "local_package_root", lambda *a, **kw: fake_root)
+    monkeypatch.setattr(pi_config.package_entry, "local_package_root", lambda *a, **kw: fake_root)
+    monkeypatch.setattr(pi_config.package_update, "local_package_root", lambda *a, **kw: fake_root)
+    monkeypatch.setattr(pi_config.profile, "local_package_root", lambda *a, **kw: fake_root)
     monkeypatch.setattr(
-        pi_config,
+        pi_config.package_entry,
         "install_package_entry",
         lambda *a, **kw: claude_cli.Result(ok=True, detail="added probe-research-pi (root)"),
     )
     monkeypatch.setattr(
-        pi_config,
+        pi_config.package_entry,
         "migrate_legacy_symlink",
         lambda root, **kw: claude_cli.Result(
             ok=True, detail="removed legacy symlink /fake/extensions/probe-research-pi"
@@ -2194,12 +2221,15 @@ def test_apply_capture_folds_in_the_migration_detail_when_one_happened(monkeypat
     # failure -- it is the normal customer shape. D4 migration is skipped
     # (a legacy symlink could only ever point inside a checkout), so the
     # install's own detail is the whole result.
-    monkeypatch.setattr(pi_config, "local_package_root", lambda *a, **kw: None)
+    monkeypatch.setattr(pi_config.package_source, "local_package_root", lambda *a, **kw: None)
+    monkeypatch.setattr(pi_config.package_entry, "local_package_root", lambda *a, **kw: None)
+    monkeypatch.setattr(pi_config.package_update, "local_package_root", lambda *a, **kw: None)
+    monkeypatch.setattr(pi_config.profile, "local_package_root", lambda *a, **kw: None)
 
     def _must_not_migrate(*_a, **_kw):
         raise AssertionError("no checkout means nothing D4 could match")
 
-    monkeypatch.setattr(pi_config, "migrate_legacy_symlink", _must_not_migrate)
+    monkeypatch.setattr(pi_config.package_entry, "migrate_legacy_symlink", _must_not_migrate)
     mirrored = setup.install_plugin("probe-research-pi", source="pi")
     assert mirrored.ok is True
     assert "added probe-research-pi" in mirrored.detail
@@ -2207,7 +2237,7 @@ def test_apply_capture_folds_in_the_migration_detail_when_one_happened(monkeypat
     # A BROKEN explicit override still reaches the wizard as a failed Result,
     # never as a raise out of the step runner.
     monkeypatch.setattr(
-        pi_config,
+        pi_config.package_entry,
         "install_package_entry",
         lambda *a, **kw: claude_cli.Result(
             ok=False, detail="PROBE_PI_PACKAGE_ROOT=/nope has no package.json in it", reachable=False
@@ -2228,7 +2258,9 @@ def test_install_plugin_family_routes_pi_through_pi_config(monkeypatch):
     printed failure line for a run that did nothing wrong."""
     from pathlib import Path
 
-    from probe.cli import claude_cli, pi_config, plugin_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.shared.harness.harnesses import pi as pi_config
+    from probe.shared.harness import plugins as plugin_cli
 
     def _must_not_run(*_args, **_kwargs):
         raise AssertionError("must never reach plugin_cli for pi")
@@ -2239,20 +2271,23 @@ def test_install_plugin_family_routes_pi_through_pi_config(monkeypatch):
     monkeypatch.setattr(plugin_cli, "refresh_marketplace", _must_not_run)
 
     fake_root = Path("/fake/probe-research-pi")
-    monkeypatch.setattr(pi_config, "local_package_root", lambda *a, **kw: fake_root)
+    monkeypatch.setattr(pi_config.package_source, "local_package_root", lambda *a, **kw: fake_root)
+    monkeypatch.setattr(pi_config.package_entry, "local_package_root", lambda *a, **kw: fake_root)
+    monkeypatch.setattr(pi_config.package_update, "local_package_root", lambda *a, **kw: fake_root)
+    monkeypatch.setattr(pi_config.profile, "local_package_root", lambda *a, **kw: fake_root)
     monkeypatch.setattr(
-        pi_config,
+        pi_config.package_entry,
         "install_package_entry",
         lambda *a, **kw: claude_cli.Result(ok=True, detail="added"),
     )
     monkeypatch.setattr(
-        pi_config,
+        pi_config.package_entry,
         "migrate_legacy_symlink",
         lambda root, **kw: claude_cli.Result(ok=True, detail="nothing to migrate"),
     )
     removed: list[str] = []
     monkeypatch.setattr(
-        pi_config,
+        pi_config.package_entry,
         "remove_package_entry",
         lambda **kw: removed.append("called") or claude_cli.Result(ok=True, detail="removed"),
     )
@@ -2346,7 +2381,7 @@ def test_an_explicit_opt_out_cleans_a_note_an_older_opt_out_left(monkeypatch, tm
 
 
 def test_capture_credentials_are_indexed_by_source_without_collapsing():
-    from probe.sdk.device import capture_credentials_by_source
+    from probe.sdk.settings.device import capture_credentials_by_source
 
     minted = {
         "grants": [
@@ -2380,7 +2415,7 @@ def test_codex_plugin_install_uses_codex_marketplace_commands(monkeypatch):
 def test_authorize_says_so_when_the_server_returns_nothing_for_a_grant(isolate, monkeypatch):
     """Approved but not minted must not read as success."""
     monkeypatch.setattr(
-        "probe.sdk.device.device_authorize",
+        "probe.sdk.settings.device.device_authorize",
         lambda base_url, **kw: {"grants": [{"grant": "api", "token": "probe_pat_x"}]},
     )
     _, messages = setup.authorize(["api", "capture"], base_url="https://x", open_browser=False)
@@ -2388,12 +2423,12 @@ def test_authorize_says_so_when_the_server_returns_nothing_for_a_grant(isolate, 
 
 
 def test_authorize_reports_a_failed_approval_instead_of_claiming_success(isolate, monkeypatch):
-    from probe.sdk.device import DeviceLoginError
+    from probe.sdk.settings.device import DeviceLoginError
 
     def boom(base_url, **kw):
         raise DeviceLoginError("the user denied this request")
 
-    monkeypatch.setattr("probe.sdk.device.device_authorize", boom)
+    monkeypatch.setattr("probe.sdk.settings.device.device_authorize", boom)
     by_grant, messages = setup.authorize(["api"], base_url="https://x", open_browser=False)
     assert by_grant == {}
     assert any("denied" in m for m in messages)
@@ -2401,7 +2436,7 @@ def test_authorize_reports_a_failed_approval_instead_of_claiming_success(isolate
 
 def test_older_backend_without_grants_still_yields_the_api_credential():
     """A backend that predates grants returns only the top-level PAT."""
-    from probe.sdk.device import credentials_by_grant
+    from probe.sdk.settings.device import credentials_by_grant
 
     assert credentials_by_grant({"token": "probe_pat_old", "id": "t1"}) == {
         "api": {"grant": "api", "token": "probe_pat_old", "token_id": "t1"}
@@ -2422,7 +2457,7 @@ def test_device_authorize_omits_grants_entirely_when_not_asked(monkeypatch):
         def close(self):
             pass
 
-    from probe.sdk import device
+    from probe.sdk.settings import device
 
     with pytest.raises(device.DeviceLoginError):
         device.device_authorize("https://x", client=FakeClient(), open_browser=False)
@@ -2938,7 +2973,8 @@ def test_an_ephemeral_uvx_env_is_not_mistaken_for_a_pip_install(monkeypatch):
 
 
 def test_an_ephemeral_env_is_never_package_managed(monkeypatch):
-    from probe.cli import bootstrap, updater, upgrading, versions
+    from probe.cli import bootstrap, updater, upgrading
+    from probe.shared.updates import updates as versions
 
     monkeypatch.setattr(versions, "_installed_cli", None)
     monkeypatch.setattr(bootstrap, "installed_version", lambda: None)
@@ -2963,7 +2999,8 @@ def test_an_ephemeral_env_is_never_package_managed(monkeypatch):
 def _ephemeral_update(monkeypatch, boot, *, latest=None, installed=(), reinstall=None):
     """Run the npx/uvx Update. `installed` is what `probe --version` reports, in
     order; `reinstall` is what installing @latest returns (and records its spec)."""
-    from probe.cli import bootstrap, run_lock, updater, upgrading, versions
+    from probe.cli import bootstrap, run_lock, updater, upgrading
+    from probe.shared.updates import updates as versions
 
     monkeypatch.setattr(versions, "_installed_cli", None)
     monkeypatch.setattr(run_lock, "any_live", lambda: False)
@@ -2997,7 +3034,7 @@ def test_an_ephemeral_update_with_a_current_install_says_so(monkeypatch):
     """It printed "upgrading your installed copy instead" and then nothing, since
     bootstrap has no message for an install that is already current. A promise
     with no outcome after it read as the upgrade having failed."""
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     outcome, attempt, specs = _ephemeral_update(
         monkeypatch, _current(), latest="5.0.0", installed=["5.0.0"]
@@ -3299,7 +3336,7 @@ def test_uninstall_preserves_token_and_explicit_backend_for_final_snapshot(
     import probe.cli.main  # noqa: F401
     from probe.cli import doctor, setup
     from probe.cli.actions import Action
-    from probe.sdk.config import Settings
+    from probe.sdk.settings.settings import Settings
 
     cli_main = sys.modules["probe.cli.main"]
     before = _caps(tracking_plugin_installed=True)
@@ -3416,7 +3453,7 @@ def test_install_is_a_verb_that_skips_the_action_menu(monkeypatch, selected_sour
 
     from probe.cli import bootstrap
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     from probe.cli import tui
     import probe.cli.main  # noqa: F401
@@ -3688,7 +3725,7 @@ def test_interactive_wizard_asks_action_then_agent_then_runs_features(monkeypatc
 
     from probe.cli import bootstrap
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     from probe.cli import tui
     from probe.cli.actions import Action
@@ -3752,7 +3789,7 @@ def _wizard_events(monkeypatch, *, confirms, actions, imports=None, argv=("wizar
 
     from probe.cli import bootstrap
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     from probe.cli import tui
     import probe.cli.main  # noqa: F401
@@ -3901,7 +3938,7 @@ def test_interactive_install_is_force_on_even_over_a_killswitch(monkeypatch):
 
     from probe.cli import bootstrap
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     from probe.cli import tui
     import probe.cli.main  # noqa: F401
@@ -3974,7 +4011,8 @@ def test_removing_probe_also_takes_the_block_out_of_claude_md(monkeypatch, tmp_p
     It also pinned `Capabilities.configured` True forever, so a device that had
     removed everything could never look fresh again."""
 
-    from probe.cli import agent_rules, claude_cli
+    from probe.cli import agent_rules
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
 
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
     memory = tmp_path / "CLAUDE.md"
@@ -4020,7 +4058,8 @@ def test_removing_probe_takes_the_codex_mcp_entry_with_it(monkeypatch, tmp_path)
     mattered so much: nothing down here ran at all.
     """
 
-    from probe.cli import claude_cli, codex_config
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
     codex_config.write_mcp_bearer(
@@ -4673,7 +4712,7 @@ def test_the_wizard_survives_the_no_bindings_fallback_end_to_end(monkeypatch):
 
     from probe.cli import bootstrap
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     from probe.cli import tui
     from probe.cli.actions import Action
@@ -5181,7 +5220,7 @@ def test_a_successful_install_does_no_marketplace_work(monkeypatch):
     The refresh is now the caller's job, once per run. Only the RETRY path may
     refresh again, so a clean install must touch the marketplace zero times.
     """
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import setup as wizard
 
     calls: list[list[str]] = []
@@ -5200,7 +5239,7 @@ def test_refresh_marketplace_reports_the_update_result(monkeypatch):
     """Both results used to be discarded. `update` is the one whose success
     decides whether the catalog we install from is current, so it is the one
     that comes back."""
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import setup as wizard
 
     def fake_run(args, *, timeout):
@@ -5220,7 +5259,8 @@ def test_a_first_add_is_the_refresh(monkeypatch, tmp_path):
     `update` after it fetched the same repository again (~2 s of a first
     install, per agent). One already on disk still updates: `add` leaves an
     existing copy as it was."""
-    from probe.cli import claude_cli, plugin_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
 
     checkout = tmp_path / "marketplaces" / "research-os-agent"
@@ -5248,7 +5288,7 @@ def test_an_install_for_several_agents_refreshes_their_marketplaces_at_once(monk
     refresh runs again."""
     import threading
 
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import setup as wizard
 
     both_running = threading.Barrier(2, timeout=5)
@@ -5277,7 +5317,7 @@ def test_the_install_batches_the_agents_it_gets_a_plugin_for(monkeypatch):
     import importlib
     from types import SimpleNamespace
 
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
 
     main = importlib.import_module("probe.cli.main")
     monkeypatch.setattr(plugin_cli, "available", lambda source: source != "kimi_code")
@@ -5311,9 +5351,9 @@ def test_the_sign_in_refreshes_nothing_while_a_person_approves(monkeypatch):
     """Nothing is written while the browser approval waits (`sdk.device`): a
     first `add` writes the agent's own config. The batch refreshes at the
     install's refresh step, which a refused approval skips (`_run_wizard_action`)."""
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import setup as wizard
-    from probe.sdk import device as device_flow
+    from probe.sdk.settings import device as device_flow
 
     ran: list[str] = []
     monkeypatch.setattr(
@@ -5335,7 +5375,7 @@ def test_a_refresh_whose_thread_cannot_start_runs_on_its_own(monkeypatch):
     step, as before the batch, and nothing waits on an answer that cannot come."""
     import threading
 
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import setup as wizard
 
     ran: list[str] = []
@@ -5359,7 +5399,7 @@ def test_a_later_thread_that_cannot_start_leaves_its_agent_to_its_own_step(monke
     step (it leaves the batch), and neither waits or fails on the other."""
     import threading
 
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import setup as wizard
 
     ran: list[tuple[str, str]] = []
@@ -5387,7 +5427,7 @@ def test_a_first_add_that_hits_a_blocked_git_is_the_reported_cause(monkeypatch):
     """On a machine that never added the marketplace, `add` is the clone that
     hits the Mac's blocked git; `update` then fails as "not found", which says
     nothing about the Xcode license that caused it."""
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import setup as wizard
 
     license_text = (
@@ -5412,7 +5452,7 @@ def test_a_failed_install_retries_once_on_any_failure(monkeypatch):
     """Deliberately NOT gated on matching Claude's error prose: a retry that
     fires only on "not found in marketplace" stops firing the day Anthropic
     rewords it, silently, with every test still green."""
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import setup as wizard
 
     attempts: list[list[str]] = []
@@ -5447,7 +5487,7 @@ def test_a_failed_install_retries_once_on_any_failure(monkeypatch):
 def test_the_retry_budget_is_per_run_not_per_plugin(monkeypatch):
     """Two plugins failing must not cost two refreshes and two reinstalls: that
     is how a fix for an 18-minute worst case becomes a 30-minute one."""
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import setup as wizard
 
     refreshed: list[int] = []
@@ -5752,7 +5792,7 @@ def test_a_valid_pairing_does_not_hide_a_manually_removed_capture_plugin(monkeyp
     import sys
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import doctor as doctor_impl
     from probe.cli import setup as wizard
     from probe.cli import tui
@@ -5877,7 +5917,7 @@ def test_a_mac_that_cannot_run_git_gets_the_fix_not_apples_paragraph(monkeypatch
     import sys
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import doctor as doctor_impl
     from probe.cli import setup as wizard
     from probe.cli import tui
@@ -5984,7 +6024,7 @@ def test_the_credential_is_minted_before_the_plugin_is_installed(monkeypatch):
     import sys
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import doctor as doctor_impl
     from probe.cli import setup as wizard
     from probe.cli import tui
@@ -6372,7 +6412,7 @@ def test_a_refused_approval_installs_nothing(monkeypatch):
     import typer
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import doctor as doctor_impl
     from probe.cli import setup as wizard
     from probe.cli import tui
@@ -6428,7 +6468,7 @@ def test_a_partial_grant_installs_only_what_it_can_authenticate(monkeypatch):
     import typer
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import doctor as doctor_impl
     from probe.cli import setup as wizard
     from probe.cli import tui
@@ -6489,7 +6529,7 @@ def test_turning_a_capability_off_is_never_gated_on_a_credential(monkeypatch):
     import sys
 
     import probe.cli.main  # noqa: F401
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
     from probe.cli import doctor as doctor_impl
     from probe.cli import setup as wizard
     from probe.cli import tui
@@ -6786,7 +6826,7 @@ def test_a_broken_config_fails_the_toggle_loudly_instead_of_being_replaced(isola
     import pytest as _pytest
 
     from probe.sdk import session_marker
-    from probe.sdk.config import ConfigUnreadable
+    from probe.sdk.settings.settings import ConfigUnreadable
 
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
     path = session_marker.config_path()
@@ -6894,7 +6934,7 @@ def test_a_v1_config_keeps_the_tracking_default_across_migration(isolate, monkey
     """
     import json as jsonlib
 
-    from probe.sdk import config as sdk_config
+    from probe.sdk.settings import settings as sdk_config
     from probe.sdk import session_marker
 
     monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
@@ -7132,7 +7172,7 @@ def test_the_agent_screen_is_skipped_when_there_is_no_choice(monkeypatch):
 
     from probe.cli import bootstrap
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     from probe.cli import tui
     from probe.cli.actions import Action
@@ -7437,7 +7477,7 @@ def test_install_on_a_pluginless_machine_matches_the_degraded_screen(monkeypatch
 
     from probe.cli import bootstrap
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     from probe.cli import tui
     import probe.cli.main  # noqa: F401
@@ -7489,7 +7529,7 @@ def test_a_degraded_install_preserves_what_it_never_disclosed(monkeypatch):
 
     from probe.cli import bootstrap
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     from probe.cli import tui
     from probe.cli.capabilities import TokenSource
@@ -7582,7 +7622,7 @@ def test_back_on_a_one_agent_machine_lands_on_the_action_menu(monkeypatch):
 
     from probe.cli import bootstrap
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     from probe.cli import tui
     from probe.cli.actions import Action
@@ -7655,7 +7695,7 @@ def test_the_wizard_names_the_absent_half_of_a_both_selection(monkeypatch):
 
     from probe.cli import bootstrap
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     from probe.cli import tui
     import probe.cli.main  # noqa: F401
@@ -7702,7 +7742,7 @@ def test_a_pi_only_machine_auto_selects_pi_without_the_agent_flag(monkeypatch):
 
     from probe.cli import bootstrap
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     from probe.cli import tui
     import probe.cli.main  # noqa: F401
@@ -7753,7 +7793,7 @@ def test_device_authorize_carries_the_install_context(monkeypatch):
         def close(self):
             pass
 
-    from probe.sdk import device
+    from probe.sdk.settings import device
 
     with pytest.raises(device.DeviceLoginError):
         device.device_authorize(
@@ -7832,7 +7872,7 @@ def test_the_guided_install_authorizes_capture_missing_from_an_older_login(monke
 
     from probe.cli import bootstrap
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     from probe.cli import tui
     import probe.cli.main  # noqa: F401
@@ -7840,7 +7880,7 @@ def test_the_guided_install_authorizes_capture_missing_from_an_older_login(monke
     cli_main = sys.modules["probe.cli.main"]
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(plugin_cli, "available", lambda source: source == "claude_code")
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     save_context({"token": "probe_pat_existing", "mcp_token": "probe_pat_read"})
     # Installed plugins alone do not prove their credentials are present.
@@ -7918,7 +7958,8 @@ def test_canceled_or_failed_install_never_starts_selected_imports(monkeypatch, s
     import typer
     from typer.testing import CliRunner
 
-    from probe.cli import bootstrap, plugin_cli, tui
+    from probe.cli import bootstrap, tui
+    from probe.shared.harness import plugins as plugin_cli
 
     cli_main = importlib.import_module("probe.cli.main")
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
@@ -7972,7 +8013,7 @@ def test_guided_install_runs_only_selected_imports_after_setup(monkeypatch, choi
     from probe.cli import bootstrap
     from probe.cli import import_jobs_ui, onboarding_complete
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     from probe.cli import tui
     from probe.cli.actions import Action
@@ -8153,7 +8194,7 @@ def _headless(monkeypatch, argv, *, detected=()):
 
     from probe.cli import bootstrap
     from probe.cli import doctor as doctor_impl
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
     import probe.cli.main  # noqa: F401
 
@@ -8530,7 +8571,7 @@ def test_the_settings_screen_asks_the_server_nothing(isolate, monkeypatch):
 def test_daemon_availability_reads_the_server_and_never_guesses_no(isolate, monkeypatch, status, body, answer):
     import httpx
 
-    from probe.sdk import transport as transport_mod
+    from probe.sdk.delivery import transport as transport_mod
 
     seen = []
 
@@ -8568,7 +8609,7 @@ def test_daemon_availability_gives_up_on_a_stalled_network(isolate, monkeypatch)
     import threading
     import time
 
-    from probe.sdk import transport as transport_mod
+    from probe.sdk.delivery import transport as transport_mod
 
     release = threading.Event()
 
@@ -8584,7 +8625,7 @@ def test_daemon_availability_gives_up_on_a_stalled_network(isolate, monkeypatch)
             pass
 
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_test")
-    monkeypatch.setattr(transport_mod, "Transport", Stalled)
+    monkeypatch.setattr(transport_mod.transport, "Transport", Stalled)
     monkeypatch.setattr(setup, "DAEMON_AVAILABILITY_BUDGET_S", 0.2)
     started = time.monotonic()
     try:
@@ -8595,14 +8636,14 @@ def test_daemon_availability_gives_up_on_a_stalled_network(isolate, monkeypatch)
 
 
 def test_daemon_availability_signed_out_asks_nothing(isolate, monkeypatch):
-    from probe.sdk import transport as transport_mod
+    from probe.sdk.delivery import transport as transport_mod
 
     def no_request(*args, **kwargs):
         raise AssertionError("a signed-out wizard must not ask the server anything")
 
     for name in ("PROBE_TOKEN", "PROBE_API_KEY"):
         monkeypatch.delenv(name, raising=False)
-    monkeypatch.setattr(transport_mod, "Transport", no_request)
+    monkeypatch.setattr(transport_mod.transport, "Transport", no_request)
     assert setup.daemon_availability() == (None, None)
 
 
@@ -8610,7 +8651,7 @@ def test_daemon_availability_signed_out_asks_nothing(isolate, monkeypatch):
 
 
 def test_uninstall_takes_the_status_line_back_to_what_it_wrapped(isolate, monkeypatch, tmp_path):
-    from probe.cli import statusline
+    from probe.shared.harness.harnesses.claude_code import statusline
 
     settings = tmp_path / "claude-settings.json"
     ours = statusline.chain("mine", statusline.renderer_command("python3"))
@@ -8624,7 +8665,7 @@ def test_uninstall_takes_the_status_line_back_to_what_it_wrapped(isolate, monkey
 
 
 def test_the_account_screen_removes_another_saved_account_never_the_active_one(isolate):
-    from probe.sdk.config import current_context_name, load_file, save_context, use_context
+    from probe.sdk.settings.settings import current_context_name, load_file, save_context, use_context
 
     save_context({"base_url": "https://a", "token": "probe_pat_a"}, name="work")
     save_context({"base_url": "https://b", "token": "probe_pat_b"}, name="side")

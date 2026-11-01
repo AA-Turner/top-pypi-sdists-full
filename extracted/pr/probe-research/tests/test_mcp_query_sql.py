@@ -14,13 +14,14 @@ import json
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
-from probe.mcp._generated.sql import (
+from probe.mcp.generated.sql import (
     QUERY_SQL_DESCRIPTION,
     SQL_ARG_DOC,
     TABLES_ARG_DOC,
 )
-from probe.mcp.server import MCP_INSTRUCTIONS, create_server
-from probe.mcp.service import ResearchReadService
+from probe.mcp.server.tool_text import MCP_INSTRUCTIONS
+from probe.mcp.server.server import create_server
+from probe.mcp.tools.tools import ResearchReadService
 from probe.sdk import errors
 
 

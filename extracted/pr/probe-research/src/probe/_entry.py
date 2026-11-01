@@ -108,7 +108,7 @@ def _update_barrier(argv: list[str] | None) -> int | None:
         if worker:
             # `probe uninstall` runs: no worker starts on the files it removes
             # (its supervisor comes back later, by which time it is gone).
-            from probe._shared import uninstall_barrier
+            from probe.shared.updates import uninstall_barrier
 
             if uninstall_barrier.live():
                 print("probe: Probe is being uninstalled on this computer; no daemon worker starts.",
@@ -138,13 +138,13 @@ def _update_barrier(argv: list[str] | None) -> int | None:
 
 def _daemon_worker_proxy(argv: list[str] | None) -> int | None:
     """`probe daemon worker` started by an old tap: its run goes to the Probe
-    service's daemon host, this process waits for it (`probe.daemon.proxy`).
+    service's daemon host, this process waits for it (`probe.daemon.host.proxy`).
     None: no host to reach, the worker runs here as before."""
     args = sys.argv[1:] if argv is None else argv
     if args[:2] != ["daemon", "worker"]:
         return None
     try:
-        from probe.daemon import proxy
+        from probe.daemon.host import proxy
 
         return proxy.main(args[2:]) if proxy.eligible() else None
     except Exception:  # noqa: BLE001 -- never a reason not to run the worker
@@ -178,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
 def mcp_main() -> None:
     """``probe-research-mcp``."""
     try:
-        from probe.mcp.server import main as server_main
+        from probe.mcp.server.server import main as server_main
     except ModuleNotFoundError as exc:
         module = _missing_dependency(exc, _MCP_MODULES)
         if module is None:
@@ -190,7 +190,7 @@ def mcp_main() -> None:
 def mcp_http_main() -> None:
     """``probe-research-mcp-http``."""
     try:
-        from probe.mcp.server import main_http
+        from probe.mcp.server.http import main_http
     except ModuleNotFoundError as exc:
         module = _missing_dependency(exc, _MCP_MODULES + ("uvicorn",))
         if module is None:

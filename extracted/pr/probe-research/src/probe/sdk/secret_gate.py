@@ -284,7 +284,7 @@ def _opaque_windows(data: bytes) -> Iterator[str]:
 #: verdicts are kept, never refusals: "inspection failed" can come from a
 #: MemoryError, which the same bytes need not hit twice.
 #:
-#: SDK ONLY. The server vendors this file (`app/security/_credential_gate.py`),
+#: SDK ONLY. The server vendors this file (`contracts/probe_contracts/scrubber/scrubber.py`),
 #: and there one cache would span every tenant: how fast an upload is inspected
 #: would tell one tenant whether another uploaded the same bytes recently.
 _CACHE_ENABLED = __name__.startswith("probe.")

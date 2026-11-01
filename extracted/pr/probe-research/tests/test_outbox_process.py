@@ -28,8 +28,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from probe.sdk import journal as journal_mod
-from probe.sdk.journal import Journal, drain
+from probe.sdk.delivery import journal as journal_mod
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain.drain import drain
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -165,7 +166,7 @@ def test_a_real_forked_worker_delivers_in_order_and_exits(live_server, journal):
     server, _ = live_server
     for step in (1, 2, 3):
         journal.append_http("POST", "/v1/runs/r-proc/metrics", {"points": [{"step_index": step}]})
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     assert outbox_worker.maybe_spawn(str(journal.dir)) is True
     assert _wait(lambda: not journal.pending(), 30), "worker never emptied the journal"
@@ -196,7 +197,7 @@ def test_a_real_worker_exits_3_on_auth_block_with_ops_untouched(live_server, jou
 
 _WRITER = """
 import sys
-from probe.sdk.journal import Journal
+from probe.sdk.delivery.journal.journal import Journal
 directory, base_url, count, writer_id = sys.argv[1:5]
 journal = Journal(directory, context={"name": None, "base_url": base_url})
 journal.register_producer("stress:shared")
@@ -233,7 +234,7 @@ def test_four_processes_share_one_journal_without_loss_or_duplication(
 
 _KILL_WRITER = """
 import sys, time
-from probe.sdk.journal import Journal
+from probe.sdk.delivery.journal.journal import Journal
 journal = Journal(sys.argv[1], context={"name": None, "base_url": sys.argv[2]})
 journal.register_producer("kills:shared")
 i = 0
@@ -273,7 +274,8 @@ def test_sigkilled_writers_never_leave_a_torn_journal(live_server, journal, proc
 
 _DRAINER = """
 import sys
-from probe.sdk.journal import Journal, drain
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain.drain import drain
 drain(Journal(sys.argv[1]))
 """
 
@@ -320,7 +322,8 @@ class _Usage:
 
 
 def _disk(monkeypatch, *, free: int, floor: int) -> None:
-    monkeypatch.setattr(journal_mod, "MIN_FREE_BYTES", floor)
+    monkeypatch.setattr(journal_mod.headroom, "MIN_FREE_BYTES", floor)
+    monkeypatch.setattr(journal_mod.journal, "MIN_FREE_BYTES", floor)
     monkeypatch.setattr(journal_mod.shutil, "disk_usage", lambda _path: _Usage(free))
 
 
@@ -394,7 +397,8 @@ def test_a_malformed_floor_override_warns_and_falls_back(monkeypatch):
         fallback = journal_mod._min_free_bytes()
     # None = the floor that scales with the volume (plan 1.5), never "off".
     assert fallback is None, "a typo in an env var must not silently disable a disk guard"
-    monkeypatch.setattr(journal_mod, "MIN_FREE_BYTES", fallback)
+    monkeypatch.setattr(journal_mod.headroom, "MIN_FREE_BYTES", fallback)
+    monkeypatch.setattr(journal_mod.journal, "MIN_FREE_BYTES", fallback)
     assert journal_mod.free_floor("/") >= 256 * 1024 * 1024
     monkeypatch.setenv("PROBE_OUTBOX_MIN_FREE_BYTES", "4096")
     assert journal_mod._min_free_bytes() == 4096
@@ -471,7 +475,7 @@ def test_a_missing_staged_blob_still_reports_staged_bytes(tmp_path, journal):
 _CLI_WRITER = """
 import sys
 from probe.sdk.client import Client
-from probe.sdk.journal import Journal
+from probe.sdk.delivery.journal.journal import Journal
 directory, base_url, count = sys.argv[1:4]
 journal = Journal(directory, context={"name": None, "base_url": base_url})
 client = Client(journal=journal, async_writes=True, auto_drain=False, surface="cli")
@@ -589,7 +593,7 @@ def test_a_delivered_tally_survives_a_sigkilled_drain(live_server, journal, proc
 _CAPPED_WRITER = """
 import os, sys, time
 from probe.sdk.client import Client
-from probe.sdk.journal import Journal
+from probe.sdk.delivery.journal.journal import Journal
 directory, base_url, total = sys.argv[1], sys.argv[2], int(sys.argv[3])
 journal = Journal(directory, context={"name": None, "base_url": base_url})
 # A default transport, so every write kicks the REAL detached worker.
@@ -633,7 +637,7 @@ def test_the_cap_counts_the_real_queue_under_a_live_drainer(live_server, journal
     )
     assert proc.returncode == 0, proc.stderr[-2000:]
     assert "DROPPED 0" in proc.stdout, (proc.stdout, proc.stderr[-2000:])
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     outbox_worker.maybe_spawn(str(journal.dir))
     assert _wait(lambda: len(_received(server)) >= 450 and not journal.pending(), 120), (
@@ -648,7 +652,7 @@ def test_the_cap_counts_the_real_queue_under_a_live_drainer(live_server, journal
 _LOG_THEN_DIE = """
 import os, signal, sys
 from probe.sdk.client import Client
-from probe.sdk.journal import Journal
+from probe.sdk.delivery.journal.journal import Journal
 directory, base_url, total = sys.argv[1], sys.argv[2], int(sys.argv[3])
 journal = Journal(directory, context={"name": None, "base_url": base_url})
 client = Client(journal=journal, async_writes=True, auto_drain=False)
@@ -702,7 +706,7 @@ def test_a_real_worker_keeps_delivering_other_runs_past_a_stuck_one(live_server,
         journal.append_http("POST", "/v1/runs/r-a/metrics", {"points": [{"step_index": step}]})
     for step in (1, 2, 3):
         journal.append_http("POST", "/v1/runs/r-b/metrics", {"points": [{"step_index": step}]})
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     def steps(run):
         return [
@@ -739,7 +743,7 @@ def test_a_live_worker_steps_aside_for_a_producer_that_needs_a_newer_one(
     its pass, exits and frees its lease with later ops still queued, and the
     producer's next kick starts a new worker that delivers everything --
     nothing dead-lettered along the way."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     server, _ = live_server
     server.delay = 0.3  # keep the first worker busy long enough to be asked

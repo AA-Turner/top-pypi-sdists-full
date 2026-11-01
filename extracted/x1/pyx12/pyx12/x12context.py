@@ -868,6 +868,9 @@ class X12ContextReader:
         # keep passing `errh_null()` see no behavior change since all
         # the lifecycle methods are no-ops there.
         self.errh = errh
+        suppress = param.get("suppress_error_codes")
+        if suppress:
+            self.errh.suppress_error_codes = set(suppress)
         self.icvn = None
         self.fic = None
         self.vriic = None
@@ -1086,16 +1089,12 @@ class X12ContextReader:
                         raise errors.EngineError(
                             "Loop ID %s should not be in pop loops" % (loop_id)
                         )
-                    # NOTE: positional args here are intentionally what they
-                    # appear to be even though it looks wrong (`parent` gets
-                    # `push_loops` which is a list). The downstream None-check
-                    # for `parent` relies on this list being truthy. See the
-                    # test_x12context.TreeCopy tests.
                     cur_data_node = X12SegmentDataNode(
                         self.x12_map_node,
                         seg,
-                        push_loops,  # type: ignore[arg-type]
-                        pop_loops,
+                        parent=None,
+                        start_loops=push_loops,
+                        end_loops=pop_loops,
                     )
                     cur_data_node.seg_count = self.src.get_seg_count()
                     cur_data_node.cur_line_number = self.src.get_cur_line()
@@ -1107,9 +1106,6 @@ class X12ContextReader:
                 errh.handle_errors(self.src.pop_errors())
                 # Handle errors captured in errh_list
                 cur_data_node.handle_errh_errors(errh)
-                if cur_data_node.id != "ISA" and cur_data_node is not None:
-                    if cur_data_node.parent is None:
-                        raise errors.EngineError('Node "%s" has no parent' % (cur_data_node.id))
                 yield cur_data_node
 
     def register_error_callback(self, callback: Any, err_type: str) -> None:

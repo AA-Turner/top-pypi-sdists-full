@@ -9,9 +9,11 @@ from uuid import uuid4
 
 import pytest
 
-from probe.mcp.contract import EntityType, View
-from probe.mcp.service import ResearchReadService, _NOTES_CARD_EXCERPT, _VIEWS, _notes_excerpt
-from probe.mcp.source import ResearchOSSource
+from probe.shared.reads.search_contract import EntityType, View
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.tools.shaping.cards import _NOTES_CARD_EXCERPT, _notes_excerpt
+from probe.mcp.tools.view import _VIEWS
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
 
 
@@ -475,7 +477,7 @@ def test_reproduction_is_preserved_without_duplicating_the_original_entity():
 
 @pytest.mark.parametrize("empty", [{}, ""])
 def test_an_empty_summary_is_omitted_like_an_absent_one(empty):
-    from probe.mcp.service import _entity_projection
+    from probe.mcp.tools.shaping.cards import _entity_projection
 
     entity = {"id": str(uuid4()), "name": "n", "slug": "s", "summary_metrics": empty}
     assert "summary" not in _entity_projection(EntityType.PROJECT, entity, card=False, document=True)
@@ -485,7 +487,7 @@ def test_an_empty_summary_is_omitted_like_an_absent_one(empty):
 
 
 def test_a_summary_emptied_by_truncation_is_still_shown_beside_its_flag():
-    from probe.mcp.service import _entity_projection
+    from probe.mcp.tools.shaping.cards import _entity_projection
 
     entity = {"id": str(uuid4()), "name": "n", "slug": "s", "summary_metrics": {"loss": {"min": 1}}}
     shown = _entity_projection(EntityType.PROJECT, entity, card=False, document=True)
@@ -493,7 +495,7 @@ def test_a_summary_emptied_by_truncation_is_still_shown_beside_its_flag():
 
 
 def test_a_summary_of_the_wrong_type_is_flagged_not_shown_as_null():
-    from probe.mcp.service import _entity_projection
+    from probe.mcp.tools.shaping.cards import _entity_projection
 
     entity = {"id": str(uuid4()), "name": "n", "slug": "s", "summary_metrics": ["x"]}
     shown = _entity_projection(EntityType.PROJECT, entity, card=False, document=True)

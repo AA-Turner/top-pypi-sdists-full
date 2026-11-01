@@ -24,7 +24,9 @@ import time
 import pytest
 
 from probe._shared import scrub
-from probe.cli import autoupdate, claude_cli, update_report, updater, upgrading, versions
+from probe.cli import autoupdate, updater, upgrading
+from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+from probe.shared.updates import update_report, updates as versions
 
 MANIFEST = {
     "cli": {"latest": "0.221.0"},
@@ -391,7 +393,7 @@ def test_a_hot_path_skip_touches_no_network_and_reaches_the_next_flush(monkeypat
 
 
 def test_the_refresher_flushes_waiting_reports(monkeypatch, sent):
-    from probe import version_policy
+    from probe.shared.updates import version_policy
     from probe.cli import version_refresh
 
     monkeypatch.setattr(version_policy, "refresh", lambda context=None: None)

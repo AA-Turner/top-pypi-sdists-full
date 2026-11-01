@@ -8,7 +8,7 @@ from functools import partial
 
 import pytest
 
-from .utils import ExpectEvent, Helper, P, StartWatching, TestEventQueue
+from .utils import EventsChecker, ExpectEvent, Helper, P, StartWatching, TestEventQueue
 
 
 @pytest.fixture
@@ -41,13 +41,11 @@ def _no_warnings(recwarn):
     warnings = []
     for warning in recwarn:  # pragma: no cover
         message = str(warning.message)
-        filename = warning.filename
         if (
             "Not importing directory" in message
             or "Using or importing the ABCs" in message
             or "dns.hash module will be removed in future versions" in message
             or "is still running" in message
-            or "eventlet" in filename
         ):
             continue
         warnings.append(f"{warning.filename}:{warning.lineno} {warning.message}")
@@ -78,3 +76,8 @@ def start_watching_fixture(helper: Helper) -> StartWatching:
 @pytest.fixture(name="expect_event")
 def expect_event_fixture(helper: Helper) -> ExpectEvent:
     return helper.expect_event
+
+
+@pytest.fixture(name="events_checker")
+def events_checker_fixture(helper: Helper) -> EventsChecker:
+    return helper.events_checker

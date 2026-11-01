@@ -17,8 +17,11 @@ import subprocess
 
 import pytest
 
-from probe.sdk import snapshot as snapshot_mod
-from probe.sdk.snapshot import SnapshotError, capture_env, capture_manifest, pushed_base
+from probe.sdk.capture import code as snapshot_mod
+from probe.sdk.capture.code.code import SnapshotError
+from probe.sdk.capture.code.environment import capture_env
+from probe.sdk.capture.code.sources.git import capture_manifest
+from probe.sdk.capture.code.git_remote import pushed_base
 
 
 def _git(cwd, *args):
@@ -217,7 +220,7 @@ def test_capture_env_records_the_actual_packages():
 def test_capture_env_raises_rather_than_recording_nothing(monkeypatch):
     """Silently returning {'python': ...} is how real runs lost their deps."""
     monkeypatch.setattr(
-        "probe.sdk.snapshot._enumerate_foreign",
+        "probe.sdk.capture.code.environment._enumerate_foreign",
         lambda python: (_ for _ in ()).throw(RuntimeError("no metadata")),
     )
     with pytest.raises(SnapshotError):
@@ -226,7 +229,7 @@ def test_capture_env_raises_rather_than_recording_nothing(monkeypatch):
 
 def test_capture_env_non_strict_degrades_quietly(monkeypatch):
     monkeypatch.setattr(
-        "probe.sdk.snapshot._enumerate_foreign",
+        "probe.sdk.capture.code.environment._enumerate_foreign",
         lambda python: (_ for _ in ()).throw(RuntimeError("no metadata")),
     )
     assert capture_env(strict=False)["python"]
@@ -266,7 +269,7 @@ def test_remote_credentials_are_never_recorded(repo):
 
 
 def test_scrubber_handles_both_url_shapes():
-    from probe.sdk.snapshot import _scrub_remote
+    from probe.sdk.capture.code.git_remote import _scrub_remote
 
     assert "TOK" not in _scrub_remote("https://oauth2:TOK@gitlab.com/a/b.git")
     assert "git@" not in _scrub_remote("git@github.com:acme/repo.git")
@@ -293,7 +296,7 @@ def test_unreachable_remote_falls_back_without_hanging(tmp_path, monkeypatch):
     # APPLIED and the manifest degrades to a path reference when it fires --
     # true at one second as much as at ten, so the knob is turned down rather
     # than have CI re-buy the same assurance for 10s a run, twice a commit.
-    monkeypatch.setattr(snapshot_mod, "_LS_REMOTE_TIMEOUT", 1.0)
+    monkeypatch.setattr(snapshot_mod.git_remote, "_LS_REMOTE_TIMEOUT", 1.0)
 
     work = tmp_path / "stalled"
     work.mkdir()
@@ -350,7 +353,7 @@ def test_threshold_applies_in_a_plain_directory_too(tmp_path):
 
 
 def test_zero_distributions_is_refused_under_strict(monkeypatch):
-    monkeypatch.setattr("probe.sdk.snapshot._enumerate_foreign", lambda python: ("3.13.0", []))
+    monkeypatch.setattr("probe.sdk.capture.code.environment._enumerate_foreign", lambda python: ("3.13.0", []))
     with pytest.raises(SnapshotError):
         capture_env()
 
@@ -438,7 +441,7 @@ def test_gitignored_lockfile_is_captured(repo, tmp_path):
     import gzip
     import tarfile
 
-    from probe.sdk.snapshot import build_pending_archive
+    from probe.sdk.capture.code.archive import build_pending_archive
 
     lockfile_body = "[lock]\nversion = 1\n"
     (repo / "uv.lock").write_text(lockfile_body)

@@ -46,7 +46,7 @@ import os
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 from pathlib import Path
 
 from ..sdk.redaction import scrub_text

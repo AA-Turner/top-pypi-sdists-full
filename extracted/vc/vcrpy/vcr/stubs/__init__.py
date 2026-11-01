@@ -3,6 +3,7 @@
 import json
 import logging
 from contextlib import suppress
+from email.message import Message
 from http.client import HTTPConnection, HTTPResponse, HTTPSConnection
 from io import BytesIO
 
@@ -81,7 +82,6 @@ class VCRHTTPResponse(HTTPResponse):
         self.version_string = None
         self._content = BytesIO(self.recorded_response["body"]["string"])
         self._closed = False
-        self._original_response = self  # for requests.session.Session cookie extraction
 
         headers = self.recorded_response["headers"]
         # Since we are loading a response that has already been serialized, our
@@ -95,6 +95,13 @@ class VCRHTTPResponse(HTTPResponse):
         self.headers = self.msg = parse_headers(headers)
 
         self.length = compat.get_header(self.msg, "content-length") or None
+
+    @property
+    def _original_response(self):
+        # requests extracts cookies from _original_response.msg. urllib.request
+        # replaces msg with the reason phrase, as it does on real responses,
+        # which have no _original_response, so then there's none here either (#956).
+        return self if isinstance(self.msg, Message) else None
 
     @property
     def closed(self):
@@ -188,8 +195,12 @@ class VCRHTTPResponse(HTTPResponse):
         pass
 
     def release_conn(self):
-        # A replayed response has no connection to return to a pool.
-        pass
+        # urllib3 attaches the leased connection even to a replayed response.
+        pool = getattr(self, "_pool", None)
+        connection = getattr(self, "_connection", None)
+        if pool is not None and connection is not None:
+            pool._put_conn(connection)
+            self._connection = None
 
     def stream(self, amt=65536, decode_content=None):
         while True:
@@ -307,6 +318,10 @@ class VCRConnection:
             from vcr.patch import force_reset
 
             with force_reset():
+                if self.__dict__.get("_deferred_connect"):
+                    args, kwargs = self._deferred_connect
+                    self._deferred_connect = None
+                    self.real_connection.connect(*args, **kwargs)
                 self.real_connection.request(
                     method=self._vcr_request.method,
                     url=self._url(self._vcr_request.uri),
@@ -332,13 +347,19 @@ class VCRConnection:
 
     def connect(self, *args, **kwargs):
         """
-        httplib2 uses this.  Connects to the server I'm assuming.
+        httplib2 uses this, and urllib3 calls it before sending an HTTPS request.
 
         Only pass to the baseclass if we don't have a recorded response
         and are not write-protected.
         """
 
-        if hasattr(self, "_vcr_request") and self.cassette.can_play_response_for(self._vcr_request):
+        if not hasattr(self, "_vcr_request"):
+            # The request isn't known yet, so we can't tell whether it will be
+            # played back. Connect only if it's sent (#515).
+            self._deferred_connect = (args, kwargs)
+            return
+
+        if self.cassette.can_play_response_for(self._vcr_request):
             # We already have a response we are going to play, don't
             # actually connect
             return

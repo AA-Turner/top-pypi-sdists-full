@@ -207,12 +207,12 @@ def test_the_mcp_token_comes_from_where_probe_mcp_headers_reads_it():
 
 
 # ---------------------------------------------------------------------------
-# workspaceLimit.ts <- probe.sdk.workspace_limit, bin/probe-mcp-headers
+# workspaceLimit.ts <- probe.sdk.settings.workspace_limit, bin/probe-mcp-headers
 # ---------------------------------------------------------------------------
 
 
 def test_the_workspace_limit_names_are_the_sdks_and_the_helpers():
-    from probe.sdk import workspace_limit as wl
+    from probe.sdk.settings import workspace_limit as wl
 
     assert ts_string(WORKSPACE_LIMIT, "WORKSPACE_LIMIT_HEADER") == wl.LIMIT_HEADER
     assert ts_string(WORKSPACE_LIMIT, "WORKSPACE_LIMIT_TEAM_ITEMS_HEADER") == wl.TEAM_ITEMS_HEADER
@@ -249,7 +249,7 @@ def _helper_limit(tmp_path: Path, config: dict, **env: str) -> dict:
              "CLAUDE_PLUGIN_ROOT": str(tmp_path / "plugin"), **env},
         capture_output=True, text=True, timeout=20, check=True,
     )
-    from probe.sdk.workspace_limit import limit_headers_of
+    from probe.sdk.settings.workspace_limit import limit_headers_of
 
     return limit_headers_of(json.loads(result.stdout))
 
@@ -257,7 +257,7 @@ def _helper_limit(tmp_path: Path, config: dict, **env: str) -> dict:
 def test_the_helper_sends_the_limit_the_sdk_resolves(tmp_path, monkeypatch):
     """Same config, same environment: the headers helper (Claude Code's MCP) and
     the SDK's transport send the same limit."""
-    from probe.sdk import workspace_limit as wl
+    from probe.sdk.settings import workspace_limit as wl
 
     ws = "11111111-1111-1111-1111-111111111111"
     cases = [

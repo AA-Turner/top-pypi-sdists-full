@@ -17,8 +17,11 @@ import time
 
 import pytest
 
-from probe.daemon import approvals as appr, lease, probe_api, tools
-from probe.daemon.store import Store
+from probe.shared.mailbox import approvals as appr
+from probe.daemon.host import lease
+from probe.daemon.session import probe_api
+from probe.daemon.agent import tools
+from probe.daemon.store.store import Store
 
 SID = "11111111-2222-3333-4444-555555555555"
 
@@ -75,7 +78,9 @@ class Probe:
 ], ids=["write-ran", "write-failed", "read-failed", "blocked", "compound", "compound-read-first", "asked",
         "bypass-ran", "refused", "read"])
 def test_a_write_that_did_not_land_counts_as_lost(tmp_path, monkeypatch, command, codes, bypass, lost):
-    monkeypatch.setattr(tools, "run_probe_process", Probe(codes))
+    fake_process = Probe(codes)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", fake_process)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", fake_process)
     deps = _deps(tmp_path, bypass=bypass)
     out = asyncio.run(tools.shell(deps, command))
     assert deps.lost_writes == lost, out
@@ -83,7 +88,9 @@ def test_a_write_that_did_not_land_counts_as_lost(tmp_path, monkeypatch, command
 
 def test_a_write_cut_off_by_a_lost_lease_is_not_lost(tmp_path, monkeypatch):
     """The run is stopping anyway (`Deps.stopped`): nothing to go on with."""
-    monkeypatch.setattr(tools, "run_probe_process", Probe())
+    fake_process = Probe()
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", fake_process)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", fake_process)
     deps = _deps(tmp_path)
     (lease.sessions_dir() / f"{SID}.state").write_text("off")
     out = asyncio.run(tools.shell(deps, "probe run tag r1 done"))
@@ -111,7 +118,8 @@ def _run_writer(tmp_path, monkeypatch, responses, codes):
     from probe.daemon import agent as agent_mod
 
     probe = Probe(codes)
-    monkeypatch.setattr(tools, "run_probe_process", probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", probe)
     seen: list = []
 
     def model(messages, info):
@@ -193,7 +201,7 @@ def test_a_tool_that_raised_in_the_ending_response_keeps_the_run_going(tmp_path,
     async def boom(deps, command, why=""):
         raise OSError("the working folder is gone")
 
-    monkeypatch.setattr(tools, "shell", boom)
+    monkeypatch.setattr(tools.bash.bash, "shell", boom)
     second = ModelResponse(parts=[ToolCallPart("final_result", {"summary": "could not tag: folder gone"})])
     result, seen, _ = _run_writer(tmp_path, monkeypatch, [_ending("probe run tag r1 done", "tagged r1"), second], {})
     assert len(seen) == 2 and result.output.summary == "could not tag: folder gone"
@@ -203,7 +211,9 @@ def test_a_tool_that_raised_in_the_ending_response_keeps_the_run_going(tmp_path,
 def test_a_skipped_pipeline_that_writes_counts_as_lost(tmp_path, monkeypatch):
     """Review 10-13 (second pass): `probe <read> | tee FILE` writes through its
     filter; skipped after a failed `&&`, that write never ran."""
-    monkeypatch.setattr(tools, "run_probe_process", Probe({"run get": 1}))
+    fake_process = Probe({"run get": 1})
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", fake_process)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", fake_process)
     deps = _deps(tmp_path, bypass=True)
     asyncio.run(tools.shell(deps, "probe run get missing && probe run list | tee result.json"))
     assert deps.lost_writes == 1

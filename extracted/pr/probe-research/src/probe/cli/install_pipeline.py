@@ -8,7 +8,7 @@ or downgraded the ACTIVE `probe-versions/<v>/` in place, under every running
 `probe`, with no lock, no rejected check and no selftest: plan R2):
 
     refuse      while an uninstall's barrier is LIVE; a STALE one is cleared
-                (`probe._shared.uninstall_barrier`); without uv, with the
+                (`probe.shared.updates.uninstall_barrier`); without uv, with the
                 exact command (a pip or pipx install moves to `uv tool`, the
                 managed install: `foreign_install`)
     recover     under the install lock: an interrupted first switch is put
@@ -48,8 +48,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from probe._compat import StrEnum
-from probe._shared import handoff, installs, uninstall_barrier
+from probe.foundation.compat.compat import StrEnum
+from probe.shared.updates import handoff, installs, uninstall_barrier
 
 DIST = installs.DIST
 #: The command that puts uv on a machine (what the npx launcher runs).
@@ -142,7 +142,7 @@ def update_may_finish() -> bool:
     (the desktop's Update, a person's `probe wizard --action update`). The
     SessionStart hook's background `probe wizard --action update --yes` never
     does: it refuses with the reader's line."""
-    from probe._shared import autoupdate
+    from probe.shared.updates import autoupdate
 
     if os.environ.get(autoupdate.TRIGGER_ENV) == autoupdate.Trigger.MANUAL:
         return True

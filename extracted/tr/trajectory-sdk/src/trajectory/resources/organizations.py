@@ -26,7 +26,8 @@ class Organizations(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> dict[str, str]:
-    """Return the caller's `organization_id` for API-key tenant checks.
+    """Return the caller's `organization_id` and the `organization_key` that starts its
+    platform URLs.
 
     Args:
       extra_headers: Send extra headers

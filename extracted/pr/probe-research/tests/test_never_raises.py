@@ -51,9 +51,9 @@ import pytest
 
 import probe
 from probe.sdk import errors, fluent
-from probe.sdk import journal as journal_module
+from probe.sdk.delivery import journal as journal_module
 from probe.sdk import run as run_module
-from probe.sdk.run import Run
+from probe.sdk.run.run import Run
 
 from tests.conftest import FakeApp, make_client
 
@@ -127,7 +127,7 @@ def _clean(monkeypatch, tmp_path):
     monkeypatch.setenv("PROBE_HW", "1")
     monkeypatch.setenv("PROBE_HEARTBEAT_SECONDS", "0.05")
     # Every close in this file retries for half a second, not 600.
-    monkeypatch.setattr(run_module, "FINISH_TIMEOUT_DEFAULT_SECONDS", 0.5)
+    monkeypatch.setattr(run_module.closing.drain, "FINISH_TIMEOUT_DEFAULT_SECONDS", 0.5)
     yield
     _reset_fluent()
     _stop_leaked_beats()
@@ -178,7 +178,8 @@ def _arm(fault, app, client, monkeypatch, hits=None):
         app.status = int(fault.split("_")[1])
     elif fault == "full_disk":
         # Under the free-space floor (plan 1.5 keeps this knob).
-        monkeypatch.setattr(journal_module, "MIN_FREE_BYTES", 1 << 62)
+        monkeypatch.setattr(journal_module.headroom, "MIN_FREE_BYTES", 1 << 62)
+        monkeypatch.setattr(journal_module.journal, "MIN_FREE_BYTES", 1 << 62)
         client.journal._appends_since_statvfs = journal_module._STATVFS_EVERY
         client.journal._last_free_ok = True
         journal = client.journal
@@ -215,8 +216,12 @@ def _arm(fault, app, client, monkeypatch, hits=None):
             erofs(dst)
             return real_snapshot(src, dst, *a, **k)
 
-        monkeypatch.setattr(journal_module, "write_text_atomic", write)
-        monkeypatch.setattr(journal_module, "snapshot_file", snapshot)
+        monkeypatch.setattr(journal_module.journal, "write_text_atomic", write)
+        monkeypatch.setattr("probe.sdk.delivery.ops.op_handler.write_text_atomic", write)
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.accounts.write_text_atomic", write)
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.write_text_atomic", write)
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.holds.write_text_atomic", write)
+        monkeypatch.setattr(journal_module.journal, "snapshot_file", snapshot)
     else:  # pragma: no cover
         raise AssertionError(fault)
     return hits
@@ -339,8 +344,8 @@ def test_a_worker_killed_mid_pass_breaks_nothing(live_server, tmp_path):
     """The detached worker dies (OOM killer, pod eviction) holding the drain
     lock mid-pass. Logging and closing afterwards must not raise, and every
     write still arrives."""
-    from probe.sdk.client import Client
-    from probe.sdk.journal import Journal
+    from probe.sdk.client.client import Client
+    from probe.sdk.delivery.journal.journal import Journal
 
     server, url = live_server
     journal = Journal(tmp_path / "outbox", context={"name": None, "base_url": url})

@@ -14,7 +14,7 @@ import uuid
 
 @dataclass(frozen=True)
 class ImageHandle:
-    """Immutable metadata for an image owned by one live API session.
+    """Immutable metadata for an image uploaded through one API session.
 
     Checkpoints retain bytes in a client-side ImageStore and re-upload on resume.
     """

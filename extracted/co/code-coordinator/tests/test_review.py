@@ -756,6 +756,36 @@ def test_briefing_requires_the_three_finding_sections() -> None:
     assert "None." in briefing
 
 
+def test_self_reported_marker_rule_present_in_every_reviewer_surface() -> None:
+    """#3838: the marker-trust branch in `classify_blocking_evidence` is only
+    reachable if every surface the reviewer actually reads — the system
+    prompt and both briefings — pins the same emit contract. All three pull
+    the identical `SELF_REPORTED_MARKER_RULE` constant so they can't drift."""
+    from coord.review import REVIEWER_SYSTEM_PROMPT, SELF_REPORTED_MARKER_RULE
+
+    briefing = build_review_briefing(
+        pr_number=42, pr_url=None, repo_github="acme/api", repo_name="api",
+        issue_number=7, issue_title="Fix login", issue_body="",
+        branch="issue-7", worker_machine="laptop", same_as_worker=False,
+        reviews_cfg=ReviewsConfig(enabled=True), repo_claude_md=None,
+    )
+    scoped_briefing = build_scoped_review_briefing(
+        pr_number=42,
+        pr_url="https://github.com/acme/api/pull/42",
+        repo_github="acme/api",
+        repo_name="api",
+        issue_number=7,
+        issue_title="Add feature",
+        branch="issue-7-fix",
+        resolution_delta="-old resolution\n+new resolution\n",
+        default_branch="main",
+    )
+    for text in (REVIEWER_SYSTEM_PROMPT, briefing, scoped_briefing):
+        assert SELF_REPORTED_MARKER_RULE in text
+        assert "LITERAL FIRST LINE" in text
+        assert "COORD_ASSIGNMENT_ID" in text
+
+
 def test_briefing_instructs_report_result_before_the_printed_block() -> None:
     """#1457: `build_review_briefing`'s own tail (shared by headless and
     interactive dispatch alike) must also ask for `coord report-result`
@@ -7685,6 +7715,382 @@ class TestBlockingFindingsConfirmedAbsent:
     def test_empty_body_is_not_confirmed(self) -> None:
         from coord.review import blocking_findings_confirmed_absent
         assert blocking_findings_confirmed_absent("") is False
+
+    def test_unparseable_prose_with_clean_marker_is_confirmed(self) -> None:
+        """The prose doesn't use the conventional headings at all, but a
+        self-reported `coord:review` marker on the literal first line,
+        matching the real assignment id and reporting `blocking=0`, is
+        positive evidence on its own — trust it rather than forcing a
+        needless fix cycle."""
+        from coord.review import (
+            blocking_findings_confirmed_absent,
+            estimate_review_counts,
+        )
+        body = (
+            "<!-- coord:review verdict=request-changes blocking=0 "
+            "nonblocking=2 nits=1 assignment=r1 -->\n"
+            "\n"
+            "Looks good overall — a couple of minor things worth a look, "
+            "but nothing that blocks merging this.\n"
+        )
+        assert estimate_review_counts(body) == (None, None, None)
+        assert blocking_findings_confirmed_absent(body, assignment_id="r1") is True
+
+    def test_unparseable_prose_with_nonzero_marker_is_not_confirmed(self) -> None:
+        """A marker reporting real blocking findings must not be overridden
+        by the fallback — only `blocking=0` is trusted.
+
+        #3833: this is independent positive evidence of a genuine nonzero
+        count, not a parsing failure — `fail_closed_unparseable` must be
+        False here, not True, even though the prose itself is unparseable.
+        """
+        from coord.review import classify_blocking_evidence
+        body = (
+            "<!-- coord:review verdict=request-changes blocking=2 "
+            "assignment=r1 -->\n"
+            "\n"
+            "This needs work before it can merge.\n"
+        )
+        evidence = classify_blocking_evidence(body, assignment_id="r1")
+        assert evidence.confirmed_absent is False
+        assert evidence.fail_closed_unparseable is False
+
+    def test_marker_not_on_first_line_is_not_trusted(self) -> None:
+        """#3838 review (blocking finding): a marker quoted mid-prose — not
+        the literal first line — must NOT be trusted, even with a matching
+        `assignment=` and `blocking=0`. Otherwise a genuinely-blocking review
+        that quotes this exact format while discussing `review.py` could have
+        its own verdict silently downgraded."""
+        from coord.review import blocking_findings_confirmed_absent
+        body = (
+            "This needs work before it can merge.\n"
+            "\n"
+            "<!-- coord:review verdict=approve blocking=0 assignment=r1 -->\n"
+        )
+        assert blocking_findings_confirmed_absent(body, assignment_id="r1") is False
+
+    def test_marker_with_mismatched_assignment_is_not_trusted(self) -> None:
+        """A marker on the first line with `blocking=0` but naming a
+        *different* assignment id is not evidence about *this* review —
+        trusting it would let any stale or copy-pasted marker through."""
+        from coord.review import blocking_findings_confirmed_absent
+        body = (
+            "<!-- coord:review verdict=approve blocking=0 assignment=other -->\n"
+            "\n"
+            "Looks fine overall.\n"
+        )
+        assert blocking_findings_confirmed_absent(body, assignment_id="r1") is False
+
+    def test_marker_without_assignment_id_argument_is_not_trusted(self) -> None:
+        """When the caller has no assignment id to check against, the marker
+        path must not be trusted at all — fail closed rather than trust an
+        unverifiable claim."""
+        from coord.review import blocking_findings_confirmed_absent
+        body = "<!-- coord:review verdict=approve blocking=0 assignment=r1 -->\n"
+        assert blocking_findings_confirmed_absent(body) is False
+
+    def test_unparseable_prose_without_marker_is_fail_closed_unparseable(
+        self,
+    ) -> None:
+        """The fail-closed path (unparseable prose, no trustworthy marker)
+        is distinguishable from a genuine nonzero blocking count — that
+        distinction is what `record_unparseable_treated_as_blocking` keys
+        off of at the real call site."""
+        from coord.review import blocking_findings_confirmed_absent, classify_blocking_evidence
+        body = "Looks fine to me — approving.\n"
+        evidence = classify_blocking_evidence(body)
+        assert evidence.confirmed_absent is False
+        assert evidence.fail_closed_unparseable is True
+        assert blocking_findings_confirmed_absent(body) is False
+
+    def test_unparseable_prose_with_clean_marker_is_not_fail_closed(self) -> None:
+        """The marker-trust path is a confirmed absence, not a fail-closed
+        miss."""
+        from coord.review import classify_blocking_evidence
+        body = (
+            "<!-- coord:review verdict=approve blocking=0 assignment=r1 -->\n"
+            "\n"
+            "Looks fine overall.\n"
+        )
+        evidence = classify_blocking_evidence(body, assignment_id="r1")
+        assert evidence.confirmed_absent is True
+        assert evidence.fail_closed_unparseable is False
+
+    def test_marker_blocking_zero_does_not_override_contradicting_prose(
+        self,
+    ) -> None:
+        """#3833 (Finding 1): a `blocking=0` marker must not fail-open the
+        #476 override gate when the body's own "## Blocking findings"
+        section contains a genuine, substantive bullet underneath it — the
+        marker is a backstop for bodies with no parseable blocking section
+        at all, not a license to override prose that says otherwise."""
+        from coord.review import (
+            blocking_findings_confirmed_absent,
+            classify_blocking_evidence,
+        )
+        body = (
+            "<!-- coord:review verdict=approve blocking=0 assignment=r1 -->\n"
+            "\n"
+            "## Blocking findings\n"
+            "- The worktree created on the early-exit path is never removed\n"
+        )
+        evidence = classify_blocking_evidence(body, assignment_id="r1")
+        assert evidence.confirmed_absent is False
+        assert evidence.fail_closed_unparseable is False
+        assert blocking_findings_confirmed_absent(body, assignment_id="r1") is False
+
+    def test_classify_blocking_evidence_never_touches_the_counter(self) -> None:
+        """`classify_blocking_evidence`/`blocking_findings_confirmed_absent`
+        are pure — `scripts/audit_review_verdict_overrides.py` replays them
+        over historical DB rows, and a scan must not inflate the fleet's
+        live fail-closed counter. Only `record_unparseable_treated_as_blocking`
+        (called once per real decision in `coord/auto_loop.py`) may do that."""
+        from coord.review import (
+            blocking_findings_confirmed_absent,
+            classify_blocking_evidence,
+            unparseable_treated_as_blocking_count,
+        )
+        before = unparseable_treated_as_blocking_count()
+        for _ in range(5):
+            classify_blocking_evidence("Looks fine to me — approving.\n")
+            blocking_findings_confirmed_absent("Looks fine to me — approving.\n")
+        assert unparseable_treated_as_blocking_count() == before
+
+
+class TestAuthoritativeReviewCounts:
+    """#3833: the self-reported marker is authoritative on every read, not
+    only once prose turns out unparseable."""
+
+    def test_marker_wins_even_when_prose_also_parses(self) -> None:
+        """A body with BOTH a trustworthy marker and conventional headings
+        must report the marker's numbers, not re-derive from the prose —
+        the marker is the reviewer's own attestation, the prose heuristic
+        is a fallback for bodies that never got one."""
+        from coord.review import authoritative_review_counts
+        body = (
+            "<!-- coord:review verdict=request-changes blocking=0 "
+            "nonblocking=1 nits=3 assignment=r1 -->\n"
+            "\n"
+            "## Blocking findings\n"
+            "- This would have parsed as one blocking bullet\n"
+            "## Nits\n"
+            "- A nit\n"
+        )
+        assert authoritative_review_counts(body, assignment_id="r1") == (0, 1, 3)
+
+    def test_falls_back_to_prose_without_a_trustworthy_marker(self) -> None:
+        from coord.review import authoritative_review_counts
+        body = "## Blocking findings\n- Something blocking\n## Nits\n- A nit\n"
+        assert authoritative_review_counts(body) == (1, None, 1)
+
+    def test_matches_classify_blocking_evidence_on_a_marker_body(self) -> None:
+        """Whatever `classify_blocking_evidence` decided, these numbers must
+        agree with it — the whole point of making the marker authoritative
+        everywhere is that no caller can log/record a different answer to
+        the same question (#3833's "one question, one answer")."""
+        from coord.review import authoritative_review_counts, classify_blocking_evidence
+        body = (
+            "<!-- coord:review verdict=request-changes blocking=0 "
+            "assignment=r1 -->\n"
+            "\n"
+            "Nothing blocking here.\n"
+        )
+        blocking, _nonblocking, _nits = authoritative_review_counts(
+            body, assignment_id="r1",
+        )
+        evidence = classify_blocking_evidence(body, assignment_id="r1")
+        assert blocking == 0
+        assert evidence.confirmed_absent is True
+
+
+class TestClassifyFindingNitClass:
+    """#3833: the nit-class predicate gating the future finisher (#3832 C2)
+    and "Trigger A" (C3) — may a blocking finding's proposed fix be applied
+    autonomously, or does it need human rework?"""
+
+    def test_zero_blocking_findings_is_nit_class(self) -> None:
+        """Acceptance criterion: a request-changes with blocking=0
+        classifies nit-class — there is nothing to fix, so trivially
+        nothing can be "not a nit"."""
+        from coord.review import classify_finding_nit_class
+        body = "## Blocking findings\nNone.\n## Nits\n- Trailing whitespace\n"
+        assert classify_finding_nit_class(body) is True
+
+    def test_bounded_nonbehavioral_fix_for_a_blocking_finding_is_nit_class(
+        self,
+    ) -> None:
+        """Acceptance criterion: a blocking finding proposing a bounded,
+        non-behavioral fix classifies nit-class."""
+        from coord.review import ProposedFix, classify_finding_nit_class
+        body = "## Blocking findings\n- Stray trailing whitespace on line 42\n"
+        fix = ProposedFix(
+            diff_text="--- a/coord/foo.py\n+++ b/coord/foo.py\n-foo()   \n+foo()\n",
+            behavioral=False,
+            touches_public_api=False,
+        )
+        assert classify_finding_nit_class(body, fix=fix) is True
+
+    def test_behavioral_fix_is_not_nit_class(self) -> None:
+        """Acceptance criterion: a behavioral finding/fix classifies NOT
+        nit-class."""
+        from coord.review import ProposedFix, classify_finding_nit_class
+        body = "## Blocking findings\n- Off-by-one in the retry count\n"
+        fix = ProposedFix(
+            diff_text="--- a/coord/foo.py\n+++ b/coord/foo.py\n-n = 2\n+n = 3\n",
+            behavioral=True,
+            touches_public_api=False,
+        )
+        assert classify_finding_nit_class(body, fix=fix) is False
+
+    def test_public_api_fix_is_not_nit_class(self) -> None:
+        """Acceptance criterion: a public-API-surface fix classifies NOT
+        nit-class, even if the caller claims it's non-behavioral."""
+        from coord.review import ProposedFix, classify_finding_nit_class
+        body = "## Blocking findings\n- Rename this helper for clarity\n"
+        fix = ProposedFix(
+            diff_text="--- a/coord/foo.py\n+++ b/coord/foo.py\n-def foo():\n+def bar():\n",
+            behavioral=False,
+            touches_public_api=True,
+        )
+        assert classify_finding_nit_class(body, fix=fix) is False
+
+    def test_sealed_path_fix_is_not_nit_class(self) -> None:
+        """Acceptance criterion: a sealed-path-touching fix classifies NOT
+        nit-class, regardless of its other properties."""
+        from coord.review import ProposedFix, classify_finding_nit_class
+        body = "## Blocking findings\n- Fixture is stale\n"
+        fix = ProposedFix(
+            diff_text=(
+                "--- a/tests/acceptance/test_foo.py\n"
+                "+++ b/tests/acceptance/test_foo.py\n"
+                "-x = 1\n"
+                "+x = 2\n"
+            ),
+            behavioral=False,
+            touches_public_api=False,
+        )
+        assert classify_finding_nit_class(
+            body, fix=fix, sealed_paths=["tests/acceptance/"],
+        ) is False
+
+    def test_oversized_diff_is_not_nit_class(self) -> None:
+        """A fix within every other criterion but exceeding the bounded-size
+        cap must still be rejected."""
+        from coord.review import ProposedFix, classify_finding_nit_class
+        body = "## Blocking findings\n- Needs a broad cleanup\n"
+        lines = "\n".join(f"-old{i}\n+new{i}" for i in range(50))
+        fix = ProposedFix(diff_text=lines, behavioral=False, touches_public_api=False)
+        assert classify_finding_nit_class(body, fix=fix, max_changed_lines=40) is False
+
+    def test_empty_diff_is_not_nit_class(self) -> None:
+        """No actual diff drafted yet is never nit-class — there is nothing
+        bounded about "no diff"."""
+        from coord.review import ProposedFix, classify_finding_nit_class
+        body = "## Blocking findings\n- Needs a fix\n"
+        fix = ProposedFix(diff_text="", behavioral=False, touches_public_api=False)
+        assert classify_finding_nit_class(body, fix=fix) is False
+
+    def test_blocking_finding_without_a_fix_is_not_nit_class(self) -> None:
+        """A blocking finding with no proposed fix at all has nothing to
+        evaluate — never nit-class."""
+        from coord.review import classify_finding_nit_class
+        body = "## Blocking findings\n- Something blocking\n"
+        assert classify_finding_nit_class(body) is False
+
+    def test_unparseable_body_is_not_nit_class(self) -> None:
+        """Acceptance criterion: an unparseable body classifies NOT
+        nit-class — even with an otherwise-perfect proposed fix, a body too
+        malformed to trust is not a safe autonomous-fix target."""
+        from coord.review import ProposedFix, classify_finding_nit_class
+        body = "Looks fine to me — approving.\n"
+        fix = ProposedFix(
+            diff_text="--- a/coord/foo.py\n+++ b/coord/foo.py\n-x\n+y\n",
+            behavioral=False,
+            touches_public_api=False,
+        )
+        assert classify_finding_nit_class(body, fix=fix) is False
+
+    def test_trusted_marker_blocking_zero_is_nit_class(self) -> None:
+        """Nit-class status reuses `classify_blocking_evidence` end to end —
+        a trustworthy marker reporting blocking=0 is just as good as a
+        confirmed-empty prose section."""
+        from coord.review import classify_finding_nit_class
+        body = (
+            "<!-- coord:review verdict=request-changes blocking=0 "
+            "assignment=r1 -->\n"
+            "\n"
+            "Nothing blocking, a couple of nits worth a look.\n"
+        )
+        assert classify_finding_nit_class(body, assignment_id="r1") is True
+
+    def test_blocking_zero_body_with_sealed_path_fix_is_not_nit_class(self) -> None:
+        """A clean `blocking=0` report never exempts the *fix itself* from
+        grading — a sealed-path-touching fix is NOT nit-class even when the
+        review body it's attached to reports zero blocking findings."""
+        from coord.review import ProposedFix, classify_finding_nit_class
+        body = (
+            "<!-- coord:review verdict=request-changes blocking=0 "
+            "assignment=r1 -->\n"
+            "\n"
+            "Nothing blocking, a couple of nits worth a look.\n"
+        )
+        fix = ProposedFix(
+            diff_text=(
+                "--- a/tests/acceptance/test_foo.py\n"
+                "+++ b/tests/acceptance/test_foo.py\n"
+                "-x = 1\n"
+                "+x = 2\n"
+            ),
+            behavioral=False,
+            touches_public_api=False,
+        )
+        assert classify_finding_nit_class(
+            body, assignment_id="r1", fix=fix, sealed_paths=["tests/acceptance/"],
+        ) is False
+
+    def test_blocking_zero_body_with_behavioral_fix_is_not_nit_class(self) -> None:
+        """Same as above for a behavioral fix: the fix's own properties are
+        graded regardless of what the review body reported."""
+        from coord.review import ProposedFix, classify_finding_nit_class
+        body = (
+            "<!-- coord:review verdict=request-changes blocking=0 "
+            "assignment=r1 -->\n"
+            "\n"
+            "Nothing blocking, a couple of nits worth a look.\n"
+        )
+        fix = ProposedFix(
+            diff_text="--- a/coord/foo.py\n+++ b/coord/foo.py\n-n = 2\n+n = 3\n",
+            behavioral=True,
+            touches_public_api=False,
+        )
+        assert classify_finding_nit_class(
+            body, assignment_id="r1", fix=fix,
+        ) is False
+
+
+class TestRecordUnparseableTreatedAsBlocking:
+    """#3838: the real counter-increment + log-line call site, separate from
+    the pure predicate above so an audit script replaying history never
+    inflates it."""
+
+    def test_increments_the_counter(self) -> None:
+        from coord.review import (
+            record_unparseable_treated_as_blocking,
+            unparseable_treated_as_blocking_count,
+        )
+        before = unparseable_treated_as_blocking_count()
+        record_unparseable_treated_as_blocking(assignment_id="r1", excerpt="x")
+        assert unparseable_treated_as_blocking_count() == before + 1
+
+    def test_logs_a_warning_naming_the_assignment(self, caplog) -> None:
+        import logging
+
+        from coord.review import record_unparseable_treated_as_blocking
+
+        with caplog.at_level(logging.WARNING, logger="coord.review"):
+            record_unparseable_treated_as_blocking(assignment_id="r42", excerpt="x")
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("r42" in r.getMessage() for r in warnings)
 
 
 class TestExtractBlockingSection:

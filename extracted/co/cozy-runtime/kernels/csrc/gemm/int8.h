@@ -32,7 +32,9 @@ enum { kActNone = 0, kActGelu = 1, kActGeluTanh = 2, kActSitu = 3, kActSwiglu = 
 // [M, 2K], each row its [hidden | gate] halves, and the K-wide row quantized is
 // `4 tanh(g / 4) sigmoid(g) * 25 tanh(h / 25)` (MOSS-Image's SiTU). kActSwiglu stands alone too:
 // `x` is the gate rows [M, K], `up` the up rows, and the row quantized is `silu(gate) * up`,
-// each product rounded to the row dtype as an eager SwiGLU writes it.
+// each product rounded to the row dtype as an eager SwiGLU writes it. Without `up` it is gated as
+// SiTU is: `x` is [M, 2K], each row its [up | gate] halves (one fused projection, Diffusers'
+// `SwiGLU`).
 struct Prologue {
     const void* scale = nullptr;
     const void* shift = nullptr;
@@ -60,18 +62,20 @@ cudaError_t fp8_quantize(const void* x, bool x_half, void* q, float* scales, int
 cudaError_t gemv(const void* x, bool x_half, const int8_t* w, const float* w_scale, const void* bias,
           void* out, bool out_half, int M, int N, int K, int sms, cudaStream_t stream);
 
-// D[M, N] = (q @ w.T) * scales[m] * w_scale[n] + bias[n]; `config` < 0 picks the tile by shape,
-// else names one (a sweep); cudaErrorNotSupported when that tile cannot take the problem.
+// D[M, N] = (q @ w.T) * scales[m] * w_scale[n] + bias[n], D's rows `ldo` elements apart (N, or
+// wider: sibling linears writing their column ranges of one output); `config` < 0 picks the tile
+// by shape, else names one (a sweep); cudaErrorNotSupported when that tile cannot take the problem.
 using Gemm = cudaError_t(const int8_t* q, const int8_t* w, const float* scales,
-                         const float* w_scale, const void* bias, void* out, bool out_half, int M,
-                         int N, int K, int sms, int config, Workspace workspace,
-                         cudaStream_t stream);
+                         const float* w_scale, const void* bias, void* out, int64_t ldo,
+                         bool out_half, int M, int N, int K, int sms, int config,
+                         Workspace workspace, cudaStream_t stream);
 
 // The same epilogue on E4M3 operands, f32 accumulation: wgmma on Hopper, tcgen05 on datacenter
 // Blackwell, RTX 50's TMA mma.
 using Fp8Gemm = cudaError_t(const void* q, const void* w, const float* scales,
-                            const float* w_scale, const void* bias, void* out, bool out_half,
-                            int M, int N, int K, int sms, int config, cudaStream_t stream);
+                            const float* w_scale, const void* bias, void* out, int64_t ldo,
+                            bool out_half, int M, int N, int K, int sms, int config,
+                            cudaStream_t stream);
 
 // The w4a8 linear's GEMM (`w4a8.convrot`, group 16, rotation 256): `w` [N, K/2] 4-bit
 // codes (even k in the low nibble), `s` [N, K/16] E4M3 group scales, `codebook` 16 floats or null

@@ -16,9 +16,9 @@ import subprocess
 
 import pytest
 
-from probe.sdk import outputs
-from probe.sdk import snapshot
-from probe.sdk.snapshot import capture_manifest
+from probe.sdk.capture import outputs
+from probe.sdk.capture import code as snapshot
+from probe.sdk.capture.code.sources.git import capture_manifest
 
 #: Spelled out from the spec (https://bford.info/cachedir/), not imported: the
 #: test pins what cargo actually writes, not whatever the module calls it.

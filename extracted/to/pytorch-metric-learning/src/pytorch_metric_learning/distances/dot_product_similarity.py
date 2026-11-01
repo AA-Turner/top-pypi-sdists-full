@@ -1,15 +1,23 @@
 import torch
+from torch import Tensor
 
 from .base_distance import BaseDistance
 
 
 class DotProductSimilarity(BaseDistance):
-    def __init__(self, **kwargs):
-        super().__init__(is_inverted=True, **kwargs)
-        assert self.is_inverted
+    is_inverted = True
 
-    def compute_mat(self, query_emb, ref_emb):
+    def __init__(
+        self,
+        *,
+        normalize_embeddings: bool = False,
+        p: float = 2,
+        power: float = 1,
+    ) -> None:
+        super().__init__(normalize_embeddings=normalize_embeddings, p=p, power=power)
+
+    def compute_mat(self, query_emb: Tensor, ref_emb: Tensor) -> Tensor:
         return torch.matmul(query_emb, ref_emb.transpose(-1, -2))
 
-    def pairwise_distance(self, query_emb, ref_emb):
+    def pairwise_distance(self, query_emb: Tensor, ref_emb: Tensor) -> Tensor:
         return torch.sum(query_emb * ref_emb, dim=1)

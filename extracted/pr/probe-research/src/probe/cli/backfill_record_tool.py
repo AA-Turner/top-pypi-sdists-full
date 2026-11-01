@@ -170,7 +170,7 @@ class Listing:
         """Append one op. Under a lock: the agent may run `probe` calls in
         parallel, and two that read the same next sequence would make one id,
         which the reader drops as a duplicate."""
-        from probe.sdk.durable import file_lock
+        from probe.foundation.durable.durable import file_lock
 
         log = self.work / LOG_FILE
         with file_lock(self.work / LOCK_FILE):
@@ -229,7 +229,7 @@ def _page_doc(listing: Listing, kind: str, row: dict) -> Path:
 
 
 def _replace_once(path: Path, old: str, new: str) -> str:
-    from probe import drafts
+    from probe.shared.notes import drafts
 
     try:
         return drafts.replace_once(path, old, new, str(path))
@@ -360,7 +360,7 @@ def _notes(listing: Listing, verb: str, params: dict, out: dict) -> dict:
             raise Refused("--old is empty")
         _replace_once(path, params["old"], params.get("new") or "")
     elif verb == "append":
-        from probe.sdk.notes import append_to_document
+        from probe.sdk.reads.notes_cap import append_to_document
 
         text = params.get("text") or ""
         if not text.strip():
@@ -406,7 +406,7 @@ def _summary(listing: Listing, verb: str, params: dict, out: dict) -> dict:
 
 
 def _draft_edit(listing: Listing, params: dict, stdin: str) -> str:
-    from probe import drafts
+    from probe.shared.notes import drafts
 
     raw = str(params.get("path") or "")
     full = Path(os.path.expanduser(raw))
@@ -449,7 +449,7 @@ def _reads(listing: Listing, path: str, params: dict) -> dict | list:
 
 def run_command(listing: Listing, argv: list[str], stdin: str = "") -> tuple[int, str, str]:
     """One `probe <argv>`: (exit code, stdout, stderr). Never raises for a refusal."""
-    from probe.daemon import precheck
+    from probe.shared.command_rules import command_rules as precheck
 
     out: dict = {}
     try:

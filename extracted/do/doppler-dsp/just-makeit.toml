@@ -3,7 +3,7 @@ include = ["objects/*.toml"]
 [project]
 jm_version = "0.112.0"
 name = "doppler"
-version = "0.77.0"
+version = "0.78.0"
 build = "cmake"
 # c_prefix (jm#1591, #1545): every C symbol jm derives carries dp_, so two
 # installed jm libraries that share a component name (fir, fft, agc) link
@@ -2074,6 +2074,14 @@ return_type = "double"
 
 [[module.spectral.functions.params]]
 name = "db"
+type = "float[]"
+
+[[module.spectral.functions]]
+name = "power_to_db_f32"
+out_type = "float"
+
+[[module.spectral.functions.params]]
+name = "lin"
 type = "float[]"
 [module.measure]
 doc = """

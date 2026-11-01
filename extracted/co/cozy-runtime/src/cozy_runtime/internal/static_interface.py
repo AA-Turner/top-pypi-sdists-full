@@ -294,6 +294,16 @@ _ENUM_BASES: dict[str, type[enum.Enum]] = {
     "IntEnum": enum.IntEnum,
     "StrEnum": enum.StrEnum,
 }
+#: The video interfaces (xs-136): types, and bases a package's struct extends.
+_VIDEO_STRUCTS = (
+    "Beat",
+    "ShotAsset",
+    "WorldState",
+    "ShotRequest",
+    "ShotResult",
+    "UpscaleRequest",
+    "UpscaleResult",
+)
 #: Author-surface classes that translate to themselves in a TYPE position.
 _AUTHOR_TYPES = (
     "File",
@@ -318,11 +328,12 @@ _AUTHOR_TYPES = (
     "Region",
     "AspectRatio",
     "Seed",
+    *_VIDEO_STRUCTS,
     *(cls.__name__ for cls in SERVICES.values()),
 )
 #: Author-surface structs a package's struct may extend: the image interface (cr-219) and the
 #: named assets (xs-135).
-_AUTHOR_STRUCTS = ("ImageRequest", "ImageResult", "Asset", "PictureAsset")
+_AUTHOR_STRUCTS = ("ImageRequest", "ImageResult", "Asset", "PictureAsset", *_VIDEO_STRUCTS)
 #: Author-surface callables a folded constant may reach: each validates its own arguments.
 #: `data_values` reads committed JSON through the same function as the imported app.
 _AUTHOR_VALUES = (
@@ -339,6 +350,7 @@ _AUTHOR_VALUES = (
     "QuantizationPlan",
     "SelectionPlan",
     "EncodingRule",
+    "Implements",
 )
 
 #: Struct class keywords `msgspec.defstruct` takes verbatim. `rename` and `array_like` change
@@ -368,27 +380,30 @@ _SEQUENCE_BUILTINS: dict[str, Callable[[Sequence[object]], object]] = {
 #: A fold carries no local names unless a comprehension binds its own target.
 _NO_SCOPE: Mapping[str, object] = types.MappingProxyType({})
 _MODEL_MEMBERS = frozenset(name for name in dir(Model) if not name.startswith("_"))
-_ENTRYPOINT_KEYWORDS = frozenset(
+#: Each App registration method's closed keyword set (`author.App`).
+_CHILD_TASK_KEYWORDS = frozenset(
     {
         "name",
         "preflight",
         "phases",
         "prepared_use",
         "demand",
-        "hidden",
         "memoize",
         "memo_version",
         "memo_dependencies",
         "defaults",
         "components",
         "on_demand",
-        "internal",
         "publishes",
         "emits_media",
         "weights",
         "accelerator",
     }
 )
+_APP_KEYWORDS = {
+    "entrypoint": _CHILD_TASK_KEYWORDS | {"hidden", "implements"},
+    "child_task": _CHILD_TASK_KEYWORDS,
+}
 _INVOCABLE_KEYWORDS = frozenset(
     {"memoize", "defaults", "components", "memo_version", "memo_dependencies"}
 )
@@ -1454,7 +1469,7 @@ class Registration:
     invocable: bool = False
     memoize: author.Memoize | None = None
     model_defaults: Mapping[str, str] = field(default_factory=dict)
-    internal: bool = False
+    child_task: bool = False
     accelerator: bool = True
     #: `memo_version=` / `memo_dependencies=` as written, and the module they are read in.
     memo_declaration: tuple[tuple[str, Module, ast.expr], ...] = ()
@@ -1466,6 +1481,7 @@ class Registration:
     #: Local execution advice, not a client callable/schema field. Source identity covers it.
     phases: tuple[tuple[str, ...], ...] = ()
     model_prepared_use: Mapping[str, str] = field(default_factory=dict)
+    implements: author.Implements | None = None
 
     def declaration(self, **found: Any) -> Declaration:
         """Its record, with what its signature declares (`found`)."""
@@ -1477,12 +1493,13 @@ class Registration:
             emits_media=self.emits_media,
             weights_outputs=self.weights,
             memoize=self.memoize,
-            internal=self.internal,
+            child_task=self.child_task,
             accelerator=self.accelerator,
             model_defaults=self.model_defaults,
             model_components=self.model_components,
             model_on_demand=self.model_on_demand,
             model_prepared_use=self.model_prepared_use,
+            implements=self.implements,
             **found,
         )
 
@@ -1888,7 +1905,7 @@ def _is_invocable(reader: Reader, module: Module, target: ast.expr) -> bool:
 
 
 def _app_method(reader: Reader, module: Module, target: ast.expr, app: Assigned) -> str | None:
-    if not isinstance(target, ast.Attribute) or target.attr != "entrypoint":
+    if not isinstance(target, ast.Attribute) or target.attr not in _APP_KEYWORDS:
         return None
     try:
         receiver = reader.resolve(module, target.value)
@@ -1965,15 +1982,15 @@ def _registration(
     module = declaration or module
     name = fn.name
     publishes = emits_media = False
-    internal = False
     accelerator = True
     hidden = False
+    implements: author.Implements | None = None
     weights: tuple[author.WeightsOutput, ...] = ()
     on_demand: tuple[str, ...] = ()
     phases: tuple[tuple[str, ...], ...] = ()
     uses: dict[str, str] = {}
     for keyword in keywords:
-        if keyword.arg not in _ENTRYPOINT_KEYWORDS:
+        if keyword.arg not in _APP_KEYWORDS[method]:
             reader.refuse(
                 module,
                 keyword,
@@ -2023,14 +2040,14 @@ def _registration(
             name = str(value)
         elif keyword.arg == "hidden" and value is True:
             hidden = True
-        elif keyword.arg == "internal":
-            if type(value) is not bool:
-                reader.refuse(module, keyword.value, "internal must be a boolean")
-            internal = value
         elif keyword.arg == "accelerator":
             if type(value) is not bool:
                 reader.refuse(module, keyword.value, "accelerator is True or False")
             accelerator = value
+        elif keyword.arg == "implements":
+            if not isinstance(value, author.Implements):
+                reader.refuse(module, keyword.value, "implements is an Implements(interface, ...)")
+            implements = value
         elif keyword.arg == "publishes":
             publishes = bool(value)
         elif keyword.arg == "emits_media":
@@ -2040,8 +2057,6 @@ def _registration(
         elif keyword.arg == "weights":
             assert isinstance(value, tuple)
             weights = tuple(value)
-    if hidden and internal:
-        reader.refuse(module, fn, "an internal callable cannot also be hidden")
     if hidden:
         return None
     return Registration(
@@ -2053,7 +2068,7 @@ def _registration(
         invocable,
         one_memo(exported, memoize),
         default_models,
-        internal,
+        method == "child_task",
         accelerator,
         tuple(memo_declaration),
         used_components,
@@ -2061,6 +2076,7 @@ def _registration(
         emits_media=emits_media,
         phases=phases,
         model_prepared_use=uses,
+        implements=implements,
     )
 
 

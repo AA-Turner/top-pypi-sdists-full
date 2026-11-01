@@ -24,12 +24,14 @@ import time
 
 import pytest
 
-from probe.daemon import bite as bite_mod
-from probe.daemon import folders, lease, toolset, tools
-from probe.daemon import model as model_mod
+from probe.daemon.worker.bite import bite as bite_mod
+from probe.daemon.session import session as folders
+from probe.daemon.host import lease
+from probe.daemon.agent import toolset, tools
+from probe.daemon.agent.model import model as model_mod
 from probe.daemon import store as store_mod
 from probe.daemon import worker as worker_mod
-from probe.daemon.events import Event, Kind
+from probe.shared.harness.events import Event, Kind
 from tests.test_daemon_midturn_prompt_flow import (  # noqa: F401 -- `_isolated` is an autouse fixture
     SID,
     TURN_END,
@@ -79,8 +81,8 @@ def test_one_file_event_table_reads_the_same_for_reader_writer_index_and_turn_op
     from pydantic_ai.messages import ModelResponse, TextPart
     from pydantic_ai.models.function import FunctionModel
 
-    from probe.daemon import index as index_mod
-    from probe.daemon import reader_lane
+    from probe.daemon.lanes import index as index_mod
+    from probe.daemon.lanes import reader as reader_lane
 
     w, events = _with_file_table(tmp_path, monkeypatch)
     lines = _lines(events)
@@ -373,7 +375,7 @@ def test_the_writer_counts_tokens_as_the_route_and_compacts_a_bite_early(tmp_pat
     from pydantic_ai_harness.compaction import estimate_context_tokens
 
     from probe.daemon import agent as agent_mod
-    from probe.mcp.budget import count_tokens
+    from probe.foundation.token_budget.token_budget import count_tokens
 
     w = _worker(tmp_path, [])
     state = w._run_state(None, conversation=True)
@@ -421,7 +423,7 @@ def test_an_index_stretch_is_cut_at_about_8k_tokens_and_two_calls_run_at_once(tm
     from pydantic_ai.messages import ModelResponse, TextPart
     from pydantic_ai.models.function import FunctionModel
 
-    from probe.daemon import index as index_mod
+    from probe.daemon.lanes import index as index_mod
 
     w = _worker(tmp_path, [])
     base = w.store.next_offset()
@@ -526,7 +528,7 @@ def test_a_skipped_bite_leaves_its_lead_run_events_for_the_next(tmp_path, monkey
     """A range skipped after CUT_SHORTS_BEFORE_SKIP bites is not the run event's
     fault: it leads the next bite instead of being dropped with the range."""
     pytest.importorskip("pydantic_ai")  # the skip path reads the agent's wording
-    from probe.daemon import alerts
+    from probe.daemon.worker import alerts
 
     monkeypatch.setattr(alerts, "report", lambda *a, **kw: None)
     monkeypatch.setattr(bite_mod, "MAX_EVENTS_PER_BITE", 5)
@@ -552,8 +554,8 @@ def test_a_lead_agents_message_wakes_the_reader_like_a_prompt(tmp_path, monkeypa
     from pydantic_ai.messages import ModelResponse
     from pydantic_ai.models.function import FunctionModel
 
-    from probe.daemon import reader_lane
-    from probe.daemon.adapters.base import peer_message
+    from probe.daemon.lanes import reader as reader_lane
+    from probe.shared.harness.session_log import peer_message
 
     now = [1000.0]
     w = _worker(tmp_path, _call(1), clock=lambda: now[0])
@@ -574,7 +576,7 @@ def test_a_lead_agents_message_wakes_the_reader_like_a_prompt(tmp_path, monkeypa
 
 
 def test_peer_messages_before_the_cursor_wake_nothing(tmp_path):
-    from probe.daemon.adapters.base import peer_message
+    from probe.shared.harness.session_log import peer_message
 
     st = store_mod.Store(tmp_path / "s.sqlite", clock=time.time)
     with st.tx():

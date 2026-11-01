@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "eerepr"
-version = "0.1.3"
+version = "0.1.4"
 description = "Code Editor-style reprs for Earth Engine data in a Jupyter notebook."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,6 +36,7 @@ dev = [
     "pytest-regressions",
     "pytest-mock",
     "mypy>=1.14.1",
+    "pytest-benchmark>=5.3.0",
 ]
 
 [tool.ruff.lint]
@@ -59,6 +60,10 @@ exclude = ["*.ipynb"]
 ignore_missing_imports = true
 exclude = ["tests/*"]
 
+[tool.pytest.ini_options]
+markers = ["benchmark"]
+addopts = "-m 'not benchmark'"
+
 [tool.poe.tasks]
 lint = "ruff check . --fix"
 format = "ruff format ."
@@ -71,3 +76,4 @@ check = [
 test = "pytest"
 coverage = "pytest . --cov=eerepr {args}"
 preview = "uv run python -m tests.preview_html"
+benchmark = "pytest -m 'benchmark'"

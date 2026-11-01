@@ -13,6 +13,7 @@ import uuid
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import partial
 
@@ -219,7 +220,12 @@ class _Request:
             self.member.traj.spans[self.member.traj._kv_cache_start :]
         ):
             if span.kind == "generated":
-                return None if span.policy_version is None else span.policy_version.id
+                policy = (
+                    span.policy_spans[-1].policy_version
+                    if span.policy_spans
+                    else span.policy_version
+                )
+                return None if policy is None else policy.id
         return None
 
     @property
@@ -271,8 +277,8 @@ class RolloutEngine:
         renderer,
         budget: Budget = _DEFAULT_BUDGET,
         schedule: Schedule = _DEFAULT_SCHEDULE,
-        sampling_policy: str = "trajectory",
-        kv_cache: KVCache = _DEFAULT_KV_CACHE,
+        sampling_policy: str | None = None,
+        kv_cache: KVCache | None = None,
         temperature: float = 1.0,
         top_p: float = 1.0,
         top_k: int = -1,
@@ -294,7 +300,12 @@ class RolloutEngine:
             schedule: Client-side admission and sampling submission limits.
             sampling_policy: ``"trajectory"`` pins one policy for every turn;
                 ``"segment"`` allows a newer policy between turns.
-            kv_cache: Maximum retained KV age and behavior at that limit.
+                Defaults to ``"segment"`` for live full-weight runs, which
+                cannot pin a trajectory and allow publications during a request;
+                otherwise defaults to ``"trajectory"``.
+            kv_cache: Maximum retained KV age and behavior at that limit. Defaults
+                to zero staleness with refill allowed for live full-weight runs;
+                otherwise defaults to ``KVCache()``.
             temperature: Sampling temperature; training requires a positive value.
             top_p: Nucleus sampling threshold.
             top_k: Top-k sampling limit; -1 or 0 disables it.
@@ -312,8 +323,25 @@ class RolloutEngine:
             raise TypeError(
                 "sampler must provide submit_sampling_batch(), submit_sample() or an async sample()"
             )
+        self._live_full_weight = (
+            getattr(model, "full_weight", False) is True
+            and getattr(model, "checkpoint", None) is None
+        )
+        if sampling_policy is None:
+            sampling_policy = "segment" if self._live_full_weight else "trajectory"
         if sampling_policy not in {"trajectory", "segment"}:
             raise ValueError("sampling_policy must be trajectory or segment")
+        if self._live_full_weight and sampling_policy == "trajectory":
+            raise ValueError(
+                "live full-weight sampling cannot pin a trajectory; use sampling_policy='segment' "
+                "or a CheckpointSampler for immutable checkpoint sampling"
+            )
+        if kv_cache is None:
+            kv_cache = (
+                KVCache(on_limit="refill", allow_reprefill=True)
+                if self._live_full_weight
+                else _DEFAULT_KV_CACHE
+            )
         if not isinstance(kv_cache, KVCache):
             raise TypeError(
                 "kv_cache must be rl.KVCache(max_staleness=..., on_limit=...)"
@@ -321,10 +349,18 @@ class RolloutEngine:
         kv_cache.validate_sampling_policy(sampling_policy)
         self._retained_kv = sampling_policy == "segment" and kv_cache.max_staleness > 0
         self.kv_cache = kv_cache
-        self._live_full_weight = getattr(model, "full_weight", False) is True
+        if (
+            self._live_full_weight
+            and self._retained_kv
+            and kv_cache.on_limit != "refill"
+        ):
+            raise ValueError(
+                "full-weight retained KV requires on_limit='refill' with allow_reprefill=True; "
+                "live publication cannot hold an old sampling policy"
+            )
         self.sampling_policy = sampling_policy
         self._latest_snapshot_sampling = (
-            (sampling_policy == "segment" or self._live_full_weight)
+            sampling_policy == "segment"
             and getattr(model, "checkpoint", None) is None
             and callable(getattr(model, "submit_sampling_batch", None))
         )
@@ -398,7 +434,7 @@ class RolloutEngine:
         self.server_capabilities = await call(read) if read is not None else None
         if self.server_capabilities is not None:
             self.server_capabilities.require("sampling_batch_v1")
-            if self.sampling_policy == "trajectory" and not self._live_full_weight:
+            if self.sampling_policy == "trajectory":
                 self.server_capabilities.require(
                     "policy_versions_v1", "sampling_policy_pinning_v1"
                 )
@@ -776,7 +812,6 @@ class RolloutEngine:
                 }
             if (
                 self.sampling_policy == "trajectory"
-                and not self._live_full_weight
                 and requests[0].pinned_policy_id
                 and getattr(self.model, "checkpoint", None) is None
             ):
@@ -860,7 +895,14 @@ class RolloutEngine:
                 )
             if (
                 anchor.lineage_id != policy.lineage_id
-                or not 0 <= policy.step - anchor.step <= self.kv_cache.max_staleness
+                or policy.step < anchor.step
+                # Full-weight admission enforces the bound in the engine. An
+                # update during chunked prefill may precede even the first
+                # output token, so its policy cannot stand in for admission.
+                or (
+                    not self._live_full_weight
+                    and policy.step - anchor.step > self.kv_cache.max_staleness
+                )
             ):
                 raise RuntimeError("sampler exceeded the KV age bound")
             if (
@@ -891,7 +933,7 @@ class RolloutEngine:
             raise ValueError("sampler omitted or misaligned sampling log masses")
         self._sampling["prompt_tokens"] += sample.prompt_tokens
         self._sampling["cached_prompt_tokens"] += sample.cached_prompt_tokens
-        if self.sampling_policy == "trajectory" and not self._live_full_weight:
+        if self.sampling_policy == "trajectory":
             previous = next(
                 (s for s in request.member.traj.spans if s.kind == "generated"), None
             )
@@ -1520,19 +1562,22 @@ class RolloutEngine:
 
         An in-flight sample may replay one segment after restore. Stateful
         environments are snapshotted at stable boundaries; work inside a tool
-        or reset call cannot be resumed from its partial side effects.
+        or reset call cannot be resumed from its partial side effects. An
+        unfinished trajectory that cannot resume is saved without content:
+        restore regenerates it.
         """
+        trajectory_state = trajectory_capture.get()
         groups = []
         for group in list(self._groups.values()):
             members = []
             for member in group.members:
-                recoverable, env_state = True, None
+                recoverable, env_state, omitted = True, None, None
                 if member.restore_pending:
                     # Still waiting for a slot or inside Env.restore: the new
                     # environment holds nothing to snapshot yet, so keep the
                     # state this rollout was loaded with.
                     env_state = member.recovery_state
-                    trajectory = member.traj.state_dict()
+                    trajectory = trajectory_state(member.traj)
                 elif member.traj is not None and not member.traj.done:
                     contract = member.env.recovery if member.env else "drop"
                     recoverable = contract == "stateless" or (
@@ -1543,12 +1588,18 @@ class RolloutEngine:
                     if recoverable and contract == "snapshot":
                         async with member.lock:
                             env_state = await member.env.snapshot(member.traj)
-                            trajectory = member.traj.state_dict()
+                            trajectory = trajectory_state(member.traj)
+                    elif recoverable:
+                        trajectory = trajectory_state(member.traj)
                     else:
-                        trajectory = member.traj.state_dict()
+                        trajectory, omitted = None, member.traj.id
+                        spill = trajectory_spill.get()
+                        if spill is not None:
+                            # Its arrays may still leave memory.
+                            spill(member.traj)
                 else:
                     trajectory = (
-                        None if member.traj is None else member.traj.state_dict()
+                        None if member.traj is None else trajectory_state(member.traj)
                     )
                 if trajectory is not None and member.started is not None:
                     trajectory["elapsed"] += time.monotonic() - member.started
@@ -1559,6 +1610,9 @@ class RolloutEngine:
                         "recoverable": recoverable,
                         "env_state": encode_state(env_state),
                         "cause": member.cause,
+                        # Without content, the ID still matches a result the
+                        # outbox captured after this member finished.
+                        **({"omitted": omitted} if omitted else {}),
                     }
                 )
             # Re-emit completed groups on restore. The trainer separately records
@@ -1587,16 +1641,21 @@ class RolloutEngine:
             "counter": self._counter,
             "length_history": self.length_history.copy(),
             "groups": groups,
-            "outbox": [group_state(g) for g in self._outbox],
+            "outbox": [group_state(g, trajectory_state) for g in self._outbox],
         }
 
-    def load_state_dict(self, state, *, restart_pinned_trajectories=False):
+    def load_state_dict(
+        self, state, *, restart_pinned_trajectories=False, trajectories=None
+    ):
         """Restore saved rollout state into a fresh engine before starting it.
 
         Trainers using temporary snapshots restart unfinished pinned rollouts:
         only the restored current policy is guaranteed to have a live snapshot.
         Completed trajectories and standalone engine recovery are unchanged.
+        ``trajectories`` maps IDs to completed trajectories the caller already
+        restored, such as its pending results, so both share one object.
         """
+        trajectories = {} if trajectories is None else trajectories
         if state["version"] != 1 or self._groups:
             raise ValueError(
                 "restore requires a fresh engine and supported state version"
@@ -1606,7 +1665,7 @@ class RolloutEngine:
             dict(state["length_history"]),
         )
         for result in state.get("outbox", []):
-            self._emit(group_from_state(result))
+            self._emit(group_from_state(result, trajectories))
         completed_ids = {g["id"] for g in state.get("outbox", []) if g["final"]}
         returned = {
             traj.id: traj for result in self._outbox for traj in result.trajectories
@@ -1622,10 +1681,12 @@ class RolloutEngine:
                 traj = (
                     None
                     if item["traj"] is None
-                    else _trajectory_from_state(item["traj"])
+                    else _shared_trajectory(item["traj"], trajectories)
                 )
                 if traj is not None and traj.id in returned:
                     traj = returned[traj.id]
+                elif traj is None and item.get("omitted") in returned:
+                    traj = returned[item["omitted"]]
                 if traj is not None and not traj.done and not finished:
                     restart_pin = (
                         restart_pinned_trajectories
@@ -1649,6 +1710,9 @@ class RolloutEngine:
                     else:
                         self.recovery_metrics["trajectories_dropped_on_resume"] += 1
                         traj = None  # regenerate this member; preserve group membership
+                elif traj is None and not item["recoverable"] and not finished:
+                    # Saved without content because it could not resume.
+                    self.recovery_metrics["trajectories_dropped_on_resume"] += 1
                 member = _Member(
                     item["seed"],
                     traj=traj,
@@ -1687,11 +1751,18 @@ class RolloutEngine:
                 group.task = asyncio.create_task(self._run_group(group))
 
 
-def group_state(group):
+# A trainer checkpoint captures trajectories incrementally through state_dict,
+# including subclass overrides that wrap it.
+trajectory_capture = ContextVar("trajectory_capture", default=Trajectory.state_dict)
+# Called with each unfinished trajectory a checkpoint omits.
+trajectory_spill = ContextVar("trajectory_spill", default=None)
+
+
+def group_state(group, trajectory_state=Trajectory.state_dict):
     return {
         "id": group.id,
         "row": encode_state(group.row),
-        "trajectories": [t.state_dict() for t in group.trajectories],
+        "trajectories": [trajectory_state(t) for t in group.trajectories],
         "final": group.final,
         "closed_by_deadline": group.closed_by_deadline,
         "wait_seconds": group.wait_seconds,
@@ -1706,11 +1777,24 @@ def _trajectory_from_state(state):
     return trajectory
 
 
-def group_from_state(state):
+def _shared_trajectory(state, restored):
+    # Completed trajectories cannot change, so every saved copy of one ID is
+    # the same rollout; unfinished ones restore independently.
+    if not state.get("done") or state.get("id") is None:
+        return _trajectory_from_state(state)
+    trajectory = restored.get(state["id"])
+    if trajectory is None:
+        trajectory = restored[state["id"]] = _trajectory_from_state(state)
+    return trajectory
+
+
+def group_from_state(state, restored=None):
+    """Restore a completed group; ``restored`` shares trajectories by ID."""
+    restored = {} if restored is None else restored
     return CompletedGroup(
         state["id"],
         decode_state(state["row"]),
-        [_trajectory_from_state(t) for t in state["trajectories"]],
+        [_shared_trajectory(t, restored) for t in state["trajectories"]],
         state["final"],
         state["closed_by_deadline"],
         state["wait_seconds"],

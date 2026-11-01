@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from probe.cli.capabilities import verify_mcp_credential
-from probe.sdk import config
+from probe.sdk.settings import settings as config
 
 
 @pytest.fixture

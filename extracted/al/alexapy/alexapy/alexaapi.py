@@ -32,6 +32,7 @@ from .const import (
     DEFAULT_ACCEPT_LANGUAGE,
     DEFAULT_LOCALE,
     GQL_SMARTHOME_QUERY,
+    USER_AGENT,
 )
 from .errors import (
     AlexapyConnectionError,
@@ -2397,6 +2398,157 @@ class AlexaAPI:
         #               response.json(content_type=None))
         response_json, *_ = await get_json_value(response, None, dict)
         return response_json
+
+    @staticmethod
+    async def _alarm_request(
+        method: str,
+        login: AlexaLogin,
+        uri: str,
+        data: dict[str, Any] | None = None,
+    ) -> ClientResponse | None:
+        """Send a request to the alarms API on the account's alexaApiUrl.
+
+        This API takes the OAuth access token instead of cookies.
+
+        Args:
+        method (str): HTTP method
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        uri (str): Path after /v1/alerts/alarms
+        data (dict): JSON body
+
+        Returns the response, or None on failure
+
+        """
+        response = await AlexaAPI._static_request("get", login, "/api/endpoints")
+        api_url, valid = await get_json_value(response, "alexaApiUrl", str)
+        if not valid:
+            return None
+        url = URL(f"{api_url.rstrip('/')}/v1/alerts/alarms{uri}")
+        response = await getattr(login.session, method)(
+            url,
+            json=data,
+            headers={
+                "authorization": login.access_token,
+                "Accept": "application/json",
+                "Content-Type": "application/json; charset=UTF-8",
+                "User-Agent": USER_AGENT,
+            },
+            ssl=login._ssl,
+        )
+        _LOGGER.debug(
+            "%s: %s %s returned %s:%s",
+            hide_email(login.email),
+            method,
+            url,
+            response.status,
+            response.reason,
+        )
+        return await AlexaAPI._process_response(response, login)
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def create_alarm(
+        login: AlexaLogin,
+        serial: str,
+        device_type: str,
+        scheduled_time: str,
+        recurrence: dict[str, Any] | None = None,
+        sound_id: str | None = None,
+    ) -> bool:
+        """Create an alarm on a device.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        serial (str): Device serial number
+        device_type (str): Device type
+        scheduled_time (str): First ring in the device's time, as YYYY-MM-DDTHH:MM:SS
+        recurrence (dict): Repeat rule, such as {"freq": "DAILY", "byDay": []}
+        sound_id (str): Alarm tone id
+
+        Returns True if successful
+
+        """
+        trigger: dict[str, Any] = {"scheduledTime": scheduled_time}
+        if recurrence:
+            trigger["recurrence"] = recurrence
+        data: dict[str, Any] = {
+            "trigger": trigger,
+            "extensions": [],
+            "endpointId": f"{serial}@{device_type}",
+        }
+        if sound_id:
+            data["assets"] = [{"type": "TONE", "assetId": sound_id}]
+        response = await AlexaAPI._alarm_request("post", login, "", data)
+        return response is not None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def enable_alarm(
+        login: AlexaLogin,
+        notification_index: str,
+        scheduled_time: str,
+        sound_id: str | None = None,
+    ) -> bool:
+        """Turn an alarm on.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        notification_index (str): The alarm's notificationIndex
+        scheduled_time (str): Next ring in the device's time, as YYYY-MM-DDTHH:MM:SS
+        sound_id (str): The alarm's tone id
+
+        Returns True if successful
+
+        """
+        data: dict[str, Any] = {
+            "trigger": {"scheduledTime": scheduled_time},
+            "extensions": [],
+        }
+        if sound_id:
+            data["assets"] = [{"type": "TONE", "assetId": sound_id}]
+        response = await AlexaAPI._alarm_request(
+            "put", login, f"/{notification_index}/activate", data
+        )
+        return response is not None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def disable_alarm(login: AlexaLogin, notification_index: str) -> bool:
+        """Turn an alarm off without deleting it.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        notification_index (str): The alarm's notificationIndex
+
+        Returns True if successful
+
+        """
+        response = await AlexaAPI._alarm_request(
+            "put", login, f"/{notification_index}/cancel"
+        )
+        return response is not None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def delete_notification(
+        login: AlexaLogin, notification: dict[str, Any]
+    ) -> bool:
+        """Delete an alarm, reminder or timer.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        notification (dict): The notification from get_notifications
+
+        Returns True if successful
+
+        """
+        response = await AlexaAPI._static_request(
+            "delete",
+            login,
+            f"/api/notifications/{notification['id']}",
+            data=notification,
+        )
+        return response is not None
 
     @staticmethod
     @_catch_all_exceptions

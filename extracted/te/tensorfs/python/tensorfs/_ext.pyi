@@ -53,6 +53,9 @@ class StorageError(Error):
 class DiskFullError(Error):
     """The disk or a quota is full (`full`)."""
 
+class DeviceMemoryError(Error):
+    """The GPU's memory is full; the detail names the CUDA call (`device_memory`)."""
+
 class NetworkError(Error):
     """A transfer failed or stalled (`network`)."""
 
@@ -419,6 +422,10 @@ class _VarenaAllocatorCapture:
 
 def _varena_install_allocator() -> int: ...
 def _varena_set_activation_limit(device: int, limit: int | None = None) -> None: ...
+def _varena_make_room(device: int, limit: int | None = None) -> int: ...
+class _VarenaNoCapture:
+    def __init__(self, device: int) -> None: ...
+    def close(self) -> None: ...
 def _varena_allocator_stats(device: int) -> dict[str, int]: ...
 
 class VarenaPoisonedError(RuntimeError):

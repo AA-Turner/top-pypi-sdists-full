@@ -1,7 +1,7 @@
 """Probe staff repaired this machine's session capture (research-os control/073).
 
 The server answers a device with an open repair with `X-Probe-Capture-Repair`;
-the client that got it leaves a mark (`probe._shared.capture_repair`), and the
+the client that got it leaves a mark (`probe.foundation.remote_settings.capture_repair`), and the
 next `probe` command fetches the replacement credentials and writes them where
 the wizard's sign-in would (`probe.cli.main._capture_repair_notice`). What each
 test pins would fail silently: a repair no client notices, a credential written
@@ -21,14 +21,15 @@ import time
 import httpx
 import pytest
 
-from probe import version_policy
-from probe._shared import capture_repair
-from probe.cli import setup, update_report
+from probe.shared.updates import version_policy
+from probe.foundation.remote_settings import capture_repair
+from probe.cli import setup
+from probe.shared.updates import update_report
 from probe.cli import telemetry as tm
 from probe.cli.capture import AWAITING_CONFIRMATION
 from probe.cli.capabilities import tap_plugin_dir
-from probe.sdk.config import Settings, load_context, save_context
-from probe.sdk.transport import Transport
+from probe.sdk.settings.settings import Settings, load_context, save_context
+from probe.sdk.delivery.transport.transport import Transport
 
 cli_main = importlib.import_module("probe.cli.main")
 #: Captured before conftest swaps the module's one network call for an offline stub.
@@ -166,7 +167,7 @@ def server(monkeypatch):
         return httpx.Response(status, json=body)
 
     # The CLI's own client, transport and headers; only the socket is fake.
-    from probe.sdk import transport as transport_mod
+    from probe.sdk.delivery import transport as transport_mod
 
     real_client = httpx.Client
 
@@ -613,8 +614,8 @@ def test_the_writer_puts_claude_codes_credential_in_the_cli_config_and_others_in
 def test_the_event_carries_slugs_and_counts_only(monkeypatch):
     records: list[dict] = []
     monkeypatch.setenv("PROBE_TELEMETRY", "on")
-    monkeypatch.setattr(tm, "_sender", None)
-    monkeypatch.setattr(tm, "_flush_registered", True)
+    monkeypatch.setattr(tm.sender, "_sender", None)
+    monkeypatch.setattr(tm.sender, "_flush_registered", True)
     monkeypatch.setattr(tm._Sender, "start", lambda self: None)
     monkeypatch.setattr(tm._Sender, "put", lambda self, rec: records.append(rec))
 

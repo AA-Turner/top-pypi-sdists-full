@@ -15,7 +15,7 @@ plugin list`, no `ps`), so the app can ask on every focus. TWO exceptions.
 on PATH, Codex itself is asked which of Probe's hooks it will run (`codex
 app-server`, ~0.2-0.6s, never more than 2s), at most once per 10 minutes, again
 after a Probe plugin update or a change to Codex's config, the answer kept on
-disk between (`probe.cli.codex_hooks.status_snapshot`). Nothing else Probe has
+disk between (`probe.shared.harness.harnesses.codex.hooks.status_snapshot`). Nothing else Probe has
 can see a hook Codex silently skips. `service`: the Probe service, which owns
 this machine's local Probe work, is asked what it holds, over its Unix socket
 on this machine (never the network), within 1 s in all, and never started:
@@ -244,7 +244,7 @@ import time
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 
 #: Bumped only for a change a reader written against the old shape would misread.
 SCHEMA_VERSION = 1
@@ -299,7 +299,7 @@ class _Budget:
         return max(0.0, self.deadline - time.monotonic())
 
     def timed_out(self) -> str:
-        from probe.cli import claude_cli
+        from probe.shared.harness.harnesses.claude_code import binary as claude_cli
 
         return f"timed out after {claude_cli.seconds(self.timeout)}"
 
@@ -574,7 +574,7 @@ def _session_default(*, config_readable: bool) -> dict:
 
 def _versions(caps) -> dict:
     from probe.cli import setup as wizard
-    from probe.cli.versions import VersionStatus
+    from probe.shared.updates.updates import VersionStatus
 
     if caps is None:
         return {"status": VersionStatus.UNKNOWN.value, "manifest_age_s": None, "components": []}
@@ -624,7 +624,7 @@ def _autoupdate_error() -> str | None:
 def snapshot(*, refresh: bool = False, timeout: float = DEFAULT_TIMEOUT_S) -> dict:
     """The status object (SCHEMA above). Never raises for a state it finds.
     With `refresh`, everything it asks shares ONE budget of `timeout` seconds."""
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
 
     if not refresh:
         return _snapshot(None)
@@ -634,10 +634,11 @@ def snapshot(*, refresh: bool = False, timeout: float = DEFAULT_TIMEOUT_S) -> di
 
 
 def _snapshot(budget: _Budget | None) -> dict:
-    from probe.cli import capabilities, doctor, plugin_cli, wizard_lock
+    from probe.cli import capabilities, doctor, wizard_lock
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli import setup as wizard
-    from probe.harness import get_registry
-    from probe.sdk.config import ConfigUnreadable, current_context_name, load_file, resolve
+    from probe.foundation.harness_registry import get_registry
+    from probe.sdk.settings.settings import ConfigUnreadable, current_context_name, load_file, resolve
 
     refresh = budget is not None
     errors: list[dict] = []
@@ -745,7 +746,7 @@ def _snapshot(budget: _Budget | None) -> dict:
     else:
         codex, late = _wait(hooks, budget, grace=_KILL_GRACE_S)
         if codex is None:
-            from probe.cli import codex_hooks
+            from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 
             codex = codex_hooks.blank_snapshot(codex_hooks.HooksState.UNKNOWN)
             errors.append(_error("codex_hooks", late or "no answer"))
@@ -800,13 +801,13 @@ def _service() -> dict:
 
 def _codex_hooks() -> dict:
     """`codex_hooks` (SCHEMA): asks Codex at most once per its cache's TTL."""
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 
     return codex_hooks.status_snapshot()
 
 
 def _cli_version() -> str:
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     return versions.cli_version()
 
@@ -855,7 +856,7 @@ def human_lines(state: dict) -> list[str]:
         )
     if not found:
         lines.append("Coding agents      none found on this device")
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 
     hooks = codex_hooks.status_line(state.get("codex_hooks"))
     if hooks:

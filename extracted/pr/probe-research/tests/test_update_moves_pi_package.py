@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from probe.cli import pi_config, upgrading
-from probe.cli.claude_cli import Result
+from probe.shared.harness.harnesses import pi as pi_config
+from probe.cli import upgrading
+from probe.shared.harness.harnesses.claude_code.binary import Result
 
 
 @pytest.fixture
@@ -25,9 +26,9 @@ def pi_dir(tmp_path):
 def pi_installed(monkeypatch, pi_dir):
     versions = iter([(0, 2, 3), (0, 3, 0)])
     calls: list[int] = []
-    monkeypatch.setattr(pi_config, "installed_package_dir", lambda env=None: pi_dir)
-    monkeypatch.setattr(pi_config, "installed_package_version", lambda env=None: next(versions))
-    monkeypatch.setattr(pi_config, "update_package", lambda env=None: calls.append(1) or Result(ok=True, detail="updated"))
+    monkeypatch.setattr(pi_config.package_update, "installed_package_dir", lambda env=None: pi_dir)
+    monkeypatch.setattr(pi_config.package_update, "installed_package_version", lambda env=None: next(versions))
+    monkeypatch.setattr(pi_config.package_update, "update_package", lambda env=None: calls.append(1) or Result(ok=True, detail="updated"))
     return calls
 
 
@@ -38,9 +39,9 @@ def test_the_pi_lines_say_what_moved(pi_installed):
 
 
 def test_a_failed_pi_update_fails_and_says_how_to_do_it_by_hand(monkeypatch, pi_dir):
-    monkeypatch.setattr(pi_config, "installed_package_dir", lambda env=None: pi_dir)
-    monkeypatch.setattr(pi_config, "installed_package_version", lambda env=None: (0, 2, 3))
-    monkeypatch.setattr(pi_config, "update_package", lambda env=None: Result(ok=False, detail="offline"))
+    monkeypatch.setattr(pi_config.package_update, "installed_package_dir", lambda env=None: pi_dir)
+    monkeypatch.setattr(pi_config.package_update, "installed_package_version", lambda env=None: (0, 2, 3))
+    monkeypatch.setattr(pi_config.package_update, "update_package", lambda env=None: Result(ok=False, detail="offline"))
 
     step = upgrading._update_pi_package()
 
@@ -49,8 +50,8 @@ def test_a_failed_pi_update_fails_and_says_how_to_do_it_by_hand(monkeypatch, pi_
 
 
 def test_no_pi_package_means_no_pi_step(monkeypatch):
-    monkeypatch.setattr(pi_config, "installed_package_dir", lambda env=None: None)
-    monkeypatch.setattr(pi_config, "update_package", lambda env=None: pytest.fail("pi is not installed"))
+    monkeypatch.setattr(pi_config.package_update, "installed_package_dir", lambda env=None: None)
+    monkeypatch.setattr(pi_config.package_update, "update_package", lambda env=None: pytest.fail("pi is not installed"))
     assert upgrading._update_pi_package().lines == []
 
 
@@ -125,9 +126,9 @@ def test_an_update_killed_partway_stays_owed(monkeypatch, pi_dir):
     def killed(env=None):
         raise Killed
 
-    monkeypatch.setattr(pi_config, "installed_package_dir", lambda env=None: pi_dir)
-    monkeypatch.setattr(pi_config, "installed_package_version", lambda env=None: (0, 2, 3))
-    monkeypatch.setattr(pi_config, "update_package", killed)
+    monkeypatch.setattr(pi_config.package_update, "installed_package_dir", lambda env=None: pi_dir)
+    monkeypatch.setattr(pi_config.package_update, "installed_package_version", lambda env=None: (0, 2, 3))
+    monkeypatch.setattr(pi_config.package_update, "update_package", killed)
 
     with pytest.raises(Killed):
         upgrading._update_pi_package()
@@ -171,10 +172,10 @@ def test_a_failed_pi_update_is_recorded_as_a_failed_update(monkeypatch):
 def test_pi_gone_is_a_skip_not_a_failed_update(monkeypatch, pi_dir):
     """Uninstalled pi whose settings still name us: every Claude Code or Codex
     update would otherwise report failure."""
-    monkeypatch.setattr(pi_config, "installed_package_dir", lambda env=None: pi_dir)
-    monkeypatch.setattr(pi_config, "installed_package_version", lambda env=None: (0, 2, 3))
+    monkeypatch.setattr(pi_config.package_update, "installed_package_dir", lambda env=None: pi_dir)
+    monkeypatch.setattr(pi_config.package_update, "installed_package_version", lambda env=None: (0, 2, 3))
     monkeypatch.setattr(
-        pi_config, "update_package", lambda env=None: Result(ok=False, detail="pi is not on PATH", reachable=False)
+        pi_config.package_update, "update_package", lambda env=None: Result(ok=False, detail="pi is not on PATH", reachable=False)
     )
 
     step = upgrading._update_pi_package()
@@ -183,8 +184,8 @@ def test_pi_gone_is_a_skip_not_a_failed_update(monkeypatch, pi_dir):
 
 
 def test_a_package_folder_that_is_gone_means_no_pi_step(monkeypatch, tmp_path):
-    monkeypatch.setattr(pi_config, "installed_package_dir", lambda env=None: tmp_path / "missing")
-    monkeypatch.setattr(pi_config, "update_package", lambda env=None: pytest.fail("nothing to update"))
+    monkeypatch.setattr(pi_config.package_update, "installed_package_dir", lambda env=None: tmp_path / "missing")
+    monkeypatch.setattr(pi_config.package_update, "update_package", lambda env=None: pytest.fail("nothing to update"))
     assert upgrading._update_pi_package().lines == []
 
 
@@ -199,14 +200,14 @@ def test_the_pi_update_lock_lives_in_the_users_state_dir():
 def test_a_failed_pi_update_stays_owed_and_a_gone_pi_does_not(monkeypatch, pi_dir):
     from probe.cli import autoupdate
 
-    monkeypatch.setattr(pi_config, "installed_package_dir", lambda env=None: pi_dir)
-    monkeypatch.setattr(pi_config, "installed_package_version", lambda env=None: (0, 2, 3))
-    monkeypatch.setattr(pi_config, "update_package", lambda env=None: Result(ok=False, detail="offline"))
+    monkeypatch.setattr(pi_config.package_update, "installed_package_dir", lambda env=None: pi_dir)
+    monkeypatch.setattr(pi_config.package_update, "installed_package_version", lambda env=None: (0, 2, 3))
+    monkeypatch.setattr(pi_config.package_update, "update_package", lambda env=None: Result(ok=False, detail="offline"))
     upgrading._update_pi_package()
     assert autoupdate.pi_update_pending()
 
     monkeypatch.setattr(
-        pi_config, "update_package", lambda env=None: Result(ok=False, detail="pi is not on PATH", reachable=False)
+        pi_config.package_update, "update_package", lambda env=None: Result(ok=False, detail="pi is not on PATH", reachable=False)
     )
     upgrading._update_pi_package()
     assert not autoupdate.pi_update_pending(), "nothing left to update with"

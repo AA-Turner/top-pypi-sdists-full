@@ -20,6 +20,7 @@ from typing import Any, cast
 # Intrapackage imports
 import pyx12.segment
 
+from .error_codes import ISA_024_INVALID_CONTENT
 from .errors import IterOutOfBounds  # , IterDone
 
 logger = logging.getLogger("pyx12.error_handler")
@@ -99,6 +100,7 @@ class err_handler:
     cur_ele_node: Any
     ele_node_added: bool
     cur_line: int
+    suppress_error_codes: set[str]
 
     def __init__(self) -> None:
         """ """
@@ -113,6 +115,12 @@ class err_handler:
         self.seg_node_added = False
         self.cur_ele_node = None
         self.ele_node_added = False
+        # pyx12 error codes to filter out before they reach the err_handler
+        # tree. Populated by orchestrators (x12n_document, X12ContextReader)
+        # from params.get("suppress_error_codes"). Read by the
+        # apply_segment_errors / apply_walk_errors bridges in
+        # pyx12.map_if._segment and pyx12.map_walker.
+        self.suppress_error_codes = set()
         self.cur_line = 0
 
     def accept(self, visitor: Any) -> None:
@@ -282,6 +290,17 @@ class err_handler:
         :param err_str: Description of the error
         :type err_str: string
         """
+        if not self.seg_node_added and (self.cur_st_node is None or self.cur_st_node.is_closed()):
+            # Outside any open transaction set, so no AK3/IK3 can carry it. Report it on the
+            # innermost open envelope. In a group: AK9 R with AK905 "5", the code X12 RFI 1339
+            # suggests when no group code fits. Otherwise the interchange (TA1 024); X12 RFI 2435
+            # scopes the TA1 to ISA/IEA, so a fault inside a group must not land there.
+            gs = self.cur_gs_node
+            if gs is not None and not gs.is_closed() and gs.parent is self.cur_isa_node:
+                self.gs_error("5", err_str)
+            else:
+                self.isa_error(ISA_024_INVALID_CONTENT, err_str)
+            return
         sout = ""
         try:
             self._add_cur_seg()
@@ -337,15 +356,6 @@ class err_handler:
         self.cur_st_node.close(node, seg, src)
         self.cur_seg_node = self.cur_st_node
         self.seg_node_added = True
-
-    def find_node(self, type: str) -> None:
-        """
-        Find the last node of a type
-        """
-        new_node = self.cur_node
-        node_order = {"ROOT": 1, "ISA": 2, "GS": 3, "ST": 4, "SEG": 5, "ELE": 6}
-        while node_order[type] > new_node[new_node.get_id()]:
-            new_node = new_node.get_parent()
 
     def _get_last_child(self) -> Any:
         """ """
@@ -1013,6 +1023,7 @@ class errh_null:
     cur_line: int
     err_cde: str | None
     err_str: str | None
+    suppress_error_codes: set[str]
 
     def __init__(self) -> None:
         self.id = "ROOT"
@@ -1020,6 +1031,7 @@ class errh_null:
         self.cur_line = 0
         self.err_cde = None
         self.err_str = None
+        self.suppress_error_codes = set()
 
     def reset(self) -> None:
         """
@@ -1143,12 +1155,6 @@ class errh_null:
         """ """
         pass
 
-    def find_node(self, type: str) -> None:
-        """
-        Find the last node of a type
-        """
-        pass
-
     def get_parent(self) -> None:
         return None
 
@@ -1191,6 +1197,7 @@ class errh_list:
     err_st: list[tuple[str, str]]
     err_seg: list[tuple[str, str, str | None]]
     err_ele: list[tuple[str, str, str | None, str | None]]
+    suppress_error_codes: set[str]
 
     def __init__(self) -> None:
         self.id = "ROOT"
@@ -1201,6 +1208,7 @@ class errh_list:
         self.err_st = []
         self.err_seg = []
         self.err_ele = []
+        self.suppress_error_codes = set()
 
     def reset(self) -> None:
         """
@@ -1312,9 +1320,6 @@ class errh_list:
         pass
 
     def close_st_loop(self, node: Any, seg: Any, src: Any) -> None:
-        pass
-
-    def find_node(self, type: str) -> None:
         pass
 
     def get_parent(self) -> None:

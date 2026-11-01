@@ -93,7 +93,11 @@ from bitfab.replay import replay as _run_replay
 from bitfab.replay_branch import DbBranchOptions, ReplayBranch
 from bitfab.replay_interrupt import ReplayInterrupt
 from bitfab.selective_replay import SelectiveReplayOptions, json_fingerprint
-from bitfab.serialize import to_json_safe
+from bitfab.serialize import (
+    exceeds_readable_budget,
+    to_json_safe,
+    too_large_reason,
+)
 from bitfab.simulation_plan import (
     CONTENT_OFF_KEY,
     DECLARED_IN_CODE_FIELD,
@@ -172,6 +176,10 @@ def _safe_type_name(value: Any) -> str:
         return type(value).__qualname__
     except Exception:
         return "unknown"
+
+
+def _too_large_stub(value: Any) -> str:
+    return f"<unserializable: {_safe_type_name(value)} ({too_large_reason(_MAX_HUMAN_PAYLOAD_BYTES)})>"
 
 
 def _cap_payload_size(value: Any) -> Any:
@@ -2082,6 +2090,7 @@ class Bitfab:
         dataset_ids: list[str] | None = None,
         grader_ids: list[str] | None = None,
         only_with_assertions: bool = False,
+        category_ids: list[str] | None = None,
         skip_assertion_judging: bool = False,
         judge_assertions: bool | None = None,
         mock: MockStrategy = "marked",
@@ -2209,6 +2218,14 @@ class Bitfab:
                 recent down to however few do. An assertion still awaiting
                 review doesn't count, because a replay is only judged against
                 assertions a person has approved.
+            category_ids: Replay only the selected traces that carry an
+                approved assertion in one of these categories. Narrows a ``trace_ids`` or ``dataset_ids`` selection the way
+                ``only_with_assertions`` does, but counts only assertions filed
+                under a named category. It changes which traces replay, not
+                which assertions are judged on each replay. Passing it without
+                ``trace_ids``, ``dataset_id`` or ``dataset_ids`` raises
+                ``ValueError``. A selection that narrows to nothing replays
+                nothing.
             skip_assertion_judging: Don't judge approved assertions on each
                 replay. Judging is on by default: every approved assertion is
                 judged as its replay finishes and the verdict is saved as that
@@ -2274,10 +2291,11 @@ class Bitfab:
                 finish, in the same experiment, and returns the finished ones
                 with ``carried_over=True`` and no payloads. Passing
                 ``trace_ids``, ``limit``, ``dataset_id``, ``dataset_ids``,
-                ``attempts``, ``grader_ids``, ``only_with_assertions`` or
-                ``dry_run`` with it is an error, because the experiment
-                already fixed them. Database branching and its settings also
-                come from the experiment, so ``db_branch`` is ignored.
+                ``attempts``, ``grader_ids``, ``only_with_assertions``,
+                ``category_ids`` or ``dry_run`` with it is an error, because
+                the experiment already fixed them. Database branching and its
+                settings also come from the experiment, so ``db_branch`` is
+                ignored.
             force: Resume even when the experiment had activity in the last
                 two minutes or its code change differs from the one it started
                 with. Only valid with ``resume``.
@@ -2342,6 +2360,7 @@ class Bitfab:
             dataset_ids=dataset_ids,
             grader_ids=grader_ids,
             only_with_assertions=only_with_assertions,
+            category_ids=category_ids,
             skip_assertion_judging=skip_assertion_judging,
             judge_assertions=judge_assertions,
             mock=mock,
@@ -5180,25 +5199,48 @@ class Bitfab:
                 return context["spanId"]
         return None
 
-    def _span_content(
-        self, raw_args: tuple[Any, ...], raw_kwargs: dict[str, Any], result: Any
-    ) -> dict[str, Any]:
-        content: dict[str, Any] = {
-            "input": _cap_payload_size(self._serialize_inputs(raw_args, raw_kwargs)),
-            "output": _cap_payload_size(self._serialize_value(result)),
-        }
+    def _readable_inputs(
+        self, args: tuple[Any, ...], kwargs: dict[str, Any]
+    ) -> tuple[Any, bool]:
+        if exceeds_readable_budget([*args, *kwargs.values()], _MAX_HUMAN_PAYLOAD_BYTES):
+            return _too_large_stub([]), True
+        return _cap_payload_size(self._serialize_inputs(args, kwargs)), False
+
+    def _readable_output(self, result: Any) -> tuple[Any, bool]:
+        if exceeds_readable_budget([result], _MAX_HUMAN_PAYLOAD_BYTES):
+            return _too_large_stub(result), True
+        return _cap_payload_size(self._serialize_value(result)), False
+
+    def _input_meta(
+        self, args: tuple[Any, ...], kwargs: dict[str, Any], readable: Any
+    ) -> dict[str, Any] | None:
         converted: dict[int, Any] = {}
         prepared_args = [
-            self._prepare_for_serialization(arg, _converted=converted)
-            for arg in raw_args
+            self._prepare_for_serialization(arg, _converted=converted) for arg in args
         ]
         prepared_kwargs = {
             k: self._prepare_for_serialization(v, _converted=converted)
-            for k, v in raw_kwargs.items()
+            for k, v in kwargs.items()
         }
-        input_meta = build_input_meta(prepared_args, prepared_kwargs, content["input"])
-        output_meta = build_output_meta(
-            self._prepare_for_serialization(result), content["output"]
+        return build_input_meta(prepared_args, prepared_kwargs, readable)
+
+    def _span_content(
+        self, raw_args: tuple[Any, ...], raw_kwargs: dict[str, Any], result: Any
+    ) -> dict[str, Any]:
+        readable_input, input_too_large = self._readable_inputs(raw_args, raw_kwargs)
+        readable_output, output_too_large = self._readable_output(result)
+        content: dict[str, Any] = {"input": readable_input, "output": readable_output}
+        input_meta = (
+            None
+            if input_too_large
+            else self._input_meta(raw_args, raw_kwargs, readable_input)
+        )
+        output_meta = (
+            None
+            if output_too_large
+            else build_output_meta(
+                self._prepare_for_serialization(result), readable_output
+            )
         )
         if input_meta is not None:
             content["input_meta"] = input_meta

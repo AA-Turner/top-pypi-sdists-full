@@ -11,9 +11,9 @@ import json
 
 import pytest
 
-import probe.mcp.service as service_module
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+import probe.mcp.tools as service_module
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
 from tests.test_mcp_delivery import _bounded, _wire
 
@@ -109,7 +109,9 @@ def test_an_unregistered_option_is_refused_naming_runs(client, app):
 def test_pages_resume_on_the_routes_own_cursor_and_lose_nothing(client, app, monkeypatch):
     """One route page per call; the next cursor names the last row sent, so a
     continuation asks the route for the rows after it."""
-    monkeypatch.setattr(service_module, "_PAGE_FETCH", 2)
+    monkeypatch.setattr(service_module.views.files, "_PAGE_FETCH", 2)
+    monkeypatch.setattr(service_module.entity, "_PAGE_FETCH", 2)
+    monkeypatch.setattr(service_module.views.runs, "_PAGE_FETCH", 2)
     _source, fork, _rid = _forked(client, app, files=5)
     service = _service(client)
     seen: list[str] = []
@@ -142,9 +144,11 @@ def test_a_page_the_readers_own_session_work_empties_still_moves_on(client, app,
     """The daemon's reader hides work its own session created. When that empties
     a whole route page, the walk resumes past the rows FETCHED; resuming from
     where the page began would ask the route for the same rows forever."""
-    from probe.mcp import accounting
+    from probe.mcp.delivery import accounting
 
-    monkeypatch.setattr(service_module, "_PAGE_FETCH", 2)
+    monkeypatch.setattr(service_module.views.files, "_PAGE_FETCH", 2)
+    monkeypatch.setattr(service_module.entity, "_PAGE_FETCH", 2)
+    monkeypatch.setattr(service_module.views.runs, "_PAGE_FETCH", 2)
     _source, fork, _rid = _forked(client, app, files=5)
     first_page = {f"00000000-0000-0000-0000-00000000000{i}" for i in (1, 2)}
     monkeypatch.setattr(accounting, "session_work_to_hide", lambda: "reader-session")

@@ -3,7 +3,7 @@
 The parity cases run each moved read twice against one fake backend over a
 socket: once as the REAL `probe` executable the daemon spawned until now
 (`tools._attempt`, the session's environment), once in the host
-(`tools._in_host`, the CLI command's own body in `probe.cli.reads`), and
+(`tools._in_host`, the CLI command's own body in `probe.shared.reads.reads`), and
 compare exit code, stdout and stderr byte for byte -- and the headers of the
 requests each one sent.
 """
@@ -20,9 +20,11 @@ import time
 import httpx
 import pytest
 
-from probe.daemon import approvals as appr
-from probe.daemon import host_reads, lease, probe_api, runctx, tools
-from probe.daemon.store import Store
+from probe.shared.mailbox import approvals as appr
+from probe.daemon.host import reads as host_reads, lease, runctx
+from probe.daemon.session import probe_api
+from probe.daemon.agent import tools
+from probe.daemon.store.store import Store
 from probe.sdk.agent_session import AGENT_SESSION_HEADER, EVENT_AT_ENV, FORWARDED_SESSION_ENV
 from tests.conftest import FakeApp
 from tests.served_fake_app import serve
@@ -288,7 +290,7 @@ def test_a_moved_read_starts_no_process_and_an_unmoved_one_spawns_and_is_counted
         started.append(["probe"])
         return real()
 
-    monkeypatch.setattr(tools, "probe_executable", counted)
+    monkeypatch.setattr(tools.probe_cli.process, "probe_executable", counted)
     app = Backend()
     seeded = _seed(app)
     with serve(app) as url:
@@ -310,7 +312,7 @@ def test_a_moved_read_starts_no_process_and_an_unmoved_one_spawns_and_is_counted
 def test_a_read_the_host_hands_back_is_answered_by_the_cli(tmp_path, monkeypatch, why):
     """A full in-flight slot, an outbox too large to parse in the host, or a
     bug: the CLI answers (its real output), and the read counts as spawned."""
-    from probe.cli import reads
+    from probe.shared.reads import reads
 
     app = Backend()
     seeded = _seed(app)
@@ -446,7 +448,7 @@ def test_the_host_never_loads_the_whole_cli():
     """Plan M1: the daemon host imports the read bodies, never `probe.cli.main`."""
     code = ("import sys\n"
             "from probe.daemon import host_reads\n"
-            "import probe.cli.reads\n"
+            "import probe.shared.reads.reads\n"
             "assert host_reads.route(['run', 'get', 'r1']).call is not None\n"
             "print('probe.cli.main' in sys.modules)\n")
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120)
@@ -472,8 +474,8 @@ def test_the_cli_still_lays_out_json_for_a_terminal(app, tmp_path, monkeypatch, 
 def test_held_credentials_are_judged_by_the_sessions_environment(monkeypatch):
     """`outbox status` in the host says whose writes wait by the session's CLI's
     credentials, never the process's."""
-    from probe.cli import reads
-    from probe.sdk.journal import credential_fingerprint
+    from probe.shared.reads import reads
+    from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
 
     monkeypatch.setenv("PROBE_TOKEN", "ros_pat_process")
     here = reads.credentials_here(None, {"PROBE_TOKEN": "ros_pat_session"})
@@ -484,7 +486,8 @@ def test_held_credentials_are_judged_by_the_sessions_environment(monkeypatch):
 def test_other_outboxes_are_found_under_the_sessions_tmpdir(tmp_path, monkeypatch):
     """The host's `tempfile` keeps the first TMPDIR it saw; a session's
     `outbox status` lists the fallback queues under ITS TMPDIR."""
-    from probe.sdk.journal import Journal, _uid
+    from probe.sdk.delivery.journal.journal import Journal
+    from probe.sdk.delivery.journal.paths import _uid
 
     mine, other = tmp_path / "mine", tmp_path / "other"
     for base in (mine, other):

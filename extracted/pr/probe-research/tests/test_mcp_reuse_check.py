@@ -21,11 +21,11 @@ from __future__ import annotations
 
 import pytest
 
-from probe.mcp.contract import EnvelopeState
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.shared.reads.search_contract import EnvelopeState
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
-from probe.sdk.client import Anchor
+from probe.sdk.artifact.anchors import Anchor
 
 
 @pytest.fixture
@@ -282,7 +282,7 @@ def test_an_unsupported_view_on_an_artifact_names_what_is_supported(service, cli
     assert "artifact supports:" in text
     # One line per supported view, each carrying its purpose -- the reason the
     # message grew from a bare list on 2026-09-15.
-    from probe.mcp.contract import VIEW_PURPOSE, View
+    from probe.shared.reads.search_contract import VIEW_PURPOSE, View
 
     listed = [ln for ln in text.splitlines() if ln.startswith("  ")]
     assert [ln.split()[0] for ln in listed] == ["card", "content", "lineage", "record", "sessions", "versions"]
@@ -293,11 +293,11 @@ def test_an_unsupported_view_on_an_artifact_names_what_is_supported(service, cli
 def test_a_view_with_no_purpose_line_is_still_listed_bare(monkeypatch):
     """The list must stay COMPLETE: a missing gloss hiding a real view would be a
     smaller lie than the one the purpose lines replaced."""
-    from probe.mcp import service as svc_mod
-    from probe.mcp.contract import View
+    from probe.mcp import tools as svc_mod
+    from probe.shared.reads.search_contract import View
 
     trimmed = {v: p for v, p in svc_mod.VIEW_PURPOSE.items() if v is not View.VERSIONS}
-    monkeypatch.setattr(svc_mod, "VIEW_PURPOSE", trimmed)
+    monkeypatch.setattr(svc_mod.view, "VIEW_PURPOSE", trimmed)
     lines = svc_mod._views_offered("artifact").splitlines()
     assert "  versions" in lines
     assert any(ln.startswith("  card ") and len(ln) > len("  card ") for ln in lines)

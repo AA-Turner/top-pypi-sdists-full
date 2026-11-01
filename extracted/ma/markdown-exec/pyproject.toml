@@ -45,7 +45,7 @@ dependencies = [
     "markupsafe>=2",
     "pymdown-extensions>=9",
 ]
-version = "1.12.5"
+version = "1.12.6"
 
 [project.optional-dependencies]
 ansi = [
@@ -120,7 +120,7 @@ docs = [
     "ghp-import>=2.1",
     "markdown-callouts>=0.4",
     "mkdocstrings[python]>=0.29",
-    "zensical>=0.0.21",
+    "zensical>=0.0.41",
     "pydeps>=3.0; python_version == '3.12'",
     "diagrams>=0.24.1; python_version == '3.12'",
     "rich>=13.9; python_version == '3.12'",

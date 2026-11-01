@@ -1,4 +1,4 @@
-"""`probe/_shared/finisher.py`: frozen, stdlib-only, generation-bound, resumable (clean-uninstall U-T9).
+"""`probe/shared/updates/finisher.py`: frozen, stdlib-only, generation-bound, resumable (clean-uninstall U-T9).
 
 The finisher is what deletes the CLI once `probe uninstall` has done
 everything else: the CLI execs a copy of it (`S/uninstall/finisher.py`) with
@@ -8,7 +8,7 @@ bytes are pinned here like the hand-off's.
 
 TO CHANGE IT, DELIBERATELY: raise `FINISHER_VERSION` in finisher.py, then set
 `FROZEN_FINISHER` below to `(<the new version>, "<sha256 of the new file>")`
-(`sha256sum agent/src/probe/_shared/finisher.py`). Say in the PR what an older
+(`sha256sum agent/src/probe/shared/updates/finisher.py`). Say in the PR what an older
 copy (one an interrupted uninstall left on a machine) does with a new plan.
 """
 
@@ -22,7 +22,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from probe._shared import finisher
+from probe.shared.updates import finisher
 
 #: (FINISHER_VERSION, sha256 of finisher.py): see the module docstring.
 FROZEN_FINISHER = (1, "6700673557e42a5020bb6b03164694df29351e650fa99a052613d675281c2155")

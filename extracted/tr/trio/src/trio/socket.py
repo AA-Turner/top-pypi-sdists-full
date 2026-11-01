@@ -69,10 +69,18 @@ from socket import (
 )
 
 if sys.implementation.name == "cpython":
-    from socket import (
-        if_indextoname as if_indextoname,
-        if_nametoindex as if_nametoindex,
-    )
+    if sys.version_info >= (3, 16):  # pragma: no branch
+        from socket import (  # pragma: no cover
+            if_indextoname as if_indextoname,
+            if_nametoindex as if_nametoindex,
+        )
+    else:
+        # https://github.com/python/cpython/issues/156439
+        with _suppress(ImportError):
+            from socket import (
+                if_indextoname as if_indextoname,
+                if_nametoindex as if_nametoindex,
+            )
 
     # For android devices, if_nameindex support was introduced in API 24,
     # so it doesn't exist for any version prior.
@@ -82,7 +90,7 @@ if sys.implementation.name == "cpython":
         )
 
 
-# not always available so expose only if
+# not always available so expose only if possible
 if sys.platform != "win32" or not _t.TYPE_CHECKING:
     with _suppress(ImportError):
         from socket import (
@@ -574,6 +582,7 @@ if _t.TYPE_CHECKING:
         SO_OOBINLINE as SO_OOBINLINE,
         SO_ORIGINAL_DST as SO_ORIGINAL_DST,
         SO_PASSCRED as SO_PASSCRED,
+        SO_PASSRIGHTS as SO_PASSRIGHTS,
         SO_PASSSEC as SO_PASSSEC,
         SO_PEERCRED as SO_PEERCRED,
         SO_PEERSEC as SO_PEERSEC,
@@ -685,6 +694,7 @@ if _t.TYPE_CHECKING:
         VMADDR_CID_HOST as VMADDR_CID_HOST,
         VMADDR_CID_LOCAL as VMADDR_CID_LOCAL,
         VMADDR_PORT_ANY as VMADDR_PORT_ANY,
+        WSA_FLAG_NO_HANDLE_INHERIT as WSA_FLAG_NO_HANDLE_INHERIT,
         WSA_FLAG_OVERLAPPED as WSA_FLAG_OVERLAPPED,
         WSA_INVALID_HANDLE as WSA_INVALID_HANDLE,
         WSA_INVALID_PARAMETER as WSA_INVALID_PARAMETER,

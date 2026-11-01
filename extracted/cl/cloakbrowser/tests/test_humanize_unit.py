@@ -1133,3 +1133,77 @@ def test_dispatch_event_raises_on_world_error():
     human, target = _human_with({"error": "boom"})
     with pytest.raises(Error, match="page.dispatch_event: Error: boom"):
         asyncio.run(human.dispatch(target, {}, "page.dispatch_event", "click"))
+
+
+def test_match_child_survives_frame_renamed_by_page_js():
+    # Page JS set window.name: CDP has the new name, Playwright the old one, and
+    # the cross-site sibling (own process) is absent from the parent's CDP tree.
+    from types import SimpleNamespace as F
+    from cloakbrowser.human.world import _match_child
+
+    oopif = F(name="", url="http://other.test/b.html")
+    mid = F(name="m", url="http://site.test/mid.html")
+    parent = F(child_frames=[oopif, mid])
+    kids = [{"id": "MID", "name": "renamed-by-js", "url": "http://site.test/mid.html"}]
+    assert _match_child(mid, parent, kids) == "MID"
+
+
+def test_match_child_same_url_siblings_keep_attach_order_after_rename():
+    from types import SimpleNamespace as F
+    from cloakbrowser.human.world import _match_child
+
+    a = F(name="a", url="http://site.test/w.html")
+    b = F(name="b", url="http://site.test/w.html")
+    parent = F(child_frames=[F(name="", url="http://other.test/x.html"), a, b])
+    kids = [{"id": "A", "name": "a", "url": "http://site.test/w.html"},
+            {"id": "B", "name": "renamed", "url": "http://site.test/w.html"}]
+    assert _match_child(a, parent, kids) == "A"
+    assert _match_child(b, parent, kids) == "B"
+
+
+# --- #619: each browser call is bounded by the action's timeout ----------------
+
+def test_bounded_call_times_out_and_marks_the_action_stalled():
+    from cloakbrowser.human.world import ACTION, Action, PageStalled, bounded
+
+    async def main():
+        ACTION.set(Action(50))
+        with pytest.raises(PageStalled):
+            await bounded(asyncio.sleep(5))
+        return ACTION.get().stalled
+
+    assert asyncio.run(main()) is True
+
+
+def test_bounded_call_after_a_stall_is_sent_but_not_waited_on():
+    """Once the page stopped answering, a release (key / mouse up) still goes out
+    to the browser, but the action neither waits for its answer nor raises again,
+    so every release of a cleanup loop goes out."""
+    from cloakbrowser.human.world import ACTION, Action, bounded
+    started = []
+
+    async def call():
+        started.append(True)
+        await asyncio.sleep(5)
+
+    async def main():
+        act = Action(60000)
+        act.stalled = True
+        ACTION.set(act)
+        t = time.monotonic()
+        for _ in range(2):
+            assert await bounded(call()) is None
+        return time.monotonic() - t
+
+    assert asyncio.run(main()) < 1 and len(started) == 2
+
+
+def test_bounded_call_has_no_limit_outside_an_action_or_with_timeout_zero():
+    from cloakbrowser.human.world import ACTION, Action, bounded
+
+    async def main():
+        assert await bounded(asyncio.sleep(0.1, "out")) == "out"
+        ACTION.set(Action(0))
+        assert await bounded(asyncio.sleep(0.1, "zero")) == "zero"
+
+    asyncio.run(main())

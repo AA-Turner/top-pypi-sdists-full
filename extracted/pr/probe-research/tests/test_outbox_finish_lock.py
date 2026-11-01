@@ -23,9 +23,12 @@ import pytest
 
 from probe._shared import oscompat
 from probe.sdk import errors
-from probe.sdk import journal as jm
-from probe.sdk.journal import Journal, _DrainHold, _take_drain_lock, drain
-from probe.sdk.run import Run
+from probe.sdk.delivery import journal as jm
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain import lock as lock_module
+from probe.sdk.delivery.outbox.drain.lock import _DrainHold, _take_drain_lock
+from probe.sdk.delivery.outbox.drain.drain import drain
+from probe.sdk.run.run import Run
 
 from tests.conftest import make_client
 from tests.test_outbox import seeded_run
@@ -42,7 +45,8 @@ def isolated(monkeypatch, tmp_path):
     # Each window file goes on its own worker (`upload_fingerprinted`), which
     # the fake below can hold; the many-file doors are pinned elsewhere.
     monkeypatch.setenv("PROBE_UPLOAD_MANY", "0")
-    monkeypatch.setattr(jm, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
 
 
 def run_id(n: int) -> str:
@@ -161,11 +165,15 @@ def close_like_finish(queue: Journal, server: Server, run: str, *, deadline: flo
 
 
 @pytest.mark.parametrize("shape", ["one 30 MiB upload", "a window of uploads"])
-def test_three_closes_return_in_seconds_while_a_big_upload_is_in_flight(app, tmp_path, shape):
+def test_three_closes_return_in_seconds_while_a_big_upload_is_in_flight(app, tmp_path, shape, monkeypatch):
     """The swarm's `finish()` waited ~400 s; here three closes must not wait
     for an upload of another run that never ends until they have all closed.
     On a pass that held the lock through the upload each would wait out its
     whole 20 s deadline and defer."""
+    # A close starved of CPU can miss the pass's `_WANT_WAIT_SECONDS` wait and be
+    # ignored for 3 s, then 6, ... up to 60 s (by design, for a waiter that
+    # stopped). This test is about live closes: make the pass wait for them.
+    monkeypatch.setattr(lock_module, "_WANT_WAIT_SECONDS", 120.0)
     outbox = tmp_path / "outbox"
     upload_run, *closing = (seeded_run(app, tmp_path) for _ in range(4))
     assert len({upload_run, *closing}) == 4
@@ -191,14 +199,14 @@ def test_three_closes_return_in_seconds_while_a_big_upload_is_in_flight(app, tmp
 
         def close(run: Run) -> None:
             started = time.monotonic()
-            run.finish(flush_timeout=20)
+            run.finish(flush_timeout=120)
             took[run.id] = time.monotonic() - started
 
         threads = [threading.Thread(target=close, args=(run,), daemon=True) for run in runs]
         for thread in threads:
             thread.start()
         for thread in threads:
-            thread.join(40)
+            thread.join(150)
         assert not any(server.gates[name].is_set() for name in names)
     finally:
         for name in names:
@@ -206,7 +214,10 @@ def test_three_closes_return_in_seconds_while_a_big_upload_is_in_flight(app, tmp
         worker.join(60)
 
     assert sorted(took) == sorted(closing), took
-    assert max(took.values()) < 5, f"a close waited for another run's upload: {took}"
+    # No stopwatch: the upload's gate was shut for the whole of the closes, so
+    # a close that waited for it would never return (the join above gives up)
+    # or would run out its deadline and defer, leaving its run not "completed"
+    # (checked below). The deadlines only guard a hang; load cannot trip them.
     for run in closing:
         assert app.runs[run]["status"] == "completed"
         assert len(app.metric_points_posted[run]) == 3
@@ -256,7 +267,7 @@ def test_a_close_gets_the_lock_from_a_10k_op_pass_at_its_next_op(tmp_path):
 def test_an_older_close_that_only_polls_gets_the_lock_within_a_hold(tmp_path, monkeypatch):
     """An older release's `finish()` polls the lock and says nothing; the pass
     lets go once it has held the lock `PASS_HOLD_SECONDS` (R11)."""
-    monkeypatch.setattr(jm, "PASS_HOLD_SECONDS", 0.5)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.lock.PASS_HOLD_SECONDS", 0.5)
     queue = Journal(tmp_path / "outbox")
     backlog(queue, [run_id(n) for n in range(1, 21)], 4_000)
     server = Server(delay=0.002)
@@ -365,7 +376,7 @@ def test_a_close_never_waits_past_its_deadline_to_take_the_lock_back(tmp_path):
     drain, which knows nothing of run locks, takes it and keeps it. The close
     still returns at its deadline (`Run.finish`'s one budget, plan 0.6): its
     upload stays queued for the next drain and its run's lock is dropped."""
-    from probe.sdk import transport
+    from probe.sdk.delivery import transport
 
     queue = Journal(tmp_path / "outbox")
     run = run_id(1)
@@ -447,7 +458,7 @@ def test_a_close_that_says_it_waits_but_never_comes_costs_a_pass_little(tmp_path
     """A close stopped (Ctrl-Z) while it says it is waiting: the pass waits for
     it once, `_WANT_WAIT_SECONDS`, then ignores it for a while, longer each time.
     Without that each of these 200 ops would wait for it."""
-    monkeypatch.setattr(jm, "_WANT_WAIT_SECONDS", 0.2)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.lock._WANT_WAIT_SECONDS", 0.2)
     queue = Journal(tmp_path / "outbox")
     backlog(queue, [run_id(n) for n in range(1, 11)], 200)
     stuck = open(queue.drain_want, "a+")

@@ -21,11 +21,12 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import bite as bite_mod
-from probe.daemon import lease, mailbox
+from probe.daemon.worker.bite import bite as bite_mod
+from probe.daemon.host import lease
+from probe.shared import mailbox
 from probe.daemon import worker as worker_mod
-from probe.daemon.events import Kind
-from probe.daemon.store import FORMAT_VERSION, Store
+from probe.shared.harness.events import Kind
+from probe.daemon.store.store import FORMAT_VERSION, Store
 
 SID = "9b40c4c4-d58a-4ed7-9372-cfecf8469b05"
 WIRE = Path(__file__).parent / "fixtures" / "daemon_adapters" / "kimi_code" / "session1.jsonl"
@@ -79,7 +80,7 @@ def _errors(tmp_path: Path) -> str:
 
 def _one_pass(source: str, data: bytes) -> list[tuple[str, Kind]]:
     """What reading `data` once from 0 gives: the ids an untouched append yields."""
-    from probe.daemon import adapters
+    from probe.shared.harness import lookup as adapters
 
     a, out, off = adapters.for_source(source), [], 0
     for raw in data.splitlines(keepends=True):

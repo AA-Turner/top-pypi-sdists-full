@@ -14,9 +14,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from probe.daemon import adapters, bite
-from probe.daemon.events import Kind
-from probe.daemon.store import Store, call_summary
+from probe.shared.harness import lookup as adapters
+from probe.daemon.worker.bite import bite
+from probe.shared.harness.events import Kind
+from probe.daemon.store.store import Store
+from probe.daemon.store.events import call_summary
 
 FAKE_KEY = "sk-ant-api03-" + "A" * 93 + "AA"
 
@@ -72,8 +74,8 @@ def test_every_harness_stores_the_arguments_of_a_call_with_no_command(tmp_path):
 
 
 def test_the_summary_renders_is_searchable_and_heads_its_output(tmp_path):
-    from probe.daemon import approvals as appr
-    from probe.daemon import tools
+    from probe.shared.mailbox import approvals as appr
+    from probe.daemon.agent import tools
 
     store = _stored(tmp_path, "claude_code", CLAUDE + [{"type": "user", "message": {"content": [
         {"type": "tool_result", "tool_use_id": "t1", "content": "It uses focal loss."}]}}])

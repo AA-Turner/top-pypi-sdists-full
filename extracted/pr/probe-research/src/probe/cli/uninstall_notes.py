@@ -63,7 +63,7 @@ def _differs(document: Path, base: Path) -> bool:
 
 
 def _team_note(root: Path) -> list[Edit]:
-    from probe.cli import team_note_file
+    from probe.shared.notes import team_note as team_note_file
 
     folder = root / "team-note"
     document = folder / team_note_file.DOCUMENT_NAME
@@ -126,9 +126,9 @@ def send(deadline: float, lines: list[str]) -> None:
     edits = [e for e in unsynced() if e.kind in (TEAM_NOTE, NOTE, SUB_NOTE)]
     if not edits or time.monotonic() >= deadline:
         return
-    from probe.cli import team_note_file
-    from probe.sdk.config import resolve
-    from probe.sdk.transport import deadline_scope
+    from probe.shared.notes import team_note as team_note_file
+    from probe.sdk.settings.settings import resolve
+    from probe.sdk.delivery.transport.deadlines import deadline_scope
 
     settings = resolve()
     if not settings.token:
@@ -156,7 +156,7 @@ def send(deadline: float, lines: list[str]) -> None:
 
 
 def _push_note(client, settings, edit: Edit):
-    from probe.cli import notes_file
+    from probe.shared.notes import notes as notes_file
     from probe.cli.main import _entity_notes_row
 
     kind, entity_id, sub_id = edit.target

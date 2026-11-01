@@ -232,7 +232,7 @@ def load(files=None, strict=False, loads=None, conf=_config):
         except Exception as exc:
             log.error("%s when loading '%s': %s",
                       exc.__class__.__name__, path, exc)
-            if strict:
+            if strict or os.environ.get("GDL_CONFIG_STRICT"):
                 raise SystemExit(2)
         else:
             if not conf:

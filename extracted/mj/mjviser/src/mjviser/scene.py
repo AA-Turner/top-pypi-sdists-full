@@ -10,6 +10,7 @@ from threading import RLock
 import mujoco
 import numpy as np
 import trimesh
+import trimesh.visual
 import viser
 import viser.transforms as vtf
 from mujoco import mj_id2name, mjtGeom, mjtObj
@@ -22,6 +23,7 @@ from .conversions import (
   merge_geoms_hull,
   merge_sites,
 )
+from .interaction import Perturbation
 
 
 @dataclasses.dataclass
@@ -38,7 +40,6 @@ class _MeshGroup:
 _DEFAULT_FOV_DEGREES = 60
 _DEFAULT_FOV_MIN = 20
 _DEFAULT_FOV_MAX = 150
-_DEFAULT_ENVIRONMENT_INTENSITY = 0.8
 _DEFAULT_CONTACT_POINT_COLOR = (230, 153, 51)
 _DEFAULT_CONTACT_FORCE_COLOR = (255, 0, 0)
 
@@ -49,6 +50,22 @@ _FRAME_MODES: dict[str, int] = {
   "Geom": int(mujoco.mjtFrame.mjFRAME_GEOM),
   "Site": int(mujoco.mjtFrame.mjFRAME_SITE),
 }
+
+# Visualization flag commands: (label, hotkey, flag). Hotkeys match MuJoCo's
+# simulate. None means MuJoCo's key is one viser reserves for camera movement
+# (W/A/S/D/Q/E), so the command is only reachable from the command palette.
+_VIS_FLAG_COMMANDS: list[tuple[str, str | None, int]] = [
+  ("Contact Point", "C", int(mujoco.mjtVisFlag.mjVIS_CONTACTPOINT)),
+  ("Contact Force", "F", int(mujoco.mjtVisFlag.mjVIS_CONTACTFORCE)),
+  ("Contact Split", "P", int(mujoco.mjtVisFlag.mjVIS_CONTACTSPLIT)),
+  ("Joint", "J", int(mujoco.mjtVisFlag.mjVIS_JOINT)),
+  ("Inertia", "I", int(mujoco.mjtVisFlag.mjVIS_INERTIA)),
+  ("Tendon", "V", int(mujoco.mjtVisFlag.mjVIS_TENDON)),
+  ("Center of Mass", "M", int(mujoco.mjtVisFlag.mjVIS_COM)),
+  ("Actuator", "U", int(mujoco.mjtVisFlag.mjVIS_ACTUATOR)),
+  ("Equality", None, int(mujoco.mjtVisFlag.mjVIS_CONSTRAINT)),  # MuJoCo: E
+  ("Auto Connect", None, int(mujoco.mjtVisFlag.mjVIS_AUTOCONNECT)),  # MuJoCo: A
+]
 
 # Geom type constants (avoid repeated int() casts).
 _CYLINDER = int(mjtGeom.mjGEOM_CYLINDER)
@@ -61,10 +78,16 @@ _ARROW1 = int(mjtGeom.mjGEOM_ARROW1)
 _ARROW2 = int(mjtGeom.mjGEOM_ARROW2)
 _ARROWS = (_ARROW, _ARROW1, _ARROW2)
 _ARROW_HEAD = -1  # Synthetic geom type for arrow cone heads.
+_LINEBOX = int(mjtGeom.mjGEOM_LINEBOX)
 
 _CAT_DECOR = int(mujoco.mjtCatBit.mjCAT_DECOR)
 _OBJ_TENDON = int(mujoco.mjtObj.mjOBJ_TENDON)
 _OBJ_JOINT = int(mujoco.mjtObj.mjOBJ_JOINT)
+_VIS_PERTOBJ = int(mujoco.mjtVisFlag.mjVIS_PERTOBJ)
+_PERT_ROTATE = int(mujoco.mjtPertBit.mjPERT_ROTATE)
+
+# The selected body is drawn with each color moved this far toward white.
+_HIGHLIGHT_WHITEN = 0.5
 
 # Cached unit meshes for decor rendering, keyed by mjtGeom int value.
 _UNIT_MESHES: dict[int, trimesh.Trimesh] = {}
@@ -77,7 +100,7 @@ def _get_unit_mesh(geom_type: int) -> trimesh.Trimesh:
       _UNIT_MESHES[geom_type] = trimesh.creation.cylinder(radius=1.0, height=1.0)
     elif geom_type == _CAPSULE:
       _UNIT_MESHES[geom_type] = trimesh.creation.capsule(radius=1.0, height=1.0)
-    elif geom_type == _BOX:
+    elif geom_type in (_BOX, _LINEBOX):
       _UNIT_MESHES[geom_type] = trimesh.creation.box(extents=[2.0, 2.0, 2.0])
     elif geom_type in (_ELLIPSOID, _SPHERE):
       _UNIT_MESHES[geom_type] = trimesh.creation.icosphere(subdivisions=2, radius=1.0)
@@ -93,6 +116,15 @@ def _get_unit_mesh(geom_type: int) -> trimesh.Trimesh:
     else:
       _UNIT_MESHES[geom_type] = trimesh.creation.icosphere(subdivisions=1, radius=1.0)
   return _UNIT_MESHES[geom_type]
+
+
+def _vertex_colors(mesh: trimesh.Trimesh) -> np.ndarray:
+  """Per-vertex RGBA of a mesh, sampled from its texture if it has one."""
+  visual = mesh.visual
+  if isinstance(visual, trimesh.visual.TextureVisuals):
+    visual = visual.to_color()
+  assert isinstance(visual, trimesh.visual.ColorVisuals)
+  return np.asarray(visual.vertex_colors)
 
 
 class ViserMujocoScene:
@@ -150,7 +182,7 @@ class ViserMujocoScene:
 
     # Visualization settings.
     self.env_idx = 0
-    self.camera_tracking_enabled = True
+    self.camera_tracking_enabled = False
     self.show_only_selected = False
     self.geom_groups_visible = [True, True, True, False, False, False]
     self.site_groups_visible = [True, True, True, False, False, False]
@@ -183,6 +215,15 @@ class ViserMujocoScene:
 
     self.needs_update = False
     self.paused = False
+    self._vis_flag_checkboxes: dict[int, viser.GuiCheckboxHandle] = {}
+    self._simple_flag_checkboxes: dict[int, viser.GuiCheckboxHandle] = {}
+    self._geom_group_checkboxes: dict[int, viser.GuiCheckboxHandle] = {}
+    self._site_group_checkboxes: dict[int, viser.GuiCheckboxHandle] = {}
+    self._camera_dropdown: viser.GuiDropdownHandle[str] | None = None
+    self._camera_tracking_cb: viser.GuiCheckboxHandle | None = None
+    self.perturbation: Perturbation | None = None  # See enable_perturbation().
+    self._highlight: viser.GlbHandle | None = None
+    self._highlight_key: tuple[object, ...] = ()
 
     # Cached visualization state for re-rendering when settings change.
     self._tracked_body_id: int | None = None
@@ -195,14 +236,12 @@ class ViserMujocoScene:
     self._scene_offset = np.zeros(3)
 
     # Build the scene.
-    server.scene.configure_environment_map(
-      environment_intensity=_DEFAULT_ENVIRONMENT_INTENSITY
-    )
     self.fixed_bodies_frame = server.scene.add_frame("/fixed_bodies", show_axes=False)
     # Populate xpos/xquat so fixed body geometry is placed in world space.
     mujoco.mj_kinematics(mj_model, self.mj_data)
     self._add_fixed_geometry()
     self._create_mesh_handles_by_group()
+    self._register_perturbation_handlers()
     self._add_fixed_sites()
     self._create_site_handles_by_group()
     self._compute_hull_body_meshes()
@@ -269,6 +308,23 @@ class ViserMujocoScene:
         handle.visible = value
       self._sync_visibilities()
 
+  def enable_perturbation(self) -> Perturbation:
+    """Let users select bodies and drag them with the mouse.
+
+    The caller owns the MjData and must call ``perturbation.step`` before
+    each physics step (and each frame while paused).
+    """
+    if self.perturbation is None:
+      self.perturbation = Perturbation(self.server, self.mj_model)
+      self._register_perturbation_handlers()
+    return self.perturbation
+
+  def _register_perturbation_handlers(self) -> None:
+    """Make every body mesh draggable."""
+    if self.perturbation is not None:
+      for mg in self._mesh_groups:
+        self.perturbation.attach(mg.handle)
+
   def set_refresh_handler(self, handler: Callable[[], None] | None) -> None:
     """Install a callback used to refresh cached visualization state."""
     with self._update_lock:
@@ -277,6 +333,10 @@ class ViserMujocoScene:
   def rebuild_visual_handles(self) -> None:
     """Rebuild handles whose geometry or appearance is baked at creation time."""
     with self._update_lock:
+      # Body ids may not survive a rebuild, so drop selection and drag state.
+      if self.perturbation is not None:
+        self.perturbation.clear()
+
       for group in self._mesh_groups:
         group.handle.remove()
       self._mesh_groups.clear()
@@ -300,6 +360,7 @@ class ViserMujocoScene:
       mujoco.mj_kinematics(self.mj_model, self.mj_data)
       self._add_fixed_geometry()
       self._create_mesh_handles_by_group()
+      self._register_perturbation_handlers()
       self._add_fixed_sites()
       self._create_site_handles_by_group()
       self._compute_hull_body_meshes()
@@ -334,7 +395,8 @@ class ViserMujocoScene:
     """Return True if any overlay visualization is enabled."""
     if self.frame_mode != "None":
       return True
-    return any(self._mjv_option.flags[i] for i in range(len(self._mjv_option.flags)))
+    flags = self._mjv_option.flags
+    return any(flags[i] for i in range(len(flags)) if i != _VIS_PERTOBJ)
 
   def _sync_visibilities(self) -> None:
     """Synchronize all handle visibilities based on current flags."""
@@ -435,15 +497,27 @@ class ViserMujocoScene:
         initial_value=self.camera_tracking_enabled,
         hint="Keep tracked body centered.",
       )
+      self._camera_tracking_cb = cb_camera_tracking
 
       @cb_camera_tracking.on_update
       def _(_) -> None:
         def _mutate() -> None:
           self.camera_tracking_enabled = cb_camera_tracking.value
           if self.camera_tracking_enabled:
+            if self._camera_dropdown is not None:
+              self._camera_dropdown.value = "Free"
             for client in self.server.get_clients().values():
               client.camera.position = _camera_offset
               client.camera.look_at = np.zeros(3)
+          else:
+            # Untrack without teleporting: the scene offset is about to drop
+            # to zero (bodies snap back to world coords), so shift the camera
+            # by the same amount to keep the view exactly where it is now.
+            # viser's position setter translates look_at along with the camera,
+            # so setting position alone preserves the orientation.
+            delta = -self._scene_offset
+            for client in self.server.get_clients().values():
+              client.camera.position = np.asarray(client.camera.position) + delta
 
         self._apply_visualization_change(_mutate)
 
@@ -461,11 +535,27 @@ class ViserMujocoScene:
         for client in self.server.get_clients().values():
           client.camera.fov = np.radians(slider_fov.value)
 
+      if self.mj_model.ncam > 0:
+        cam_names = ["Free"]
+        for i in range(self.mj_model.ncam):
+          name = mj_id2name(self.mj_model, mjtObj.mjOBJ_CAMERA, i)
+          cam_names.append(name or f"camera_{i}")
+        self._camera_dropdown = self.server.gui.add_dropdown(
+          "Camera",
+          options=cam_names,
+          initial_value="Free",
+        )
+
+        @self._camera_dropdown.on_update
+        def _(_) -> None:
+          self._apply_camera_selection()
+
       @self.server.on_client_connect
       def _(client: viser.ClientHandle) -> None:
         client.camera.fov = np.radians(slider_fov.value)
-        client.camera.position = _camera_offset
-        client.camera.look_at = np.zeros(3) if self.camera_tracking_enabled else _center
+        target = np.zeros(3) if self.camera_tracking_enabled else _center
+        client.camera.position = target + _camera_offset
+        client.camera.look_at = target
 
   def create_overlay_gui(self) -> None:
     """Add overlay visualization controls into the current GUI context.
@@ -483,6 +573,7 @@ class ViserMujocoScene:
       """Add a vis-flag checkbox at the current GUI level."""
       _opt.flags[flag_idx] = int(initial)
       cb = self.server.gui.add_checkbox("Enabled", initial_value=initial)
+      self._vis_flag_checkboxes[flag_idx] = cb
 
       @cb.on_update
       def _(event, _idx=flag_idx) -> None:
@@ -576,6 +667,7 @@ class ViserMujocoScene:
       cb_split = self.server.gui.add_checkbox(
         "Split normal/friction", initial_value=False
       )
+      self._vis_flag_checkboxes[int(mujoco.mjtVisFlag.mjVIS_CONTACTSPLIT)] = cb_split
 
       @cb_split.on_update
       def _(event) -> None:
@@ -699,6 +791,7 @@ class ViserMujocoScene:
 
     for label, flag_idx, initial in _simple_flags:
       cb = self.server.gui.add_checkbox(label, initial_value=initial)
+      self._simple_flag_checkboxes[flag_idx] = cb
 
       @cb.on_update
       def _(event, _idx=flag_idx) -> None:
@@ -727,6 +820,7 @@ class ViserMujocoScene:
           initial_value=self.geom_groups_visible[i],
           hint=f"Show/hide geometry in group {i}",
         )
+        self._geom_group_checkboxes[i] = cb
 
         @cb.on_update
         def _(event, group_idx=i) -> None:
@@ -743,6 +837,7 @@ class ViserMujocoScene:
           initial_value=self.site_groups_visible[i],
           hint=f"Show/hide sites in group {i}",
         )
+        self._site_group_checkboxes[i] = cb
 
         @cb.on_update
         def _(event, group_idx=i) -> None:
@@ -801,6 +896,90 @@ class ViserMujocoScene:
     with tabs.add_tab("Groups", icon=viser.Icon.LAYERS_INTERSECT):
       self.create_groups_gui()
     return tabs
+
+  def _apply_camera_selection(self) -> None:
+    """Snap the view to the selected MuJoCo camera. "Free" leaves it as is."""
+    if self._camera_dropdown is None or self._camera_dropdown.value == "Free":
+      return
+    # MuJoCo cameras live in world coordinates, so stop tracking first.
+    if self._camera_tracking_cb is not None:
+      self._camera_tracking_cb.value = False
+    idx = self._camera_dropdown.options.index(self._camera_dropdown.value) - 1
+    data = self._last_mj_data
+    if data is None:
+      data = self.mj_data
+      mujoco.mj_forward(self.mj_model, data)
+    pos = data.cam_xpos[idx].copy()
+    look_at = pos - data.cam_xmat[idx].reshape(3, 3)[:, 2]
+    for client in self.server.get_clients().values():
+      client.camera.position = pos
+      client.camera.look_at = look_at
+
+  def _toggle_vis_flag(self, flag_idx: int) -> None:
+    """Toggle a visualization flag and sync the corresponding checkbox."""
+    new_val = not bool(self._mjv_option.flags[flag_idx])
+
+    def _mutate() -> None:
+      self._mjv_option.flags[flag_idx] = int(new_val)
+
+    cb = self._vis_flag_checkboxes.get(flag_idx) or self._simple_flag_checkboxes.get(
+      flag_idx
+    )
+    if cb is not None:
+      cb.value = new_val
+    else:
+      self._apply_visualization_change(_mutate)
+
+  def register_keybindings(self) -> None:
+    """Register single-letter keyboard shortcuts for visualization toggles."""
+    server = self.server
+    for label, key, flag_idx in _VIS_FLAG_COMMANDS:
+      cmd = server.gui.add_command(f"Toggle {label}", hotkey=key)  # type: ignore[arg-type]
+      cmd.on_trigger(lambda _, _idx=flag_idx: self._toggle_vis_flag(_idx))
+
+    for i in range(6):
+      cmd = server.gui.add_command(f"Toggle Geom Group {i}", hotkey=str(i))  # type: ignore[arg-type]
+      cmd.on_trigger(
+        lambda _, _idx=i: self._toggle_group(self._geom_group_checkboxes, _idx)
+      )
+      # MuJoCo uses shift+digit, which viser can't match (it sees "!", not "1").
+      cmd = server.gui.add_command(f"Toggle Site Group {i}")
+      cmd.on_trigger(
+        lambda _, _idx=i: self._toggle_group(self._site_group_checkboxes, _idx)
+      )
+
+    dropdown = self._camera_dropdown
+    if dropdown is not None:
+      cmd = server.gui.add_command("Free Camera", hotkey="escape")
+      cmd.on_trigger(lambda _: setattr(dropdown, "value", "Free"))
+      # MuJoCo uses ] and [, which viser hotkeys don't support yet.
+      cmd = server.gui.add_command("Next Camera")
+      cmd.on_trigger(lambda _: self._cycle_camera(1))
+      cmd = server.gui.add_command("Previous Camera")
+      cmd.on_trigger(lambda _: self._cycle_camera(-1))
+
+  def _cycle_camera(self, step: int) -> None:
+    """Move the camera dropdown to the next/previous MuJoCo camera."""
+    if self._camera_dropdown is None:
+      return
+    # Options are ["Free", cam0, cam1, ...]. Like simulate, cycling only visits
+    # MuJoCo cameras and wraps around.
+    options = list(self._camera_dropdown.options)
+    ncam = len(options) - 1
+    idx = options.index(self._camera_dropdown.value)
+    if idx == 0:
+      idx = 1 if step > 0 else ncam
+    else:
+      idx = (idx - 1 + step) % ncam + 1
+    self._camera_dropdown.value = options[idx]
+
+  def _toggle_group(
+    self, checkboxes: dict[int, viser.GuiCheckboxHandle], group_idx: int
+  ) -> None:
+    """Flip a geom/site group checkbox; its on_update applies the change."""
+    cb = checkboxes.get(group_idx)
+    if cb is not None:
+      cb.value = not cb.value
 
   def update_from_arrays(
     self,
@@ -943,6 +1122,10 @@ class ViserMujocoScene:
     if mj_data is not None:
       self._last_mj_data = mj_data
 
+    if self.perturbation is not None:
+      self.perturbation.offset = scene_offset
+      self.perturbation.geomgroup = np.array(self.geom_groups_visible, np.uint8)
+
     self.fixed_bodies_frame.position = scene_offset
     slice_single = self.show_only_selected and self.num_envs > 1
     with self.server.atomic():
@@ -980,12 +1163,69 @@ class ViserMujocoScene:
           handle.batched_positions = pos
           handle.batched_wxyzs = quat
 
-      if self._any_decor_visible() and mj_data is not None:
+      self._update_highlight(body_xpos, body_xquat, env_idx, scene_offset, slice_single)
+
+      perturbing = self.perturbation is not None and self.perturbation.pert.active
+      show_decor = self._any_decor_visible() or perturbing
+      if show_decor and mj_data is not None:
         self._update_decor_from_mjvscene(mj_data, scene_offset)
-      elif not self._any_decor_visible():
+      elif not show_decor:
         self._clear_decor_handles()
 
       self.server.flush()
+
+  def _update_highlight(
+    self,
+    body_xpos: np.ndarray,
+    body_xquat: np.ndarray,
+    env_idx: int,
+    scene_offset: np.ndarray,
+    slice_single: bool,
+  ) -> None:
+    """Brighten the selected body, like MuJoCo's selection glow."""
+    body = self.perturbation.pert.select if self.perturbation is not None else 0
+    if is_fixed_body(self.mj_model, body):
+      body = 0  # Fixed bodies aren't in the mesh groups, so can't be swapped.
+    key = (body, env_idx, slice_single, tuple(self.geom_groups_visible))
+    if key != self._highlight_key:
+      self._highlight_key = key
+      self._rebuild_highlight(body, env_idx, slice_single)
+    if self._highlight is not None:
+      self._highlight.position = body_xpos[env_idx, body] + scene_offset
+      self._highlight.wxyz = body_xquat[env_idx, body]
+
+  def _rebuild_highlight(self, body: int, env_idx: int, slice_single: bool) -> None:
+    """Swap the body's instances for a brightened copy (no overlap to z-fight)."""
+    if self._highlight is not None:
+      self._highlight.remove()
+      self._highlight = None
+
+    for mg in self._mesh_groups:
+      n_envs = 1 if slice_single else self.num_envs
+      scales = np.ones((n_envs, len(mg.body_ids)), dtype=np.float32)
+      scales[0 if slice_single else env_idx, mg.body_ids == body] = 0.0
+      mg.handle.batched_scales = scales.reshape(-1)
+
+    geom_ids = [
+      g
+      for g in range(self.mj_model.ngeom)
+      if self.mj_model.geom_bodyid[g] == body
+      and self.mj_model.geom_rgba[g, 3] > 0
+      and self.mj_model.geom_group[g] < 6
+      and self.geom_groups_visible[self.mj_model.geom_group[g]]
+    ]
+    if body == 0 or not geom_ids:
+      return
+    mesh = merge_geoms(self.mj_model, geom_ids)
+    colors = _vertex_colors(mesh).astype(float)
+    colors[:, :3] += _HIGHLIGHT_WHITEN * (255 - colors[:, :3])
+    mesh.visual = trimesh.visual.ColorVisuals(
+      mesh, vertex_colors=colors.astype(np.uint8)
+    )
+    self._highlight = self.server.scene.add_mesh_trimesh("/selection", mesh)
+    # The copy stands in for the body, so it must be draggable too.
+    if self.perturbation is not None:
+      self.perturbation.attach(self._highlight)
 
   def _batched_transform(
     self,
@@ -1250,7 +1490,10 @@ class ViserMujocoScene:
     """Precompute one merged convex hull mesh per body that has mesh geoms."""
     body_geoms: dict[int, list[int]] = {}
     for geom_id in range(self.mj_model.ngeom):
-      if int(self.mj_model.geom_type[geom_id]) != int(mjtGeom.mjGEOM_MESH):
+      if int(self.mj_model.geom_type[geom_id]) not in (
+        int(mjtGeom.mjGEOM_MESH),
+        int(mjtGeom.mjGEOM_SDF),
+      ):
         continue
       if int(self.mj_model.geom_dataid[geom_id]) < 0:
         continue
@@ -1344,11 +1587,17 @@ class ViserMujocoScene:
     Calls ``mjv_updateScene`` to generate decorative geoms (contacts,
     tendons, frames, inertia) and renders them as batched viser meshes.
     """
+    # Draw MuJoCo's rotation target, but not its translation connector: viser
+    # already draws an arrow for every drag, and two arrows look broken.
+    # TODO: draw the connector once viser can hide its drag arrow.
+    pert = self.perturbation.pert if self.perturbation is not None else None
+    rotating = pert is not None and bool(pert.active & _PERT_ROTATE)
+    self._mjv_option.flags[_VIS_PERTOBJ] = int(rotating)
     mujoco.mjv_updateScene(
       self.mj_model,
       mj_data,
       self._mjv_option,
-      None,
+      pert,
       self._mjv_camera,
       int(mujoco.mjtCatBit.mjCAT_ALL),
       self._mjv_scene,
@@ -1405,6 +1654,7 @@ class ViserMujocoScene:
         batched_colors=colors,
         batched_opacities=batched_opacities,
         lod="off",
+        wireframe=mesh_type == _LINEBOX,
         cast_shadow=False,
         receive_shadow=False,
       )

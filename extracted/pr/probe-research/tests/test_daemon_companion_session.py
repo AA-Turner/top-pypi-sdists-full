@@ -20,12 +20,13 @@ import threading
 import httpx
 import pytest
 
-from probe.daemon import command_check, runctx
-from probe.daemon import model as model_mod
-from probe.daemon import shipper as ship
-from probe.daemon import trace as trace_mod
+from probe.daemon.shell import command_check
+from probe.daemon.host import runctx
+from probe.daemon.agent.model import model as model_mod
+from probe.daemon.trace import shipper as ship
+from probe.daemon.trace import trace as trace_mod
 # The real one: the suite's conftest stands a no-answer in for every test.
-from probe.daemon.command_check import ask_probe as real_command_check
+from probe.daemon.shell.command_check import ask_probe as real_command_check
 from probe.sdk.agent_session import AGENT_HEADER, AGENT_SESSION_HEADER
 
 SID = "11111111-2222-3333-4444-555555555555"

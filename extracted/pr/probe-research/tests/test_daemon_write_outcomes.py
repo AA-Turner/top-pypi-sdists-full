@@ -17,9 +17,11 @@ import time
 import httpx
 import pytest
 
-from probe.daemon import approvals as appr
-from probe.daemon import lease, probe_api, tools
-from probe.daemon.store import Store
+from probe.shared.mailbox import approvals as appr
+from probe.daemon.host import lease
+from probe.daemon.session import probe_api
+from probe.daemon.agent import tools
+from probe.daemon.store.store import Store
 from tests.conftest import FakeApp
 from tests.served_fake_app import serve
 
@@ -129,7 +131,8 @@ def test_the_queued_line_counts_on_stderr_only(tmp_path, monkeypatch):
     async def run(deps, argv, op_id, *, cwd=None):
         return tools.ProbeResult(0, '{"reason": "x"}\nprobe: queued: POST /v1/edges was not delivered\n', "")
 
-    monkeypatch.setattr(tools, "run_probe_process", run)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", run)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", run)
     deps = _deps(tmp_path, "http://unused.test")
     asyncio.run(tools.run_probe_command(deps, EDGE))
     assert _statuses(deps) == ["ran"]

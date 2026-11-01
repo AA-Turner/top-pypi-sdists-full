@@ -7,7 +7,7 @@ attempt.
 
 import pytest
 
-from probe.sdk.durable import RETRY_BACKOFF, backoff_delays, retry
+from probe.foundation.durable.durable import RETRY_BACKOFF, backoff_delays, retry
 
 
 def test_delays_double_from_the_start_and_stop_at_the_ceiling():
@@ -21,7 +21,7 @@ def test_a_single_attempt_never_waits():
 
 
 def test_the_shared_backoff_is_the_one_the_outbox_worker_uses():
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     assert (outbox_worker._BACKOFF_START_SECONDS, outbox_worker._BACKOFF_CAP_SECONDS) == RETRY_BACKOFF
 
@@ -100,7 +100,7 @@ def test_a_first_try_success_neither_sleeps_nor_reports():
 def test_an_unbounded_sequence_never_runs_out_and_stays_at_the_ceiling():
     import itertools
 
-    from probe.sdk.durable import backoff_delays
+    from probe.foundation.durable.durable import backoff_delays
 
     assert list(itertools.islice(backoff_delays(None, (0.5, 4.0)), 7)) == [
         0.5, 1.0, 2.0, 4.0, 4.0, 4.0, 4.0,
@@ -108,7 +108,7 @@ def test_an_unbounded_sequence_never_runs_out_and_stays_at_the_ceiling():
 
 
 def test_retry_after_only_ever_lengthens_a_wait_and_never_past_the_ceiling():
-    from probe.sdk.durable import honor_retry_after
+    from probe.foundation.durable.durable import honor_retry_after
 
     assert honor_retry_after(2.0, None, ceiling=300.0) == 2.0
     assert honor_retry_after(2.0, 0.0, ceiling=300.0) == 2.0, "a 0 s ask cannot make a hot loop"
@@ -119,8 +119,9 @@ def test_retry_after_only_ever_lengthens_a_wait_and_never_past_the_ceiling():
 def test_the_detached_worker_waits_what_retry_after_asks(tmp_path, monkeypatch):
     """A pass stopped by a 503 carrying Retry-After: 45 waits 45 s, not the
     first backoff step (2 s); the next plain failure goes back to the ladder."""
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import DrainReport, Journal
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.outbox.drain.report import DrainReport
+    from probe.sdk.delivery.journal.journal import Journal
 
     journal = Journal(tmp_path / "outbox")
     journal.append_http("POST", "/v1/runs/r-1/metrics", {"points": []})
@@ -139,7 +140,7 @@ def test_the_detached_worker_waits_what_retry_after_asks(tmp_path, monkeypatch):
             raise KeyboardInterrupt from None
 
     slept: list[float] = []
-    monkeypatch.setattr("probe.sdk.journal.drain", fake_drain)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", fake_drain)
     monkeypatch.setattr(outbox_worker.time, "sleep", slept.append)
     with pytest.raises(KeyboardInterrupt):
         outbox_worker.run(str(journal.dir))
@@ -152,8 +153,8 @@ def test_the_in_process_exporter_backs_off_after_a_transient_stop(app, tmp_path,
     the backoff; only `close()` cuts it short, and still gets its last pass."""
     import time
 
-    from probe.sdk import exporter as exporter_module
-    from probe.sdk.journal import DrainReport
+    from probe.sdk.delivery.outbox.drainers import in_process as exporter_module
+    from probe.sdk.delivery.outbox.drain.report import DrainReport
 
     from tests.conftest import make_client
 
@@ -196,8 +197,8 @@ def _transport_answering(responses, recorded):
     """A real `Transport` over httpx.MockTransport answering `responses` in turn."""
     import httpx
 
-    from probe.sdk.config import Settings
-    from probe.sdk.transport import Transport
+    from probe.sdk.settings.settings import Settings
+    from probe.sdk.delivery.transport.transport import Transport
 
     queue = list(responses)
 
@@ -213,7 +214,7 @@ def _transport_answering(responses, recorded):
 
 @pytest.fixture
 def slept(monkeypatch):
-    from probe.sdk import transport as transport_module
+    from probe.sdk.delivery import transport as transport_module
 
     waits: list[float] = []
     monkeypatch.setattr(transport_module.time, "sleep", waits.append)
@@ -248,7 +249,7 @@ def test_a_long_retry_after_goes_back_to_the_callers_loop(slept):
 def test_inside_a_deadline_a_retry_after_that_does_not_fit_is_not_retried_early(slept):
     import time
 
-    from probe.sdk.transport import deadline_scope
+    from probe.sdk.delivery.transport.deadlines import deadline_scope
 
     requests = []
     transport = _transport_answering([(503, {"Retry-After": "5"}), (200, {})], requests)

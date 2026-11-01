@@ -22,7 +22,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import NamedTuple
 
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 
 #: Returned by a prompt when the user pressed Escape. Distinct from None, which
 #: questionary already uses for Ctrl-C -- "go back one step" and "abandon the

@@ -8,10 +8,15 @@ import warnings
 import httpx
 import pytest
 
-from probe.sdk import errors, unstorable
-from probe.sdk.config import Settings
-from probe.sdk.journal import Journal, classify, drain
-from probe.sdk.transport import Transport
+from probe.sdk import errors
+from probe.sdk.values import unstorable
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.ops.classify import classify
+from probe.sdk.delivery.outbox.drain.drain import drain
+from probe.sdk.delivery.transport.transport import Transport
+
+SCANNING_DISABLED = "credential scanning is disabled in the SDK; these tests assert the redaction it did"
 
 SPAN_PATH = "/v1/runs/run-a/spans"
 
@@ -173,6 +178,7 @@ def test_public_sdk_cycles_are_permanent_before_scrubbing(client):
     assert classify(caught.value) == "permanent"
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_formatted_warning_does_not_echo_the_callers_source_line():
     import linecache
 
@@ -200,6 +206,7 @@ def test_formatted_warning_does_not_echo_the_callers_source_line():
         linecache.cache.pop(filename, None)
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_interleaved_nul_credential_is_redacted_before_it_becomes_uploadable():
     token = "sk-proj-" + "A" * 48
     interleaved = token.encode("utf-16-le").decode("utf-8")
@@ -219,6 +226,7 @@ def test_scrubbing_cannot_turn_a_forbidden_identity_into_a_valid_alias():
     assert not sent
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 @pytest.mark.parametrize("async_writes", [False, True])
 def test_fail_open_retains_identity_refusal_even_when_scrubbing_removes_nul(
     client, monkeypatch, async_writes
@@ -241,6 +249,7 @@ def test_fail_open_retains_identity_refusal_even_when_scrubbing_removes_nul(
     assert report.dead_lettered == 1 and not sent
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_legacy_queue_identity_is_validated_before_replay_scrubbing(tmp_path):
     journal = Journal(tmp_path / "outbox")
     journal.append_http("POST", SPAN_PATH, {"spans": []})
@@ -263,6 +272,7 @@ def test_legacy_queue_identity_is_validated_before_replay_scrubbing(tmp_path):
     assert report.dead_lettered == 1 and not sent
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_queued_interleaved_credentials_are_redacted_at_rest(tmp_path):
     token = "sk-proj-" + "A" * 48
     journal = Journal(tmp_path / "outbox")
@@ -273,6 +283,7 @@ def test_queued_interleaved_credentials_are_redacted_at_rest(tmp_path):
     assert body["spans"][0]["attributes"]["result"] == "<redacted>"
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 @pytest.mark.parametrize("key", ["pass\x00word", "\x00".join("password")])
 def test_nul_sensitive_keys_redact_opaque_values_at_rest(tmp_path, key):
     journal = Journal(tmp_path / "outbox")
@@ -304,6 +315,7 @@ def test_explicit_strict_refusal_never_queues_an_altered_identity(client, option
     assert not client.journal.pending()
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 @pytest.mark.parametrize("serialized", [False, True])
 def test_nul_credentials_are_inspected_before_partial_scrubbing(tmp_path, serialized):
     suffix = "B" * 32

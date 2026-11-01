@@ -35,7 +35,7 @@ import pytest
 
 from probe.sdk import errors
 from probe.sdk import run as run_module
-from probe.sdk.run import Run
+from probe.sdk.run.run import Run
 from probe.sdk.session_marker import WIZARD_HINT
 
 from tests.conftest import make_client
@@ -304,7 +304,7 @@ def test_a_close_with_nowhere_to_record_it_warns_instead_of_raising(
     says so and returns; it does not turn a finished script into a crash."""
     import errno
 
-    from probe.sdk import journal as journal_module
+    from probe.sdk.delivery import journal as journal_module
 
     run_id, client, run = _setup(app, tmp_path)
     _log(client, run_id)
@@ -317,7 +317,11 @@ def test_a_close_with_nowhere_to_record_it_warns_instead_of_raising(
             raise OSError(errno.EROFS, "Read-only file system", str(path))
         return real_write(path, *a, **k)
 
-    monkeypatch.setattr(journal_module, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.journal, "write_text_atomic", read_only)
+    monkeypatch.setattr("probe.sdk.delivery.ops.op_handler.write_text_atomic", read_only)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.accounts.write_text_atomic", read_only)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.write_text_atomic", read_only)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.holds.write_text_atomic", read_only)
 
     with pytest.warns(UserWarning, match="could not be closed"):
         report = run.finish(flush_timeout=0.5)
@@ -361,8 +365,8 @@ def test_the_default_deadline_is_600_seconds(monkeypatch):
     import inspect
 
     # The suite shortens it (conftest); the shipped value is the source's.
-    assert "\nFINISH_TIMEOUT_DEFAULT_SECONDS = 600.0\n" in inspect.getsource(run_module)
-    monkeypatch.setattr(run_module, "FINISH_TIMEOUT_DEFAULT_SECONDS", 600.0)
+    assert "\nFINISH_TIMEOUT_DEFAULT_SECONDS = 600.0\n" in inspect.getsource(run_module.closing.drain)
+    monkeypatch.setattr(run_module.closing.drain, "FINISH_TIMEOUT_DEFAULT_SECONDS", 600.0)
     assert Run._resolve_finish_timeout(None) == 600.0
     monkeypatch.setenv("PROBE_FINISH_TIMEOUT_SEC", "42")
     assert Run._resolve_finish_timeout(None) == 42.0
@@ -371,7 +375,7 @@ def test_the_default_deadline_is_600_seconds(monkeypatch):
 
 
 def test_a_malformed_timeout_warns_and_uses_the_default(monkeypatch):
-    monkeypatch.setattr(run_module, "FINISH_TIMEOUT_DEFAULT_SECONDS", 600.0)
+    monkeypatch.setattr(run_module.closing.drain, "FINISH_TIMEOUT_DEFAULT_SECONDS", 600.0)
     monkeypatch.setenv("PROBE_FINISH_TIMEOUT_SEC", "soon")
     with pytest.warns(UserWarning, match="PROBE_FINISH_TIMEOUT_SEC"):
         assert Run._resolve_finish_timeout(None) == pytest.approx(600.0)
@@ -499,7 +503,7 @@ def test_a_transient_blip_no_longer_permanently_fails_a_run(app, tmp_path, monke
     blip was indistinguishable from data loss: the close was refused, and a run
     whose work had finished never closed -- over a write that was durable on
     disk and would have landed on the next attempt."""
-    monkeypatch.setattr(run_module, "FINISH_TIMEOUT_DEFAULT_SECONDS", 30.0)
+    monkeypatch.setattr(run_module.closing.drain, "FINISH_TIMEOUT_DEFAULT_SECONDS", 30.0)
     run_id, client, run = _setup(app, tmp_path)
     _fail_metrics_n_times(client, monkeypatch, run_id, times=2)
     _log(client, run_id)
@@ -790,10 +794,10 @@ def test_a_stalled_request_cannot_hold_the_close_past_its_deadline(tmp_path, mon
     request's timeout is now `min(remaining, transport timeout)`."""
     import httpx
 
-    from probe.sdk.client import Client
-    from probe.sdk.config import Settings
-    from probe.sdk.journal import Journal
-    from probe.sdk.transport import Transport
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import Settings
+    from probe.sdk.delivery.journal.journal import Journal
+    from probe.sdk.delivery.transport.transport import Transport
 
     monkeypatch.setenv("PROBE_AUTO_SNAPSHOT", "0")
     server = _SlowMetricsServer(stall=20.0)
@@ -914,7 +918,7 @@ def test_an_auth_block_under_strict_raises_at_once(app, tmp_path, monkeypatch):
 def test_the_hardware_monitors_final_emit_is_inside_the_deadline(app, tmp_path):
     """LOW 1. The deadline is taken first, so the finalizers that run before
     the drain (hardware, lineage) run inside it."""
-    from probe.sdk import transport as transport_module
+    from probe.sdk.delivery import transport as transport_module
 
     run_id, client, run = _setup(app, tmp_path)
     seen = {}
@@ -938,13 +942,13 @@ def test_the_close_finalizers_waits_fit_inside_a_short_deadline(app, tmp_path, m
     (30 s) were fixed waits, so `finish(flush_timeout=1)` could take 35 s. Both
     now get a share of what is left of the close's deadline (#2016's design:
     at most half each); this pins that the close passes it to both."""
-    from probe.sdk import inputs
+    from probe.sdk.capture import lineage as inputs
 
     run_id, client, run = _setup(app, tmp_path)
     seen = {}
-    monkeypatch.setattr(inputs, "is_recording", lambda run_id: True)
+    monkeypatch.setattr(inputs.lineage, "is_recording", lambda run_id: True)
     monkeypatch.setattr(
-        inputs, "finalize", lambda client, run_id, wait_s=None: seen.setdefault("wait_s", wait_s)
+        inputs.finishing, "finalize", lambda client, run_id, wait_s=None: seen.setdefault("wait_s", wait_s)
     )
 
     class SlowMonitor:
@@ -975,7 +979,7 @@ def test_ctrl_c_during_the_close_still_queues_the_verdict(app, tmp_path, monkeyp
             raise KeyboardInterrupt
         real_sleep(min(s, 0.01))
 
-    monkeypatch.setattr("probe.sdk.run.time.sleep", interrupting_sleep)
+    monkeypatch.setattr("probe.sdk.run.closing.drain.time.sleep", interrupting_sleep)
     with pytest.raises(KeyboardInterrupt):
         run.finish(flush_timeout=30.0)
 
@@ -1064,8 +1068,10 @@ def test_a_with_block_then_the_exit_hook_closes_once(app, tmp_path, monkeypatch)
     # test on the same worker can leave it; init(experiment=...) then refuses.
     for var in ("PROBE_RUN_ID", "PROBE_RUN_EPOCH"):
         monkeypatch.delenv(var, raising=False)
-    monkeypatch.setattr(fluent, "_install_exit_hooks", lambda: None)
-    monkeypatch.setattr(run_module, "FINISH_TIMEOUT_DEFAULT_SECONDS", 1.0)
+    monkeypatch.setattr(fluent.exit, "_install_exit_hooks", lambda: None)
+    monkeypatch.setattr(fluent.run_openers.offline, "_install_exit_hooks", lambda: None)
+    monkeypatch.setattr(fluent.run_openers.online, "_install_exit_hooks", lambda: None)
+    monkeypatch.setattr(run_module.closing.drain, "FINISH_TIMEOUT_DEFAULT_SECONDS", 1.0)
     client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True)
     seeded_run(app, tmp_path)  # makes experiment "e" exist
     _fail_metrics(client, monkeypatch)
@@ -1116,10 +1122,10 @@ def test_a_trickling_response_cannot_hold_the_close_past_its_deadline(tmp_path, 
     deadline."""
     import httpx
 
-    from probe.sdk.client import Client
-    from probe.sdk.config import Settings
-    from probe.sdk.journal import Journal
-    from probe.sdk.transport import Transport
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import Settings
+    from probe.sdk.delivery.journal.journal import Journal
+    from probe.sdk.delivery.transport.transport import Transport
 
     monkeypatch.setenv("PROBE_AUTO_SNAPSHOT", "0")
     server = _SlowMetricsServer(stall=0.0, trickle=0.25)
@@ -1146,7 +1152,7 @@ def test_a_trickling_response_cannot_hold_the_close_past_its_deadline(tmp_path, 
 def test_the_drains_own_promotion_is_inside_the_deadline(app, tmp_path, monkeypatch):
     """MED 5. Every drain pass promotes waiting uploads; with no bound, 5 slow
     scans ran past `flush_timeout=1` (5.1 s)."""
-    from probe.sdk.journal import Journal
+    from probe.sdk.delivery.journal.journal import Journal
 
     run_id, client, run = _setup(app, tmp_path)
     client._auto_drain = False
@@ -1190,7 +1196,7 @@ def test_set_status_promotion_inside_a_close_shares_its_deadline(app, tmp_path, 
 def test_a_malformed_timeout_does_not_raise_under_W_error(monkeypatch):
     import warnings
 
-    monkeypatch.setattr(run_module, "FINISH_TIMEOUT_DEFAULT_SECONDS", 600.0)
+    monkeypatch.setattr(run_module.closing.drain, "FINISH_TIMEOUT_DEFAULT_SECONDS", 600.0)
     monkeypatch.setenv("PROBE_FINISH_TIMEOUT_SEC", "soon")
     with warnings.catch_warnings():
         warnings.simplefilter("error")
@@ -1210,7 +1216,9 @@ def _owned_client_run(app, tmp_path, monkeypatch):
         monkeypatch.delenv(var, raising=False)
     fluent._current.set(None)
     fluent._process_default = None
-    monkeypatch.setattr(fluent, "_install_exit_hooks", lambda: None)
+    monkeypatch.setattr(fluent.exit, "_install_exit_hooks", lambda: None)
+    monkeypatch.setattr(fluent.run_openers.offline, "_install_exit_hooks", lambda: None)
+    monkeypatch.setattr(fluent.run_openers.online, "_install_exit_hooks", lambda: None)
     built = []
 
     def factory(*_a, **_kw):
@@ -1218,7 +1226,10 @@ def _owned_client_run(app, tmp_path, monkeypatch):
         built.append(client)
         return client
 
-    monkeypatch.setattr(fluent, "Client", factory)
+    monkeypatch.setattr(fluent.fluent, "Client", factory)
+    monkeypatch.setattr(fluent.attach, "Client", factory)
+    monkeypatch.setattr(fluent.bindings, "Client", factory)
+    monkeypatch.setattr(fluent.run_openers.online, "Client", factory)
     seeded_run(app, tmp_path)  # experiment "e"
     run = fluent.init(experiment="e", name="two-closers")
     return fluent, built[0], run
@@ -1304,7 +1315,7 @@ def test_a_code_less_system_exit_during_the_close_still_queues_the_verdict(
             raise SystemExit
         real_sleep(min(s, 0.01))
 
-    monkeypatch.setattr("probe.sdk.run.time.sleep", preempting_sleep)
+    monkeypatch.setattr("probe.sdk.run.closing.drain.time.sleep", preempting_sleep)
     with pytest.raises(SystemExit):
         run.finish(flush_timeout=30.0)
     ops = [op for _, op in client.journal.pending()]
@@ -1337,7 +1348,7 @@ def test_dropped_writes_warn_and_are_marked_on_the_run(app, tmp_path, monkeypatc
     def full_after_one(*a, **k):
         calls["n"] += 1
         if calls["n"] <= 2:  # two writes find the outbox full
-            from probe.sdk.journal import OutboxFull
+            from probe.sdk.delivery.journal.headroom import OutboxFull
 
             raise OutboxFull("outbox full: test")
         return real_append(*a, **k)
@@ -1375,9 +1386,10 @@ def test_a_run_whose_writes_hit_the_cap_still_gets_its_close_and_marker(app, tmp
     queue is still at the cap and the cap refused the terminal close: the
     verdict and the `dropped_writes` marker were both lost, after a warning
     had said "marked". The close is admitted past the cap."""
-    from probe.sdk import journal as journal_module
+    from probe.sdk.delivery import journal as journal_module
 
-    monkeypatch.setattr(journal_module, "MAX_PENDING_OPS", 5)
+    monkeypatch.setattr(journal_module.headroom, "MAX_PENDING_OPS", 5)
+    monkeypatch.setattr(journal_module.journal, "MAX_PENDING_OPS", 5)
     run_id, client, run = _setup(app, tmp_path)
     mp = pytest.MonkeyPatch()
     _fail_metrics(client, mp)
@@ -1402,7 +1414,7 @@ def test_a_run_whose_writes_hit_the_cap_still_gets_its_close_and_marker(app, tmp
 def test_the_drop_warning_does_not_claim_a_marker_it_could_not_record(app, tmp_path, monkeypatch):
     import errno
 
-    from probe.sdk import journal as journal_module
+    from probe.sdk.delivery import journal as journal_module
 
     run_id, client, run = _setup(app, tmp_path)
     _log(client, run_id)
@@ -1416,7 +1428,11 @@ def test_the_drop_warning_does_not_claim_a_marker_it_could_not_record(app, tmp_p
             raise OSError(errno.EROFS, "Read-only file system", str(path))
         return real_write(path, *a, **k)
 
-    monkeypatch.setattr(journal_module, "write_text_atomic", read_only)
+    monkeypatch.setattr(journal_module.journal, "write_text_atomic", read_only)
+    monkeypatch.setattr("probe.sdk.delivery.ops.op_handler.write_text_atomic", read_only)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.accounts.write_text_atomic", read_only)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.write_text_atomic", read_only)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.holds.write_text_atomic", read_only)
     with pytest.warns(UserWarning, match="could NOT be marked"):
         report = run.finish(flush_timeout=0.5)
     assert report.get("close_unrecorded") is True
@@ -1440,10 +1456,11 @@ def test_a_close_that_fails_open_is_queued_even_at_the_cap(app, tmp_path, monkey
     copy went through the queue-length cap, and a queue full of OTHER runs'
     writes refused it -- the close was lost while finish() reported it
     delivered. It is `admitted` now, like the deferred close."""
-    from probe.sdk import journal as journal_mod
+    from probe.sdk.delivery import journal as journal_mod
 
     run_id, client, run = _setup(app, tmp_path)
-    monkeypatch.setattr(journal_mod, "MAX_PENDING_OPS", 3)
+    monkeypatch.setattr(journal_mod.headroom, "MAX_PENDING_OPS", 3)
+    monkeypatch.setattr(journal_mod.journal, "MAX_PENDING_OPS", 3)
     for n in range(3):
         client.journal.append_http("POST", "/v1/runs/other/metrics", {"points": [{"i": n}]})
     _fail_status_patch(client, monkeypatch, run_id)

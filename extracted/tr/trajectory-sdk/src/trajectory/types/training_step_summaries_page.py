@@ -68,10 +68,7 @@ class TrainingStepSummary(BaseModel):
   """Finished rollouts whose termination_reason is ERROR (reward not meaningful)."""
 
   incomplete_count: int
-  """
-    Finished rollouts stopped by TIMEOUT, MAX_STEPS, TRUNCATION, or LIMIT_REACHED (real
-    reward, task unfinished).
-    """
+  """Finished rollouts stopped by TIMEOUT or TRUNCATION (real reward, task unfinished)."""
 
   termination_reasons: dict[str, int]
   """Finished rollouts per termination reason."""

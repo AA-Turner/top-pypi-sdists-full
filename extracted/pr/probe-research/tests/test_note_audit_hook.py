@@ -32,7 +32,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import agent_rules, team_note_file as tnf
+from probe.cli import agent_rules
+from probe.shared.notes import team_note as tnf
 
 _ROOT = Path(__file__).resolve().parent.parent
 _HOOK = _ROOT / "plugins" / "probe-research" / "hooks" / "note_audit.py"
@@ -317,7 +318,9 @@ def test_advisory_for_source_reads_the_document_and_the_last_measurement(
 
     w = _Where()
     w.document = document
-    monkeypatch.setattr(tnf, "paths_for", lambda settings: w)
+    monkeypatch.setattr(tnf.team_note, "paths_for", lambda settings: w)
+    monkeypatch.setattr(tnf.audit, "paths_for", lambda settings: w)
+    monkeypatch.setattr(tnf.render, "paths_for", lambda settings: w)
 
     health = tmp_path / "probe" / "team-note"
     health.mkdir(parents=True)
@@ -437,7 +440,7 @@ def test_a_session_that_is_not_tracking_does_not_ask(hook, tmp_path, monkeypatch
 
 
 def test_a_daemon_session_is_left_to_the_daemon(hook, tmp_path, monkeypatch) -> None:
-    """A `daemon` session is audited by the daemon itself (`probe.daemon.audit`,
+    """A `daemon` session is audited by the daemon itself (`probe.daemon.lanes.audit`,
     daemon-team-note-audit), whichever plugin is installed: told here too, its
     main agent would start a second auditor on the same note under the same lease
     holder. (Until 2026-10-11 this hook asked, because nothing else audited a
@@ -555,7 +558,7 @@ def test_it_is_registered_on_user_prompt_submit() -> None:
 #
 # daemon-team-note-audit (2026-10-11): the lean plugin ships this hook, its route
 # exporting PROBE_PLUGIN_PROFILE=daemon. There the daemon runs the audit for the
-# sessions it records (`probe.daemon.audit`), so the hook speaks only where the
+# sessions it records (`probe.daemon.lanes.audit`), so the hook speaks only where the
 # researcher set the session inline -- "whoever records also audits".
 
 

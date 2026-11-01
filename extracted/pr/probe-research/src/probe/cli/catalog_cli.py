@@ -23,7 +23,7 @@ from typing import Any, Optional
 import typer
 
 from ..sdk import catalog, errors
-from ..sdk.catalog_vocab import Direction, HashMode, Registered, Role, Stored
+from ..sdk.catalog.vocab import Direction, HashMode, Registered, Role, Stored
 
 source_app = typer.Typer(
     no_args_is_help=True, help="external sources: Hub datasets, buckets, URLs, base models"
@@ -31,7 +31,7 @@ source_app = typer.Typer(
 dataset_app = typer.Typer(no_args_is_help=True, help="the team's datasets and their versions")
 checkpoint_app = typer.Typer(no_args_is_help=True, help="the checkpoints every run saved, team-wide")
 
-#: Set in the Probe daemon's own `probe` calls (`daemon/tools.py`).
+#: Set in the Probe daemon's own `probe` calls (`daemon/agent/tools/tools.py`).
 DAEMON_SESSION_ENV = "PROBE_DAEMON_SESSION"
 #: `POST /v1/artifacts/download/batch` takes at most this many ids (F36).
 DOWNLOAD_BATCH = 1000
@@ -332,7 +332,7 @@ def dataset_add(
 
 
 def _close_step(handle: Any, *, ok: bool) -> None:
-    from ..sdk.durable import now_iso
+    from ..foundation.durable.durable import now_iso
 
     try:
         handle.set_status("completed" if ok else "failed", ended_at=now_iso(), strict=True)
@@ -350,7 +350,7 @@ def _preview_for_cli(c: Any, run_id: str, name: str, prepared: catalog.Prepared)
     row = next((r for r in rows if r.get("content_hash") == prepared.content_hash), None)
     if not row or not row.get("id"):
         return
-    from ..sdk.anchors import Anchor
+    from ..sdk.artifact.anchors import Anchor
 
     def send(preview_name: str, path: str, meta: dict) -> None:
         c.upload_file(Anchor.RUN, run_id, preview_name, path, meta=meta)
@@ -473,7 +473,7 @@ def dataset_download(
 ) -> None:
     """Download a version stored in Probe, file by file. A version kept
     outside Probe has no bytes here: its location is printed instead."""
-    from ..sdk.checkpoints import _safe_target
+    from ..sdk.run.readback.readback import _safe_target
 
     with _client() as c:
         files: list[dict] = []

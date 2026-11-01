@@ -753,7 +753,8 @@ def test_guided_install_finishes_with_dashboard_handoff_after_both_import_choice
     monkeypatch, jobs, open_dashboard
 ):
     from typer.testing import CliRunner
-    from probe.cli import actions, bootstrap, doctor, onboarding_complete, plugin_cli, setup
+    from probe.cli import actions, bootstrap, doctor, onboarding_complete, setup
+    from probe.shared.harness import plugins as plugin_cli
 
     cli_main = importlib.import_module("probe.cli.main")
     events = []

@@ -10,10 +10,7 @@ import shutil
 import subprocess
 import sys
 
-try:
-    from unittest import mock
-except ImportError:
-    import mock  # pyright: ignore[reportMissingModuleSource]
+from unittest import mock
 import pytest
 
 import nodeenv
@@ -40,7 +37,8 @@ BASE_ENV = {
     'PS1': 'base-ps1 ',
 }
 
-PROBED = tuple(BASE_ENV) + (
+PROBED = tuple(BASE_ENV) + tuple(
+    '_OLD_' + name for name in BASE_ENV if name != 'PS1') + (
     'PATH', 'NODE_VIRTUAL_ENV', '_OLD_NODE_FISH_PROMPT_OVERRIDE')
 
 ISOLATED_NPM = (
@@ -117,20 +115,6 @@ FROZEN_LOCAL = [
     'npmlog@7.0.1',
 ]
 
-FISH_NODE_PATH_CLOBBER = (
-    'activate.fish runs `deactivate_node nondestructive` before it saves '
-    '_OLD_NODE_PATH, and that pass erases a pre-existing NODE_PATH, so the '
-    'real deactivation has nothing left to restore. b042056 added the '
-    '`if set -q NODE_VIRTUAL_ENV` guard for the npm variables only. '
-    'NPM_CONFIG_PREFIX and npm_config_prefix are erased by the same pass '
-    'and are equally unrestored; the test only reports NODE_PATH because '
-    'it is asserted first')
-
-FISH_CARET_REDIRECT = (
-    'the PATH line in activate.fish ends with `^/dev/null`, but fish 3.0 '
-    'turned on stderr-nocaret and `^` is no longer a stderr redirect, so '
-    'the token lands in PATH as a literal entry')
-
 
 class Shell(object):
     def __init__(self, name, script='activate', source='.', prelude=()):
@@ -155,10 +139,8 @@ SHELLS = (
     Shell('fish', script='activate.fish', source='source'),
 )
 
-# a missing shell has to be reported before the tests run: pytest turns any
-# failure inside an xfail-marked test into an expected one, which would hide
-# it for the shells that carry a known-failure marker.  pytestmark is only
-# applied after the import, so Windows has to be excluded here as well
+# Require CI shells at collection time, before launching any subprocess.
+# pytestmark applies after import, so Windows has to be excluded here too.
 if REQUIRE_SHELLS and not nodeenv.is_WIN:
     _missing = [s.name for s in SHELLS
                 if s.name not in OPTIONAL_SHELLS and not shutil.which(s.name)]
@@ -166,25 +148,8 @@ if REQUIRE_SHELLS and not nodeenv.is_WIN:
         raise RuntimeError('missing shells: %s' % ', '.join(_missing))
 
 
-def _params(xfail):
-    params = []
-    for shell in SHELLS:
-        marks = ()
-        reason = xfail.get(shell.name)
-        if reason:
-            marks = pytest.mark.xfail(strict=True, reason=reason)
-        params.append(pytest.param(shell, marks=marks, id=shell.name))
-    return params
-
-
-# one decorator per set of known-broken shells: each runs the test in every
-# shell, and names the shells whose nodeenv bug makes it fail there.  A test
-# picks the decorator that lists the bugs it is able to trip over.
-every_shell = pytest.mark.parametrize('shell', _params({}))
-restoring_shell = pytest.mark.parametrize(
-    'shell', _params({'fish': FISH_NODE_PATH_CLOBBER}))
-path_shell = pytest.mark.parametrize(
-    'shell', _params({'fish': FISH_CARET_REDIRECT}))
+every_shell = pytest.mark.parametrize(
+    'shell', [pytest.param(shell, id=shell.name) for shell in SHELLS])
 
 
 def _binary(shell):
@@ -238,6 +203,27 @@ def env(request, tmpdir):
 
     return Env(str(env_dir), str(tmpdir.join('home').ensure(dir=True)),
                str(dumper), bool(request.param))
+
+
+@pytest.fixture
+def python_venv(tmpdir):
+    """
+    A python venv with the activation of `nodeenv -p` appended to its own
+    activate scripts.
+    """
+    venv_dir = tmpdir.join('venv')
+    subprocess.check_call(
+        [sys.executable, '-m', 'venv', '--without-pip', str(venv_dir)])
+
+    dumper = tmpdir.join('dump.py')
+    dumper.write(DUMPER)
+
+    with mock.patch.object(sys, 'argv', ['nodeenv', '-p']):
+        opts = nodeenv.parse_args()
+        nodeenv.install_activate(str(venv_dir), opts)
+
+    return Env(str(venv_dir), str(tmpdir.join('home').ensure(dir=True)),
+               str(dumper), False)
 
 
 def _child_env(env):
@@ -299,7 +285,7 @@ def test_syntax(shell, env):
     subprocess.check_call([_binary(shell), '-n', env.script(shell)])
 
 
-@path_shell
+@every_shell
 def test_activate_sets_env(shell, env):
     dump = run(shell, env)
     baseline = run(shell, env, source=False)
@@ -311,17 +297,27 @@ def test_activate_sets_env(shell, env):
         _real(os.path.join(env.path, 'lib', 'node_modules', '.bin')),
         _real(os.path.join(env.path, 'bin')),
     ] + [_real(p) for p in baseline['PATH'].split(os.pathsep)]
-    # only the first component: activate.fish prepends when NODE_PATH is
-    # set and, while FISH_NODE_PATH_CLOBBER stands, it never sees one, so
-    # fish replaces just like the POSIX script.  FISH_CARET_REDIRECT keeps
-    # this test xfail under fish anyway, so the tolerance is for later
-    assert _real(dump['NODE_PATH'].split(os.pathsep)[0]) == \
+    assert _real(dump['NODE_PATH']) == \
         _real(os.path.join(env.path, 'lib', 'node_modules'))
     assert _real(dump['NPM_CONFIG_PREFIX']) == _real(env.path)
     assert _real(dump['npm_config_prefix']) == _real(env.path)
 
 
-@restoring_shell
+@every_shell
+def test_python_virtualenv_puts_bin_on_path_once(shell, python_venv):
+    # the venv's own activate has put bin/ on PATH already, the part
+    # nodeenv -p appends adds only node_modules/.bin in front of it
+    # https://github.com/ekalinin/nodeenv/issues/332
+    dump = run(shell, python_venv)
+    baseline = run(shell, python_venv, source=False)
+
+    assert [_real(p) for p in dump['PATH'].split(os.pathsep)] == [
+        _real(os.path.join(python_venv.path, 'lib', 'node_modules', '.bin')),
+        _real(os.path.join(python_venv.path, 'bin')),
+    ] + [_real(p) for p in baseline['PATH'].split(os.pathsep)]
+
+
+@every_shell
 def test_deactivate_restores_env(shell, env):
     dump = run(shell, env, ['deactivate_node'])
 
@@ -338,6 +334,46 @@ def test_activate_deactivate_twice(shell, env):
     dump = run(shell, env, ['deactivate_node', again, 'deactivate_node'])
 
     assert dump['PATH'] == baseline['PATH']
+    for name in ('NODE_PATH', 'NPM_CONFIG_PREFIX', 'npm_config_prefix'):
+        assert dump[name] == baseline[name]
+
+
+@pytest.mark.parametrize('initial', (None, '', '/old/value',
+                                     '/old/first:/old/second'),
+                         ids=('unset', 'empty', 'value', 'multiple-paths'))
+@pytest.mark.parametrize(
+    'repeat', ('none', 'activate', 'deactivate', 'erase-marker'))
+def test_fish_restores_original_variables(env, monkeypatch, initial, repeat):
+    shell = next(shell for shell in SHELLS if shell.name == 'fish')
+    names = ('NODE_PATH', 'NPM_CONFIG_PREFIX', 'npm_config_prefix',
+             'npm_config_cache', 'npm_config_userconfig',
+             'npm_config_init_module')
+    for name in names:
+        if initial is None:
+            monkeypatch.delitem(BASE_ENV, name)
+        else:
+            value = initial
+            if value and name != 'NODE_PATH':
+                value += '/%s with spaces' % name
+            monkeypatch.setitem(BASE_ENV, name, value)
+
+    baseline = run(shell, env, source=False)
+    steps = []
+    if repeat == 'activate':
+        steps.append(shell.source_line(env.script(shell)))
+    if repeat == 'erase-marker':
+        steps.append('set -e NODE_VIRTUAL_ENV')
+    steps.append('deactivate_node nondestructive')
+    if repeat == 'deactivate':
+        steps.append('deactivate_node nondestructive')
+    restored = run(shell, env, steps)
+
+    assert restored['NODE_VIRTUAL_ENV'] == UNSET
+    assert restored['PATH'] == baseline['PATH']
+    assert {name: restored[name] for name in names} == {
+        name: baseline[name] for name in names}
+    assert {'_OLD_' + name: restored['_OLD_' + name] for name in names} == {
+        '_OLD_' + name: UNSET for name in names}
 
 
 @every_shell

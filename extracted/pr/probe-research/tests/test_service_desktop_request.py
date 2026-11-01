@@ -237,7 +237,7 @@ _ASK_FROM_ENV = (
 
 def _caller_env(**names: str) -> dict:
     """This process's environment without any coding agent's session or marker."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     agent_vars = {v for h in get_registry().all() for v in (*h.detect_env, h.session_env) if v}
     return {**{k: v for k, v in os.environ.items() if k not in agent_vars}, **names}

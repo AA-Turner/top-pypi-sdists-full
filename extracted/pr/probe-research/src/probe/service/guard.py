@@ -5,7 +5,7 @@
 
 Spawned detached by the service that just updated the CLI side by side
 (`updater.py`, step `self`), from its OWN interpreter -- the version being
-replaced, which stays on disk (`probe._shared.installs`) -- right before that
+replaced, which stays on disk (`probe.shared.updates.installs`) -- right before that
 service exits for the new code. Then:
 
     1. wait for the old service (`--old-pid`, that exact process) to exit
@@ -330,7 +330,7 @@ def _switch_back_when_free(installs) -> dict | None:
     """`installs.switch_back`, asked again while another update holds the
     install lock (`handoff.LockBusy`): a switch back must not be lost to an
     install that happens to run. The last refusal rises."""
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
 
     for attempt in range(SWITCH_BACK_TRIES):
         try:
@@ -344,7 +344,7 @@ def _switch_back_when_free(installs) -> dict | None:
 
 
 def switch_back(from_version: str, to_version: str, old_python: str, why: str) -> dict:
-    from probe._shared import installs
+    from probe.shared.updates import installs
 
     record: dict = {"at": time.time(), "from": from_version, "to": to_version, "ok": False, "reason": why}
     try:

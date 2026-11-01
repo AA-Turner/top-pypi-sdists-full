@@ -76,8 +76,9 @@ dict_vars = {
     ],
     "soil_moisture_as1": ["Soil moisture (surface)", "mm", "", "Humedad Superficial"],
     "soil_moisture_as2": ["Soil moisture (sub-surface)", "mm", "", ""],
-    "nsidc_surface": ["Soil moisture (surface)", "mm", "", "Humedad Superficial"],
-    "nsidc_rootzone": ["Soil moisture (sub-surface)", "mm", "", ""],
+    # SMAP L4 (SPL4SMGP) sm_surface / sm_rootzone are volumetric water content
+    "nsidc_surface": ["Soil moisture (surface)", r"m$^3$/m$^3$", "", "Humedad Superficial"],
+    "nsidc_rootzone": ["Soil moisture (sub-surface)", r"m$^3$/m$^3$", "", ""],
     "fldas_tair_tavg": ["Air Temperature (FLDAS)", r"$^\circ$C", "FLDAS NMME Forecast", ""],
     "fldas_totalprecip_tavg": ["Precipitation (FLDAS)", "mm/day", "FLDAS NMME Forecast", ""],
     "fldas_soilmoist_tavg": ["Soil Moisture (FLDAS)", r"m$^3$/m$^3$", "FLDAS NMME Forecast", ""],
@@ -90,6 +91,7 @@ CROP_ABBREV = {
     "maize": "mz", "winter_wheat": "ww", "spring_wheat": "sw",
     "soybean": "sb", "soybeans": "sb", "rice": "rc",
     "millet": "ml", "sorghum": "sr", "teff": "tf", "wheat": "ww",
+    "cotton": "ct",
 }
 
 

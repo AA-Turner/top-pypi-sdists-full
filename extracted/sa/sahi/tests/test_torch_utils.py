@@ -1,10 +1,8 @@
 """Tests for PyTorch utility functions."""
 
-from __future__ import annotations
-
 import os
 import warnings
-from typing import Iterator
+from collections.abc import Iterator
 
 import numpy as np
 import pytest

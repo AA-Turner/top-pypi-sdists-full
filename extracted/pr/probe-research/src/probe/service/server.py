@@ -252,7 +252,7 @@ REFUSAL_LOG_S = 600.0
 #: At most this many refusals are remembered for that.
 MAX_REFUSALS_LOGGED = 1024
 #: `mailbox.answer`'s `key` (a held question's answer key, 64 hex characters:
-#: `probe.daemon.approvals.KEY_HEX_CHARS`) is at most this long; checked in full
+#: `probe.shared.mailbox.approvals.KEY_HEX_CHARS`) is at most this long; checked in full
 #: on the mailbox thread (`Board.key_matches`).
 MAX_ANSWER_KEY = 128
 
@@ -391,7 +391,7 @@ def session_envs() -> dict:
     global _session_envs
     if _session_envs is None:
         try:
-            from probe.harness import get_registry
+            from probe.foundation.harness_registry import get_registry
 
             _session_envs = {h.id: h.session_env for h in get_registry().all() if h.session_env}
         except Exception as exc:  # noqa: BLE001 -- a context then just cannot name a session
@@ -2359,7 +2359,7 @@ class Service:
 
     async def _daemon_host(self, conn: Connection, params: dict) -> dict:
         """`daemon.host`: where the daemon host listens, started if need be, for an
-        old tap's `probe daemon worker` (the proxy, `probe.daemon.proxy`), which
+        old tap's `probe daemon worker` (the proxy, `probe.daemon.host.proxy`), which
         then runs its session there. Refused: no host here (off, Windows)."""
         await self._refuse_sandboxed(conn)
         host = self.workers.daemon_host
@@ -3019,8 +3019,9 @@ def _lift_outbox_pause(env: dict | None) -> tuple[bool, str, int]:
     """Lift the pause of the outbox `env` names (the login shell's variables;
     None: this service's own) when it no longer holds, reporting nothing:
     `(lifted, outbox root, writes it held)`. One stat when there is no marker."""
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import Journal, default_root
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.journal.journal import Journal
+    from probe.sdk.delivery.journal.paths import default_root
 
     root = default_root(env)
     if not os.path.lexists(root / "paused"):
@@ -3032,7 +3033,7 @@ def _lift_outbox_pause(env: dict | None) -> tuple[bool, str, int]:
 
 def _mark_versions() -> None:
     with contextlib.suppress(Exception):
-        from probe._shared import installs
+        from probe.shared.updates import installs
 
         if installs.versions_root().is_dir():
             installs.mark_in_use()

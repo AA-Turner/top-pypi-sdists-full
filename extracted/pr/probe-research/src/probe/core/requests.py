@@ -20,8 +20,8 @@ import json
 import re
 from dataclasses import dataclass, field
 
-from probe._compat import StrEnum
-from probe.sdk.workspace_limit import TeamItems
+from probe.foundation.compat.compat import StrEnum
+from probe.sdk.settings.workspace_limit import TeamItems
 
 
 class ActionName(StrEnum):
@@ -41,7 +41,7 @@ class ActionName(StrEnum):
     #: with, and (`latest`) before it stops daemon workers for one (D7).
     VERSION = "version"
     #: A read, not an action: one diagnostic report to the Probe team
-    #: (`probe.core.report`), `{"sent", "id", "skipped", "path"}` back. The
+    #: (`probe.shared.reports`), `{"sent", "id", "skipped", "path"}` back. The
     #: Probe service asks it when something it watches misbehaves.
     REPORT = "report"
     #: Not an action either: one desktop management request (the JSON object
@@ -53,7 +53,7 @@ class ActionName(StrEnum):
     #: limit: `probe workspace limit` (`probe.cli.workspace_limit_cmd`).
     WORKSPACE_LIMIT = "workspace_limit"
     #: A read in form, though it approves: Probe's own hooks in Codex, as an
-    #: update does (`probe.cli.codex_hooks.heal`), `{"outcome", "approved",
+    #: update does (`probe.shared.harness.harnesses.codex.hooks.heal`), `{"outcome", "approved",
     #: "error"}` back. The Probe service's healer asks it when Codex rewrote
     #: its copies of Probe's plugins (`probe.service.codextrust`, #3617).
     CODEX_TRUST = "codex_trust"
@@ -66,7 +66,7 @@ def _agent_words() -> dict[str, str]:
     clients to send the canonical ids that `probe status` reports. A new
     installable harness needs no second service-side list.
     """
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     return {
         word.upper(): word
@@ -198,7 +198,7 @@ REPORT_FACTS_MAX_BYTES = 64 * 1024
 
 @dataclass(frozen=True)
 class ReportRequest:
-    """`report`: one diagnostic report to the Probe team (`probe.core.report`).
+    """`report`: one diagnostic report to the Probe team (`probe.shared.reports`).
 
     `auto` false is a manual report (`probe doctor --send`): no consent gate, no
     dedupe. `sid` names the session a session-family report is about (null for

@@ -17,7 +17,7 @@ import warnings
 
 import pytest
 
-from probe.sdk.run import Run
+from probe.sdk.run.run import Run
 from probe.sdk.session_marker import WIZARD_HINT
 from tests.conftest import make_client, open_run
 
@@ -123,7 +123,7 @@ def test_the_real_run_read_declares_the_key_the_observer_probe_reads():
     import json
     from pathlib import Path
 
-    from probe._generated.models import RunPageDetailOut
+    from probe.generated.models import RunPageDetailOut
 
     probed = "observer_heartbeat_at"
     schema = json.loads(
@@ -266,7 +266,7 @@ _FRESH = "ros_pat_fresh"
 
 def _login(token: str) -> None:
     """What `probe login` leaves behind: the current context's stored token."""
-    from probe.sdk import config as config_module
+    from probe.sdk.settings import settings as config_module
 
     config_module.save_context({"base_url": "http://test", "token": token})
 
@@ -293,7 +293,7 @@ def _credential_warnings(caught) -> list[str]:
 @pytest.fixture
 def reads(monkeypatch):
     """Every credential re-read (config file or environment, never network)."""
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     calls: list = []
     real = Client._reread_credential
@@ -307,8 +307,8 @@ def reads(monkeypatch):
 
 
 def test_only_a_client_built_from_the_environment_is_ambient(monkeypatch, tmp_path):
-    from probe.sdk.client import Client
-    from probe.sdk.config import Settings
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import Settings
 
     monkeypatch.setenv("PROBE_BASE_URL", "http://test")
     monkeypatch.setenv("PROBE_TOKEN", _OLD)
@@ -359,7 +359,7 @@ def test_a_scope_refusal_is_not_the_credential(client, app, monkeypatch, reads):
     """A 403 naming a missing scope refuses one request, not the key. Only a 401,
     or a 403 that says the key's team or membership is gone, is re-read."""
     from probe.sdk import errors
-    from probe.sdk.run import _beat_once
+    from probe.sdk.run.closing.heartbeat import _beat_once
 
     ambient = _as_ambient(client)
     run = open_run(ambient, experiment="e", name="r", heartbeat=False)
@@ -536,7 +536,7 @@ def test_only_this_clients_own_refused_credential_counts(client):
     """#2021 review (LOW). The outbox is machine-wide: a pass can stop on an op
     pinned to ANOTHER context, whose refusal says nothing about this client's
     key. Neither can a scope 403."""
-    from probe.sdk.journal import DrainReport
+    from probe.sdk.delivery.outbox.drain.report import DrainReport
 
     mine = dict(client.journal.context or {})
     other = {"name": "other", "base_url": client.settings.base_url}
@@ -559,7 +559,7 @@ def test_the_exporter_survives_either_order_of_a_relogin(app, tmp_path, monkeypa
     the new one: a pass in that gap finds nothing new, and the exporter used to
     exit there for good. It now waits (a config read at most every 30 s, no
     network) and resumes when the new login lands."""
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     monkeypatch.setattr(Client, "_CREDENTIAL_REFRESH_SECONDS", 0.05)
     _login(_OLD)
@@ -641,7 +641,7 @@ def test_a_real_client_learns_its_account_when_its_heartbeat_starts(app, tmp_pat
     """HIGH. The lookup used to start in __init__ BEFORE the transport existed:
     an AttributeError, swallowed, so no real client ever learned its account
     and every re-login was refused. A real `Client()`, over a real socket."""
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
     from tests.served_fake_app import serve
 
     app.seed_experiment("e1")
@@ -666,7 +666,7 @@ def test_a_failed_identity_lookup_prints_nothing(app, tmp_path, monkeypatch, cap
     uploads with the run. It must leave the account unknown, quietly."""
     import threading
 
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
     from tests.served_fake_app import serve
 
     app.seed_experiment("e1")
@@ -692,7 +692,7 @@ def test_a_failed_identity_lookup_prints_nothing(app, tmp_path, monkeypatch, cap
 def test_a_one_request_client_sends_no_identity_lookup(app, tmp_path, monkeypatch):
     """MED. A CLI command builds a client for one request; it must not pay a
     second one for a refresh it will never make."""
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
     from tests.served_fake_app import serve
 
     with serve(app) as url:
@@ -711,8 +711,8 @@ def test_a_waiting_exporter_releases_the_shared_outbox_lock(app, tmp_path, monke
     process's queued writes until this one exited."""
     from probe._shared import oscompat
 
-    from probe.sdk.client import Client
-    from probe.sdk.outbox_worker import _lease_path
+    from probe.sdk.client.client import Client
+    from probe.sdk.delivery.outbox.lease import _lease_path
 
     monkeypatch.setattr(Client, "_CREDENTIAL_REFRESH_SECONDS", 0.05)
     _login(_OLD)

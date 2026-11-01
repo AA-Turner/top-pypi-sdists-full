@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
+import functools
+import gzip
+import io
 import logging
 import os
+from pathlib import Path
+import sys
+import threading
 from typing import TYPE_CHECKING
 from typing import Concatenate
 from typing import Literal
@@ -15,11 +22,20 @@ from trame.widgets import html as html_widgets
 from trame.widgets import vtk as vtk_widgets
 from trame.widgets import vuetify as vuetify2_widgets
 from trame.widgets import vuetify3 as vuetify3_widgets
+from trame_vtk.tools.vtksz2html import HTML_VIEWER_PATH
+from trame_vtk.tools.vtksz2html import write_html
 
 try:
-    from ipywidgets.widgets import HTML
-except ImportError:
-    HTML = object
+    from anywidget import AnyWidget
+    from ipywidgets import widget_serialization
+    import traitlets
+except ImportError:  # pragma: no cover
+    AnyWidget = object  # type: ignore[misc,assignment]
+
+try:
+    from ipywidgets import HTML
+except ImportError:  # pragma: no cover
+    HTML = object  # type: ignore[misc,assignment]
 
 
 import pyvista as pv
@@ -84,35 +100,193 @@ class TrameJupyterServerDownError(RuntimeError):
         super().__init__(JUPYTER_SERVER_DOWN_MESSAGE)
 
 
-class Widget(HTML):  # type: ignore[misc]  # numpydoc ignore=PR01
+# JavaScript module (ESM) that anywidget runs in the browser to show the widget's HTML
+_HTML_ESM = """
+function render({ model, el }) {
+  const update = () => { el.innerHTML = model.get('value'); };
+  update();
+  model.on('change:value', update);
+  return () => model.off('change:value', update);
+}
+export default { render };
+"""
+
+# JavaScript module (ESM) that anywidget runs in the browser to draw each scene's iframe
+_SCENE_ESM = """const VIEWER_PAGE_GZ = null;
+const pages = (globalThis.__tramePyvistaPages ||= new WeakMap());
+let embeddedPage = null;
+async function inflate(gzipBase64) {
+  const bytes = Uint8Array.from(atob(gzipBase64), (c) => c.charCodeAt(0));
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).text();
+}
+async function plainPage(viewer) {
+  if (!viewer.get('html')) {
+    if (viewer.comm_live === false) {
+      throw new Error('this browser cannot unpack the viewer page without a running kernel');
+    }
+    const filled = new Promise((resolve) => viewer.once('change:html', resolve));
+    viewer.set('plain', true);
+    viewer.save_changes();
+    await filled;
+  }
+  return viewer.get('html');
+}
+function viewerPage(viewer) {
+  if (!pages.has(viewer)) {
+    const gz = viewer.get('html_gz');
+    const canInflate = gz && typeof DecompressionStream !== 'undefined';
+    const page = canInflate ? inflate(gz) : plainPage(viewer);
+    pages.set(viewer, page.catch((err) => { pages.delete(viewer); throw err; }));
+  }
+  return pages.get(viewer);
+}
+async function scenePage(model) {
+  const ref = model.get('_viewer_page');
+  if (!ref) {
+    embeddedPage ||= inflate(VIEWER_PAGE_GZ).catch((err) => { embeddedPage = null; throw err; });
+    return embeddedPage;
+  }
+  const id = typeof ref === 'string' ? ref.replace('IPY_MODEL_', '') : ref.model_id;
+  return viewerPage(await model.widget_manager.get_model(id));
+}
+async function render({ model, el }) {
+  const iframe = document.createElement('iframe');
+  iframe.className = 'pyvista';
+  iframe.setAttribute('scrolling', 'no');
+  const update = async () => {
+    iframe.style.cssText = model.get('iframe_style');
+    try {
+      const page = await scenePage(model);
+      const scene = model.get('scene');
+      const script = '<script>function loadDataSet() {'
+        + "const container = document.querySelector('.content') || document.querySelector('body');"
+        + `OfflineLocalView.load(container, { base64Str: "${scene}" });}</` + 'script>';
+      const end = page.lastIndexOf('</body>');
+      iframe.srcdoc = page.slice(0, end) + script + page.slice(end);
+    } catch (err) {
+      const text = document.createElement('pre');
+      text.textContent = `trame-pyvista could not load the viewer page: ${err.message ?? err}`;
+      iframe.srcdoc = text.outerHTML;
+    }
+  };
+  await update();
+  model.on('change', update);
+  el.appendChild(iframe);
+  return () => model.off('change', update);
+}
+export default { render };
+"""
+
+
+def _in_marimo() -> bool:
+    """Return whether this code runs in a marimo notebook."""
+    marimo = sys.modules.get('marimo')
+    return marimo is not None and marimo.running_in_notebook()
+
+
+_MARIMO_FLOOR = '0.23.14'
+
+
+@functools.cache
+def _warn_old_marimo() -> None:
+    """Warn once when this marimo sends the viewer page with every html plot."""
+    from packaging.version import Version
+
+    version = sys.modules['marimo'].__version__
+    if Version(version) < Version(_MARIMO_FLOOR):
+        warn_external(
+            f'marimo {version} sends the viewer page with every html plot. Upgrade to marimo '
+            f'{_MARIMO_FLOOR} or newer to load it once per notebook.'
+        )
+
+
+_HTML_ONLY_KWARGS = (
+    'style',
+    'description',
+    'description_allow_html',
+    'description_tooltip',
+    'placeholder',
+)
+
+
+def _require_anywidget():
+    """Raise an ImportError naming the anywidget install commands."""
+    msg = (
+        'Notebook plotting requires `anywidget`. Install it with '
+        "`pip install 'pyvista[jupyter]'`, `pip install 'trame-pyvista[jupyter]'`, "
+        'or `pip install anywidget`.'
+    )
+    raise ImportError(msg)
+
+
+def _pop_html_only_kwargs(kwargs):
+    """Remove the ``ipywidgets.HTML`` keyword arguments from ``kwargs`` with a warning."""
+    ignored = [key for key in _HTML_ONLY_KWARGS if kwargs.pop(key, None) is not None]
+    if ignored:
+        names = ', '.join(f'`{key}`' for key in ignored)
+        warn_external(f'Ignoring {names}: no effect on trame-pyvista notebook widgets.')
+
+
+def _warn_ipywidgets_only():
+    """Warn that showing plots with ipywidgets alone is deprecated, or raise without ipywidgets."""
+    if HTML is object:
+        _require_anywidget()
+    warn_external(
+        'Showing trame-pyvista plots with ipywidgets alone is deprecated. Install anywidget with '
+        "`pip install 'pyvista[jupyter]'`, `pip install 'trame-pyvista[jupyter]'`, "
+        'or `pip install anywidget`.',
+        FutureWarning,
+    )
+
+
+def _iframe_style(width, height) -> str:
+    """Return the iframe style for the given size."""
+    # eventually we could maybe expose this, but for now make sure we're at least
+    # consistent with matplotlib's color (light gray)
+    border = 'border: 1px solid rgb(221,221,221);'
+    return f'width: {width}; height: {height}; {border}'
+
+
+def _iframe_value(src, width, height, iframe_attrs) -> str:
+    """Return the iframe markup showing ``src``."""
+    iframe_attrs = {
+        **(iframe_attrs or {}),
+        'src': src,
+        'class': 'pyvista',
+        'style': _iframe_style(width, height),
+        'scrolling': 'no',
+    }
+    iframe_attrs_str = ' '.join(f'{key}="{value!s}"' for key, value in iframe_attrs.items())
+    return f'<iframe {iframe_attrs_str}></iframe>'
+
+
+def _scene_iframe(scene: bytes, style: str) -> str:
+    """Return a standalone iframe embedding the full viewer page and ``scene``."""
+    page = io.StringIO()
+    write_html(scene, page)
+    src = page.getvalue().replace('&', '&amp;').replace('"', '&quot;')
+    return f'<iframe srcdoc="{src}" class="pyvista" style="{style}"></iframe>'
+
+
+class Widget(AnyWidget):  # type: ignore[misc]  # numpydoc ignore=PR01
     """Custom HTML iframe widget for trame viewer."""
+
+    _esm = _HTML_ESM
+    if AnyWidget is not object:
+        value = traitlets.Unicode('').tag(sync=True)
+
+    def __new__(cls, *args, **kwargs):
+        """Create the widget, or the deprecated ipywidgets one when anywidget is missing."""
+        if AnyWidget is object:
+            _warn_ipywidgets_only()
+            return _HTMLWidget(*args, **kwargs)
+        return super().__new__(cls, *args, **kwargs)
 
     def __init__(self, viewer, src, *, width=None, height=None, iframe_attrs=None, **kwargs):
         """Initialize."""
-        if HTML is object:
-            msg = 'Please install `ipywidgets`.'
-            raise ImportError(msg)
-        # eventually we could maybe expose this, but for now make sure we're at least
-        # consistent with matplotlib's color (light gray)
-
-        if iframe_attrs is None:
-            iframe_attrs = {}
-
-        border = 'border: 1px solid rgb(221,221,221);'
-
-        iframe_attrs = {
-            **iframe_attrs,
-            'src': src,
-            'class': 'pyvista',
-            'style': f'width: {width}; height: {height}; {border}',
-            'scrolling': 'no',
-        }
-
-        iframe_attrs_str = ' '.join(f'{key}="{value!s}"' for key, value in iframe_attrs.items())
-
-        value = f'<iframe {iframe_attrs_str}></iframe>'
-
-        super().__init__(value, **kwargs)
+        _pop_html_only_kwargs(kwargs)
+        super().__init__(value=_iframe_value(src, width, height, iframe_attrs), **kwargs)
         self._viewer = viewer
         self._src = src
 
@@ -127,25 +301,121 @@ class Widget(HTML):  # type: ignore[misc]  # numpydoc ignore=PR01
         return self._src
 
 
-class EmbeddableWidget(HTML):  # type: ignore[misc]  # numpydoc ignore=PR01
-    """Custom HTML iframe widget for embedding the trame viewer."""
+class _HTMLWidget(HTML):  # type: ignore[misc]  # numpydoc ignore=PR01
+    """Deprecated ``ipywidgets.HTML`` iframe widget for the trame viewer without anywidget."""
+
+    viewer = Widget.viewer
+    src = Widget.src
+
+    def __init__(self, viewer, src, *, width=None, height=None, iframe_attrs=None, **kwargs):
+        """Initialize."""
+        super().__init__(_iframe_value(src, width, height, iframe_attrs), **kwargs)
+        self._viewer = viewer
+        self._src = src
+
+
+class _ViewerPage(AnyWidget):  # type: ignore[misc]  # numpydoc ignore=PR01
+    """Hidden anywidget holding the trame-vtk viewer page that scene widgets share."""
+
+    _esm = 'export default { render() {} };'
+    html_gz = traitlets.Unicode('').tag(sync=True) if AnyWidget is not object else None
+    html = traitlets.Unicode('').tag(sync=True) if AnyWidget is not object else None
+    plain = traitlets.Bool(False).tag(sync=True) if AnyWidget is not object else None
+
+    def __init__(self, **kwargs):
+        """Initialize."""
+        super().__init__(**kwargs)
+        self.observe(self._send_plain, 'plain')
+
+    def _send_plain(self, change) -> None:
+        """Send the plain viewer page."""
+        self.html = _viewer_page_text()
+
+
+_shared_viewer_page: _ViewerPage | None = None
+_viewer_lock = threading.Lock()
+
+
+@functools.cache
+def _viewer_page_text() -> str:
+    """Return the trame-vtk viewer page."""
+    return Path(HTML_VIEWER_PATH).read_text(encoding='utf-8')
+
+
+@functools.cache
+def _viewer_page_gz() -> str:
+    """Return the trame-vtk viewer page gzipped and base64 encoded."""
+    page = gzip.compress(_viewer_page_text().encode('utf-8'), compresslevel=9, mtime=0)
+    return base64.b64encode(page).decode('ascii')
+
+
+@functools.cache
+def _scene_esm_with_page() -> str:
+    """Return the scene ESM carrying the gzipped viewer page, for scenes without a shared page."""
+    page = f'const VIEWER_PAGE_GZ = "{_viewer_page_gz()}";'
+    return _SCENE_ESM.replace('const VIEWER_PAGE_GZ = null;', page, 1)
+
+
+def _is_closed(widget) -> bool:
+    """Return whether the widget's comm is gone."""
+    return widget.comm is None or getattr(widget.comm, '_closed', False)
+
+
+def _get_viewer_page() -> _ViewerPage:
+    """Return the shared viewer page, creating it when missing or closed."""
+    global _shared_viewer_page
+    with _viewer_lock:
+        if _shared_viewer_page is None or _is_closed(_shared_viewer_page):
+            _shared_viewer_page = _ViewerPage(html_gz=_viewer_page_gz())
+        return _shared_viewer_page
+
+
+class EmbeddableWidget(AnyWidget):  # type: ignore[misc]  # numpydoc ignore=PR01
+    """Iframe widget rendering an exported scene with the trame-vtk viewer page."""
+
+    _esm = _SCENE_ESM
+    if AnyWidget is not object:
+        scene = traitlets.Unicode('').tag(sync=True)
+        iframe_style = traitlets.Unicode('').tag(sync=True)
+        _viewer_page = traitlets.Instance(_ViewerPage, allow_none=True).tag(
+            sync=True, **widget_serialization
+        )
+
+    def __new__(cls, *args, **kwargs):
+        """Create the widget, or the deprecated ipywidgets one when anywidget is missing."""
+        if AnyWidget is object:
+            _warn_ipywidgets_only()
+            return _HTMLEmbeddableWidget(*args, **kwargs)
+        return super().__new__(cls, *args, **kwargs)
 
     def __init__(self, plotter, *, width, height, **kwargs):
         """Initialize."""
-        if HTML is object:
-            msg = 'Please install `ipywidgets`.'
-            raise ImportError(msg)
-        scene = plotter.trame.export_html(filename=None)
-        src = scene.getvalue().replace('&', '&amp;').replace('"', '&quot;')
-        # eventually we could maybe expose this, but for now make sure we're at least
-        # consistent with matplotlib's color (light gray)
-        border = 'border: 1px solid rgb(221,221,221);'
-        value = (
-            f'<iframe srcdoc="{src}" class="pyvista" style="width: {width}; '
-            f'height: {height}; {border}"></iframe>'
+        _pop_html_only_kwargs(kwargs)
+        data = plotter.trame.export_vtksz(filename=None)
+        if _in_marimo():
+            _warn_old_marimo()
+            kwargs.update(_esm=_scene_esm_with_page(), _viewer_page=None)
+        else:
+            kwargs['_viewer_page'] = _get_viewer_page()
+        super().__init__(
+            scene=base64.b64encode(data).decode('ascii'),
+            iframe_style=_iframe_style(width, height),
+            **kwargs,
         )
-        super().__init__(value, **kwargs)
-        self._src = src
+
+    @property
+    def value(self):  # numpydoc ignore=RT01
+        """Get the standalone iframe HTML embedding the full viewer page and scene."""
+        return _scene_iframe(base64.b64decode(self.scene), self.iframe_style)
+
+
+class _HTMLEmbeddableWidget(HTML):  # type: ignore[misc]  # numpydoc ignore=PR01
+    """Deprecated ``ipywidgets.HTML`` widget embedding an exported scene without anywidget."""
+
+    def __init__(self, plotter, *, width, height, **kwargs):
+        """Initialize."""
+        data = plotter.trame.export_vtksz(filename=None)
+        super().__init__(_scene_iframe(data, _iframe_style(width, height)), **kwargs)
 
 
 def launch_server(server=None, *, port=None, host=None, wslink_backend=None, **kwargs):
@@ -241,6 +511,7 @@ def launch_server(server=None, *, port=None, host=None, wslink_backend=None, **k
             disable_logging=True,
             timeout=0,
             backend=wslink_backend,
+            thread=True,
         )
     # else, server is already running or launching
     return server
@@ -265,6 +536,11 @@ def build_url(
         # server_proxy_prefix assumes trailing slash
         prefix = server_proxy_prefix or ''  # pragma: no cover
         src = f'{prefix}{_server.port}/index.html{params}'
+    elif 'google.colab' in sys.modules:
+        from google.colab.output import eval_js
+
+        base = eval_js(f'google.colab.kernel.proxyPort({_server.port})')
+        src = f'{base.rstrip("/")}/index.html{params}'
     else:
         src = f'{protocol}://{host}:{_server.port}/index.html{params}'
     logger.debug(src)
@@ -408,11 +684,11 @@ def show_trame(
         Mostly ignored, though ``protocol`` and ``host`` can be use to
         override the iframe src url and ``height`` and ``width`` can be
         used to override the iframe style. Remaining kwargs are passed to
-        ``ipywidgets.widgets.HTML``.
+        ``anywidget.AnyWidget``.
 
     Returns
     -------
-    output : ipywidgets.widgets.HTML or handler result
+    output : anywidget.AnyWidget or handler result
         Returns a HTML IFrame widget or the result of the passed handler.
 
     """
@@ -427,6 +703,7 @@ def show_trame(
         dh = f'{height}px'
     kwargs.setdefault('width', dw)
     kwargs.setdefault('height', dh)
+    url_kwargs = {key: kwargs.pop(key) for key in ('host', 'protocol') if key in kwargs}
 
     if mode == 'html':
         return EmbeddableWidget(plotter, **kwargs)
@@ -475,13 +752,29 @@ def show_trame(
             ui=plotter._id_name,
             server_proxy_enabled=server_proxy_enabled,
             server_proxy_prefix=server_proxy_prefix,
-            host=kwargs.get('host', 'localhost'),
-            protocol=kwargs.get('protocol', 'http'),
+            host=url_kwargs.get('host', 'localhost'),
+            protocol=url_kwargs.get('protocol', 'http'),
         )
 
     if callable(handler):
-        return handler(viewer, src, iframe_attrs=iframe_attrs, **kwargs)
+        return handler(viewer, src, iframe_attrs=iframe_attrs, **url_kwargs, **kwargs)
     return Widget(viewer, src, iframe_attrs=iframe_attrs, **kwargs)
+
+
+_server_event_loop: asyncio.AbstractEventLoop | None = None
+_server_loop_lock = threading.Lock()
+
+
+def _server_loop() -> asyncio.AbstractEventLoop:
+    """Return the event loop that runs trame servers launched off the main thread."""
+    global _server_event_loop
+    with _server_loop_lock:
+        if _server_event_loop is None:
+            _server_event_loop = asyncio.new_event_loop()
+            threading.Thread(
+                target=_server_event_loop.run_forever, name='trame-pyvista-server', daemon=True
+            ).start()
+        return _server_event_loop
 
 
 def elegantly_launch(*args, **kwargs):  # numpydoc ignore=PR01
@@ -498,14 +791,26 @@ def elegantly_launch(*args, **kwargs):  # numpydoc ignore=PR01
     trame_server.core.Server
         The launched trame server.
 
+    In marimo, and off the main thread, the server runs on a dedicated daemon
+    thread with its own event loop.
+
     Warnings
     --------
-    This uses `nest_asyncio <https://github.com/erdewit/nest_asyncio>`_ which
+    On the main thread, this uses
+    `nest_asyncio2 <https://github.com/Chaoses-Ib/nest-asyncio2>`_ which
     patches the standard lib `asyncio` package and may have unintended
     consequences for some uses cases. We advise strongly to make sure PyVista's
     Jupyter backend is not set to use Trame when not in a Jupyter environment.
 
     """
+
+    async def launch_it():
+        """Launch the server and wait until it is ready."""
+        await launch_server(*args, **kwargs).ready
+
+    if _in_marimo() or threading.current_thread() is not threading.main_thread():
+        return asyncio.run_coroutine_threadsafe(launch_it(), _server_loop()).result()
+
     try:
         import nest_asyncio2
     except ImportError:
@@ -516,10 +821,6 @@ def elegantly_launch(*args, **kwargs):  # numpydoc ignore=PR01
             'await launch_server().ready'
         )
         raise ImportError(msg)
-
-    async def launch_it():
-        """Launch the server and wait until it is ready."""
-        await launch_server(*args, **kwargs).ready
 
     # Basically monkey patches asyncio to support this
     nest_asyncio2.apply()

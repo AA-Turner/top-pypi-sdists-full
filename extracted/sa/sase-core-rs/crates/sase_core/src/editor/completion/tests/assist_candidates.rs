@@ -242,6 +242,7 @@ fn wait_candidates_merge_keywords_and_exclude_selected_values() {
             "for_epic=",
             "hood=",
             "proc=",
+            "target=",
             "time=",
             "unit=",
             "@ops",
@@ -266,6 +267,7 @@ fn wait_candidates_merge_keywords_and_exclude_selected_values() {
             "for_epic=",
             "hood=",
             "proc=",
+            "target=",
             "unit=",
             "@ops",
             "review",
@@ -517,4 +519,19 @@ fn builds_argument_name_completions() {
         list.candidates[0].documentation.as_deref(),
         Some("Run a deeper pass\n\ndefault: false")
     );
+}
+
+#[test]
+fn keyword_only_argument_completion_includes_assignment_marker() {
+    let mut entry = entries()[0].clone();
+    let mut target = entry.inputs[0].clone();
+    target.name = "target".to_string();
+    target.keyword_only = true;
+    target.required = false;
+    entry.inputs = vec![target];
+
+    let list =
+        build_macro_arg_name_candidates(&entry, &BTreeSet::new(), "tar", None);
+    assert_eq!(list.candidates[0].insertion, "target=");
+    assert_eq!(list.candidates[0].detail.as_deref(), Some("target=?: path"));
 }

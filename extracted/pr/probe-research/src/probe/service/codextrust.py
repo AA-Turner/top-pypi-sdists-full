@@ -67,7 +67,7 @@ from pathlib import Path
 
 from . import children, loginenv, paths
 
-#: `probe.cli.codex_hooks.PROBE_PLUGINS` and `probe.cli.capabilities.MARKETPLACE`
+#: `probe.shared.harness.harnesses.codex.hooks.PROBE_PLUGINS` and `probe.cli.capabilities.MARKETPLACE`
 #: (tests/test_service_codex_trust.py holds them equal): the copies whose hooks
 #: `approve` may approve.
 PLUGINS = ("probe-research", "probe-research-daemon", "probe-research-tap")
@@ -106,7 +106,7 @@ READ = "codex_trust"
 
 
 class Trust:
-    """`codex_trust`'s `outcome`: what the child found (`probe.cli.codex_hooks.heal`)."""
+    """`codex_trust`'s `outcome`: what the child found (`probe.shared.harness.harnesses.codex.hooks.heal`)."""
 
     #: Codex trusts every hook `approve` may approve (`approved`: those it
     #: approved just now; none when none waited).
@@ -145,7 +145,7 @@ class Healing:
 
 def codex_home(env: Mapping | None = None) -> Path:
     """`CODEX_HOME` (from `env`, else this process's), else `~/.codex`: Codex's
-    own rule, as `probe.cli.codex_config` reads it in the child."""
+    own rule, as `probe.shared.harness.harnesses.codex.config` reads it in the child."""
     configured = (env if env is not None else os.environ).get("CODEX_HOME")
     return Path(configured).expanduser() if configured else paths.home() / ".codex"
 

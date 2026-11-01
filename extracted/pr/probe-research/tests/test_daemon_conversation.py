@@ -24,14 +24,17 @@ from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, Thinking
 from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
 from probe.daemon import agent as agent_mod  # noqa: E402
-from probe.daemon import approvals as appr  # noqa: E402
-from probe.daemon import bite as bite_mod  # noqa: E402
-from probe.daemon import folders as folders_mod  # noqa: E402
-from probe.daemon import lease, tools, usage  # noqa: E402
-from probe.daemon import memory as memory_mod  # noqa: E402
+from probe.shared.mailbox import approvals as appr  # noqa: E402
+from probe.daemon.worker.bite import bite as bite_mod  # noqa: E402
+from probe.daemon.session import session as folders_mod  # noqa: E402
+from probe.daemon.host import lease  # noqa: E402
+from probe.daemon.agent import tools
+from probe.daemon.agent.model import usage
+from probe.daemon.agent import memory as memory_mod  # noqa: E402
 from probe.daemon import store as store_mod  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
-from probe.daemon.events import Kind  # noqa: E402
+from probe.shared.harness.events import Kind  # noqa: E402
+import probe.daemon.agent.context  # noqa: F401 -- a piece read through its lazy door: loaded here, whatever ran first
 
 SID = "11111111-2222-3333-4444-555555555555"
 RUN = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
@@ -297,7 +300,8 @@ def test_a_continued_run_that_answers_nothing_is_dropped_out_loud(tmp_path, monk
     """A paused run's events are covered already, so a carry-on bite that answers
     nothing has nothing to shrink: what the run had left is dropped with a notice
     and a logbook line, never silently."""
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 1)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 1)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 1)
     mode = {"think_out": False}
     first = Script([("shell", f"probe run tag {RUN} first")] + [("shell", f"ls never-{i}") for i in range(5)])
 
@@ -402,7 +406,7 @@ def test_a_first_run_that_failed_leaves_nothing_to_resume_and_the_retry_starts_f
 
 
 def test_conversation_mode_has_no_per_bite_caps(tmp_path, monkeypatch):
-    monkeypatch.setattr(worker_mod, "BITE_REQUESTS", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "BITE_REQUESTS", 2)
     steps = [("shell", f"ls {i}") for i in range(4)] + [("done", "four looks")]
     conv = Script(list(steps))
     w = _worker(tmp_path, model=FunctionModel(conv), replay=Replay(), mode="conversation", monkeypatch=monkeypatch)
@@ -414,7 +418,8 @@ def test_conversation_mode_has_no_per_bite_caps(tmp_path, monkeypatch):
 def test_a_long_conversation_run_pauses_and_the_next_bite_carries_on_with_what_arrived(tmp_path, monkeypatch):
     """No cap on work, but a run pauses after ROUNDS_BEFORE_YIELD rounds: what
     queued meanwhile gets in, and the same conversation carries on."""
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 3)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 3)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 3)
     replay = Replay()
     w_ref = {}
 
@@ -451,7 +456,8 @@ def test_a_long_conversation_run_pauses_and_the_next_bite_carries_on_with_what_a
 
 
 def test_a_paused_run_carries_on_even_when_nothing_new_arrived(tmp_path, monkeypatch):
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 2)
     first = Script([("shell", "ls a"), ("shell", "ls b"), ("shell", "ls c")])
     w = _worker(tmp_path, model=FunctionModel(first), replay=Replay(), mode="conversation", monkeypatch=monkeypatch)
     w.read_new()
@@ -486,7 +492,7 @@ def test_conversation_mode_without_compaction_runs_as_bites(tmp_path, monkeypatc
 
 def _compacting(monkeypatch) -> None:
     """Compaction on a tiny budget: every request past the first summarizes."""
-    monkeypatch.setattr(agent_mod, "CONTEXT_TOKENS", 50)
+    monkeypatch.setattr(agent_mod.context, "CONTEXT_TOKENS", 50)
 
 
 def test_compaction_keeps_the_instructions_and_the_status_stays_one_call_away(tmp_path, monkeypatch):
@@ -519,7 +525,7 @@ def test_compaction_keeps_the_instructions_and_the_status_stays_one_call_away(tm
 def test_after_a_compaction_the_next_message_carries_the_agent_memory_index_again(tmp_path, monkeypatch):
     """The index rides the first message, which a compaction summarises away: the
     first message after a compaction carries it again, once."""
-    from probe.daemon.events import Event, Kind
+    from probe.shared.harness.events import Event, Kind
 
     _compacting(monkeypatch)
     script = Script([("shell", f"probe run tag {RUN} svm"), ("shell", "ls"), ("done", "tagged")])
@@ -538,7 +544,7 @@ def test_after_a_compaction_the_next_message_carries_the_agent_memory_index_agai
 
 def test_after_n_compactions_the_next_bite_starts_fresh_from_disk(tmp_path, monkeypatch):
     _compacting(monkeypatch)
-    monkeypatch.setattr(worker_mod, "COMPACTIONS_BEFORE_FRESH", 2)
+    monkeypatch.setattr(worker_mod.loop.modes.conversation, "COMPACTIONS_BEFORE_FRESH", 2)
     script = Script([("shell", "ls"), ("shell", "ls -a"), ("shell", "ls -l"), ("done", "looked")])
     w = _worker(tmp_path, model=FunctionModel(script), replay=Replay(), mode="conversation", monkeypatch=monkeypatch)
     w.read_new()
@@ -1070,8 +1076,8 @@ def test_reads_are_parallel_and_the_read_tool_calls_the_reader(tmp_path, monkeyp
             return f"{path} was read alone: the other read had not started"
         return f"contents of {path}"
 
-    monkeypatch.setattr(tools, "read_file", read_file, raising=False)
-    monkeypatch.setattr(tools, "WRITE_TOOLS", frozenset({"shell"}), raising=False)
+    monkeypatch.setattr(tools.read, "read_file", read_file, raising=False)
+    monkeypatch.setattr(tools.tools, "WRITE_TOOLS", frozenset({"shell"}), raising=False)
     agent = agent_mod.build_agent("instructions", model=FunctionModel(Script()))
     defs = agent._function_toolset.tools
     assert defs["shell"].sequential is True
@@ -1233,7 +1239,8 @@ def test_a_paused_history_resumes_as_a_valid_request_on_the_real_client(tmp_path
     from pydantic_ai.models.openai import OpenAIChatModel
     from pydantic_ai.providers.openai import OpenAIProvider
 
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 1)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 1)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 1)
     bodies: list[dict] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -1290,7 +1297,9 @@ def test_with_a_key_the_probe_mcp_is_the_one_other_toolset(monkeypatch):
 
     monkeypatch.setenv("PROBE_DAEMON_MCP", "1")
     monkeypatch.setenv("PROBE_MCP_URL", "http://127.0.0.1:9/mcp")
-    monkeypatch.setattr(worker_mod, "probe_env", lambda sid: {"PROBE_TOKEN": "k", "PROBE_BASE_URL": "http://x"})
+    monkeypatch.setattr(worker_mod.env, "probe_env", lambda sid: {"PROBE_TOKEN": "k", "PROBE_BASE_URL": "http://x"})
+    monkeypatch.setattr(worker_mod.bite.run, "probe_env", lambda sid: {"PROBE_TOKEN": "k", "PROBE_BASE_URL": "http://x"})
+    monkeypatch.setattr(worker_mod.loop.failures, "probe_env", lambda sid: {"PROBE_TOKEN": "k", "PROBE_BASE_URL": "http://x"})
     agent = agent_mod.build_agent("instructions", model=FunctionModel(Script()),
                                   state=agent_mod.RunState(conversation=True, status=lambda: "state"))
     assert set(agent._function_toolset.tools) == {"shell", "read", "session", "edit"}
@@ -1402,11 +1411,11 @@ def test_a_yes_that_cannot_run_says_only_why(tmp_path, monkeypatch):
         deps.stopped = "the researcher moved the switch to `off`"
         return tools.write_refusal(deps) if deps.key_refused else f"{tools.NO_LEASE} ({deps.stopped}). Nothing is lost."
 
-    monkeypatch.setattr(tools, "held_refusal", lost)
+    monkeypatch.setattr(tools.refusals, "held_refusal", lost)
     asyncio.run(w.settle_answers())
     notices = [e.text for e in w.store.pending() if e.kind == Kind.META]
     assert notices == [f"question {req.id} was answered yes but not run: the researcher moved the switch to `off`"]
-    monkeypatch.setattr(tools, "held_refusal", lambda deps, held: f"not run: request {held.id} no longer matches")
+    monkeypatch.setattr(tools.refusals, "held_refusal", lambda deps, held: f"not run: request {held.id} no longer matches")
     other = w.board.hold(policy="shell.unsafe_command", session_id=SID, facts={"command": "make x", "cwd": "/w"},
                          held={"kind": "shell", "command": "make x", "cwd": "/w", "op_id": "p"}, bypass=False)
     w.board.answer(other.id, other.question.yes_label, channel="test")
@@ -1422,7 +1431,7 @@ def test_the_reader_starts_fresh_over_the_message_count_or_on_the_routes_400():
     from pydantic_ai.exceptions import ModelHTTPError
     from pydantic_ai.messages import UserPromptPart
 
-    from probe.daemon import reader_lane
+    from probe.daemon.lanes import reader as reader_lane
 
     class Run:
         def __init__(self, messages):
@@ -1489,7 +1498,8 @@ def test_ending_a_conversation_while_a_paused_run_waits_requeues_its_events(tmp_
     """A paused run's events were covered when it paused. If its conversation then
     ends (over the ceiling here; a refused history or a loop alike), the fresh
     start must still record them."""
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 2)
     first = Script([("shell", "ls PAUSED-RUN"), ("shell", "ls again")] + [("shell", f"ls {i}") for i in range(4)])
     # One model name throughout: another would end the conversation by its fingerprint first.
     w = _worker(tmp_path, model=FunctionModel(first, model_name="m"), replay=Replay(), mode="conversation",

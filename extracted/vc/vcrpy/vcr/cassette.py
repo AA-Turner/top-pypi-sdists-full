@@ -9,10 +9,10 @@ from inspect import iscoroutinefunction
 import wrapt
 
 from ._handle_coroutine import handle_coroutine
-from .errors import UnhandledHTTPRequestError
+from .errors import MissingMetadataError, UnhandledHTTPRequestError
 from .filters import sensitive_data_hooks
 from .matchers import get_matchers_results, method, requests_match, uri
-from .patch import CassettePatcherBuilder
+from .patch import CassettePatcherBuilder, validate_skip_patchers
 from .persisters.filesystem import CassetteDecodeError, CassetteNotFoundError, FilesystemPersister
 from .record_mode import RecordMode
 from .serializers import yamlserializer
@@ -78,6 +78,13 @@ class CassetteContextDecorator:
             lambda key, _: key in self._non_cassette_arguments,
             self._args_getter(),
         )
+        if "path" not in cassette_kwargs:
+            # Only a decorator can name a cassette after its function (#570).
+            raise TypeError(
+                "use_cassette() needs a path when it's used as a context manager. "
+                "It can be left out only when decorating a function, to name the "
+                "cassette after the function.",
+            )
         if other_kwargs.get("path_transformer"):
             transformer = other_kwargs["path_transformer"]
             cassette_kwargs["path"] = transformer(cassette_kwargs["path"])
@@ -183,6 +190,7 @@ class Cassette:
         filter_sensitive_data=(),
         before_save_interaction=None,
         after_load_interaction=None,
+        skip_patchers=(),
     ):
         self._persister = persister or FilesystemPersister
         self._path = path
@@ -205,9 +213,12 @@ class Cassette:
             hide, restore = sensitive_data_hooks(filter_sensitive_data)
             self._before_save_interaction.append(hide)
             self._after_load_interaction.insert(0, restore)
+        self.skip_patchers = validate_skip_patchers(skip_patchers)
 
         # self.data is the list of (req, resp) tuples
         self.data = []
+        # Values stored with get_metadata, saved in the cassette next to the interactions.
+        self._metadata = {}
         self.play_counts = collections.Counter()
         self.dirty = False
         self.rewound = False
@@ -274,7 +285,12 @@ class Cassette:
 
     def can_play_response_for(self, request):
         request = self._before_record_request(request)
-        return request and request in self and self.record_mode != RecordMode.ALL and self.rewound
+        return (
+            request
+            and request in self
+            and self.record_mode != RecordMode.ALL
+            and (self.rewound or self.allow_playback_repeats)
+        )
 
     def play_response(self, request):
         """
@@ -283,9 +299,12 @@ class Cassette:
         """
         for index, response in self._responses(request):
             if self.play_counts[index] == 0 or self.allow_playback_repeats:
+                # Remember each loaded interaction once, however often it's played,
+                # for drop_unused_requests. Interactions recorded now are saved anyway.
+                if self.play_counts[index] == 0 and index < self._loaded_count:
+                    # Use stored (possibly modified) request, not the raw incoming request
+                    self._played_interactions.append((self.data[index][0], response))
                 self.play_counts[index] += 1
-                # Use stored (possibly modified) request, not the raw incoming request
-                self._played_interactions.append((self.data[index][0], response))
                 return response
         # The cassette doesn't contain the request asked for.
         raise UnhandledHTTPRequestError(
@@ -345,6 +364,21 @@ class Cassette:
             final_best_matches.append(best_match[1:])
 
         return final_best_matches
+
+    def get_metadata(self, key, default):
+        """Return the value stored in the cassette under key.
+
+        If the cassette has no such value, store default and return it, or
+        raise MissingMetadataError if the record mode doesn't allow changing
+        the cassette.
+        """
+        if key in self._metadata:
+            return self._metadata[key]
+        if self.write_protected:
+            raise MissingMetadataError(cassette=self, key=key)
+        self._metadata[key] = default
+        self.dirty = True
+        return default
 
     def _new_interactions(self):
         """List of new HTTP interactions (request/response tuples)"""
@@ -423,11 +457,17 @@ class Cassette:
                 "requests": [request for request, _ in interactions],
                 "responses": [response for _, response in interactions],
             }
+        if self._metadata:
+            cassette_dict = {**cassette_dict, "metadata": self._metadata}
         self._persister.save_cassette(self._path, cassette_dict, serializer=self._serializer)
 
     def _load(self):
         try:
-            requests, responses = self._persister.load_cassette(self._path, serializer=self._serializer)
+            # Persisters return (requests, responses), and metadata third if the cassette has any.
+            requests, responses, *metadata = self._persister.load_cassette(
+                self._path,
+                serializer=self._serializer,
+            )
             for request, response in zip(requests, responses, strict=False):
                 interaction = _run_hooks(self._after_load_interaction, request, response, self)
                 if interaction is None:
@@ -438,8 +478,17 @@ class Cassette:
             self._loaded_count = len(self.data)
             self.dirty = False
             self.rewound = True
-        except (CassetteDecodeError, CassetteNotFoundError):
+            self._metadata = metadata[0] if metadata else {}
+        except CassetteNotFoundError:
             pass
+        except CassetteDecodeError:
+            # Unlike a missing cassette, this one exists, so say why it's treated as empty (#501).
+            log.warning(
+                "Cassette %s exists but couldn't be loaded, so it's treated as empty, "
+                "and recording may overwrite it.",
+                self._path,
+                exc_info=True,
+            )
 
     def __str__(self):
         return f"<Cassette containing {len(self)} recorded response(s)>"

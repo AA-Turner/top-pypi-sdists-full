@@ -81,7 +81,7 @@ def test_the_handled_report_is_a_warning_and_skips_the_exit_flush(monkeypatch):
             captured.append({"event": event, **props})
 
     monkeypatch.setattr(tm.TelemetryContext, "start", classmethod(lambda cls, **kw: _Ctx()))
-    monkeypatch.setattr(tm, "_flush_at_exit", lambda: flushed.append(True))
+    monkeypatch.setattr(tm.sender, "_flush_at_exit", lambda: flushed.append(True))
 
     try:
         raise ValueError("boom")
@@ -108,7 +108,7 @@ def test_an_unhandled_crash_stays_an_error_and_flushes(monkeypatch):
             _Ctx.captured.append(props)
 
     monkeypatch.setattr(tm.TelemetryContext, "start", classmethod(lambda cls, **kw: _Ctx()))
-    monkeypatch.setattr(tm, "_flush_at_exit", lambda: flushed.append(True))
+    monkeypatch.setattr(tm.sender, "_flush_at_exit", lambda: flushed.append(True))
 
     try:
         raise ValueError("boom")
@@ -143,8 +143,8 @@ def test_a_backend_we_cannot_prove_is_hosted_reports_nothing(monkeypatch, spool,
     all -- and the SDK's backend comes from `probe.init()` or a named context,
     which the CLI config never reflects."""
     emitted: list[dict] = []
-    monkeypatch.setattr(tm, "_sender", None)
-    monkeypatch.setattr(tm, "_flush_registered", True)
+    monkeypatch.setattr(tm.sender, "_sender", None)
+    monkeypatch.setattr(tm.sender, "_flush_registered", True)
     monkeypatch.setattr(tm._Sender, "start", lambda self: None)
     monkeypatch.setattr(tm._Sender, "put", lambda self, rec: emitted.append(rec))
     monkeypatch.setenv("PROBE_TELEMETRY", "on")
@@ -270,10 +270,11 @@ def test_both_data_loss_branches_are_reported(monkeypatch, tmp_path, method, kwa
     write reached neither the server nor the journal -- and deleting either call
     previously left the whole suite green."""
     from probe.sdk import client as client_module
+    from probe.sdk.delivery import sink
 
     captured: list[str] = []
     monkeypatch.setattr(
-        client_module,
+        sink,
         "_capture_swallowed",
         lambda exc, *, site, **kw: captured.append(site),
     )
@@ -301,7 +302,7 @@ def test_a_failed_lease_renewal_is_reported(monkeypatch):
     live run silently becomes `untracked`. There was no test for the failure leg
     at all -- nothing made renew_lease_if_stale raise."""
     from probe.cli import run_lock
-    from probe.sdk import client as client_module
+    from probe.sdk.delivery import sink
 
     captured: list[str] = []
 
@@ -310,11 +311,11 @@ def test_a_failed_lease_renewal_is_reported(monkeypatch):
 
     monkeypatch.setattr(run_lock, "renew_lease_if_stale", boom)
     monkeypatch.setattr(
-        client_module, "_capture_swallowed", lambda exc, *, site, **kw: captured.append(site)
+        sink, "_capture_swallowed", lambda exc, *, site, **kw: captured.append(site)
     )
 
     # Must not raise: this rides on a real write.
-    client_module._touch_run_lease("/v1/runs/3c5f3695-1a4a-49ef-a255-cf845ea3373a/metrics")
+    sink._touch_run_lease("/v1/runs/3c5f3695-1a4a-49ef-a255-cf845ea3373a/metrics")
 
     assert captured == ["client.lease_renew"]
 

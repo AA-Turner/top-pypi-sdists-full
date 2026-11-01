@@ -53,7 +53,8 @@ there.
 
 Forked and spawned workers (``ddp_fork``, ``ddp_notebook``, ``ddp_spawn``): a
 run a worker opens is closed when the worker exits. torch's worker wrapper
-swallows KeyboardInterrupt, and Lightning's own ``finalize("failed")`` runs in
+swallows KeyboardInterrupt (torch >= 2.15: only after the parent died, else it
+exits 130), and Lightning's own ``finalize("failed")`` runs in
 the parent, whose logger holds no run, so the worker learns its ending itself:
 a SIGINT handler chained in front of the one it found (Ctrl-C -> ``canceled``;
 the parent-death SIGINT torch arms -> ``failed``), and Lightning's
@@ -119,8 +120,10 @@ except ImportError:  # pragma: no cover - exercised only without `lightning`
         ) from _missing
 
 import probe
-from probe.sdk import fluent, hashing, safe_warn
-from probe.sdk.config import env_run_id as _env_run_id
+from probe.sdk import fluent
+from probe.sdk.artifact import hashing
+from probe.foundation.safe_warn import safe_warn
+from probe.sdk.settings.settings import env_run_id as _env_run_id
 
 from . import _checkpoints, _rank_lease
 from ._worker_exit import (  # noqa: F401 -- also read from here by tests
@@ -361,7 +364,7 @@ class ProbeLogger(Logger):
                 )
         owned_client = None
         if "client" not in kwargs and self._client_settings is not None:
-            from probe.sdk.client import Client
+            from probe.sdk.client.client import Client
 
             owned_client = kwargs["client"] = Client(settings=self._client_settings)
         try:
@@ -455,7 +458,7 @@ class ProbeLogger(Logger):
         client = self._init_kwargs.get("client")
         if client is not None:
             return client
-        from probe.sdk.client import Client
+        from probe.sdk.client.client import Client
 
         if self._client_settings is not None:
             return Client(settings=self._client_settings)
@@ -911,13 +914,15 @@ def _close_at_worker_exit(client: Any) -> None:
 
     def close() -> None:
         try:
-            if isinstance(exc, KeyboardInterrupt):
-                fluent.note_exit("canceled")
-            elif _is_lightning_sigterm(exc):
+            if _is_lightning_sigterm(exc):
                 # Under torchrun the worker's own `finalize("failed")` says so;
                 # here that finalize runs in the parent, whose logger holds no
                 # run, and a code-less SystemExit alone reads as success.
                 fluent.note_exit("failed", exc)
+            elif _interrupted(exc):
+                # Ctrl-C however it surfaces (torch >= 2.15 exits 130 from its
+                # `except KeyboardInterrupt`): failed only after the parent died.
+                fluent.note_exit(_sigint_verdict() or "canceled")
             elif isinstance(exc, SystemExit):
                 if exc.code not in (None, 0, False):
                     context = exc.__context__
@@ -967,13 +972,33 @@ def _is_lightning_sigterm(exc: BaseException | None) -> bool:
 
 #: The worker pid whose SIGINT is chained (once per process).
 _SIGINT_CHAINED_PID: int | None = None
+#: (pid, verdict) the chained handler saw: "canceled", or "failed" after the
+#: parent died. Keyed by pid: a forked child inherits it, not its ending.
+_SIGINT_SEEN: tuple[int, str] | None = None
+
+
+def _sigint_verdict() -> str | None:
+    seen = _SIGINT_SEEN
+    return seen[1] if seen is not None and seen[0] == os.getpid() else None
+
+
+def _interrupted(exc: BaseException | None) -> bool:
+    """A KeyboardInterrupt anywhere in how this exception came about."""
+    seen: set[int] = set()
+    while exc is not None and id(exc) not in seen:
+        if isinstance(exc, KeyboardInterrupt):
+            return True
+        seen.add(id(exc))
+        exc = exc.__cause__ or exc.__context__
+    return False
 
 
 def _chain_worker_sigint() -> None:
     """Put a SIGINT handler in front of this worker's, noting how it ends.
 
     torch's worker wrapper swallows KeyboardInterrupt (``except
-    KeyboardInterrupt: pass`` in ``torch/multiprocessing/spawn.py``), so the
+    KeyboardInterrupt: pass`` in ``torch/multiprocessing/spawn.py``; since
+    torch 2.15 only after the parent died, else ``sys.exit(130)``), so the
     worker exits 0 and by its close nothing said Ctrl-C: the run closed
     ``completed``. Lightning's own Ctrl-C handling runs in the parent. So:
 
@@ -1000,16 +1025,16 @@ def _chain_worker_sigint() -> None:
     if not callable(previous):
         return
     parent = os.getppid()
-    noted = {"canceled": False}
 
     def on_sigint(signum: int, frame: Any) -> None:
+        global _SIGINT_SEEN
         if os.getpid() == pid:
             try:
-                if os.getppid() == parent:
-                    noted["canceled"] = True
-                    fluent.note_exit("canceled")
-                elif not noted["canceled"]:
-                    fluent.note_exit("failed")
+                if os.getppid() == parent or _sigint_verdict() == "canceled":
+                    _SIGINT_SEEN = (pid, "canceled")
+                else:
+                    _SIGINT_SEEN = (pid, "failed")
+                fluent.note_exit(_SIGINT_SEEN[1])
             except Exception:  # noqa: BLE001 -- never stand between a signal and its handler
                 pass
         previous(signum, frame)

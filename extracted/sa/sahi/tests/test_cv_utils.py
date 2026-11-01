@@ -1,7 +1,5 @@
 """Tests for computer vision utility functions."""
 
-from __future__ import annotations
-
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -19,6 +17,7 @@ from sahi.utils.cv import (
     get_coco_segmentation_from_bool_mask,
     get_coco_segmentation_from_obb_points,
     get_video_reader,
+    normalize_numpy_image,
     read_image,
     read_image_as_pil,
     read_image_size,
@@ -104,6 +103,14 @@ class TestCvUtils:
         result = apply_color_mask(image, color)
 
         np.testing.assert_array_equal(result, expected_output)
+
+    def test_normalize_black_image(self) -> None:
+        """Normalizing an all-black image should keep finite zeros."""
+        image = np.zeros((2, 2, 3), dtype=np.uint8)
+
+        result = normalize_numpy_image(image)
+
+        np.testing.assert_array_equal(result, np.zeros_like(image))
 
     def test_get_coco_segmentation_from_bool_mask_simple(self) -> None:
         """Test COCO segmentation from empty boolean mask."""
@@ -215,3 +222,28 @@ def test_get_video_reader_frame_skip(tmp_path: Path, frame_skip_interval: int) -
     exported = cv2.VideoCapture(str(save_dir / "source.mp4"))
     assert exported.get(cv2.CAP_PROP_FPS) == pytest.approx(fps / (frame_skip_interval + 1))
     exported.release()
+
+
+def test_visualize_mask_matches_full_image_blend() -> None:
+    """Blending only the mask's box gives the same pixels as blending the whole image."""
+    from sahi.prediction import ObjectPrediction
+    from sahi.utils.cv import apply_color_mask, visualize_object_predictions
+
+    rng = np.random.default_rng(0)
+    image = rng.integers(0, 255, (120, 160, 3), dtype=np.uint8)
+    prediction = ObjectPrediction(
+        segmentation=[[30, 20, 90, 25, 95, 50, 80, 70, 35, 60]], category_id=0, score=0.9, full_shape=[120, 160]
+    )
+    color = (255, 0, 0)
+
+    result = visualize_object_predictions(image, [prediction], color=color, hide_labels=True, rect_th=1)["image"]
+
+    expected = cv2.addWeighted(image, 1, apply_color_mask(prediction.mask.bool_mask, color), 0.6, 0)
+    x1, y1, x2, y2 = (int(v) for v in prediction.bbox.to_xyxy())
+    outside_box = np.ones(image.shape[:2], dtype=bool)
+    outside_box[max(y1 - 1, 0) : y2 + 2, max(x1 - 1, 0) : x2 + 2] = False
+    np.testing.assert_array_equal(result[outside_box], image[outside_box])
+    inside_mask = prediction.mask.bool_mask.copy()
+    inside_mask[y1 - 1 : y1 + 2, :] = inside_mask[y2 - 1 : y2 + 2, :] = False
+    inside_mask[:, x1 - 1 : x1 + 2] = inside_mask[:, x2 - 1 : x2 + 2] = False
+    np.testing.assert_array_equal(result[inside_mask], expected[inside_mask])

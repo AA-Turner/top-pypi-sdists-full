@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gliner
-Version: 0.2.29
+Version: 0.2.30
 Summary: Generalist model for NER (Extract any entity types from texts)
 Author: Urchade Zaratiana, Nadi Tomeh, Pierre Holat, Thierry Charnois
 Maintainer: Urchade Zaratiana
@@ -11,7 +11,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=2.0.0
-Requires-Dist: transformers<5.17.0,>=4.51.3
+Requires-Dist: transformers<5.23.0,>=4.51.3
 Requires-Dist: huggingface_hub>=0.21.4
 Requires-Dist: numpy
 Requires-Dist: packaging

@@ -32,7 +32,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon.shell import Step, Verdict, classify, minimal_env, run
+from probe.daemon.shell.verdict import Step, Verdict
+from probe.daemon.shell.shell import classify
+from probe.daemon.shell.runner import minimal_env, run
 
 LINUX = sys.platform.startswith("linux")
 
@@ -1075,7 +1077,7 @@ def _wait_dead(pid: int) -> bool:
 
 def test_run_stops_the_group_when_its_watch_says_so(tmp_path: Path, monkeypatch) -> None:
     """[G-8] the researcher moves the switch while a command runs: it is killed."""
-    monkeypatch.setattr("probe.daemon.shell.WATCH_POLL_S", 0.05)
+    monkeypatch.setattr("probe.daemon.shell.runner.WATCH_POLL_S", 0.05)
     pidfile = tmp_path / "pid"
     calls = {"n": 0}
 
@@ -1229,7 +1231,7 @@ def test_the_git_forms_the_daemon_is_told_run_at_once(box: Box) -> None:
     """[R3-14] its instructions said plain `git log` runs at once; the classifier asks.
     The read-only forms run at once, and so does every git form its instructions
     (the job and the researcher's skills) name."""
-    from probe.daemon import bite
+    from probe.daemon.worker.bite import bite
 
     named = re.findall(r"`(git [^`]+)`", bite.instructions_for(""))
     forms = ["git log --no-textconv --no-ext-diff", "git diff --no-textconv --no-ext-diff",
@@ -2001,9 +2003,13 @@ def test_bsd_shapes_ask_where_their_tools_read_more(reads: Box, monkeypatch) -> 
     """macOS's ls reads -I as a flag (GNU's takes a pattern), and its zcat reads NAME.Z."""
     from probe.daemon import shell
 
-    monkeypatch.setattr(shell, "_LINUX", True)
+    monkeypatch.setattr(shell.safe_lists, "_LINUX", True)
+    monkeypatch.setattr(shell.classifier.classifier, "_LINUX", True)
+    monkeypatch.setattr(shell.classifier.rules.reader, "_LINUX", True)
     assert reads.safe("ls -I ~/Library/Cookies")  # GNU ls: a pattern, and the current folder is listed
-    monkeypatch.setattr(shell, "_LINUX", False)
+    monkeypatch.setattr(shell.safe_lists, "_LINUX", False)
+    monkeypatch.setattr(shell.classifier.classifier, "_LINUX", False)
+    monkeypatch.setattr(shell.classifier.rules.reader, "_LINUX", False)
     assert "~/Library" in reads.verdict("ls -I ~/Library/Cookies").reason
     assert reads.safe("ls -I nested")  # a name it lists, inside
     assert "isn't on the safe list" in reads.verdict(_at(reads, "zcat {out}/a.gz")).reason
@@ -2017,8 +2023,9 @@ def test_the_second_path_macos_has_to_its_data_is_checked_too(reads: Box, monkey
     data = tmp_path / "sys" / "volumes" / "data"  # stands in for /System/Volumes/Data
     private = tmp_path / "private"  # its /private/outside stands in for /private/etc
     state = reads.outside / "state"  # a protected folder there, as Probe's state can be
-    monkeypatch.setattr(shell, "_MACOS_ALIASES", ((str(data).casefold(), ""),
-                                                  (str(private / "outside").casefold(), str(reads.outside).casefold())))
+    aliases = ((str(data).casefold(), ""), (str(private / "outside").casefold(), str(reads.outside).casefold()))
+    monkeypatch.setattr(shell.safe_lists, "_MACOS_ALIASES", aliases)
+    monkeypatch.setattr(shell.words, "_MACOS_ALIASES", aliases)
     alias = Path(f"{data}{reads.home}")
     (alias / "Library" / "Cookies").mkdir(parents=True)
     (alias / ".ssh").mkdir()
@@ -2040,7 +2047,7 @@ def test_the_second_path_macos_has_to_its_data_is_checked_too(reads: Box, monkey
 
 def test_the_read_tool_and_the_reader_stay_in_the_working_folders(reads: Box) -> None:
     """`read_refusal` (the daemon's file reader, and the reader's) is not widened."""
-    from probe.daemon.shell import read_refusal
+    from probe.daemon.shell.shell import read_refusal
 
     refused = read_refusal(str(reads.outside / "a.txt"), workdirs=[reads.work], home=reads.home, cwd=reads.work)
     assert refused is not None and "outside the working folders" in refused[0]
@@ -2157,7 +2164,7 @@ def test_a_lastpipe_cd_adds_its_folder_to_where_later_parts_may_run(reads: Box) 
 def test_a_semicolon_stuck_to_a_word_still_ends_the_command(reads: Box) -> None:
     """[2] `cd /o;rg -I T .`: the folder is /o, not `/o;`, for the `off` file names a
     command's words reach and for `rg -I` / `grep -h`."""
-    from probe.daemon.exclusions import command_bases, drops_file_names
+    from probe.shared.harness.session_filter import command_bases, drops_file_names
 
     work = str(reads.work)
     assert command_bases("cd /o;rg -I T .", work) == [work, "/o"]

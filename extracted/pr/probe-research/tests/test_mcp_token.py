@@ -15,7 +15,7 @@ import json
 import pytest
 
 from probe import cli
-from probe.sdk.config import config_path, load_context
+from probe.sdk.settings.settings import config_path, load_context
 from tests.conftest import make_client
 
 # `probe.cli.main` the function shadows `probe.cli.main` the module on the package.
@@ -63,7 +63,7 @@ def test_rotating_replaces_the_token_and_leaves_no_stale_copy(wired, capsys):
 
 
 def test_rotation_does_not_disturb_the_write_token(wired):
-    from probe.sdk.config import save_file
+    from probe.sdk.settings.settings import save_file
 
     # Deliberately a FLAT v1 file: this doubles as a migration guard, since the write
     # token has to survive being folded into a context by the first v2 save.
@@ -167,7 +167,7 @@ def test_headers_prefers_the_environment(wired, capsys, monkeypatch):
 
 
 def test_headers_never_falls_back_to_the_write_token(wired, capsys):
-    from probe.sdk.config import save_file
+    from probe.sdk.settings.settings import save_file
 
     save_file({"base_url": "http://test", "token": "probe_pat_WRITE"})
     assert cli.main(["mcp", "headers"]) == 1  # no mcp_token: fail, do not hand over a writer

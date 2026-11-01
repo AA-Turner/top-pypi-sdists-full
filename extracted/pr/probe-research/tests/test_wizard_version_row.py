@@ -6,7 +6,7 @@ something to run, and the one screen every user does see said what was switched
 ON and nothing about whether the thing switched on was the version we publish. A
 machine three releases behind looked identical to a current one.
 
-These rows are a SECOND RENDERING of `probe.cli.versions`, never a second
+These rows are a SECOND RENDERING of `probe.shared.updates.updates`, never a second
 grading, so the two surfaces can differ in wording and never in verdict.
 
 THE PROPERTIES THAT MATTER, and that this file pins:
@@ -33,7 +33,7 @@ import pytest
 
 from probe.cli import capabilities, setup, updater
 from probe.cli.capabilities import Capabilities
-from probe.cli.versions import Comparison, VersionStatus, compare, overall
+from probe.shared.updates.updates import Comparison, VersionStatus, compare, overall
 
 MANIFEST = {
     "cli": {"latest": "0.162.0", "min": "0.127.0"},
@@ -312,7 +312,7 @@ def test_overall_of_nothing_is_unknown() -> None:
 
 
 class _Policy:
-    """A stand-in for `probe.version_policy` that records what was asked of it."""
+    """A stand-in for `probe.shared.updates.version_policy` that records what was asked of it."""
 
     TTL = 900
 
@@ -347,10 +347,10 @@ class _Policy:
 
 @pytest.fixture
 def policy(monkeypatch):
-    import probe
+    from probe.shared import updates
 
     def install(stub):
-        monkeypatch.setattr(probe, "version_policy", stub, raising=False)
+        monkeypatch.setattr(updates, "version_policy", stub, raising=False)
         return stub
 
     return install
@@ -359,7 +359,7 @@ def policy(monkeypatch):
 def test_a_fresh_cache_is_not_refetched(policy) -> None:
     """The row is rendered on every pass through the menu. A fetch per pass would
     put a network round trip behind a keystroke."""
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     stub = policy(_Policy(manifest={"cli": {}}, fresh=True))
     versions.warm_manifest()
@@ -367,7 +367,7 @@ def test_a_fresh_cache_is_not_refetched(policy) -> None:
 
 
 def test_a_stale_cache_is_refetched_and_the_claim_released(policy) -> None:
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     stub = policy(_Policy(manifest={"cli": {}}, fresh=False))
     versions.warm_manifest()
@@ -377,7 +377,7 @@ def test_a_stale_cache_is_refetched_and_the_claim_released(policy) -> None:
 def test_a_claim_held_elsewhere_is_never_raced(policy) -> None:
     """The detached refresher this same CLI spawns at startup usually holds it.
     A stale manifest is a fine thing to render while a fresh one lands."""
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     stub = policy(_Policy(manifest={"cli": {}}, fresh=False, claim=False))
     versions.warm_manifest()
@@ -387,7 +387,7 @@ def test_a_claim_held_elsewhere_is_never_raced(policy) -> None:
 def test_with_nothing_cached_it_waits_for_the_other_fetch(policy) -> None:
     """The one case worth waiting for: a first run on a fresh machine, where
     returning now means the row can only say "not checked"."""
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     stub = policy(_Policy(manifest=None, fresh=False, claim=False))
 
@@ -408,7 +408,7 @@ def test_with_nothing_cached_it_waits_for_the_other_fetch(policy) -> None:
 def test_the_wait_is_bounded(policy) -> None:
     import time
 
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     policy(_Policy(manifest=None, fresh=False, claim=False))
     started = time.monotonic()
@@ -419,7 +419,7 @@ def test_the_wait_is_bounded(policy) -> None:
 def test_a_failing_fetch_never_reaches_the_caller(policy) -> None:
     """An offline machine still gets its menu. The row says "not checked", which
     is the true answer, and nothing above it breaks."""
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     stub = _Policy(manifest=None, fresh=False)
 

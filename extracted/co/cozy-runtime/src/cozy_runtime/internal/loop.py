@@ -47,13 +47,13 @@ from tensorfs import varena
 from torch.utils._python_dispatch import TorchDispatchMode
 from torch.utils._pytree import tree_leaves
 
-from cozy_runtime import graphs
+from cozy_runtime import graphs, stepcache
 from cozy_runtime.author import _loop
 from cozy_runtime.author._context import CURRENT, Context
 from cozy_runtime.author._errors import CapabilityError, Fault, OutputError, fault, unwind
 from cozy_runtime.author._model import _LOCAL_SCOPES, LANDED, PLACED, Building
 from cozy_runtime.graphs import domain
-from cozy_runtime.internal import kernel_ready
+from cozy_runtime.internal import accel, kernel_ready
 from cozy_runtime.internal.accel import ResidencyError
 from cozy_runtime.internal.prepared import (
     PreparedRepeat,
@@ -94,6 +94,8 @@ _REFUSED = (
 )
 #: cudaError_t stream-capture codes (900-908): an operation the step runs cannot be recorded.
 _CAPTURE_ERRORS = range(900, 909)
+#: a refusal by one of them (`_refusal`)
+_UNRECORDABLE = "the step cannot be recorded"
 #: request id -> its loops, for the run record (`execution.loops`)
 ROWS: dict[str, list[dict[str, Any]]] = {}
 
@@ -145,7 +147,7 @@ def _refusal(error: BaseException) -> str | None:
         return f"residency refused preparation: {error}"
     code = getattr(error, "error_code", None)
     if isinstance(code, int) and code in _CAPTURE_ERRORS:
-        return f"the step cannot be recorded: {error}"
+        return f"{_UNRECORDABLE}: {error}"
     if isinstance(error, Exception) and fault(error) is Fault.OTHER:
         return f"recording failed: {type(error).__name__}: {error}"
     return None
@@ -220,6 +222,7 @@ class Loops:
         on_step: Callable[[int], object] | None,
         before: Callable[..., object] | None,
         after: Callable[..., object] | None,
+        cache: stepcache.Policy | None = None,
     ) -> None:
         row: dict[str, Any] = {
             "steps": len(steps),
@@ -234,29 +237,52 @@ class Loops:
             ROWS.setdefault(request.id, []).append(row)
         # The loop records its own programs: component region graphs neither replay nor learn
         # its calls (a replayed step enters no blocks, and its graph holds their weights).
+        if cache is not None and _ranks() > 1:  # each rank's verdict would differ
+            row["refusals"].append("step cache: off across ranks (its sums are not all-reduced)")
+            cache = None
         bypass = graphs.BYPASS.set(True)
         try:
-            self._run(step, steps, state, carried, inputs, phases, key, on_step, before, after, row)
+            loop = _Loop(step, steps, phases, on_step, before, after)
+            if cache is None:
+                self._run(loop, state, carried, inputs, key, row)
+            else:
+                self._cached(loop, state + carried, inputs, cache, row)
         finally:
             graphs.BYPASS.reset(bypass)
             row["at_ms"]["returned"] = _now()
 
+    def _cached(
+        self,
+        loop: _Loop,
+        mutable: tuple[Any, ...],
+        inputs: tuple[Any, ...],
+        cache: stepcache.Policy,
+        row: dict[str, Any],
+    ) -> None:
+        """A call under a step cache, eagerly: each forward's verdict is read on the host."""
+        row["refusals"].append("step cache: eager")
+        with (
+            torch.inference_mode(False),
+            torch.no_grad(),
+            _owned(mutable) as work,
+            stepcache.running(cache, len(loop.steps)) as run,
+        ):
+            try:
+                loop.eager_all(work + inputs, CURRENT.get())
+            finally:
+                row["cache"] = run.document()
+
     def _run(
         self,
-        step: Callable[..., object],
-        steps: range,
+        loop: _Loop,
         state: tuple[Any, ...],
         carried: tuple[Any, ...],
         inputs: tuple[Any, ...],
-        phases: tuple[Hashable, ...] | None,
         key: Hashable | None,
-        on_step: Callable[[int], object] | None,
-        before: Callable[..., object] | None,
-        after: Callable[..., object] | None,
         row: dict[str, Any],
     ) -> None:
         ctx = CURRENT.get()
-        loop = _Loop(step, steps, phases, on_step, before, after)
+        step, steps, phases = loop.step, loop.steps, loop.phases
         mutable = state + carried
         with torch.inference_mode(False), torch.no_grad(), _owned(mutable) as work:
             tensors = work + inputs
@@ -361,6 +387,12 @@ class Loops:
             row["dropped"] = "released"
         if refused:
             row["refusals"].append(f"whole call on its first call: {refused}")
+            if refused.startswith(_UNRECORDABLE):
+                # Its idle recording would meet the same error and keep the next call waiting
+                # on it (an RTX 3060's SDXL w1 559 ms, then its own doomed recording).
+                with self._lock:
+                    known.unfit.add(shape)
+                    known.why[shape] = refused[:400]
         loop.eager(loop.steps[1:], tensors, ctx)
         _after(loop, tensors, scope, known, shape)
         row["eager"] = self._queue(
@@ -514,6 +546,8 @@ class _Loop:
             if ctx is not None:
                 ctx.raise_if_cancelled()
             index.fill_(i)
+            if (cached := stepcache._RUN.get()) is not None:
+                cached.begin(i - self.steps.start)
             _call(self.step, index, tensors, self.phase(i))
             if self.on_step is not None:
                 self.on_step(i)
@@ -524,6 +558,11 @@ class _Loop:
         _once(self.before, tensors)
         self.eager(self.steps, tensors, ctx)
         _once(self.after, tensors)
+
+
+def _ranks() -> int:
+    dist = torch.distributed
+    return dist.get_world_size() if dist.is_available() and dist.is_initialized() else 1
 
 
 def _once(fn: Callable[..., object] | None, tensors: tuple[Any, ...]) -> None:
@@ -800,11 +839,17 @@ class _IdleRecording:
         try:
             done = self._record()
         except Exception as error:
-            if isinstance(error, graphs.Yielded) or fault(error) in (Fault.STICKY, Fault.DEVICE):
+            # A step that cannot be recorded (an RTX 3060's SDXL step frees memory inside the
+            # capture: 900 from cuMemFree) is refused here as on a call's path, not a device
+            # fault: one at idle poisoned the executor and failed every next request.
+            if isinstance(error, graphs.Yielded):
+                raise
+            refused = _refusal(error)
+            if refused is None and fault(error) in (Fault.STICKY, Fault.DEVICE):
                 raise
             if isinstance(error, Building) or isinstance(error.__cause__, Building):
                 return False  # a kernel still opens: a later idle period
-            why = _refusal(error) or f"{type(error).__name__}: {error}"
+            why = refused or f"{type(error).__name__}: {error}"
             with self.loops._lock:
                 self.known.unfit.add(shape)
                 self.known.why[shape] = f"its idle recording failed: {why}"[:400]
@@ -1378,6 +1423,7 @@ class _Graph:
             self._contexts.enter_context(pause() if pause is not None else nullcontext())
             self._contexts.enter_context(kernel_ready.recording())
             self._contexts.enter_context(varena.capture(self.device.index))
+            self._contexts.enter_context(accel.capture_allocation(torch))
             stream.wait_stream(self._caller)
             control.wait_stream(stream)
             torch.cuda.set_stream(control)

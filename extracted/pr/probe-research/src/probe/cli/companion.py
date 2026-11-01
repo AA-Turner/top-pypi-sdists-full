@@ -266,9 +266,9 @@ def authorize_cmd(
     Revoke it on its own under Settings › Connected clients; the agent then
     records again.
     """
-    from probe.sdk.config import resolve
+    from probe.sdk.settings.settings import resolve
 
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     from .main import _conn
 

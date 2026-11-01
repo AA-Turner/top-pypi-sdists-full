@@ -40,7 +40,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 
 #: Another machine's service folder active this recently uses this install.
 OTHER_MACHINE_RECENT_S = 24 * 3600.0
@@ -173,7 +173,7 @@ def _workers() -> list[str]:
 
 def _run_locks() -> list[dict]:
     """Training runs holding a run lock: {run, pid, at} (pid None for a lease)."""
-    from probe._shared import run_lock
+    from probe.foundation.durable import run_lock
 
     out = []
     for root in _state_roots():
@@ -216,7 +216,7 @@ def _newest_mtime(folder: Path) -> float:
 
 def other_machines(now: float | None = None) -> list[str]:
     """Other machines in this shared home that used Probe recently."""
-    from probe._shared import installs
+    from probe.shared.updates import installs
     from probe.cli import uninstall_plan
     from probe.service import paths
 
@@ -409,7 +409,7 @@ def run_by_desktop_app() -> bool:
     """Is this `probe uninstall` the desktop app's own (it sets
     PROBE_DESKTOP_HUMAN=1 on every CLI run)? Then the app quits itself once the
     run succeeds, and is never asked to from here."""
-    from probe._shared.telemetry import DESKTOP_HUMAN_ENV
+    from probe.analytics.analytics import DESKTOP_HUMAN_ENV
 
     return os.environ.get(DESKTOP_HUMAN_ENV) == "1"
 
@@ -474,7 +474,7 @@ def tap_watchers() -> list[Proc]:
     `tap watch` for that session (the tap's own check, `session-start.sh`) and
     it started before the pid file was written (a reused pid did not)."""
     from probe.cli import capture
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
     from probe.service import procid
 
     folder = Path(capture._pid_dir())  # noqa: SLF001 - the tests' override included

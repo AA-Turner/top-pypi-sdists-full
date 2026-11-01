@@ -32,10 +32,13 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
 from probe.cli import daemon_cli  # noqa: E402
 from probe.daemon import agent as agent_mod  # noqa: E402
-from probe.daemon import lease, mailbox  # noqa: E402
-from probe.daemon import reader_lane as rl  # noqa: E402
+from probe.daemon.host import lease  # noqa: E402
+from probe.shared import mailbox
+from probe.daemon.lanes import reader as rl  # noqa: E402
 from probe.daemon import store as store_mod  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
+import probe.daemon.agent.context  # noqa: F401 -- a piece read through its lazy door: loaded here, whatever ran first
+import probe.daemon.agent.reader  # noqa: F401 -- a piece read through its lazy door: loaded here, whatever ran first
 
 SID = "11111111-2222-3333-4444-555555555555"
 FIXTURES = Path(__file__).parent / "fixtures" / "daemon_prompts" / "reads"
@@ -186,7 +189,7 @@ def test_every_approved_reads_file_is_pinned_here():
 
 
 def test_the_readers_job_is_the_approved_skill_file():
-    shipped = (Path(rl.__file__).parent / "read_session.md").read_text(encoding="utf-8").rstrip("\n")
+    shipped = (Path(rl.__file__).parents[1] / "prompts" / "read_session.md").read_text(encoding="utf-8").rstrip("\n")
     assert shipped == body("job/read-session.NEW.md")
     assert shipped.startswith("---\nname: read-session\n"), "skill front matter, like record_session.md"
     assert rl.read_session_text() == shipped[shipped.index("\n---", 3) + 4:].strip()
@@ -280,8 +283,8 @@ def test_the_readers_turn_shows_the_approved_lines(tmp_path):
 
 def test_the_readers_feedback_is_a_question_for_the_researcher(tmp_path):
     """The reader has no shell: its `feedback` tool holds the same question
-    `probe feedback send` does, for the watched session (`probe.feedback`)."""
-    from probe.daemon import approvals as appr
+    `probe feedback send` does, for the watched session (`probe.shared.feedback.feedback`)."""
+    from probe.shared.mailbox import approvals as appr
 
     w = _worker(tmp_path)
     text = "search returned five runs from another project for a project-scoped question"
@@ -301,8 +304,8 @@ def test_the_readers_feedback_is_a_question_for_the_researcher(tmp_path):
 @pytest.mark.parametrize("text, reply", [("   ", "not sent: the feedback is empty"),
                                          ("the same feedback", "not sent: the researcher already said no")])
 def test_the_readers_feedback_tool_says_why_it_held_nothing(tmp_path, text, reply):
-    from probe import feedback as fb
-    from probe.daemon import approvals as appr
+    from probe.shared.feedback import feedback as fb
+    from probe.shared.mailbox import approvals as appr
 
     w = _worker(tmp_path)
     denied = fb.hold("the same feedback", session_id=SID, source=fb.Source.DAEMON_READER, harness="claude_code")
@@ -769,7 +772,7 @@ def test_the_worker_runs_the_reader_only_when_reads_are_on_and_stops_it_at_sessi
         w.begin_stopping()
         return await asyncio.wait_for(task, 30)
 
-    monkeypatch.setattr(worker_mod, "POLL_S", 0.05)
+    monkeypatch.setattr(worker_mod.loop.loop, "POLL_S", 0.05)
     monkeypatch.setattr(rl, "READ_POLL_S", 0.05)
     assert asyncio.run(run()) == 0
     assert started["reader"] and w.reader is None
@@ -782,7 +785,7 @@ def test_the_worker_runs_the_reader_only_when_reads_are_on_and_stops_it_at_sessi
 def test_no_reader_without_the_reads_switch(tmp_path, monkeypatch):
     w = _worker(tmp_path, model=FunctionModel(lambda m, i: ModelResponse(
         parts=[ToolCallPart(i.output_tools[0].name, {"summary": "ok"})])))
-    monkeypatch.setattr(worker_mod, "POLL_S", 0.01)
+    monkeypatch.setattr(worker_mod.loop.loop, "POLL_S", 0.01)
 
     async def run():
         task = asyncio.ensure_future(w.loop())
@@ -809,7 +812,7 @@ def test_the_daemon_profile_turns_the_reader_on_for_its_own_agent(tmp_path, monk
         return None
 
     monkeypatch.setattr(rl.ReaderLane, "stop", _stop)
-    monkeypatch.setattr(worker_mod, "POLL_S", 0.01)
+    monkeypatch.setattr(worker_mod.loop.loop, "POLL_S", 0.01)
     w = _worker(tmp_path, model=FunctionModel(lambda m, i: ModelResponse(
         parts=[ToolCallPart(i.output_tools[0].name, {"summary": "ok"})])))
 
@@ -876,7 +879,7 @@ def test_a_finishing_worker_hands_over_at_its_next_model_round(tmp_path):
 
 
 def test_the_session_end_budget_fits_one_full_model_call():
-    from probe.daemon import model
+    from probe.daemon.agent.model import model
 
     assert worker_mod.FINISH_CAP_S == 35 * 60
     assert worker_mod.FINISH_CAP_S > model.DEFAULT_TIMEOUT_S
@@ -992,7 +995,7 @@ def test_a_delivery_reaches_the_reader_from_the_claim_log_not_the_transcript(tmp
     context; the reader (and the writer) get it whole from the mailbox's claim log
     (the worker's reader stream), so the adapter does not read this copy again.
     `[Probe]` text in a wording this CLI does not know is still read."""
-    from probe.daemon.adapters import for_source
+    from probe.shared.harness.lookup import for_source
 
     line = {"type": "attachment", "timestamp": "2026-09-28T07:00:00Z",
             "attachment": {"type": "hook_additional_context",
@@ -1024,7 +1027,7 @@ def test_a_failure_reason_is_one_line(tmp_path):
 def test_the_readers_turns_are_traced_in_their_own_file(tmp_path):
     """`reader.jsonl` beside the writer's (`trace.py`): each turn's start and end,
     its calls and tool runs, under the reader's own trace ids."""
-    from probe.daemon import trace as trace_mod
+    from probe.daemon.trace import trace as trace_mod
 
     w = _worker(tmp_path)
     lane = _lane(w, Reader(steps=[("tool", ("session", {"op": "outline"}))], end="nothing new"))
@@ -1128,7 +1131,7 @@ def test_with_prompt_wakes_off_a_prompt_alone_wakes_nothing(tmp_path, monkeypatc
     """A Probe hint that serves the session with the server's `off`, or
     PROBE_READER_PROMPT_WAKE=off, turns the reader's prompt wakes off; an ask
     and the new-events timer still wake it."""
-    from probe.daemon import model as model_mod
+    from probe.daemon.agent.model import model as model_mod
 
     monkeypatch.setattr(model_mod, "_PUSHED", {})
     monkeypatch.delenv(model_mod.ENV_READER_PROMPT_WAKE, raising=False)
@@ -1155,7 +1158,7 @@ def test_a_session_no_hint_serves_keeps_its_prompt_wakes(tmp_path, monkeypatch):
     """The server's `off` alone is not enough: Probe read mode, a sandbox,
     `PROBE_HINTS=off` or a stopped service leave no fresh hint marker, and the
     researcher's prompt still wakes the reader."""
-    from probe.daemon import model as model_mod
+    from probe.daemon.agent.model import model as model_mod
 
     monkeypatch.setattr(model_mod, "_PUSHED", {})
     monkeypatch.delenv(model_mod.ENV_READER_PROMPT_WAKE, raising=False)
@@ -1179,7 +1182,7 @@ def test_check_ins_stop_only_while_window_hints_are_proven_working(tmp_path, mon
     the service's `.window` marker is fresh; an ask still wakes the reader."""
     import os
 
-    from probe.daemon import model as model_mod
+    from probe.daemon.agent.model import model as model_mod
 
     monkeypatch.setattr(model_mod, "_HINTS_SID", None)
     model_mod.bind_hints(SID)
@@ -1223,7 +1226,7 @@ def test_only_a_readable_probe_reader_every_s_keeps_the_check_ins(raw, explicit)
 def test_while_window_hints_hold_the_check_ins_an_ask_reads_the_newest_events(tmp_path, monkeypatch):
     """Nothing drains the backlog turn by turn while the check-ins are the
     window hints', even with prompt wakes on: an ask reads the work now."""
-    from probe.daemon import model as model_mod
+    from probe.daemon.agent.model import model as model_mod
 
     monkeypatch.setenv(model_mod.ENV_READER_PROMPT_WAKE, "on")
     monkeypatch.setattr(model_mod, "window_hints_live", lambda now=None: True)
@@ -1242,7 +1245,7 @@ def test_with_prompt_wakes_off_a_turn_reads_the_newest_window(tmp_path, monkeypa
     """Nothing drains a busy session's backlog turn by turn once prompts stop
     waking the reader: a check-in reads the newest window, and the older unread
     events drop off (the cursor moves past them), never a window hours behind."""
-    from probe.daemon import model as model_mod
+    from probe.daemon.agent.model import model as model_mod
 
     monkeypatch.setenv(model_mod.ENV_READER_PROMPT_WAKE, "off")
     monkeypatch.setattr(rl, "READ_MAX_EVENTS", 3)
@@ -1312,7 +1315,7 @@ def test_events_that_would_pass_the_size_start_the_conversation_fresh_with_no_su
     one retry cut a strand-ai turn at 420 s with nothing read. New events that
     would take the kept conversation past its size start it fresh instead --
     rule A at the start of a turn, told what was already sent."""
-    monkeypatch.setattr(agent_mod, "READ_CONTEXT_TOKENS", 2_000)
+    monkeypatch.setattr(agent_mod.context, "READ_CONTEXT_TOKENS", 2_000)
     w = _worker(tmp_path)
     lane = _lane(w, _sized([], "digits-svm (run r7): best C=10, 0.9889.", 500))
     asyncio.run(lane.run_turn("prompt"))
@@ -1347,7 +1350,7 @@ def test_a_turn_that_grows_past_the_size_mid_turn_makes_no_summary_call(tmp_path
     """Every round reports 5,000 tokens against a 2,000 size: compaction would
     have summarized before round 2. The turn runs on; its end starts the next
     one fresh (rule A)."""
-    monkeypatch.setattr(agent_mod, "READ_CONTEXT_TOKENS", 2_000)
+    monkeypatch.setattr(agent_mod.context, "READ_CONTEXT_TOKENS", 2_000)
     w = _worker(tmp_path)
     outline = ("tool", ("session", {"op": "outline"}))
     sized = _sized([outline, outline, outline], "", 5_000)
@@ -1386,7 +1389,7 @@ def test_a_turn_another_guard_wrapped_up_and_the_model_answered_pings_nobody(tmp
     pings = []
     monkeypatch.setattr(rl.alerts, "report", lambda kind, **kw: pings.append((kind, kw.get("text"))))
     if limit == "rounds":
-        monkeypatch.setattr(agent_mod, "READ_ROUNDS", 3)
+        monkeypatch.setattr(agent_mod.reader, "READ_ROUNDS", 3)
         why = "3 model rounds"
     else:  # the clock passes the wall at the second round's tool call
         monkeypatch.setattr(agent_mod.ReaderLimits, "_now",
@@ -1420,7 +1423,7 @@ def test_a_turn_out_of_rounds_after_the_size_stop_still_pings(tmp_path, monkeypa
     rounds without ending is still a stopped turn."""
     pings = []
     monkeypatch.setattr(rl.alerts, "report", lambda kind, **kw: pings.append((kind, kw.get("text"))))
-    monkeypatch.setattr(agent_mod, "READ_ROUNDS", 3)
+    monkeypatch.setattr(agent_mod.reader, "READ_ROUNDS", 3)
     w = _worker(tmp_path)
     outline = ("tool", ("session", {"op": "outline"}))
     lane = _lane(w, _sized([outline] * 6, "", agent_mod.READ_STOP_TOKENS))
@@ -1437,7 +1440,8 @@ def test_a_kept_conversation_at_the_message_count_starts_fresh_before_the_turn(t
     asyncio.run(lane.run_turn("prompt"))
     first = w.store.live_read_conversation()
     wire = agent_mod.wire_messages(ModelMessagesTypeAdapter.validate_json(first["messages"]))
-    monkeypatch.setattr(agent_mod, "COMPACT_MESSAGES", wire)  # at the count: this turn's prompt passes it
+    monkeypatch.setattr(agent_mod.context, "COMPACT_MESSAGES", wire)  # at the count: this turn's prompt passes it
+    monkeypatch.setattr(agent_mod.reader, "COMPACT_MESSAGES", wire)  # at the count: this turn's prompt passes it
     _append_turn(w, "and the RBF kernel?")
     w.read_new()
     reader = Reader(end="")

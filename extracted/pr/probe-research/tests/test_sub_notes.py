@@ -85,8 +85,8 @@ def test_rename_and_delete_by_id(client, app):
 
 
 def _service(client):
-    from probe.mcp.service import ResearchReadService
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.tools.tools import ResearchReadService
+    from probe.mcp.source.source import ResearchOSSource
 
     return ResearchReadService(ResearchOSSource(client))
 

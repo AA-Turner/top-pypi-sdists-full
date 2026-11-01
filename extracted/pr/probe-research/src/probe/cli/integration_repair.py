@@ -29,7 +29,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from probe.cli import capabilities, plugin_cli
+from probe.cli import capabilities
+from probe.shared.harness import plugins as plugin_cli
 
 #: Retired plugins that capture beside today's tap (a second upload of every session).
 RETIRED = {
@@ -45,7 +46,7 @@ def _package_source() -> str | None:
     """The harness whose Probe is a package entry in its settings (pi's), from
     the registry rather than by name."""
     try:
-        from probe.harness import FAMILY_EXTENSION, get_registry
+        from probe.foundation.harness_registry import FAMILY_EXTENSION, get_registry
 
         return next((h.id for h in get_registry().installable() if h.family == FAMILY_EXTENSION), None)
     except Exception:  # noqa: BLE001
@@ -74,7 +75,7 @@ def _claude_ledger() -> dict:
 
 
 def _claude_enabled() -> dict:
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     try:
         path = get_registry().get(plugin_cli.CLAUDE).home_dir() / "settings.json"
@@ -86,8 +87,8 @@ def _claude_enabled() -> dict:
 
 
 def _codex_tables() -> dict:
-    from probe._compat import tomllib
-    from probe.cli import codex_config
+    from probe.foundation.compat.compat import tomllib
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     try:
         parsed = tomllib.loads(codex_config.config_path().read_text(encoding="utf-8"))
@@ -98,7 +99,7 @@ def _codex_tables() -> dict:
 
 
 def _codex_cache(name: str) -> Path:
-    from probe.cli import codex_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     return codex_config.codex_home() / "plugins" / "cache" / capabilities.MARKETPLACE / name
 
@@ -141,7 +142,7 @@ def _codex_unusable(names: tuple[str, ...]) -> dict:
 
 
 def _kimi_unusable() -> dict:
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     found = {}
     for plugin_id in kimi_config.PLUGIN_IDS:
@@ -152,7 +153,7 @@ def _kimi_unusable() -> dict:
 
 
 def _pi_unusable() -> dict:
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     merged = pi_config.merged_package_entry()
     if merged.installed and merged.scope == "global" and merged.extension_filtered_out:
@@ -186,7 +187,7 @@ def leftovers(source: str) -> list[tuple[str, str]]:
         elif source == plugin_cli.CODEX:
             ids = [key for key in _codex_tables() if isinstance(key, str)]
         elif source == plugin_cli.KIMI:
-            from probe.cli import kimi_config
+            from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
             ids = [f"{pid}" for pid in kimi_config.PLUGIN_IDS if kimi_config._record_root(pid) is not None]  # noqa: SLF001
         else:
@@ -210,7 +211,7 @@ def leftovers(source: str) -> list[tuple[str, str]]:
 def codex_hooks_digest() -> str:
     """One digest of every Probe hook entry Codex runs (`hooks/hooks.json` of
     each Probe plugin copy in its cache): what its trust is keyed on."""
-    from probe.cli import codex_config, codex_hooks
+    from probe.shared.harness.harnesses.codex import config as codex_config, hooks as codex_hooks
 
     digest = hashlib.sha256()
     cache = codex_config.codex_home() / "plugins" / "cache"
@@ -224,13 +225,13 @@ def codex_hooks_digest() -> str:
 def _set_enabled(source: str, name: str) -> None:
     """Turn a Probe plugin back on in the agent's own settings (a person asked
     for Probe in this agent: the install or `probe repair`)."""
-    from probe.sdk.durable import through_symlink, write_text_atomic
+    from probe.foundation.durable.durable import through_symlink, write_text_atomic
 
     key = f"{name}@{capabilities.MARKETPLACE}"
     if source == plugin_cli.CODEX:
         import tomlkit
 
-        from probe.cli import codex_config
+        from probe.shared.harness.harnesses.codex import config as codex_config
 
         original = codex_config.config_path()
         path = through_symlink(original)
@@ -241,7 +242,7 @@ def _set_enabled(source: str, name: str) -> None:
         table["enabled"] = True
         write_text_atomic(path, tomlkit.dumps(data), mode=0o600, keep_mode=path != original)
         return
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     original = get_registry().get(source).home_dir() / "settings.json"
     path = through_symlink(original)
@@ -257,7 +258,7 @@ def _repair_pi(out: Repaired) -> None:
     """Drop the `extensions` filter that keeps Probe's extension from loading
     on the global entry: the filter is pi's way to choose a package's parts,
     and an empty one chose none of Probe's (strand-ai)."""
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     path = pi_config.settings_path()
     data = pi_config._load_settings(path)  # noqa: SLF001 -- the one reader, refuses an unreadable file
@@ -297,7 +298,7 @@ def repair(source: str, *, reinstall: bool = True, enable_disabled: bool = True)
             _repair_pi(out)
             broken = unusable_plugins(source)
         elif source == plugin_cli.KIMI and broken:
-            from probe.cli import kimi_config
+            from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
             for plugin_id in list(broken):
                 result = kimi_config.install_plugin(plugin_id)

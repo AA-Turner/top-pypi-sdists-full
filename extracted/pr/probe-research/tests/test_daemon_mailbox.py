@@ -9,19 +9,21 @@ against this file-per-message design.
 from __future__ import annotations
 
 import fcntl
+import importlib
 import json
 import multiprocessing
 import os
 import threading
 import time
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
 from probe.cli import daemon_cli
 from probe.cli.main import app
-from probe.daemon import mailbox
-from probe.daemon.store import store_path
+from probe.shared import mailbox
+from probe.daemon.store.store import store_path
 from probe.sdk import session_marker
 
 SID = "11111111-2222-3333-4444-555555555555"
@@ -102,7 +104,7 @@ def test_expired_messages_are_never_delivered_and_are_swept():
 
 
 def _claim_worker(path: str, results) -> None:
-    got = mailbox.claim(SID, mailbox.Path(path), by=f"pid{os.getpid()}")
+    got = mailbox.claim(SID, Path(path), by=f"pid{os.getpid()}")
     results.put(got.id if got else None)
 
 
@@ -125,7 +127,7 @@ def test_competing_processes_deliver_each_message_once(tmp_path, monkeypatch):
 
 
 def _claim_then_die(path: str) -> None:
-    mailbox.claim(SID, mailbox.Path(path), by="dies")
+    mailbox.claim(SID, Path(path), by="dies")
     os._exit(17)
 
 
@@ -351,7 +353,7 @@ def test_ask_wait_prints_the_end_of_its_ask(daemon_session, kind, kw, code, out)
 
 
 def test_ask_wait_gives_up_to_the_hooks_at_its_ceiling(daemon_session, monkeypatch):
-    monkeypatch.setattr(mailbox, "WAIT_MAX_S", 0.3)
+    monkeypatch.setattr(mailbox.asks, "WAIT_MAX_S", 0.3)
     handle = _hold_lock()
     try:
         res = _ask("--wait", "tuned before?")
@@ -400,7 +402,7 @@ def test_a_locked_counter_times_out_and_the_count_is_carried(monkeypatch):
     from probe.daemon import store as store_mod
     from probe.daemon import worker as worker_mod
 
-    monkeypatch.setattr(store_mod, "DEVICE_LOCK_WAIT_S", 0.2)
+    monkeypatch.setattr(store_mod.device, "DEVICE_LOCK_WAIT_S", 0.2)
     lock_file = store_mod.device_path().with_suffix(".lock")
     lock_file.parent.mkdir(parents=True, exist_ok=True)
     with lock_file.open("a") as other:
@@ -801,7 +803,10 @@ def test_every_mailbox_folder_is_kept_from_dead_run_recovery_and_from_the_sweep(
     import inspect
     import re
 
-    named = set(re.findall(r'root\(\) / "([a-z_]+)"', inspect.getsource(mailbox)))
+    # Every piece of the module the door serves (agent:12 split it by job).
+    pieces = sorted(set(mailbox._HOMES.values()))
+    source = "".join(inspect.getsource(importlib.import_module(name)) for name in pieces)
+    named = set(re.findall(r'root\(\) / "([a-z_]+)"', source))
     assert named == set(mailbox.FOLDERS)
     mailbox.write_ask(SID, "what LR did the last sweep use?")  # `probe ask` makes them first
     kept = [mailbox.root() / name / mailbox.KEEP_FILE for name in mailbox.FOLDERS]

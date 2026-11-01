@@ -12,8 +12,8 @@ from typer.testing import CliRunner
 from probe.cli import bootstrap, doctor, setup, tui
 from probe.cli.actions import Action
 from probe.cli.capabilities import Capabilities, TokenSource, capture_token_sources, tap_plugin_dir
-from probe.sdk.config import load_context, resolve, save_context
-from probe.sdk.device import DeviceLoginError, OnboardingRequired
+from probe.sdk.settings.settings import load_context, resolve, save_context
+from probe.sdk.settings.device import DeviceLoginError, OnboardingRequired
 
 main = importlib.import_module("probe.cli.main")
 
@@ -408,7 +408,7 @@ def test_installing_pi_requires_its_own_capture_grant(entry, monkeypatch):
 
 @pytest.mark.parametrize("code", ["ABCD234567"])
 def test_fresh_wizard_signs_in_once_then_installs_with_the_saved_grants(entry, monkeypatch, code):
-    from probe.sdk import device
+    from probe.sdk.settings import device
 
     authorizations = []
 
@@ -456,7 +456,9 @@ def test_fresh_wizard_signs_in_once_then_installs_with_the_saved_grants(entry, m
 
 @pytest.mark.parametrize("repair", ["disabled_capture", "codex_bearer", "legacy_capture"])
 def test_install_applies_local_repairs_without_reauthorizing(entry, monkeypatch, repair):
-    from probe.cli import claude_cli, onboarding_complete, plugin_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+    from probe.cli import onboarding_complete
+    from probe.shared.harness import plugins as plugin_cli
 
     save_context({"token": "probe_pat_existing", "mcp_token": "probe_pat_read"})
     source = "codex"
@@ -568,7 +570,7 @@ def test_headless_install_code_still_authenticates_when_tooling_is_declined(entr
 
 
 def test_short_code_credentials_use_the_existing_persistence_path(entry, monkeypatch):
-    from probe.sdk import device
+    from probe.sdk.settings import device
 
     calls = []
 
@@ -594,7 +596,7 @@ def test_short_code_credentials_use_the_existing_persistence_path(entry, monkeyp
 
 
 def test_onboarding_requirement_propagates_through_credential_persistence(entry, monkeypatch):
-    from probe.sdk import device
+    from probe.sdk.settings import device
 
     def mint(*a, **kw):
         raise OnboardingRequired("Finish onboarding", onboarding_url="https://dash.test/onboarding")
@@ -658,14 +660,15 @@ def test_doctor_distinguishes_rejected_credentials_from_offline(entry, monkeypat
                 raise errors.AuthError("revoked")
             raise errors.TransportError("offline")
 
-    monkeypatch.setattr("probe.sdk.client.Client", Client)
+    monkeypatch.setattr("probe.sdk.client.client.Client", Client)
+    monkeypatch.setattr("probe.sdk.client.resources.runs.attach.Client", Client)
     caps = collect_capabilities()
     assert caps.api_credential_valid is (False if rejected else None)
 
 
 @pytest.mark.parametrize("code", ["ABCD234567", None])
 def test_only_explicit_code_overrides_matching_inherited_credentials(entry, monkeypatch, code):
-    from probe.sdk import device
+    from probe.sdk.settings import device
 
     for variable in ("PROBE_TOKEN", "PROBE_MCP_TOKEN", "PROBE_INGEST_TOKEN"):
         monkeypatch.setenv(variable, "previous-credential")
@@ -709,7 +712,7 @@ def test_only_explicit_code_overrides_matching_inherited_credentials(entry, monk
 
 
 def test_explicit_code_preserves_environment_for_unreturned_grants(entry, monkeypatch):
-    from probe.sdk import device
+    from probe.sdk.settings import device
 
     monkeypatch.setenv("PROBE_TOKEN", "previous-api")
     monkeypatch.setenv("PROBE_INGEST_TOKEN", "unrelated-capture")
@@ -727,7 +730,7 @@ def test_explicit_code_preserves_environment_for_unreturned_grants(entry, monkey
 
 @pytest.mark.parametrize("failure", ["redeem", "persist"])
 def test_failed_code_keeps_inherited_credential_precedence(entry, monkeypatch, failure):
-    from probe.sdk import config, device
+    from probe.sdk.settings import settings as config, device
 
     save_context({"token": "previous-saved-api"})
     monkeypatch.setenv("PROBE_TOKEN", "previous-environment-api")
@@ -753,7 +756,7 @@ def test_failed_code_keeps_inherited_credential_precedence(entry, monkeypatch, f
 
 
 def test_code_selects_the_new_identity_for_signin_and_following_menu_actions(entry, monkeypatch):
-    from probe.sdk import device
+    from probe.sdk.settings import device
 
     monkeypatch.setenv("PROBE_TOKEN", "previous-environment-api")
     monkeypatch.setattr(setup, "sign_in", sign_in_to_account)
@@ -847,7 +850,7 @@ def test_direct_interactive_account_and_settings_screens_require_login(entry, mo
 
 
 def test_no_main_menu_after_an_action_clears_the_account(entry, monkeypatch):
-    from probe.sdk.config import clear_context, current_context_name
+    from probe.sdk.settings.settings import clear_context, current_context_name
 
     save_context({"token": "saved-api"})
     menus = []
@@ -1055,7 +1058,7 @@ def test_desktop_code_includes_daemon_grant_only_when_explicitly_selected(entry,
 
 
 def test_daemon_key_from_install_code_is_saved_and_reused_without_another_approval(entry, monkeypatch):
-    from probe.sdk import device
+    from probe.sdk.settings import device
     from probe.cli import companion, daemon_cli
 
     calls = []

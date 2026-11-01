@@ -1,0 +1,657 @@
+"""The one table in ``$CODEX_HOME/config.toml`` this CLI owns.
+
+Codex has no credential-helper hook. The Claude Code plugin ships a
+``headersHelper`` that mints an ``Authorization`` header at connect time from the
+token the wizard already holds, so Claude never sends anyone to a browser for
+the MCP. A plugin-declared HTTP MCP under Codex can only say ``auth: "oauth"``,
+which is a SECOND browser approval stacked on the one the wizard just ran --
+and it is the step that fails, because it is a three-minute window on a page
+nobody explained.
+
+A user-level ``[mcp_servers.<name>]`` entry overrides the plugin-declared one
+(same name, one row in ``codex mcp list``, ``auth_status`` flips from
+``not_logged_in`` to ``bearer_token``), and it accepts a static header. So the
+read token minted by the single approval can serve Codex exactly the way the
+headers helper serves Claude Code, with the MCP still hosted by us.
+
+Two Codex behaviours shape everything below, both verified against codex-cli
+0.147.0:
+
+* A literal ``bearer_token`` key is not ignored for a streamable HTTP server --
+  Codex refuses to load its ENTIRE configuration ("bearer_token is not
+  supported for streamable_http") and will not start. The supported spelling is
+  ``http_headers``. Nothing here may ever emit ``bearer_token``.
+* config.toml belongs to the user, and one syntax error in it takes Codex down
+  the same way. Every write parses its own output before replacing anything,
+  and a file that does not parse on the way IN is left alone -- a broken config
+  is someone else's bug until we touch it, and ours forever after.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+from probe.foundation.compat.compat import tomllib
+from dataclasses import dataclass
+from pathlib import Path
+
+from probe.sdk.agent_session import AGENT_HEADER, AGENT_SESSION_HEADER
+from probe.foundation.durable.durable import write_text_atomic
+
+#: What this host calls itself on the wire. A CONSTANT for a Codex install, so
+#: it rides the static header where it works today -- pointing it at an env var
+#: nothing exports would have shipped a header that never arrives.
+CODEX_AGENT_LABEL = "codex"
+
+#: What `codex mcp list --json` reports once a static header is in place. The
+#: wizard treats it as "authenticated" and skips the OAuth flow.
+BEARER_STATUS = "bearer_token"
+
+#: The hosted MCP the SHIPPED plugin manifests declare (`.codex-plugin/
+#: plugin.json`, `.mcp.json`, `probe-research-pi/mcp.json` all carry this exact
+#: string). Named here because the deployment check in setup.py needs to ask
+#: "is this the stock endpoint or a self-hosted one", and a fourth hand-written
+#: copy of the literal is how that question starts being answered differently
+#: in different files.
+PRODUCTION_MCP_URL = "https://mcp.research.prbe.ai/mcp"
+
+
+class ConfigError(Exception):
+    """A refusal to write, carrying the reason for the caller to surface.
+
+    Never a crash: every caller has a working fallback (Codex's own OAuth), so
+    the shortcut declining is a slower install, not a failed one.
+    """
+
+
+@dataclass(frozen=True)
+class WriteResult:
+    path: Path
+    changed: bool
+    #: The file's exact contents before this write, or None when it did not
+    #: exist. Kept so a caller that cannot CONFIRM the result can undo it: a
+    #: config we broke is not something to leave behind and fall back from,
+    #: because "Codex will not start" outlives whatever we were installing.
+    previous: str | None = None
+
+
+def codex_home() -> Path:
+    """``$CODEX_HOME``, else ``~/.codex`` -- the same resolution Codex uses."""
+    configured = os.environ.get("CODEX_HOME")
+    return Path(configured).expanduser() if configured else Path.home() / ".codex"
+
+
+def config_path() -> Path:
+    return codex_home() / "config.toml"
+
+
+def plugin_mcp_url(name: str, *, marketplace: str) -> str | None:
+    """The URL the installed Codex plugin declares for `name`, if it can be read.
+
+    Taken from the plugin's own cached manifest rather than a constant here, so
+    the entry we register points at whatever that install actually uses -- a
+    self-hosted deployment included. No manifest means no shortcut: registering
+    a guessed URL would point Codex at the wrong server with a valid token.
+    """
+    root = codex_home() / "plugins" / "cache" / marketplace / name
+    if not root.is_dir():
+        return None
+    for version_dir in sorted(root.iterdir(), reverse=True):
+        manifest = version_dir / ".codex-plugin" / "plugin.json"
+        try:
+            declared = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        servers = declared.get("mcpServers")
+        if not isinstance(servers, dict):
+            continue
+        entry = servers.get(name)
+        if isinstance(entry, dict) and isinstance(entry.get("url"), str):
+            return entry["url"]
+    return None
+
+
+def installed_plugin_versions(marketplace: str) -> dict[str, str] | None:
+    """`{plugin: version}` for every plugin of `marketplace` Codex has added,
+    read from its own files: the `[plugins."<plugin>@<marketplace>"]` table
+    `codex plugin add` writes in config.toml, and the copy it installs at
+    `plugins/cache/<marketplace>/<plugin>/<version>/`, a copy whose manifest
+    names the plugin (its version, else the folder's name; the newest when
+    several are left). None when config.toml cannot be read.
+
+    What `codex plugin list` reports, without starting Codex: on 2026-10-26 a
+    Mac's `codex plugin list --json` timed out after 20 s right after the
+    update had reinstalled both plugins, and the update read that as both
+    missing."""
+    from probe.cli import updater
+
+    try:
+        parsed = tomllib.loads(config_path().read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError):
+        return None
+    tables = parsed.get("plugins")
+    suffix = f"@{marketplace}"
+    found: dict[str, str] = {}
+    for plugin_id in tables if isinstance(tables, dict) else ():
+        if not (isinstance(plugin_id, str) and plugin_id.endswith(suffix)):
+            continue
+        name = plugin_id[: -len(suffix)]
+        root = codex_home() / "plugins" / "cache" / marketplace / name
+        try:
+            copies = [entry for entry in root.iterdir() if entry.is_dir()]
+        except OSError:
+            continue
+        versions = []
+        for copy in copies:
+            # Only a copy Codex could load: a manifest naming this plugin. An
+            # empty or half-written folder is no evidence of an install.
+            try:
+                declared = json.loads((copy / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(declared, dict) or declared.get("name") != name:
+                continue
+            version = declared.get("version")
+            versions.append(version if isinstance(version, str) and version else copy.name)
+        newest = None
+        for version in versions:
+            if newest is None or updater.is_newer(version, newest):
+                newest = version
+        if newest:
+            found[name] = newest
+    return found
+
+
+def configured_bearer(name: str, *, path: Path | None = None) -> str | None:
+    """The token currently in the header we wrote, or None if there is no entry.
+
+    Rotation is the reason this exists. `codex mcp list` reports `bearer_token`
+    for ANY header, valid or not, so Codex's own view cannot tell a current
+    credential from one revoked a week ago -- it says "authenticated" either
+    way, right up until every call 401s.
+    """
+    target = path or config_path()
+    try:
+        parsed = tomllib.loads(target.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return None
+    entry = (parsed.get("mcp_servers") or {}).get(name)
+    if not isinstance(entry, dict):
+        return None
+    header = (entry.get("http_headers") or {}).get("Authorization")
+    if not isinstance(header, str) or not header.startswith("Bearer "):
+        return None
+    return header[len("Bearer ") :].strip() or None
+
+
+def _toml_string(value: str) -> str:
+    """A TOML basic string. `json.dumps` escapes exactly what TOML needs here."""
+    return json.dumps(value)
+
+
+def needs_header_migration(name: str, *, path: Path | None = None) -> bool:
+    """Is `name`'s table written in the pre-`env_http_headers` shape?
+
+    The token-rotation path in setup.py returns early when the stored token
+    still matches, which is right for a rotation and WRONG for a shape change:
+    an install whose token never rotates would keep the old table forever and
+    never gain the agent-session header. This is the second reason to rewrite.
+    """
+    target = path or config_path()
+    try:
+        parsed = tomllib.loads(target.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        # Unreadable or broken is NOT "needs migration": the writer refuses a
+        # broken file anyway, and claiming otherwise would make every run try
+        # and fail to rewrite it.
+        return False
+    entry = (parsed.get("mcp_servers") or {}).get(name)
+    if not isinstance(entry, dict):
+        return False
+    return not isinstance(entry.get("env_http_headers"), dict)
+
+
+def _header_patterns(name: str) -> tuple[re.Pattern[str], re.Pattern[str]]:
+    """Match `[mcp_servers.name]` and its sub-tables, quoted or bare.
+
+    `codex mcp add` writes the bare spelling; a hand-edited file may quote it.
+    Missing the quoted form would append a SECOND table for the same server.
+    """
+    escaped = re.escape(name)
+    key = rf'(?:{escaped}|"{escaped}")'
+    exact = re.compile(rf"^\s*\[\s*mcp_servers\s*\.\s*{key}\s*\]\s*(?:#.*)?$")
+    child = re.compile(rf"^\s*\[\s*mcp_servers\s*\.\s*{key}\s*\.")
+    return exact, child
+
+
+def _table_span(lines: list[str], name: str) -> tuple[int, int] | None:
+    """The half-open line range holding `name`'s table and any sub-tables."""
+    exact, child = _header_patterns(name)
+    start = next((i for i, line in enumerate(lines) if exact.match(line)), None)
+    if start is None:
+        return None
+    end = len(lines)
+    for index in range(start + 1, len(lines)):
+        stripped = lines[index].lstrip()
+        if stripped.startswith("[") and not child.match(lines[index]):
+            end = index
+            break
+    return start, end
+
+
+def _validated(text: str, *, what: str) -> None:
+    try:
+        tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigError(f"{what} is not valid TOML ({exc})") from exc
+
+
+def _replace_span(text: str, span: tuple[int, int] | None, block: str) -> str:
+    lines = text.splitlines(keepends=True)
+    if span is None:
+        prefix = text if not text or text.endswith("\n") else text + "\n"
+        separator = "\n" if prefix.strip() else ""
+        return f"{prefix}{separator}{block}"
+    start, end = span
+    return "".join(lines[:start]) + block + "".join(lines[end:])
+
+
+def configured_limit_headers(name: str, *, path: Path | None = None) -> dict[str, str] | None:
+    """The workspace-limit headers in the table we wrote ({} for none), or None
+    when there is no entry to compare. A copy of the limit, like the bearer: a
+    limit change must re-render it (`setup.sync_codex_mcp_token`)."""
+    from probe.sdk.settings.workspace_limit import limit_headers_of
+
+    target = path or config_path()
+    try:
+        parsed = tomllib.loads(target.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return None
+    entry = (parsed.get("mcp_servers") or {}).get(name)
+    if not isinstance(entry, dict):
+        return None
+    headers = entry.get("http_headers")
+    return limit_headers_of(headers if isinstance(headers, dict) else {})
+
+
+def write_mcp_bearer(
+    name: str,
+    *,
+    url: str,
+    token: str,
+    path: Path | None = None,
+    limit_headers: dict[str, str] | None = None,
+) -> WriteResult:
+    """Point Codex's `name` MCP at `url` with a static Authorization header.
+
+    `limit_headers`: this computer's workspace-limit headers to carry beside it
+    (default: what the Probe config stores now, `workspace_limit.stored_headers`).
+
+    Replaces the whole table rather than patching keys inside it: a leftover
+    `bearer_token_env_var` from an earlier shape would otherwise sit alongside
+    the header, and a leftover `oauth` key would keep Codex asking to log in.
+    """
+    target = path or config_path()
+    existed = True
+    try:
+        original = target.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        original, existed = "", False
+    except OSError as exc:
+        raise ConfigError(f"could not read {target}: {exc}") from exc
+
+    if original.strip():
+        # Refuse a file that is already broken. Rewriting part of it would make
+        # us the author of a config Codex cannot load.
+        _validated(original, what=str(target))
+
+    # `env_http_headers` reads the named environment variables at CONNECT time
+    # and omits a header whose variable is unset -- verified against codex-cli
+    # 0.151.0, which sends `x-probe-agent-session` when CODEX_THREAD_ID is
+    # exported and simply leaves it out when it is not.
+    #
+    # Codex does not populate CODEX_THREAD_ID in the parent today: MCP servers
+    # connect before a thread exists. This is written anyway, because it costs a
+    # line and starts working the day that changes -- and because the alternative
+    # reading, that the transport cannot carry the id, is false and would have
+    # sent us building a worse fix. The agent's own shell DOES see the variable,
+    # which is what `search(exclude_session=...)` is for meanwhile.
+    if limit_headers is None:
+        from probe.sdk.settings.workspace_limit import stored_headers
+
+        limit_headers = stored_headers()
+    # This computer's workspace limit rides the same static table (the hosted MCP
+    # forwards it); absent for the whole team.
+    limit = "".join(
+        f", {_toml_string(key)} = {_toml_string(value)}" for key, value in sorted(limit_headers.items())
+    )
+    block = (
+        f"[mcp_servers.{name}]\n"
+        f"url = {_toml_string(url)}\n"
+        f"http_headers = {{ Authorization = {_toml_string(f'Bearer {token}')}, "
+        f"{_toml_string(AGENT_HEADER)} = {_toml_string(CODEX_AGENT_LABEL)}{limit} }}\n"
+        f"env_http_headers = {{ "
+        f"{_toml_string(AGENT_SESSION_HEADER)} = \"CODEX_THREAD_ID\" }}\n"
+    )
+    span = _table_span(original.splitlines(keepends=True), name)
+    updated = _replace_span(original, span, block)
+    previous = original if existed else None
+    if updated == original:
+        return WriteResult(path=target, changed=False, previous=previous)
+
+    _validated(updated, what="the updated Codex config")
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        # The file now holds a credential. It may not have before: 0600 from
+        # its first byte, and a symlinked config.toml is replaced, never
+        # written through, so the token does not land in a dotfiles repo.
+        write_text_atomic(target, updated, mode=0o600)
+    except OSError as exc:
+        raise ConfigError(f"could not write {target}: {exc}") from exc
+    return WriteResult(path=target, changed=True, previous=previous)
+
+
+def write_limit_headers(name: str, limit_headers: dict[str, str], *, path: Path | None = None) -> WriteResult:
+    """Set ONLY the workspace-limit headers in `name`'s existing table -- for an
+    install Codex authenticates itself (`codex mcp login`, OAuth), which has no
+    static bearer for `write_mcp_bearer` to rewrite around. Every other key of the
+    table is left as it is; `limit_headers` empty removes them.
+
+    Edits the table's one `http_headers = { ... }` line (adding it under the
+    header when absent). A table whose `http_headers` is spelled any other way (a
+    sub-table) is refused, never rewritten: the file is a person's as well as ours.
+    """
+    from probe.sdk.settings.workspace_limit import LIMIT_HEADER, TEAM_ITEMS_HEADER
+
+    target = path or config_path()
+    try:
+        original = target.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ConfigError(f"could not read {target}: {exc}") from exc
+    _validated(original, what=str(target))
+    entry = (tomllib.loads(original).get("mcp_servers") or {}).get(name)
+    if not isinstance(entry, dict):
+        raise ConfigError(f"{target} has no [mcp_servers.{name}] table")
+    current = entry.get("http_headers") if isinstance(entry.get("http_headers"), dict) else {}
+    limit_keys = {LIMIT_HEADER.lower(), TEAM_ITEMS_HEADER.lower()}
+    kept = {str(k): str(v) for k, v in current.items() if str(k).lower() not in limit_keys}
+    headers = {**kept, **dict(sorted(limit_headers.items()))}
+    if headers == {str(k): str(v) for k, v in current.items()}:
+        return WriteResult(path=target, changed=False, previous=original)
+
+    lines = original.splitlines(keepends=True)
+    span = _table_span(lines, name)
+    assert span is not None  # the parse above found the table
+    start, end = span
+    own_end = next(
+        (i for i in range(start + 1, end) if lines[i].lstrip().startswith("[")), end
+    )  # before the table's first sub-table
+    key_line = re.compile(r'^\s*(?:http_headers|"http_headers")\s*=')
+    at = next((i for i in range(start + 1, own_end) if key_line.match(lines[i])), None)
+    if at is None and "http_headers" in entry:
+        raise ConfigError(f"{target}: [mcp_servers.{name}] spells http_headers as a table; left untouched")
+    inline = ", ".join(f"{_toml_string(k)} = {_toml_string(v)}" for k, v in headers.items())
+    replacement = [f"http_headers = {{ {inline} }}\n"] if headers else []
+    if at is None:
+        lines[start + 1 : start + 1] = replacement
+    else:
+        lines[at : at + 1] = replacement
+    updated = "".join(lines)
+    _validated(updated, what="the updated Codex config")
+    if ((tomllib.loads(updated).get("mcp_servers") or {}).get(name) or {}).get("http_headers", {}) != headers:
+        raise ConfigError(f"{target}: could not place the workspace-limit headers; left untouched")
+    try:
+        write_text_atomic(target, updated, mode=0o600)
+    except OSError as exc:
+        raise ConfigError(f"could not write {target}: {exc}") from exc
+    return WriteResult(path=target, changed=True, previous=original)
+
+
+def restore(result: WriteResult) -> None:
+    """Undo a `write_mcp_bearer`, byte for byte.
+
+    The verification after a write is not decoration: `codex mcp list` failing
+    is exactly what a config Codex cannot load looks like, and at that point we
+    are one step away from having bricked its CLI. Restoring is unconditional
+    and best-effort -- an exception here would replace a recoverable state with
+    a traceback over the top of it.
+    """
+    try:
+        if result.previous is None:
+            result.path.unlink(missing_ok=True)
+        else:
+            result.path.write_text(result.previous, encoding="utf-8")
+    except OSError:
+        pass
+
+
+def remove_mcp_server(name: str, *, path: Path | None = None) -> WriteResult:
+    """Drop the table again, for uninstall.
+
+    Leaving it behind would point Codex at the hosted MCP with a token the
+    uninstall just orphaned -- a server that reads as installed and answers 401.
+    """
+    target = path or config_path()
+    try:
+        original = target.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return WriteResult(path=target, changed=False)
+    except OSError as exc:
+        raise ConfigError(f"could not read {target}: {exc}") from exc
+
+    if not original.strip():
+        return WriteResult(path=target, changed=False)
+    _validated(original, what=str(target))
+
+    span = _table_span(original.splitlines(keepends=True), name)
+    if span is None:
+        return WriteResult(path=target, changed=False)
+    lines = original.splitlines(keepends=True)
+    updated = "".join(lines[: span[0]]) + "".join(lines[span[1] :])
+    _validated(updated, what="the updated Codex config")
+
+    try:
+        write_text_atomic(target, updated, mode=0o600)
+    except OSError as exc:
+        raise ConfigError(f"could not write {target}: {exc}") from exc
+    return WriteResult(path=target, changed=True)
+
+
+def read_top_level(key: str, *, path: Path | None = None) -> tuple[bool, object]:
+    """`(readable, value)` of a top-level `key`, value None when absent. A file
+    that does not parse is `(False, None)`: never guessed at, never rewritten."""
+    target = path or config_path()
+    try:
+        original = target.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return True, None
+    except (OSError, UnicodeDecodeError):
+        return False, None
+    try:
+        return True, tomllib.loads(original).get(key)
+    except tomllib.TOMLDecodeError:
+        return False, None
+
+
+def _first_table(lines: list[str]) -> int:
+    """Index of the first REAL table header, or len(lines). A line opening with
+    `[` counts only when the text above it parses on its own: inside a
+    multi-line string or array (a markdown link in a prompt, a nested list) it
+    is part of a value, and a key put above it would land inside that value."""
+    for index, line in enumerate(lines):
+        if not line.lstrip().startswith("["):
+            continue
+        try:
+            tomllib.loads("".join(lines[:index]))
+        except tomllib.TOMLDecodeError:
+            continue
+        return index
+    return len(lines)
+
+
+def write_top_level(key: str, value: str | None, *, path: Path | None = None) -> WriteResult:
+    """Set ONE top-level string key, or remove it with None, touching no other line.
+
+    A top-level key must come before the first table header, so a new one goes
+    right above it and an existing one is replaced in place. A key of the same
+    name inside a table (a profile's own) is not top-level and is left alone.
+    The same rules as `write_mcp_bearer`: a file that does not parse is refused,
+    and the result must parse AND read back as `value` -- checked even when
+    nothing changed, so a removal that found no line to remove is an error,
+    never a silent success. A symlinked file (a dotfile manager's) is written
+    through, and its line endings and mode are kept (0600 when new: it holds
+    MCP tokens)."""
+    target = path or config_path()
+    if target.is_symlink():
+        target = Path(os.path.realpath(target))
+    try:
+        # Bytes, not `read_text`: that would turn a CRLF file into LF on write.
+        original = target.read_bytes().decode("utf-8")
+        existed = True
+    except FileNotFoundError:
+        original, existed = "", False
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ConfigError(f"could not read {target}: {exc}") from exc
+    if original.strip():
+        _validated(original, what=str(target))
+
+    newline = "\r\n" if "\r\n" in original else "\n"
+    lines = original.splitlines(keepends=True)
+    first_table = _first_table(lines)
+    pattern = re.compile(rf'''^\s*(?:{re.escape(key)}|"{re.escape(key)}"|'{re.escape(key)}')\s*=''')
+    found = next((i for i in range(first_table) if pattern.match(lines[i])), None)
+    new_line = None if value is None else f"{key} = {_toml_string(value)}{newline}"
+    if found is not None:
+        lines[found:found + 1] = [] if new_line is None else [new_line]
+    elif new_line is not None:
+        if first_table and not lines[first_table - 1].endswith("\n"):
+            lines[first_table - 1] += newline
+        spacer = [newline] if first_table < len(lines) else []
+        lines[first_table:first_table] = [new_line, *spacer]
+    updated = "".join(lines)
+    previous = original if existed else None
+
+    if updated != original:
+        _validated(updated, what="the updated Codex config")
+    if tomllib.loads(updated).get(key) != value:
+        raise ConfigError(f"could not set {key} in {target}: it would not read back as written")
+    if updated == original:
+        return WriteResult(path=target, changed=False, previous=previous)
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        # `updated` keeps the file's own line endings; the write adds none.
+        write_text_atomic(target, updated, mode=0o600, keep_mode=True)
+    except OSError as exc:
+        raise ConfigError(f"could not write {target}: {exc}") from exc
+    return WriteResult(path=target, changed=True, previous=previous)
+
+
+#: The folders of Probe's marketplace that Codex reads: its manifest
+#: (`.agents/plugins/marketplace.json`) and the plugins. With `sparse_paths` on
+#: the marketplace's entry, Codex clones `--filter=blob:none` and checks out
+#: only these (and the top-level files). Without it every `marketplace upgrade`
+#: is a FULL clone under Codex's fixed 30 s git timeout
+#: (`MARKETPLACE_UPGRADE_GIT_TIMEOUT`, codex-cli 0.163.0), and the mirror gains a
+#: commit per render (~22 a day in 2026-10): 10-15 s on a good connection, a
+#: timed-out "early EOF" on a slower one, three of which in a row page the team
+#: as "automatic update keeps failing". Blobless and sparse it is 3-4 s.
+MARKETPLACE_SPARSE_PATHS = (".agents", "plugins")
+
+
+def _marketplace_header(name: str) -> re.Pattern[str]:
+    key = re.escape(name)
+    return re.compile(rf"""^\s*\[\s*marketplaces\s*\.\s*(?:{key}|"{key}"|'{key}')\s*\]\s*(?:#.*)?$""")
+
+
+def _is_github_repo(source: object, repo: str) -> bool:
+    """Whether a marketplace `source` names the GitHub repository `repo`
+    (`owner/name`), in any spelling Codex accepts: `owner/name`, HTTPS, SSH.
+    The host must be exactly github.com: a mirror elsewhere is someone else's."""
+    if not isinstance(source, str):
+        return False
+    spelled = source.strip().lower().rstrip("/").removesuffix(".git")
+    repo = repo.lower()
+    prefixes = ("", "https://github.com/", "http://github.com/", "git@github.com:", "ssh://git@github.com/")
+    return any(spelled == prefix + repo for prefix in prefixes)
+
+
+def marketplace_sparse_paths(name: str, *, path: Path | None = None) -> list[str] | None:
+    """The `sparse_paths` `[marketplaces.<name>]` sets, `[]` for an entry with
+    none; None for no entry, or a file that cannot be read or parsed."""
+    try:
+        parsed = tomllib.loads((path or config_path()).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return None
+    marketplaces = parsed.get("marketplaces")
+    entry = marketplaces.get(name) if isinstance(marketplaces, dict) else None
+    if not isinstance(entry, dict):
+        return None
+    paths = entry.get("sparse_paths") or []
+    return [str(each) for each in paths] if isinstance(paths, list) else []
+
+
+def write_marketplace_sparse_paths(name: str, repo: str, *, path: Path | None = None) -> WriteResult:
+    """Give `[marketplaces.<name>]` the `sparse_paths` a fresh
+    `codex plugin marketplace add --sparse` writes (`MARKETPLACE_SPARSE_PATHS`),
+    for an install added before it. Codex then re-clones sparse at its next
+    `upgrade`, because the checkout's recorded paths no longer match.
+
+    Only Codex's Git checkout of `repo` that sets no `sparse_paths` at all: a
+    local checkout, a fork (whose layout is its own) or paths somebody chose are
+    left as they are. The rest follows `write_top_level`: a file that does not
+    parse is refused, the result must parse and read back, and line endings,
+    a symlink and the file's mode are kept. A missing file or entry is no
+    change -- `marketplace add` writes the paths itself."""
+    target = path or config_path()
+    if target.is_symlink():
+        target = Path(os.path.realpath(target))
+    try:
+        raw = target.read_bytes()
+        original = raw.decode("utf-8")
+    except FileNotFoundError:
+        return WriteResult(path=target, changed=False)
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ConfigError(f"could not read {target}: {exc}") from exc
+    if not original.strip():
+        return WriteResult(path=target, changed=False, previous=original)
+    _validated(original, what=str(target))
+    marketplaces = tomllib.loads(original).get("marketplaces")
+    entry = marketplaces.get(name) if isinstance(marketplaces, dict) else None
+    if (
+        not isinstance(entry, dict)
+        or entry.get("source_type") != "git"
+        or "sparse_paths" in entry
+        or not _is_github_repo(entry.get("source"), repo)
+    ):
+        return WriteResult(path=target, changed=False, previous=original)
+
+    lines = original.splitlines(keepends=True)
+    header = _marketplace_header(name)
+    start = next((i for i, line in enumerate(lines) if header.match(line)), None)
+    if start is None:
+        # Dotted keys or an inline table: not a shape to edit by line.
+        raise ConfigError(f"{target}: [marketplaces.{name}] is not a plain table; left untouched")
+    newline = "\r\n" if "\r\n" in original else "\n"
+    if not lines[start].endswith("\n"):
+        lines[start] += newline
+    paths = ", ".join(_toml_string(each) for each in MARKETPLACE_SPARSE_PATHS)
+    lines.insert(start + 1, f"sparse_paths = [{paths}]{newline}")
+    updated = "".join(lines)
+    _validated(updated, what="the updated Codex config")
+    written = (tomllib.loads(updated).get("marketplaces") or {}).get(name) or {}
+    if written.get("sparse_paths") != list(MARKETPLACE_SPARSE_PATHS):
+        raise ConfigError(f"could not set sparse_paths in {target}: it would not read back as written")
+    try:
+        # Codex saves this file too, without a lock or an atomic write: a save
+        # since our read wins, and the next run retries. Narrows the race, no lock.
+        if target.read_bytes() != raw:
+            raise ConfigError(f"{target} changed while sparse_paths was being added; left as it is")
+        write_text_atomic(target, updated, mode=0o600, keep_mode=True)
+    except OSError as exc:
+        raise ConfigError(f"could not write {target}: {exc}") from exc
+    return WriteResult(path=target, changed=True, previous=original)

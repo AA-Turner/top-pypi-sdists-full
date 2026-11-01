@@ -23,7 +23,7 @@ import httpx
 import pytest
 
 from probe import cli
-from probe.cli import summary_cli
+from probe.shared.notes import summary as summary_cli
 from tests.conftest import make_client
 
 SID = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa"
@@ -375,14 +375,15 @@ def test_the_first_writes_checkout_is_bounded_and_never_retried(server, capsys, 
     real = summary_cli.checkout_draft
 
     def spy(client, *args, **kwargs):
-        from probe.sdk import transport as transport_mod
+        from probe.sdk.delivery import transport as transport_mod
 
         seen["retries"] = client.transport.max_retries
         seen["timeout"] = client.transport.timeout
         seen["deadline"] = transport_mod._request_deadline.get()
         return real(client, *args, **kwargs)
 
-    monkeypatch.setattr(summary_cli, "checkout_draft", spy)
+    monkeypatch.setattr(summary_cli.checkout_push, "checkout_draft", spy)
+    monkeypatch.setattr(summary_cli.first_write, "checkout_draft", spy)
     import time as time_mod
 
     before = time_mod.monotonic()

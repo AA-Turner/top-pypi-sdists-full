@@ -1,4 +1,4 @@
-"""`probe._shared.pins`: the copies an owner keeps of a package someone else
+"""`probe.shared.updates.pins`: the copies an owner keeps of a package someone else
 rewrites (the service's tap pins, the update's pi pins)."""
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from probe._shared import pins
+from probe.shared.updates import pins
 
 
 def _tree(root: Path, files: dict[str, str]) -> Path:

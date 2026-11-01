@@ -40,7 +40,8 @@ import inspect
 import anyio
 import pytest
 
-from probe.mcp.server import MCP_INSTRUCTIONS, create_server
+from probe.mcp.server.tool_text import MCP_INSTRUCTIONS
+from probe.mcp.server.server import create_server
 
 #: Claude Code's MCP truncation constant. Read from the shipped binary
 #: (``var nle = 2048``), not chosen by us, and confirmed against a live model:

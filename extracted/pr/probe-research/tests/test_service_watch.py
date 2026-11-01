@@ -30,7 +30,7 @@ from pathlib import Path
 
 import pytest
 
-from probe._shared import report_policy
+from probe.analytics import report_policy
 from probe.service import background, hookqueue, paths, protocol, watch, workers
 from probe.service.registry import Registry
 from probe.service.watch import Family, Watch
@@ -314,7 +314,7 @@ def test_with_no_live_session_the_login_environment_decides(rig, login, sent):
 
 
 def test_a_self_hosted_cli_config_says_no_to_a_machine_family(rig, home):
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     # The CLI's own writer: wherever it keeps the config on this OS, the watch reads it there.
     written = save_context({"base_url": "http://10.0.0.5:8000"})
@@ -1490,7 +1490,7 @@ def test_an_outbox_that_is_not_stuck_says_nothing(tmp_path, status, hours, why):
 def test_writes_held_in_a_credential_queue_under_an_empty_root_are_stuck(tmp_path):
     """Codex O3: `read_status` folded pending and refusals from the credential
     queues but not `held`, so a held queue under an empty root said nothing."""
-    from probe.sdk.journal import CREDENTIAL_NAMESPACE
+    from probe.sdk.delivery.ops.ops import CREDENTIAL_NAMESPACE
 
     root = tmp_path / "outbox"
     _queue(root, pending=0)
@@ -1503,7 +1503,7 @@ def test_writes_held_in_a_credential_queue_under_an_empty_root_are_stuck(tmp_pat
 def test_refused_writes_in_a_credential_queue_s_delivery_namespace_are_stuck(tmp_path):
     """Codex C1 #3: the delivery fold kept pending but dropped `held`, the
     refusal and the oldest write, so forty refused writes there said nothing."""
-    from probe.sdk.journal import CREDENTIAL_NAMESPACE, DELIVERY_NAMESPACE
+    from probe.sdk.delivery.ops.ops import CREDENTIAL_NAMESPACE, DELIVERY_NAMESPACE
 
     root = tmp_path / "outbox"
     queue = root / CREDENTIAL_NAMESPACE / "0123456789abcdef"
@@ -1518,7 +1518,7 @@ def test_one_queue_s_old_backlog_never_makes_another_s_fresh_hold_stuck(tmp_path
     """Codex C1 #6: the oldest write anywhere was paired with a hold anywhere,
     so a healthy queue draining a two-hour backlog plus a hold taken a
     minute ago in another queue read as an hour-old stall."""
-    from probe.sdk.journal import CREDENTIAL_NAMESPACE
+    from probe.sdk.delivery.ops.ops import CREDENTIAL_NAMESPACE
 
     root = tmp_path / "outbox"
     _queue(root, pending=500, oldest_pending=_iso_ago(2))
@@ -1968,7 +1968,7 @@ def _verdicts(found: dict) -> dict:
 
 
 def test_each_key_is_asked_v1_me_once_401_refused_200_ok_else_unknown(home):
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     me = _Me({"login-1": 200, "daemon-1": 401, "mcp-1": 503})
     try:
@@ -1989,7 +1989,7 @@ def test_each_key_is_asked_v1_me_once_401_refused_200_ok_else_unknown(home):
 def test_a_403_is_no_refusal_and_plain_http_elsewhere_carries_no_key(home):
     """C1 adversarial #14: a proxy's 403 read as a dead key. C1 security #4:
     a key never crosses a network in the clear for a check."""
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     me = _Me({"login-1": 403})
     try:
@@ -2006,7 +2006,7 @@ def test_a_redirect_is_never_followed_with_the_key(home):
     header, to another host or to plain HTTP."""
     import http.server
 
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     elsewhere = _Me({"login-1": 200})
 
@@ -2032,7 +2032,7 @@ def test_a_redirect_is_never_followed_with_the_key(home):
 
 
 def test_no_ask_starts_past_the_check_s_deadline(home):
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     save_context({"base_url": "https://api.example.test", "token": "a", "companion_token": "b",
                   "mcp_token": "c"})

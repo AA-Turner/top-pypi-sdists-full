@@ -1,6 +1,6 @@
 """:module: watchdog.utils.delayed_queue
 :author: thomas.amland@gmail.com (Thomas Amland)
-:author: contact@tiger-222.fr (Mickaël Schoentgen)
+:author: Mickaël Schoentgen <contact@tiger-222.fr>
 """
 
 from __future__ import annotations
@@ -8,23 +8,32 @@ from __future__ import annotations
 import threading
 import time
 from collections import deque
-from typing import Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
+
+from watchdog.utils import renamed_attribute
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from watchdog.utils import Seconds
 
 T = TypeVar("T")
 
 
 class DelayedQueue(Generic[T]):
-    def __init__(self, delay: float) -> None:
-        self.delay_sec = delay
+    def __init__(self, delay: Seconds) -> None:
+        self.delay = delay
         self._lock = threading.Lock()
         self._not_empty = threading.Condition(self._lock)
         self._queue: deque[tuple[T, float, bool]] = deque()
         self._closed = False
 
+    delay_sec = renamed_attribute("delay_sec", "delay")
+
     def put(self, element: T, *, delay: bool = False) -> None:
         """Add element to queue."""
         self._lock.acquire()
-        self._queue.append((element, time.time(), delay))
+        self._queue.append((element, time.monotonic(), delay))
         self._not_empty.notify()
         self._lock.release()
 
@@ -54,10 +63,10 @@ class DelayedQueue(Generic[T]):
 
             # wait for delay if required
             if delay:
-                time_left = insert_time + self.delay_sec - time.time()
+                time_left = insert_time + self.delay - time.monotonic()
                 while time_left > 0:
                     time.sleep(time_left)
-                    time_left = insert_time + self.delay_sec - time.time()
+                    time_left = insert_time + self.delay - time.monotonic()
 
             # return element if it's still in the queue
             with self._lock:
@@ -65,13 +74,30 @@ class DelayedQueue(Generic[T]):
                     self._queue.popleft()
                     return head
 
-    def remove(self, predicate: Callable[[T], bool]) -> T | None:
-        """Remove and return the first items for which predicate is True,
+    def find(self, predicate: Callable[[T], bool]) -> T | None:
+        """return the first item for which predicate is True,
         ignoring delay.
         """
         with self._lock:
-            for i, (elem, *_) in enumerate(self._queue):
-                if predicate(elem):
-                    del self._queue[i]
-                    return elem
+            i_item = self._index_and_item(predicate)
+            return i_item[1] if i_item is not None else None
+
+    def remove(self, predicate: Callable[[T], bool]) -> T | None:
+        """Remove and return the first item for which predicate is True,
+        ignoring delay.
+        """
+        with self._lock:
+            i_item = self._index_and_item(predicate)
+            if i_item is not None:
+                del self._queue[i_item[0]]
+                return i_item[1]
+        return None
+
+    def _index_and_item(self, predicate: Callable[[T], bool]) -> tuple[int, T] | None:
+        """Return the index and value of the first item for which predicate is
+        True, ignoring delay. Returns -1 if nothing is found. Requires a lock.
+        """
+        for i, (elem, *_) in enumerate(self._queue):
+            if predicate(elem):
+                return i, elem
         return None

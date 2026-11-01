@@ -11,7 +11,7 @@ verdict rather than an error, and `?version=N` reaches the backend.
 
 from __future__ import annotations
 
-from probe.mcp.source import ResearchOSSource
+from probe.mcp.source.source import ResearchOSSource
 
 
 def _seed_run(client, app):

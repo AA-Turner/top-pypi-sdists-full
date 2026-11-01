@@ -1,4 +1,4 @@
-"""The client's copy of the artifact kind vocabulary (`probe.sdk.artifact_kinds`)
+"""The client's copy of the artifact kind vocabulary (`probe.sdk.artifact.kinds`)
 and the client code that reads a kind through it.
 
 The server normalizes every write (migration 0336's trigger), so nothing here
@@ -15,7 +15,7 @@ import importlib
 
 import pytest
 
-from probe.sdk.artifact_kinds import (
+from probe.sdk.artifact.kinds import (
     ARTIFACT_KIND_ALIASES,
     DEFAULT_ARTIFACT_KIND,
     KIND_LABEL_MAX_CHARS,
@@ -26,7 +26,7 @@ from probe.sdk.artifact_kinds import (
     normalize_artifact_kind,
     stored_kind_values,
 )
-from probe.sdk.filetype import kind_to_send
+from probe.sdk.artifact.filetype import kind_to_send
 
 K = ArtifactKind
 
@@ -106,7 +106,7 @@ def test_stored_kind_values():
 
 def test_the_module_is_values_only():
     """`kind_filter_sql` builds SQL and stays on the server."""
-    from probe.sdk import artifact_kinds
+    from probe.sdk.artifact import kinds as artifact_kinds
 
     assert not hasattr(artifact_kinds, "kind_filter_sql")
 

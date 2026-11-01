@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 import probe
-from probe._shared import handoff, installs
+from probe.shared.updates import handoff, installs
 from probe.cli import updater, upgrading
 from probe.core import adopt
 
@@ -198,7 +198,7 @@ def test_a_release_whose_service_does_not_start_is_never_switched_to(machine, mo
 
 
 def test_the_hand_offs_variables_never_reach_what_the_update_starts(machine, monkeypatch):
-    from probe.cli import update_report
+    from probe.shared.updates import update_report
 
     _handed(monkeypatch, machine)
     assert adopt.begin("cli") is None
@@ -343,7 +343,7 @@ def _busy(monkeypatch, *reasons):
 
 
 def test_the_first_switch_waits_while_a_run_is_live(unmigrated, monkeypatch):
-    from probe._shared import autoupdate
+    from probe.shared.updates import autoupdate
 
     _handed(monkeypatch, unmigrated)
     _busy(monkeypatch, "run_in_flight")
@@ -407,7 +407,7 @@ def test_the_first_switch_never_waits_for_its_own_menu(unmigrated, monkeypatch, 
     """A wizard menu's Update execs into the new release with the same pid,
     its menu marker still there: that is no setup to wait for (24 h), while
     another terminal's waiting menu is."""
-    from probe._shared import setup_marks
+    from probe.shared.updates import setup_marks
     from probe.service import paths, procid
 
     state = paths.state_dir()
@@ -545,7 +545,8 @@ def test_the_auto_update_lock_is_its_holders_across_an_exec(monkeypatch):
     """The exec keeps the pid: the `--apply` run of the newest release finds
     the single-writer lock handed to it (LOCK_HELD_ENV, the file naming this
     pid) and goes on -- once; nothing else takes a held lock."""
-    from probe.cli import autoupdate, update_report, version_refresh
+    from probe.cli import autoupdate, version_refresh
+    from probe.shared.updates import update_report
 
     seen = []
     monkeypatch.setattr(adopt, "begin", lambda *a, **k: seen.append(os.environ.get(autoupdate.LOCK_HELD_ENV)))
@@ -568,7 +569,7 @@ def test_the_auto_update_lock_is_its_holders_across_an_exec(monkeypatch):
 
 
 def test_the_report_names_the_trigger_the_hand_off_ran_under(monkeypatch):
-    from probe.cli import update_report
+    from probe.shared.updates import update_report
 
     monkeypatch.setenv("PROBE_AUTOUPDATE_TRIGGER", "manual")
     monkeypatch.setenv(handoff.TRIGGER_ENV, "session_start")
@@ -606,7 +607,8 @@ def test_a_rebuild_of_a_broken_env_reports_as_a_change(monkeypatch):
     the CLI step is a change from the broken env -- never "already at", never
     an empty `before` -- in the local record and the server's report (whose
     version pattern takes the local label)."""
-    from probe.cli import autoupdate, update_report
+    from probe.cli import autoupdate
+    from probe.shared.updates import update_report
 
     broken = f"{probe.__version__}{handoff.BROKEN_MARK}"
     assert update_report._version(broken) == broken

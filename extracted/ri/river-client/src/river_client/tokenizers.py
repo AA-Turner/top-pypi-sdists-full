@@ -25,6 +25,13 @@ MODEL_TOKENIZER_ALIASES: dict[str, str] = {
     "moonshotai/Kimi-K3": "moonshotai/Kimi-K3",
     "nvidia/GLM-5.1-NVFP4": "nvidia/GLM-5.1-NVFP4",
     "nvidia/GLM-5.2-NVFP4": "nvidia/GLM-5.2-NVFP4",
+    "GLM-5.3": "nvidia/GLM-5.3-NVFP4",
+    "GLM-5.3-Flash": "zai-org/GLM-5.3-Flash",
+    "nvidia/GLM-5.3-NVFP4": "nvidia/GLM-5.3-NVFP4",
+    "zai-org/GLM-5.3": "zai-org/GLM-5.3-BF16",
+    "zai-org/GLM-5.3-BF16": "zai-org/GLM-5.3-BF16",
+    "zai-org/GLM-5.3-Flash": "zai-org/GLM-5.3-Flash",
+    "zai-org/GLM-5.3-Flash-BF16": "zai-org/GLM-5.3-Flash-BF16",
     # Maps to itself so dedicated-deployment suffixes resolve here rather than
     # being passed to the hub as a repo that does not exist.
     "deepseek-ai/DeepSeek-V4.1-Flash": "deepseek-ai/DeepSeek-V4.1-Flash",

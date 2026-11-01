@@ -89,9 +89,10 @@ class StreamingCustomLoss:
             if self.custom_loss_inputs is None:
                 continue
             final = custom_batch([datum], self.loss, self.custom_loss_inputs)[0]
-            if {k: v for k, v in final.items() if k != "loss_data"} != {
-                k: v for k, v in partial.items() if k != "loss_data"
-            }:
+            if not _same_inputs(
+                {k: v for k, v in final.items() if k != "loss_data"},
+                {k: v for k, v in partial.items() if k != "loss_data"},
+            ):
                 raise ValueError("streamed custom model inputs changed")
             for name, dtype in self.dtypes.items():
                 actual = np.asarray(final["loss_data"][name], dtype=dtype)
@@ -115,3 +116,16 @@ class StreamingCustomLoss:
             name: math.fsum(result.metrics[name] for result in results) * scale
             for name, scale in scales.items()
         }, scales["loss"]
+
+
+def _same_inputs(left, right):
+    """Compare datum fields that may hold NumPy arrays."""
+    if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
+        return np.array_equal(left, right)
+    if isinstance(left, dict) and isinstance(right, dict):
+        return left.keys() == right.keys() and all(
+            _same_inputs(left[k], right[k]) for k in left
+        )
+    if isinstance(left, (list, tuple)) and isinstance(right, (list, tuple)):
+        return len(left) == len(right) and all(map(_same_inputs, left, right))
+    return left == right

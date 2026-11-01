@@ -41,7 +41,7 @@ import threading
 import time
 from dataclasses import dataclass
 
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 
 from .backfill import EFFORTS, MODEL_NAME, USAGE_FIELDS, Agent
 
@@ -243,7 +243,7 @@ def _read_server(client) -> tuple[dict, str | None]:
     self-hosted API without the route; it raises like any other failure.
     """
     try:
-        from ..sdk.transport import deadline_scope
+        from ..sdk.delivery.transport.deadlines import deadline_scope
 
         with deadline_scope(time.monotonic() + READ_TIMEOUT_S):
             body = client.transport.get(ROUTE)

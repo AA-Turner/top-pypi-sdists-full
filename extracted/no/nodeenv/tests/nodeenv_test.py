@@ -1,26 +1,24 @@
-from __future__ import absolute_import
-from __future__ import unicode_literals
-
-import sys
-if sys.version_info < (3, 3):
-    from pipes import quote as _quote
-else:
-    from shlex import quote as _quote
+from shlex import quote as _quote
+import _thread
+import configparser
+import contextlib
+import http.server
 import io
 import json
 import os.path
 import pathlib
 import shutil
+import socket
 import subprocess
 import sys
 import platform
 import ssl
+import tarfile
+import threading
+import time
 import zipfile
 
-try:
-    from unittest import mock
-except ImportError:
-    import mock
+from unittest import mock
 import pytest
 
 import nodeenv
@@ -91,6 +89,45 @@ def _inside(path, env_dir):
     """
     return os.path.realpath(path).startswith(
         os.path.realpath(env_dir) + os.sep)
+
+
+def _assert_resolve_inside(env_dir, commands=ENV_COMMANDS):
+    """
+    Source `env_dir`/bin/activate and check that each of `commands`
+    resolves inside `env_dir` and prints a version.
+    """
+    activate = os.path.join(env_dir, 'bin', 'activate')
+    for command in commands:
+        resolved, version = _resolve_and_run(activate, command)
+        assert _inside(resolved, env_dir), \
+            '%s resolved to %s, outside %s' % (command, resolved, env_dir)
+        assert version, '%s --version printed nothing' % command
+
+
+def _python_virtualenv(tmpdir):
+    """
+    Create a python virtualenv for `nodeenv -p` and return its path.
+    """
+    venv = tmpdir.join('venv').strpath
+    subprocess.check_call(
+        [sys.executable, '-m', 'venv', '--without-pip', venv])
+    return venv
+
+
+def _nodeenv_in_virtualenv(venv, *args):
+    """
+    Run `nodeenv -p` as a shell with `venv` activated would.
+
+    -p without a directory takes the virtualenv from VIRTUAL_ENV, which
+    is always replaced here: run from an activated env-dev, nodeenv would
+    install node into env-dev otherwise.
+    """
+    env = dict(os.environ, VIRTUAL_ENV=venv)
+    env['PATH'] = os.path.join(venv, 'bin') + os.pathsep + env['PATH']
+    subprocess.check_call((
+        'coverage', 'run', '-p',
+        '-m', 'nodeenv', '-p',
+    ) + args, env=env)
 
 
 @pytest.mark.integration
@@ -170,6 +207,57 @@ def test_smoke_git_bash(tmpdir):
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(
+    sys.platform != 'win32', reason='install_npm_win only runs on Windows')
+@pytest.mark.parametrize('versions', (
+    # the command from the issue
+    ['--node=17.4.0', '--npm=8.3.1'],
+    # --npm defaults to latest
+    [],
+), ids=('issue', 'default'))
+def test_smoke_with_npm_win(tmpdir, versions):
+    """
+    The npm --with-npm installs on Windows has to install packages, not
+    only answer `npm --version`.
+    https://github.com/ekalinin/nodeenv/issues/310
+    """
+    nenv_path = tmpdir.join('nenv').strpath
+    subprocess.check_call([
+        'coverage', 'run', '-p',
+        '-m', 'nodeenv', '--prebuilt', '--with-npm',
+    ] + versions + [nenv_path])
+
+    # the steps of the issue: activate.bat, then npm in a project
+    project = tmpdir.mkdir('project')
+    project.join('package.json').write('{"name": "p", "version": "1.0.0"}')
+    probe = tmpdir.join('probe.bat')
+    probe.write(
+        '@echo off\n'
+        'call "%s\\Scripts\\activate.bat"\n'
+        'call npm --version > npm-version.txt\n'
+        'if errorlevel 1 exit /b 1\n'
+        'call npm install is-number --no-audit --no-fund\n' % nenv_path)
+    proc = subprocess.run(
+        ['cmd', '/c', probe.strpath], cwd=project.strpath,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    report = 'exit %s\n--- stdout ---\n%s\n--- stderr ---\n%s' % (
+        proc.returncode,
+        proc.stdout.decode('utf-8', 'replace'),
+        proc.stderr.decode('utf-8', 'replace'))
+
+    assert proc.returncode == 0, report
+    # the npm that ran is the one in the environment, not one the runner
+    # has on PATH
+    npm_package = os.path.join(
+        nenv_path, 'Scripts', 'node_modules', 'npm', 'package.json')
+    with open(npm_package) as f:
+        installed = json.load(f)['version']
+    assert project.join('npm-version.txt').read().strip() == installed, \
+        report
+    assert project.join('node_modules', 'is-number').check(dir=1), report
+
+
+@pytest.mark.integration
 @pytest.mark.skipif(sys.platform == 'win32', reason='-n system is posix only')
 def test_smoke_n_system_special_chars(tmpdir):
     nenv_path = tmpdir.join('nenv (production env)').strpath
@@ -187,6 +275,96 @@ def test_smoke_n_system_special_chars(tmpdir):
     assert _inside(resolved, nenv_path), \
         'node resolved to %s, outside %s' % (resolved, nenv_path)
     assert version, 'node --version printed nothing'
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(sys.platform == 'win32', reason='activate is posix only')
+@pytest.mark.parametrize('dir_name', ('öäü', 'test dir'),
+                         ids=('unicode', 'space'))
+def test_smoke_special_dir_names(tmpdir, dir_name):
+    """
+    https://github.com/ekalinin/nodeenv/issues/49
+    https://github.com/ekalinin/nodeenv/issues/187
+    """
+    nenv_path = tmpdir.mkdir(dir_name).join('env').strpath
+    subprocess.check_call((
+        'coverage', 'run', '-p',
+        '-m', 'nodeenv', '--prebuilt', nenv_path,
+    ))
+    _assert_resolve_inside(nenv_path)
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(sys.platform == 'win32', reason='activate is posix only')
+def test_smoke_python_virtualenv(tmpdir):
+    """
+    `nodeenv -p` installs node into the activated python virtualenv, and
+    its activate puts node, npm and npx on PATH.
+    """
+    venv = _python_virtualenv(tmpdir)
+    _nodeenv_in_virtualenv(venv, '--prebuilt')
+    _assert_resolve_inside(venv)
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(sys.platform == 'win32', reason='-n system is posix only')
+def test_smoke_python_virtualenv_n_system(tmpdir):
+    """
+    `nodeenv -p --node=system` writes a node shim into the activated
+    python virtualenv.  The Makefile target it replaces pointed at
+    https://github.com/ekalinin/nodeenv/issues/43
+    """
+    venv = _python_virtualenv(tmpdir)
+    _nodeenv_in_virtualenv(venv, '--node=system')
+    # node only, see test_smoke_n_system_special_chars
+    _assert_resolve_inside(venv, ('node',))
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(sys.platform == 'win32', reason='activate is posix only')
+def test_smoke_python_virtualenv_freeze(tmpdir):
+    """
+    `freeze` lists a package installed with `npm install -g` in the
+    python virtualenv, and only that package: neither npm, which comes
+    with node, nor the dependencies of sitemap.
+    """
+    venv = _python_virtualenv(tmpdir)
+    _nodeenv_in_virtualenv(venv, '--prebuilt')
+
+    # npm reports on stdout too, so its output goes to stderr to leave
+    # stdout to `freeze`
+    script = (
+        '. {0} && '
+        'npm install -g sitemap --no-audit --no-fund >&2 && '
+        'freeze'.format(_quote(os.path.join(venv, 'bin', 'activate'))))
+    proc = subprocess.run(
+        ['sh', '-c', script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    report = 'exit %s\n--- stdout ---\n%s\n--- stderr ---\n%s' % (
+        proc.returncode,
+        proc.stdout.decode('utf-8', 'replace'),
+        proc.stderr.decode('utf-8', 'replace'))
+
+    assert proc.returncode == 0, report
+    frozen = proc.stdout.decode('utf-8').splitlines()
+    assert len(frozen) == 1 and frozen[0].startswith('sitemap@'), report
+    assert os.path.isdir(
+        os.path.join(venv, 'lib', 'node_modules', 'sitemap')), report
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(sys.platform == 'win32', reason='activate is posix only')
+def test_smoke_python_virtualenv_twice(tmpdir):
+    """
+    Installing node again over the links the first install left in the
+    python virtualenv doesn't fail on them.
+    https://github.com/ekalinin/nodeenv/issues/189
+    """
+    venv = _python_virtualenv(tmpdir)
+    _nodeenv_in_virtualenv(venv, '--prebuilt')
+    # without --force the second run finds the same node installed and
+    # skips the install, so it would never copy over the links
+    _nodeenv_in_virtualenv(venv, '--prebuilt', '--force')
+    _assert_resolve_inside(venv)
 
 
 @pytest.fixture
@@ -424,6 +602,174 @@ def test_mirror_option_local_directory(tmpdir):
         mock_logger.assert_called_with('99.0.0')
 
 
+def test_config_strips_quotes(tmpdir):
+    """Values quoted as in the README are read without the quotes, see #321"""
+    rc = tmpdir.join('nodeenvrc')
+    rc.write('[nodeenv]\n'
+             "node = '22.14.0'\n"
+             'mirror = "https://example.com/mirror"\n')
+    try:
+        nodeenv.Config._load([str(rc)])
+        assert nodeenv.Config.node == '22.14.0'
+        assert nodeenv.Config.mirror == 'https://example.com/mirror'
+    finally:
+        nodeenv.Config.node = nodeenv.Config._default['node']
+        nodeenv.Config.mirror = nodeenv.Config._default['mirror']
+
+
+@pytest.mark.parametrize('mirror, expected', [
+    ('https://user:p%40ss@mirror.example/nodejs',
+     'https://user:p%40ss@mirror.example/nodejs'),
+    ('https://user:p%%40ss@mirror.example/nodejs',
+     'https://user:p%40ss@mirror.example/nodejs'),
+])
+def test_config_keeps_percent_signs(tmpdir, mirror, expected):
+    """A % that ConfigParser can't interpolate is read as is, see #440"""
+    rc = tmpdir.join('nodeenvrc')
+    rc.write('[nodeenv]\nmirror = %s\n' % mirror)
+    try:
+        nodeenv.Config._load([str(rc)])
+        assert nodeenv.Config.mirror == expected
+    finally:
+        nodeenv.Config.mirror = nodeenv.Config._default['mirror']
+
+
+@pytest.mark.parametrize('mirror, error', [
+    ('%(bsae)s/nodejs', configparser.InterpolationMissingOptionError),
+    ('%(mirror)s/nodejs', configparser.InterpolationDepthError),
+    ('%(base)/nodejs', configparser.InterpolationSyntaxError),
+])
+def test_config_reports_bad_references(tmpdir, mirror, error):
+    """A bad %(name)s reference still raises, see #456"""
+    rc = tmpdir.join('nodeenvrc')
+    rc.write('[DEFAULT]\nbase = https://mirror.example\n\n'
+             '[nodeenv]\nmirror = %s\n' % mirror)
+    try:
+        with pytest.raises(error):
+            nodeenv.Config._load([str(rc)])
+    finally:
+        nodeenv.Config.mirror = nodeenv.Config._default['mirror']
+
+
+@pytest.fixture
+def auth_mirror(monkeypatch):
+    """
+    A local mirror that serves index.json only to an authorized request.
+    /moved/ redirects to /cdn/, which needs no authorization, like
+    a presigned URL of a cloud storage.
+    Yields its port and the paths with the Authorization headers it has seen.
+    """
+    for name in PROXY_VARS:
+        monkeypatch.delenv(name, raising=False)
+    seen = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            auth = self.headers.get('Authorization')
+            seen.append((self.path, auth))
+            if self.path.startswith('/moved/'):
+                self.send_response(302)
+                self.send_header('Location', '/cdn/' + self.path[7:])
+                self.end_headers()
+                return
+            if auth is None and not self.path.startswith('/cdn/'):
+                self.send_response(401)
+                self.send_header('WWW-Authenticate', 'Basic realm="mirror"')
+                self.end_headers()
+                return
+            body = (b'[{"version": "v99.0.0", "date": "2026-01-01",'
+                    b' "lts": false, "files": ["linux-x64",'
+                    b' "linux-x64-musl", "linux-riscv64"]}]')
+            self.send_response(200)
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        yield server.server_address[1], seen
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+@pytest.mark.parametrize('userinfo, header', [
+    ('user:secret', 'Basic dXNlcjpzZWNyZXQ='),
+    # me@corp.com:p/ss, a URL has room for these characters only encoded
+    ('me%40corp.com:p%2Fss', 'Basic bWVAY29ycC5jb206cC9zcw=='),
+])
+def test_mirror_credentials_are_sent_as_basic_auth(auth_mirror,
+                                                   userinfo, header):
+    """user:password@ in --mirror authenticates to the mirror, see #321"""
+    port, seen = auth_mirror
+    mirror = 'http://%s@127.0.0.1:%d' % (userinfo, port)
+    argv = [__file__, '--list', '--mirror=' + mirror]
+    with mock.patch.object(sys, 'argv', argv), \
+            mock.patch.object(nodeenv.logger, 'info') as mock_logger:
+        nodeenv.src_base_url = None
+        nodeenv.main()
+        mock_logger.assert_called_with('99.0.0')
+
+    assert set(seen) == {('/index.json', header)}
+
+
+def test_mirror_credentials_do_not_follow_redirects(auth_mirror):
+    """A redirect may lead to another host, the password stays behind"""
+    port, seen = auth_mirror
+    mirror = 'http://user:secret@127.0.0.1:%d/moved' % port
+    argv = [__file__, '--list', '--mirror=' + mirror]
+    with mock.patch.object(sys, 'argv', argv), \
+            mock.patch.object(nodeenv.logger, 'info') as mock_logger:
+        nodeenv.src_base_url = None
+        nodeenv.main()
+        mock_logger.assert_called_with('99.0.0')
+
+    assert set(seen) == {('/moved/index.json', 'Basic dXNlcjpzZWNyZXQ='),
+                         ('/cdn/index.json', None)}
+
+
+def test_mirror_credentials_stay_out_of_error_messages(monkeypatch):
+    """A failed download must not print the mirror's password"""
+    for name in PROXY_VARS:
+        monkeypatch.delenv(name, raising=False)
+    # a port that was free a moment ago refuses the connection
+    with contextlib.closing(socket.socket()) as sock:
+        sock.bind(('127.0.0.1', 0))
+        port = sock.getsockname()[1]
+    mirror = 'http://user:secret@127.0.0.1:%d' % port
+    argv = [__file__, '--list', '--mirror=' + mirror]
+    with mock.patch.object(sys, 'argv', argv), \
+            mock.patch.object(nodeenv.logger, 'error') as m_error:
+        nodeenv.src_base_url = None
+        with pytest.raises(SystemExit):
+            nodeenv.main()
+
+    errors = _logged_errors(m_error)
+    assert 'http://127.0.0.1:%d/index.json' % port in errors
+    assert 'secret' not in errors
+
+
+def test_mirror_credentials_stay_with_the_mirror():
+    """The npm registry must not get the mirror's password"""
+    with mock.patch.object(nodeenv, 'src_base_url',
+                           'https://mirror.example.com/node'), \
+            mock.patch.object(nodeenv, 'src_auth',
+                              'Basic dXNlcjpzZWNyZXQ='), \
+            mock.patch.object(nodeenv.urllib2, 'urlopen') as m_urlopen:
+        nodeenv.urlopen('https://mirror.example.com/node/index.json')
+        nodeenv.urlopen('https://registry.npmjs.org/npm/latest')
+
+    to_mirror, to_registry = [c[0][0] for c in m_urlopen.call_args_list]
+    assert to_mirror.has_header('Authorization')
+    assert not to_registry.has_header('Authorization')
+
+
 @pytest.mark.usefixtures('mock_index_json', 'mock_host_platform')
 def test_get_latest_node_version():
     assert nodeenv.get_last_stable_node_version() == '13.5.0'
@@ -455,15 +801,69 @@ def test_get_last_node_version_writes_nothing_to_stdout(capsys):
     assert capsys.readouterr().out == ''
 
 
+@pytest.fixture
+def no_retry_pause():
+    with mock.patch('time.sleep') as mck:
+        yield mck
+
+
+@pytest.mark.usefixtures('no_retry_pause')
 def test__download_node_file():
-    with mock.patch.object(nodeenv, 'urlopen') as m_urlopen:
-        m_urlopen.side_effect = IncompleteRead("dummy")
-        with pytest.raises(IncompleteRead):
+    """The last failure is reported, not dumped as a traceback (#324)"""
+    with mock.patch.object(nodeenv, 'urlopen') as m_urlopen, \
+            mock.patch.object(nodeenv.logger, 'error') as m_error:
+        m_urlopen.side_effect = IncompleteRead(b'', 157)
+        with pytest.raises(SystemExit):
             nodeenv._download_node_file(
                 "https://dummy/nodejs.tar.gz",
                 n_attempt=5
             )
         assert m_urlopen.call_count == 5
+
+    errors = _logged_errors(m_error)
+    assert 'https://dummy/nodejs.tar.gz' in errors
+    assert '157 more expected' in errors
+
+
+def test__download_node_file_pauses_between_attempts(no_retry_pause):
+    """An attempt right after a network glitch tends to hit it again"""
+    with mock.patch.object(nodeenv, 'urlopen',
+                           side_effect=IncompleteRead(b'', 157)), \
+            mock.patch.object(nodeenv.logger, 'error'):
+        with pytest.raises(SystemExit):
+            nodeenv._download_node_file('https://dummy/nodejs.tar.gz',
+                                        n_attempt=3)
+
+    # between the attempts only, nothing is left to wait for after the last
+    assert no_retry_pause.call_count == 2
+    assert all(c[0][0] > 0 for c in no_retry_pause.call_args_list)
+
+
+@pytest.mark.usefixtures('no_retry_pause')
+@pytest.mark.parametrize('error', [
+    ConnectionResetError(54, 'Connection reset by peer'),
+    socket.timeout('timed out'),
+])
+def test__download_node_file_retries_a_broken_connection(error):
+    """A connection lost in the middle of the body is retried too (#324)"""
+    response = mock.Mock()
+    response.read.side_effect = [error, b'node archive']
+    with mock.patch.object(nodeenv, 'urlopen', return_value=response):
+        contents = nodeenv._download_node_file('https://dummy/nodejs.tar.gz')
+
+    assert contents.read() == b'node archive'
+
+
+def test__download_node_file_leaves_http_errors_to_the_caller():
+    """install_node_wrapped() falls back to x64 on an arm64 HTTPError"""
+    http_error = nodeenv.urllib2.HTTPError(
+        'https://dummy/nodejs.tar.gz', 404, 'Not Found', {}, None)
+    with mock.patch.object(nodeenv, 'urlopen',
+                           side_effect=http_error) as m_urlopen:
+        with pytest.raises(nodeenv.urllib2.HTTPError):
+            nodeenv._download_node_file('https://dummy/nodejs.tar.gz')
+
+    assert m_urlopen.call_count == 1
 
 
 PROXY_VARS = ('http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY')
@@ -507,6 +907,42 @@ def test_urlopen_reports_the_proxy_it_went_through(monkeypatch):
     assert 'https_proxy=https://:3128' in _logged_errors(m_error)
 
 
+@pytest.mark.parametrize('ssl_mode', ['system', 'ignore_ssl_certs',
+                                      'certifi'])
+def test_urlopen_gives_up_on_a_stalled_server(monkeypatch, ssl_mode):
+    """A server that never answers must not hang nodeenv (#324)"""
+    for name in PROXY_VARS:
+        monkeypatch.delenv(name, raising=False)
+    if ssl_mode == 'ignore_ssl_certs':
+        monkeypatch.setattr(nodeenv, 'ignore_ssl_certs', True)
+    if ssl_mode == 'certifi':
+        monkeypatch.setattr(nodeenv, 'certifi_context',
+                            ssl.create_default_context())
+    monkeypatch.setattr(nodeenv, 'download_timeout', 0.2)
+    outcome = []
+
+    def fetch(url):
+        try:
+            nodeenv.urlopen(url)
+        except BaseException as e:
+            outcome.append(e)
+
+    # the kernel completes the handshake, but nobody reads the request
+    with contextlib.closing(socket.socket()) as sock, \
+            mock.patch.object(nodeenv.logger, 'error') as m_error:
+        sock.bind(('127.0.0.1', 0))
+        sock.listen(1)
+        url = 'http://127.0.0.1:%d/index.json' % sock.getsockname()[1]
+        thread = threading.Thread(target=fetch, args=(url,))
+        thread.daemon = True
+        thread.start()
+        thread.join(5)
+        assert not thread.is_alive(), 'urlopen() still waits for an answer'
+
+    assert isinstance(outcome[0], SystemExit)
+    assert 'timed out' in _logged_errors(m_error)
+
+
 def test_urlopen_keeps_raising_http_errors():
     """download_node_src() falls back to x64 on an arm64 HTTPError."""
     http_error = nodeenv.urllib2.HTTPError(
@@ -529,6 +965,7 @@ def test_download_node_src_zip(tmpdir):
     """On Windows the archive is a zip, which has no extractall(filter=...)"""
     class args:
         node = '22.14.0'
+        parallel_extract = True
 
     with mock.patch.object(nodeenv, 'is_WIN', True), \
             mock.patch.object(nodeenv, '_download_node_file',
@@ -540,6 +977,175 @@ def test_download_node_src_zip(tmpdir):
     assert os.path.exists(os.path.join(node_dir, 'node.exe'))
     # docs are excluded from the extract list
     assert not os.path.exists(os.path.join(node_dir, 'README.md'))
+
+
+def _zip_tree(node_version, n_files, dir_entries=True):
+    """
+    A zip shaped like the node.js Windows archive: nested directories,
+    many files in one directory and the docs that are not extracted.
+    Return the archive and the content of each file it should extract.
+    """
+    top = 'node-v%s-win-x64/' % node_version
+    lib = top + 'node_modules/npm/lib/'
+    files = {top + 'node.exe': b'binary'}
+    for i in range(n_files - 1):
+        files[lib + 'f%03d.js' % i] = b'file %d' % i
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w') as zf:
+        if dir_entries:
+            for name in (top, top + 'node_modules/', top + 'node_modules/npm/',
+                         lib, top + 'node_modules/npm/empty/'):
+                zf.writestr(name, '')
+        for name in ('README.md', 'CHANGELOG.md', 'LICENSE'):
+            zf.writestr(top + name, 'doc')
+        for name, data in files.items():
+            zf.writestr(name, data)
+    return io.BytesIO(buf.getvalue()), files
+
+
+def _extracted_tree(root):
+    """Map each file under root, as a `/`-separated path, to its content"""
+    tree = {}
+    for dirpath, _dirnames, filenames in os.walk(root):
+        for filename in filenames:
+            path = os.path.join(dirpath, filename)
+            with open(path, 'rb') as f:
+                tree[os.path.relpath(path, root).replace(os.sep, '/')] = \
+                    f.read()
+    return tree
+
+
+def _on_zip_file(callback):
+    """
+    Patch ZipFile.extract to call callback(name, path) before it extracts
+    a file; directories are extracted as is.
+    """
+    extract = zipfile.ZipFile.extract
+
+    def wrapper(self, member, path=None, pwd=None):
+        name = getattr(member, 'filename', member)
+        if not name.endswith('/'):
+            callback(name, path)
+        return extract(self, member, path, pwd)
+    return mock.patch.object(zipfile.ZipFile, 'extract', wrapper)
+
+
+def _download_zip(tmpdir, archive, parallel_extract=True):
+    class args:
+        node = '22.14.0'
+
+    args.parallel_extract = parallel_extract
+    with mock.patch.object(nodeenv, 'is_WIN', True), \
+            mock.patch.object(nodeenv, '_download_node_file',
+                              return_value=archive):
+        nodeenv.download_node_src('https://dummy/node.zip',
+                                  tmpdir.strpath, args)
+
+
+@pytest.mark.parametrize('dir_entries', [True, False],
+                         ids=['dir-entries', 'no-dir-entries'])
+def test_download_node_src_zip_tree(tmpdir, dir_entries):
+    """Every file of the zip is extracted, except the top-level docs #366"""
+    archive, files = _zip_tree('22.14.0', 100, dir_entries)
+    _download_zip(tmpdir, archive)
+
+    assert _extracted_tree(tmpdir.strpath) == files
+    empty = os.path.join(tmpdir.strpath, 'node-v22.14.0-win-x64',
+                         'node_modules', 'npm', 'empty')
+    assert os.path.isdir(empty) == dir_entries
+
+
+def test_download_node_src_zip_parallel_extract_off(tmpdir):
+    """--no-parallel-extract extracts the zip as before, one by one #366"""
+    archive, files = _zip_tree('22.14.0', 100)
+    with mock.patch.object(nodeenv, '_extract_zip') as extract_zip:
+        _download_zip(tmpdir, archive, parallel_extract=False)
+
+    extract_zip.assert_not_called()
+    assert _extracted_tree(tmpdir.strpath) == files
+
+
+def test_download_node_src_zip_extract_workers_at_once(tmpdir):
+    """
+    The zip files are extracted extract_workers at a time and never more,
+    each into a directory that already exists #366
+    """
+    workers = nodeenv.extract_workers
+    assert workers == 32
+    archive, files = _zip_tree('22.14.0', 2 * workers, dir_entries=False)
+    # lets files through only when extract_workers of them run at once
+    barrier = threading.Barrier(workers, timeout=10)
+    lock = threading.Lock()
+    running = []
+    most_running = [0]
+    no_parent = []
+
+    def on_file(name, path):
+        if not os.path.isdir(os.path.dirname(os.path.join(path, name))):
+            no_parent.append(name)
+        with lock:
+            running.append(name)
+            most_running[0] = max(most_running[0], len(running))
+        barrier.wait()
+        # stay running, so that a file over the limit would be counted
+        time.sleep(0.05)
+        with lock:
+            running.remove(name)
+
+    with _on_zip_file(on_file):
+        _download_zip(tmpdir, archive)
+
+    assert most_running[0] == workers
+    assert no_parent == []
+    assert _extracted_tree(tmpdir.strpath) == files
+
+
+def test_download_node_src_zip_stops_on_error(tmpdir):
+    """
+    A file that fails to extract fails the download, and the files that
+    have not started yet are not extracted #366
+    """
+    archive, _files = _zip_tree('22.14.0', 300)
+    lock = threading.Lock()
+    started = []
+
+    def on_file(name, path):
+        with lock:
+            started.append(name)
+            first = len(started) == 1
+        if first:
+            raise OSError('cannot write %s' % name)
+        time.sleep(0.5)
+
+    with _on_zip_file(on_file), pytest.raises(OSError, match='cannot write'):
+        _download_zip(tmpdir, archive)
+
+    assert len(started) <= 2 * nodeenv.extract_workers
+
+
+def test_download_node_src_zip_stops_on_interrupt(tmpdir):
+    """
+    Ctrl+C stops the extraction without waiting for the files that have
+    not started yet #366
+    """
+    archive, _files = _zip_tree('22.14.0', 300)
+    lock = threading.Lock()
+    started = []
+
+    def on_file(name, path):
+        with lock:
+            started.append(name)
+            first = len(started) == 1
+        if first:
+            # like Ctrl+C on Windows before Python 3.14, this does not
+            # wake up the main thread blocked on a lock
+            threading.Timer(0.1, _thread.interrupt_main).start()
+        time.sleep(0.5)
+
+    with _on_zip_file(on_file), pytest.raises(KeyboardInterrupt):
+        _download_zip(tmpdir, archive)
+
+    assert len(started) <= 2 * nodeenv.extract_workers
 
 
 def test_download_node_src_tar_keeps_data_filter(tmpdir):
@@ -563,6 +1169,77 @@ def test_download_node_src_tar_keeps_data_filter(tmpdir):
             tmpdir.strpath, [], filter="data")
     else:
         archive.extractall.assert_called_once_with(tmpdir.strpath, [])
+
+
+@pytest.mark.skipif(nodeenv.is_WIN, reason='symlinks need privileges on win32')
+def test_copytree_keeps_existing_symlink(tmpdir):
+    """
+    Copying node over an environment that already has its links doesn't
+    fail on them.  bin/ exists in both, so copytree goes down into it as
+    it does for a prebuilt node copied into an existing environment.
+    https://github.com/ekalinin/nodeenv/issues/189
+    """
+    target = '../lib/node_modules/npm/bin/npm-cli.js'
+    for tree in ('src', 'dst'):
+        bin_dir = tmpdir.join(tree, 'bin').ensure(dir=True)
+        os.symlink(target, bin_dir.join('npm').strpath)
+
+    nodeenv.copytree(tmpdir.join('src').strpath,
+                     tmpdir.join('dst').strpath, True)
+
+    assert os.readlink(tmpdir.join('dst', 'bin', 'npm').strpath) == target
+
+
+@pytest.mark.parametrize(
+    'dirname',
+    (
+        'proj[1]',
+        pytest.param('proj*', marks=pytest.mark.skipif(
+            nodeenv.is_WIN, reason='* is not a valid Windows filename')),
+        pytest.param('proj?', marks=pytest.mark.skipif(
+            nodeenv.is_WIN, reason='? is not a valid Windows filename')),
+    ),
+)
+def test_copy_node_from_prebuilt_literal_path(tmpdir, monkeypatch, dirname):
+    monkeypatch.setattr(nodeenv, 'is_WIN', False)
+    monkeypatch.setattr(nodeenv, 'is_CYGWIN', False)
+    env_dir = tmpdir.join(dirname, 'env').ensure(dir=True)
+    src_dir = env_dir.join('src').ensure(dir=True)
+    archive = 'node-v18.0.0-test-platform'
+    source = src_dir.join(archive, 'bin', 'node').ensure()
+    source.write('literal source')
+    env_dir.join('keep.txt').write('keep this file')
+    decoy = tmpdir.join('proj1', 'env', 'src', archive, 'bin', 'node').ensure()
+    decoy.write('neighbor source')
+
+    nodeenv.copy_node_from_prebuilt(env_dir.strpath, src_dir.strpath, '18.0.0')
+
+    assert env_dir.join('bin', 'node').read() == 'literal source'
+    assert env_dir.join('keep.txt').read() == 'keep this file'
+    assert source.read() == 'literal source'
+    assert decoy.read() == 'neighbor source'
+
+
+def test_copy_node_from_prebuilt_literal_version(tmp_path, monkeypatch):
+    monkeypatch.setattr(nodeenv, 'is_WIN', False)
+    monkeypatch.setattr(nodeenv, 'is_CYGWIN', False)
+    version = '18.0.0+build[1]'
+    env_dir = tmp_path / 'env'
+    env_dir.mkdir()
+    src_dir = tmp_path / 'src'
+    archive = src_dir / ('node-v%s-linux-x64' % version)
+    neighbor = src_dir / 'node-v18.0.0+build1-linux-x64'
+    for directory, contents in (
+            (archive, 'literal version'),
+            (neighbor, 'neighbor version')):
+        directory.mkdir(parents=True)
+        (directory / 'payload').write_text(contents, encoding='utf-8')
+
+    nodeenv.copy_node_from_prebuilt(str(env_dir), str(src_dir), version)
+
+    assert (env_dir / 'payload').read_text() == 'literal version'
+    assert (archive / 'payload').read_text() == 'literal version'
+    assert (neighbor / 'payload').read_text() == 'neighbor version'
 
 
 def test_parse_version():
@@ -950,6 +1627,35 @@ def test_parse_args_clean_src():
         assert nodeenv.parse_args().clean_src is True
     with mock.patch.object(sys, 'argv', ['nodeenv', '--no-clean-src', 'env']):
         assert nodeenv.parse_args().clean_src is False
+
+
+def test_parallel_extract_default():
+    assert nodeenv.Config._default['parallel_extract'] is True
+
+
+def test_parallel_extract_is_configurable(tmpdir):
+    rc = tmpdir.join('nodeenvrc')
+    rc.write('[nodeenv]\nparallel_extract = false\n')
+    try:
+        nodeenv.Config._load([str(rc)])
+        assert nodeenv.Config.parallel_extract is False
+    finally:
+        nodeenv.Config.parallel_extract = True
+
+
+def test_parse_args_parallel_extract():
+    with mock.patch.object(sys, 'argv', ['nodeenv', 'env']):
+        assert nodeenv.parse_args().parallel_extract is True
+    with mock.patch.object(
+            sys, 'argv', ['nodeenv', '--no-parallel-extract', 'env']):
+        assert nodeenv.parse_args().parallel_extract is False
+    # the flag turns it back on over the config
+    with mock.patch.object(nodeenv.Config, 'parallel_extract', False):
+        with mock.patch.object(sys, 'argv', ['nodeenv', 'env']):
+            assert nodeenv.parse_args().parallel_extract is False
+        with mock.patch.object(
+                sys, 'argv', ['nodeenv', '--parallel-extract', 'env']):
+            assert nodeenv.parse_args().parallel_extract is True
 
 
 def _run_create_environment(tmpdir, extra):
@@ -1457,6 +2163,107 @@ class TestGetNodeBinUrl:
             assert url == expected
 
 
+@pytest.mark.parametrize('source_exists', [False, True])
+@pytest.mark.parametrize('prebuilt_exists', [False, True])
+def test_prebuilt_ignores_source_cache(
+        tmp_path, monkeypatch, source_exists, prebuilt_exists):
+    args = mock.Mock(node='18.0.0', prebuilt=True, verbose=False)
+    env_dir = tmp_path / 'env'
+    src_dir = tmp_path / 'src'
+    src_dir.mkdir()
+    source = src_dir / 'node-v18.0.0'
+    if source_exists:
+        source.mkdir()
+        (source / 'source-only').write_text('source', encoding='utf-8')
+    prebuilt = src_dir / 'node-v18.0.0-linux-x64'
+
+    def write_binary(contents):
+        (prebuilt / 'bin').mkdir(parents=True, exist_ok=True)
+        (prebuilt / 'bin' / 'node').write_text(contents, encoding='utf-8')
+
+    if prebuilt_exists:
+        write_binary('cached prebuilt')
+    url = 'https://example.com/node-v18.0.0-linux-x64.tar.gz'
+    monkeypatch.setattr(nodeenv, 'get_node_bin_url', lambda version: url)
+    monkeypatch.setattr(nodeenv, 'is_WIN', False)
+    monkeypatch.setattr(nodeenv, 'is_CYGWIN', False)
+
+    def download(url, directory, options):
+        write_binary('downloaded prebuilt')
+
+    with mock.patch.object(
+            nodeenv, 'download_node_src',
+            side_effect=download) as mock_download:
+        nodeenv.install_node_wrapped(str(env_dir), str(src_dir), args)
+
+    mock_download.assert_called_once_with(url, str(src_dir), args)
+    assert (env_dir / 'bin' / 'node').read_text() == 'downloaded prebuilt'
+    assert not (env_dir / 'source-only').exists()
+    if source_exists:
+        assert (source / 'source-only').read_text() == 'source'
+
+
+@pytest.mark.parametrize('system, archive_platform, binary', [
+    ('posix', 'linux-x64', 'bin/node'),
+    ('windows', 'win-x64', 'node.exe'),
+    ('cygwin', 'win-x64', 'node.exe'),
+])
+def test_copy_prebuilt_ignores_source_tree(
+        tmp_path, monkeypatch, system, archive_platform, binary):
+    env_dir = tmp_path / 'env'
+    src_dir = tmp_path / 'src'
+    source = src_dir / 'node-v18.0.1'
+    source.mkdir(parents=True)
+    (source / 'source-only').write_text('source', encoding='utf-8')
+    for version, contents in [('18.0.1', 'prebuilt'), ('18.0.10', 'other')]:
+        prebuilt = src_dir / ('node-v%s-%s' % (version, archive_platform))
+        node = prebuilt / binary
+        node.parent.mkdir(parents=True)
+        node.write_text(contents, encoding='utf-8')
+    monkeypatch.setattr(nodeenv, 'is_WIN', system == 'windows')
+    monkeypatch.setattr(nodeenv, 'is_CYGWIN', system == 'cygwin')
+
+    nodeenv.copy_node_from_prebuilt(str(env_dir), str(src_dir), '18.0.1')
+
+    if system == 'posix':
+        dest = env_dir
+    else:
+        dest = env_dir / ('Scripts' if system == 'windows' else 'bin')
+    assert (dest / binary).read_text() == 'prebuilt'
+    assert not (dest / 'source-only').exists()
+    assert (source / 'source-only').read_text() == 'source'
+
+
+def test_arm64_fallback_copies_x64_prebuilt(tmp_path, monkeypatch):
+    args = mock.Mock(node='18.0.0', prebuilt=True, verbose=False)
+    env_dir = tmp_path / 'env'
+    src_dir = tmp_path / 'src'
+    src_dir.mkdir()
+    arm_url = 'https://example.com/node-v18.0.0-darwin-arm64.tar.gz'
+    x64_url = arm_url.replace('arm64', 'x64')
+    monkeypatch.setattr(nodeenv, 'get_node_bin_url', lambda version: arm_url)
+    monkeypatch.setattr(nodeenv, 'is_WIN', False)
+    monkeypatch.setattr(nodeenv, 'is_CYGWIN', False)
+
+    def download(url, directory, options):
+        if url == arm_url:
+            raise nodeenv.urllib2.HTTPError(url, 404, 'Not Found', None, None)
+        node = src_dir / 'node-v18.0.0-darwin-x64' / 'bin' / 'node'
+        node.parent.mkdir(parents=True)
+        node.write_text('x64 prebuilt', encoding='utf-8')
+
+    with mock.patch.object(
+            nodeenv, 'download_node_src',
+            side_effect=download) as mock_download:
+        nodeenv.install_node_wrapped(str(env_dir), str(src_dir), args)
+
+    assert mock_download.call_args_list == [
+        mock.call(arm_url, str(src_dir), args),
+        mock.call(x64_url, str(src_dir), args),
+    ]
+    assert (env_dir / 'bin' / 'node').read_text() == 'x64 prebuilt'
+
+
 class TestInstallNode:
     """Tests for install_node and install_node_wrapped functions"""
 
@@ -1634,11 +2441,11 @@ class TestInstallNode:
         # Verify download was called only once (no fallback for x64)
         mock_download.assert_called_once()
 
-    def test_install_node_wrapped_skips_download_if_exists(self, tmpdir):
-        """Test that download is skipped if node source dir exists"""
+    def test_install_node_wrapped_reuses_cached_source(self, tmpdir):
+        """Source builds reuse an existing source directory."""
         args = mock.Mock()
         args.node = '18.0.0'
-        args.prebuilt = True
+        args.prebuilt = False
         args.verbose = False
 
         env_dir = tmpdir.join('env').strpath
@@ -1648,28 +2455,28 @@ class TestInstallNode:
         node_src_dir = os.path.join(src_dir, 'node-v18.0.0')
         os.makedirs(node_src_dir)
 
-        bin_url = (
+        src_url = (
             'https://nodejs.org/download/release/v18.0.0/'
-            'node-v18.0.0-linux-x64.tar.gz'
+            'node-v18.0.0.tar.gz'
         )
         with mock.patch.object(
-                nodeenv, 'get_node_bin_url',
-                return_value=bin_url
+                nodeenv, 'get_node_src_url',
+                return_value=src_url
         ), \
              mock.patch.object(
                  nodeenv, 'download_node_src'
              ) as mock_download, \
              mock.patch.object(
-                 nodeenv, 'copy_node_from_prebuilt'
-             ) as mock_copy, \
+                 nodeenv, 'build_node_from_src'
+             ) as mock_build, \
              mock.patch.object(nodeenv.logger, 'info'):
             nodeenv.install_node_wrapped(env_dir, src_dir, args)
 
             # Verify download was NOT called
             mock_download.assert_not_called()
 
-            # Verify copy was still called
-            mock_copy.assert_called_once()
+            mock_build.assert_called_once_with(
+                env_dir, src_dir, node_src_dir, args)
 
     def test_install_node_restores_newline_on_exception(self, tmpdir):
         """Test that install_node restores newline on exception"""
@@ -2185,16 +2992,15 @@ class TestGetEnvDir:
         result = nodeenv.get_env_dir(args)
         assert result == '/path/to/node/env'
 
-    def test_returns_utf8_encoded_string(self):
-        """Test that get_env_dir returns UTF-8 encoded string"""
+    def test_preserves_unicode_path(self):
+        """Environment paths remain text, including non-ASCII characters."""
         args = mock.Mock()
         args.python_virtualenv = False
-        args.env_dir = '/path/to/env'
+        args.env_dir = '/path/to/öäü 环境'
 
         result = nodeenv.get_env_dir(args)
-        # The to_utf8 function is applied,
-        # but in Python 3 it returns the same string
-        assert result == '/path/to/env'
+        assert result == args.env_dir
+        assert isinstance(result, str)
 
 
 class TestInstallNpm:
@@ -2410,251 +3216,158 @@ class TestInstallNpm:
                 assert env['npm_install'] == version
 
 
+NPM_REGISTRY = 'https://registry.npmjs.org/npm'
+
+# A published npm tarball: everything lives under package/, the scripts in
+# bin/ are executable and the workspaces are bundled as plain directories
+NPM_TARBALL_FILES = {
+    'package/package.json': ('{"name": "npm"}', 0o644),
+    'package/bin/npm': ('#!/usr/bin/env bash\n# npm\n', 0o755),
+    'package/bin/npm.cmd': (':: npm.cmd\n', 0o755),
+    'package/bin/npm-cli.js': ('#!/usr/bin/env node\n// npm-cli\n', 0o755),
+    'package/node_modules/@npmcli/config/package.json':
+        ('{"name": "@npmcli/config"}', 0o644),
+}
+
+
+def _npm_tarball(files):
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode='w:gz') as tf:
+        for name, (content, mode) in sorted(files.items()):
+            data = content.encode('utf-8')
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            info.mode = mode
+            tf.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def _npm_registry(spec, version, files):
+    """
+    Answer like the npm registry does for `spec` (a version or a dist-tag):
+    its metadata document, and the tarball that document points to.  Any
+    other URL gets a 404.
+    """
+    tarball = '%s/-/npm-%s.tgz' % (NPM_REGISTRY, version)
+    meta = {
+        'name': 'npm',
+        'version': version,
+        'dist': {
+            'shasum': '0' * 40,
+            'tarball': tarball,
+            'fileCount': len(files),
+            'integrity': 'sha512-',
+        },
+    }
+    responses = {
+        '%s/%s' % (NPM_REGISTRY, spec): json.dumps(meta).encode('utf-8'),
+        tarball: _npm_tarball(files),
+    }
+
+    def urlopen(url):
+        if url not in responses:
+            raise nodeenv.urllib2.HTTPError(url, 404, 'Not Found', {}, None)
+        return io.BytesIO(responses[url])
+    return urlopen
+
+
+def _npm_env(tmpdir):
+    """An environment as install_npm_win finds it: node in, no npm yet"""
+    env_dir = tmpdir.mkdir('env')
+    env_dir.mkdir('Scripts')
+    env_dir.mkdir('bin')
+    env_dir.mkdir('src')
+    return env_dir
+
+
+def _install_npm_win(env_dir, spec='8.3.1', version='8.3.1',
+                     files=NPM_TARBALL_FILES):
+    class args:
+        npm = spec
+
+    with mock.patch.object(nodeenv, 'urlopen',
+                           _npm_registry(spec, version, files)):
+        nodeenv.install_npm_win(env_dir.strpath, env_dir.join('src').strpath,
+                                args)
+
+
 class TestInstallNpmWin:
     """Tests for install_npm_win function"""
 
-    def test_install_npm_win_basic(self):
-        """Test basic Windows npm installation"""
-        args = mock.Mock()
-        args.npm = '8.19.2'
+    @pytest.mark.parametrize(('spec', 'version'), (
+        ('8.3.1', '8.3.1'),
+        # the default --npm, a dist-tag the registry resolves
+        ('latest', '12.1.0'),
+    ))
+    def test_install_npm_win_installs_the_registry_tarball(self, tmpdir,
+                                                           spec, version):
+        """
+        The GitHub source archive of npm is not an installable npm: its
+        workspace symlinks unpack as text files (npm 8) or the workspaces
+        are missing altogether (npm >= 9).
+        https://github.com/ekalinin/nodeenv/issues/310
+        """
+        env_dir = _npm_env(tmpdir)
+        with mock.patch.object(nodeenv, 'is_CYGWIN', False):
+            _install_npm_win(env_dir, spec, version)
 
-        env_dir = 'C:\\path\\to\\env'
-        src_dir = 'C:\\path\\to\\src'
+        scripts = env_dir.join('Scripts')
+        npm_dir = scripts.join('node_modules', 'npm')
+        assert npm_dir.join('node_modules', '@npmcli', 'config',
+                            'package.json').read() == \
+            '{"name": "@npmcli/config"}'
+        assert npm_dir.join('bin', 'npm-cli.js').read() == \
+            '#!/usr/bin/env node\n// npm-cli\n'
+        assert scripts.join('npm.cmd').read() == ':: npm.cmd\n'
+        assert scripts.join('npm-cli.js').read() == \
+            '#!/usr/bin/env node\n// npm-cli\n'
 
-        # Mock the zip file content
-        mock_zip_content = b'PK\x03\x04...'  # Simplified zip header
-        mock_response = mock.Mock()
-        mock_response.read.return_value = mock_zip_content
+    def test_install_npm_win_removes_existing_files(self, tmpdir):
+        """A reinstall replaces the npm already in Scripts"""
+        env_dir = _npm_env(tmpdir)
+        scripts = env_dir.join('Scripts')
+        scripts.mkdir('node_modules').mkdir('npm').join('stale.js').write('')
+        scripts.join('npm.cmd').write(':: old npm.cmd\n')
+        scripts.join('npm-cli.js').write('// old npm-cli\n')
 
-        mock_zip = mock.Mock()
-        mock_zip.__enter__ = mock.Mock(return_value=mock_zip)
-        mock_zip.__exit__ = mock.Mock(return_value=False)
+        with mock.patch.object(nodeenv, 'is_CYGWIN', False):
+            _install_npm_win(env_dir)
 
-        with mock.patch.object(
-                nodeenv, 'urlopen', return_value=mock_response
-        ), \
-             mock.patch.object(nodeenv, 'is_CYGWIN', False), \
-             mock.patch('zipfile.ZipFile', return_value=mock_zip), \
-             mock.patch('os.path.exists', return_value=False), \
-             mock.patch('shutil.copytree') as mock_copytree, \
-             mock.patch('shutil.copy') as mock_copy, \
-             mock.patch.object(nodeenv.logger, 'info') as mock_logger:
-            nodeenv.install_npm_win(env_dir, src_dir, args)
+        assert not scripts.join('node_modules', 'npm', 'stale.js').check()
+        assert scripts.join('npm.cmd').read() == ':: npm.cmd\n'
+        assert scripts.join('npm-cli.js').read() == \
+            '#!/usr/bin/env node\n// npm-cli\n'
 
-            # Verify URL was constructed correctly
-            expected_url = 'https://github.com/npm/cli/archive/v8.19.2.zip'
-            nodeenv.urlopen.assert_called_once_with(expected_url)
+    def test_install_npm_win_cygwin(self, tmpdir):
+        """bin/npm for Cygwin ships in the tarball, no second download"""
+        env_dir = _npm_env(tmpdir)
+        with mock.patch.object(nodeenv, 'is_CYGWIN', True):
+            _install_npm_win(env_dir)
 
-            # Verify extraction happened
-            mock_zip.extractall.assert_called_once_with(src_dir)
+        bin_npm = env_dir.join('bin', 'npm')
+        assert bin_npm.read() == '#!/usr/bin/env bash\n# npm\n'
+        assert os.access(bin_npm.strpath, os.X_OK)
+        assert env_dir.join('bin', 'npm-cli.js').read() == \
+            '#!/usr/bin/env node\n// npm-cli\n'
+        assert env_dir.join('bin', 'node_modules', 'npm', 'node_modules',
+                            '@npmcli', 'config', 'package.json').check(file=1)
 
-            # Verify copytree and copy were called
-            assert mock_copytree.called
-            assert mock_copy.call_count == 2
+    @pytest.mark.skipif(sys.version_info < (3, 12),
+                        reason='tarfile has extraction filters since 3.12')
+    def test_install_npm_win_keeps_data_filter(self, tmpdir):
+        """
+        A member pointing out of the unpack directory is refused
+        (CVE-2007-4559)
+        """
+        env_dir = _npm_env(tmpdir)
+        files = dict(NPM_TARBALL_FILES)
+        files['package/../../escaped'] = ('', 0o644)
 
-            # Verify logging
-            log_calls = [call[0][0] for call in mock_logger.call_args_list]
-            assert any('8.19.2' in str(call) for call in log_calls)
+        with mock.patch.object(nodeenv, 'is_CYGWIN', False), \
+                pytest.raises(tarfile.OutsideDestinationError):
+            _install_npm_win(env_dir, files=files)
 
-    def test_install_npm_win_removes_existing_files(self):
-        """Test that existing npm files are removed before installation"""
-        args = mock.Mock()
-        args.npm = '9.0.0'
-
-        env_dir = 'C:\\env'
-        src_dir = 'C:\\src'
-
-        mock_zip_content = b'PK\x03\x04...'
-        mock_response = mock.Mock()
-        mock_response.read.return_value = mock_zip_content
-
-        mock_zip = mock.Mock()
-        mock_zip.__enter__ = mock.Mock(return_value=mock_zip)
-        mock_zip.__exit__ = mock.Mock(return_value=False)
-
-        # Simulate existing files
-        def exists_side_effect(path):
-            if ('node_modules' in path or 'npm.cmd' in path or
-                    'npm-cli.js' in path):
-                return True
-            return False
-
-        with mock.patch.object(
-                nodeenv, 'urlopen', return_value=mock_response
-        ), \
-             mock.patch.object(nodeenv, 'is_CYGWIN', False), \
-             mock.patch('zipfile.ZipFile', return_value=mock_zip), \
-             mock.patch('os.path.exists', side_effect=exists_side_effect), \
-             mock.patch('shutil.rmtree') as mock_rmtree, \
-             mock.patch('os.remove') as mock_remove, \
-             mock.patch('shutil.copytree'), \
-             mock.patch('shutil.copy'), \
-             mock.patch.object(nodeenv.logger, 'info'):
-            nodeenv.install_npm_win(env_dir, src_dir, args)
-
-            # Verify cleanup happened
-            mock_rmtree.assert_called_once()
-            assert mock_remove.call_count == 2
-
-    def test_install_npm_win_cygwin(self):
-        """Test Windows npm installation on CYGWIN"""
-        args = mock.Mock()
-        args.npm = '7.24.2'
-
-        env_dir = '/cygdrive/c/env'
-        src_dir = '/cygdrive/c/src'
-
-        mock_zip_content = b'PK\x03\x04...'
-        mock_response = mock.Mock()
-        mock_response.read.return_value = mock_zip_content
-
-        mock_npm_script = b'#!/bin/sh\n# npm script'
-        mock_npm_response = mock.Mock()
-        mock_npm_response.read.return_value = mock_npm_script
-
-        mock_zip = mock.Mock()
-        mock_zip.__enter__ = mock.Mock(return_value=mock_zip)
-        mock_zip.__exit__ = mock.Mock(return_value=False)
-
-        with mock.patch.object(nodeenv, 'urlopen') as mock_urlopen, \
-             mock.patch.object(nodeenv, 'is_CYGWIN', True), \
-             mock.patch.object(nodeenv, 'writefile') as mock_writefile, \
-             mock.patch('zipfile.ZipFile', return_value=mock_zip), \
-             mock.patch('os.path.exists', return_value=False), \
-             mock.patch('shutil.copytree'), \
-             mock.patch('shutil.copy'), \
-             mock.patch.object(nodeenv.logger, 'info'):
-            mock_urlopen.side_effect = [mock_response, mock_npm_response]
-
-            nodeenv.install_npm_win(env_dir, src_dir, args)
-
-            # Verify that CYGWIN-specific operations happened
-            assert mock_urlopen.call_count == 2
-            assert mock_writefile.called
-
-            # Verify the raw GitHub URL was called
-            calls = [str(call) for call in mock_urlopen.call_args_list]
-            assert any(
-                'raw.githubusercontent.com' in str(call) for call in calls
-            )
-
-    def test_install_npm_win_different_versions(self):
-        """Test Windows npm installation with different version formats"""
-        test_versions = ['8.0.0', '9.5.1', '10.0.0']
-
-        for version in test_versions:
-            args = mock.Mock()
-            args.npm = version
-
-            env_dir = 'C:\\env'
-            src_dir = 'C:\\src'
-
-            mock_zip_content = b'PK\x03\x04...'
-            mock_response = mock.Mock()
-            mock_response.read.return_value = mock_zip_content
-
-            mock_zip = mock.Mock()
-            mock_zip.__enter__ = mock.Mock(return_value=mock_zip)
-            mock_zip.__exit__ = mock.Mock(return_value=False)
-
-            with mock.patch.object(
-                    nodeenv, 'urlopen', return_value=mock_response
-            ) as mock_urlopen, \
-                 mock.patch.object(nodeenv, 'is_CYGWIN', False), \
-                 mock.patch('zipfile.ZipFile', return_value=mock_zip), \
-                 mock.patch('os.path.exists', return_value=False), \
-                 mock.patch('shutil.copytree'), \
-                 mock.patch('shutil.copy'), \
-                 mock.patch.object(nodeenv.logger, 'info'):
-                nodeenv.install_npm_win(env_dir, src_dir, args)
-
-                # Verify correct URL for each version
-                expected_url = (
-                    f'https://github.com/npm/cli/archive/v{version}.zip'
-                )
-                mock_urlopen.assert_called_with(expected_url)
-
-    def test_install_npm_win_paths(self):
-        """Test that Windows npm installation uses correct paths"""
-        args = mock.Mock()
-        args.npm = '8.5.0'
-
-        env_dir = 'C:\\Users\\test\\env'
-        src_dir = 'C:\\Users\\test\\src'
-
-        mock_zip_content = b'PK\x03\x04...'
-        mock_response = mock.Mock()
-        mock_response.read.return_value = mock_zip_content
-
-        mock_zip = mock.Mock()
-        mock_zip.__enter__ = mock.Mock(return_value=mock_zip)
-        mock_zip.__exit__ = mock.Mock(return_value=False)
-
-        with mock.patch.object(
-                nodeenv, 'urlopen', return_value=mock_response
-        ), \
-             mock.patch.object(nodeenv, 'is_CYGWIN', False), \
-             mock.patch('zipfile.ZipFile', return_value=mock_zip), \
-             mock.patch('os.path.exists', return_value=False), \
-             mock.patch('shutil.copytree') as mock_copytree, \
-             mock.patch('shutil.copy') as mock_copy, \
-             mock.patch.object(nodeenv.logger, 'info'):
-            nodeenv.install_npm_win(env_dir, src_dir, args)
-
-            # Verify paths
-            copytree_call = mock_copytree.call_args[0]
-            src_path = copytree_call[0]
-            dst_path = copytree_call[1]
-
-            assert 'cli-8.5.0' in src_path
-            expected_path = os.path.join(
-                env_dir, 'Scripts', 'node_modules', 'npm'
-            )
-            assert expected_path == dst_path
-
-            # Verify copy calls use correct paths
-            copy_calls = mock_copy.call_args_list
-            assert len(copy_calls) == 2
-            assert any('npm.cmd' in str(call) for call in copy_calls)
-            assert any('npm-cli.js' in str(call) for call in copy_calls)
-
-    def test_install_npm_win_zip_extraction(self):
-        """Test that zip file is properly extracted"""
-        args = mock.Mock()
-        args.npm = '9.1.0'
-
-        env_dir = 'C:\\test'
-        src_dir = 'C:\\test\\src'
-
-        mock_zip_content = b'PK\x03\x04...'
-        mock_response = mock.Mock()
-        mock_response.read.return_value = mock_zip_content
-
-        mock_zip = mock.Mock()
-        mock_zip.__enter__ = mock.Mock(return_value=mock_zip)
-        mock_zip.__exit__ = mock.Mock(return_value=False)
-        mock_zip.extractall = mock.Mock()
-
-        with mock.patch.object(
-                nodeenv, 'urlopen', return_value=mock_response
-        ), \
-             mock.patch.object(nodeenv, 'is_CYGWIN', False), \
-             mock.patch(
-                 'zipfile.ZipFile', return_value=mock_zip
-             ) as mock_zipfile, \
-             mock.patch('os.path.exists', return_value=False), \
-             mock.patch('shutil.copytree'), \
-             mock.patch('shutil.copy'), \
-             mock.patch.object(nodeenv.logger, 'info'):
-            nodeenv.install_npm_win(env_dir, src_dir, args)
-
-            # Verify ZipFile was created with the BytesIO content
-            mock_zipfile.assert_called_once()
-            zip_args = mock_zipfile.call_args[0]
-            assert hasattr(zip_args[0], 'read')  # Should be BytesIO object
-
-            # Verify extraction
-            mock_zip.extractall.assert_called_once_with(src_dir)
+        assert not env_dir.join('src', 'escaped').check()
 
 
 class TestCertifi:
@@ -2667,7 +3380,7 @@ class TestCertifi:
              mock.patch.object(nodeenv.urllib2, 'urlopen') as m_urlopen:
             nodeenv.urlopen('https://nodejs.org/dist/index.json')
 
-        assert m_urlopen.call_args[1] == {}
+        assert 'context' not in m_urlopen.call_args[1]
 
     def test_urlopen_with_certifi(self):
         """The context built by main() is reused for every download"""
@@ -2749,3 +3462,96 @@ class TestWritefile:
                                '# SIG # Begin signature block\n'
                                '# MIIF...\n'
                                '# SIG # End signature block\n')
+
+
+def _build_node_from_src(tmpdir, node_version, python2_path):
+    args = mock.Mock(node=node_version, load_average=None, jobs='2',
+                     without_ssl=False, debug=False, profile=False,
+                     make_path='make', verbose=False)
+    src_dir = tmpdir.join('src')
+    node_src_dir = src_dir.join('node-v%s' % node_version)
+    with mock.patch.object(nodeenv.shutil, 'which',
+                           return_value=python2_path), \
+            mock.patch.object(nodeenv, 'callit') as mck:
+        nodeenv.build_node_from_src(
+            str(tmpdir.join('env')), str(src_dir), str(node_src_dir), args)
+    return src_dir, node_src_dir, mck.call_args_list
+
+
+def _build_env(call):
+    """extra_env passed to callit, positionally or as a keyword"""
+    args, kwargs = call
+    if 'extra_env' in kwargs:
+        return kwargs['extra_env']
+    return args[4] if len(args) > 4 else None
+
+
+def _build_calls(calls):
+    return [c for c in calls if c[0][0][0] != 'ln']
+
+
+@pytest.mark.parametrize('node_version', ['8.8.0', '12.22.12', '22.11.0'])
+def test_build_node_from_src_current_node_does_not_link_python(tmpdir,
+                                                               node_version):
+    """
+    since 8.8, node points `python` at the right interpreter itself, so a
+    source build does not rewrite PATH, even when python2 is installed
+    """
+    src_dir, node_src_dir, calls = _build_node_from_src(
+        tmpdir, node_version, '/usr/bin/python2')
+
+    assert [c[0][0][0] for c in calls] == [
+        './configure', 'make', 'make install']
+    for c in calls:
+        assert c[0][3] == str(node_src_dir)
+        assert not _build_env(c)
+    assert not src_dir.join('tmpbin').exists()
+
+
+@pytest.mark.parametrize('node_version', ['13.0.0', '22.11.0'])
+def test_build_node_from_src_node_13_does_not_need_python2(tmpdir,
+                                                           node_version):
+    """
+    since 13, ./configure also runs on Python 3, so a source build works
+    without a python2 command
+    """
+    src_dir, node_src_dir, calls = _build_node_from_src(
+        tmpdir, node_version, None)
+
+    assert [c[0][0][0] for c in calls] == [
+        './configure', 'make', 'make install']
+    for c in calls:
+        assert not _build_env(c)
+    assert not src_dir.join('tmpbin').exists()
+
+
+@pytest.mark.parametrize('node_version', ['0.10.25', '8.5.0', '8.7.0'])
+def test_build_node_from_src_old_node_points_python_at_python2(tmpdir,
+                                                               node_version):
+    """
+    before 8.8, gyp and make run `python` by name, so `python` in PATH
+    is pointed at python2 for the build
+    """
+    src_dir, node_src_dir, calls = _build_node_from_src(
+        tmpdir, node_version, '/usr/bin/python2')
+
+    tmpbin = src_dir.join('tmpbin')
+    assert tmpbin.isdir()
+    assert calls[0][0][0] == [
+        'ln', '-s', '/usr/bin/python2', str(tmpbin.join('python'))]
+    build = _build_calls(calls)
+    assert [c[0][0][0] for c in build] == [
+        './configure', 'make', 'make install']
+    for c in build:
+        assert c[0][3] == str(node_src_dir)
+        assert _build_env(c)['PATH'].startswith(str(tmpbin) + ':')
+
+
+@pytest.mark.parametrize('node_version', ['0.10.25', '8.7.0', '12.22.12'])
+def test_build_node_from_src_old_node_without_python2(tmpdir, node_version):
+    """
+    building node.js before 13 without python2 fails early with a clear
+    error instead of a failed ./configure
+    """
+    with pytest.raises(OSError, match='python2.*' + node_version):
+        _build_node_from_src(tmpdir, node_version, None)

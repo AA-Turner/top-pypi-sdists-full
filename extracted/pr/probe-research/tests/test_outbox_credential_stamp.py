@@ -20,9 +20,12 @@ import warnings
 
 import pytest
 
-from probe.sdk import config
-from probe.sdk.client import Client
-from probe.sdk.journal import CREDENTIAL_NAMESPACE, Journal, credential_fingerprint, drain
+from probe.sdk.settings import settings as config
+from probe.sdk.client.client import Client
+from probe.sdk.delivery.ops.ops import CREDENTIAL_NAMESPACE
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
+from probe.sdk.delivery.outbox.drain.drain import drain
 from tests.served_fake_app import serve
 from tests.test_outbox import seeded_run
 from tests.conftest import _WS_MINE
@@ -48,7 +51,7 @@ def _login(url: str, token: str | None, name: str | None = None, *, account=None
     and -- since the #2041 review -- which account that token is (``account``,
     bound to the token's fingerprint). ``account=None`` is a login saved
     without one (the setup wizard, or a release before the review)."""
-    from probe.sdk.journal import credential_fingerprint
+    from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
 
     updates = {"base_url": url, "token": token, "identity": None}
     if account is not None and token:
@@ -253,7 +256,7 @@ def test_the_account_learned_when_work_starts_is_stamped_on_later_writes(app, tm
 def test_a_recorded_account_for_another_token_is_ignored(tmp_path):
     """The account `probe login` records is bound to its token: a record left
     by an earlier login must never vouch for this one."""
-    from probe.sdk.journal import credential_fingerprint
+    from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
 
     config.save_context(
         {
@@ -334,7 +337,8 @@ def test_each_credential_has_its_own_queue(app, tmp_path, monkeypatch):
     (`credential-v1/<fingerprint>/`), so one never waits behind the other.
     The price, deliberately: order across two credentials writing ONE run is
     not kept (within a queue it is; see the set-aside tests)."""
-    from probe.sdk.journal import CREDENTIAL_NAMESPACE, credential_fingerprint
+    from probe.sdk.delivery.ops.ops import CREDENTIAL_NAMESPACE
+    from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
 
     run_id = seeded_run(app, tmp_path)
     with serve(app) as url:
@@ -365,7 +369,7 @@ def test_a_worker_backs_a_held_run_off_instead_of_exiting(app, env_job, monkeypa
     writes used to exit at once, so every kick forked a new one (~1/s, 0.9
     CPU-s each). Its run's lane now stalls, and the worker stays up waiting
     that run out: it neither spins nor exits (kicks then find its lease)."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     _url, client, run_id = env_job
     monkeypatch.delenv("PROBE_TOKEN")
@@ -375,7 +379,7 @@ def test_a_worker_backs_a_held_run_off_instead_of_exiting(app, env_job, monkeypa
         waited.append((lanes.skip(), seconds))
         raise _BackedOff
 
-    monkeypatch.setattr(outbox_worker, "_sleep_until_new_work", wait_out)
+    monkeypatch.setattr(outbox_worker.outbox, "_sleep_until_new_work", wait_out)
     with pytest.raises(_BackedOff):
         outbox_worker.run(str(client.journal.dir))
     assert waited and run_id in waited[0][0] and waited[0][1] > 0
@@ -385,7 +389,7 @@ def test_a_worker_backs_a_held_run_off_instead_of_exiting(app, env_job, monkeypa
 def test_a_kick_with_nothing_new_to_deliver_forks_no_worker(app, tmp_path, monkeypatch):
     """#2041 round 3, MED-2. When everything queued is what the last pass had
     to leave held, a kick forks nothing; a NEW write does."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     run_id = seeded_run(app, tmp_path)
     with serve(app) as url:
@@ -413,7 +417,7 @@ def test_a_kick_with_nothing_new_to_deliver_forks_no_worker(app, tmp_path, monke
 
 
 def test_the_stamp_names_the_credential_without_carrying_it(app, env_job):
-    from probe.sdk.journal import credential_fingerprint
+    from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
 
     url, client, _run = env_job
     ((path, op),) = client.journal.pending()
@@ -427,7 +431,7 @@ def test_the_stamp_names_the_credential_without_carrying_it(app, env_job):
 
 
 def test_a_stored_login_is_stamped_as_the_login(tmp_path):
-    from probe.sdk.journal import credential_fingerprint
+    from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
 
     config.save_context({"base_url": "http://127.0.0.1:9", "token": STORED_B})
     client = Client(spool_dir=tmp_path / "outbox", async_writes=False)
@@ -446,7 +450,7 @@ def test_a_crashed_runs_recovery_keeps_the_runs_credential(tmp_path, monkeypatch
     import os
     from types import SimpleNamespace
 
-    from probe.sdk.outputs import OutputCapture
+    from probe.sdk.capture.outputs.outputs import OutputCapture
 
     monkeypatch.setenv("PROBE_TOKEN", ENV_A)
     client = Client(spool_dir=tmp_path / "outbox", base_url="http://127.0.0.1:9", async_writes=False)
@@ -556,7 +560,7 @@ def test_a_logged_out_logins_write_does_not_block_a_probe_token_jobs_worker(
     """The review's repro: a stored-login write queued, then `probe logout`,
     then a PROBE_TOKEN job. Its worker exited "auth-blocked" having delivered
     none of the job's writes."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     run_b = seeded_run(app, tmp_path)
     run_a = seeded_run(app, tmp_path)
@@ -569,7 +573,7 @@ def test_a_logged_out_logins_write_does_not_block_a_probe_token_jobs_worker(
         def wait_out(*_a, **_k):
             raise _BackedOff  # the worker stays up, backing B's run off
 
-        monkeypatch.setattr(outbox_worker, "_sleep_until_new_work", wait_out)
+        monkeypatch.setattr(outbox_worker.outbox, "_sleep_until_new_work", wait_out)
         with pytest.raises(_BackedOff):
             outbox_worker.run(str(tmp_path / "outbox"))
         # A's writes are in A's own queue: the worker `run` started for it
@@ -609,7 +613,7 @@ def test_the_writer_recovers_its_own_refused_writes_through_a_re_login(app, tmp_
     """The cooldown binds other drainers, not the writer: once it picks up a
     new login of the same account (plan 2.7), its own set-aside writes go at
     once -- under the new token, with the stamp moved to it."""
-    from probe.sdk.journal import credential_fingerprint
+    from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
 
     run_id = seeded_run(app, tmp_path)
     new = "probe_pat_storedlogin_B_relogged_in"
@@ -644,7 +648,8 @@ def test_an_older_drainer_never_sees_env_or_in_code_writes(app, tmp_path, monkey
     lists `ops/` and `delivery-v1/ops/` only. A stored-login write stays in the
     shared queue, where an older release sends it as the stored login -- what
     queued it."""
-    from probe.sdk.journal import CREDENTIAL_NAMESPACE, _settings_for
+    from probe.sdk.delivery.ops.ops import CREDENTIAL_NAMESPACE
+    from probe.sdk.delivery.outbox.drain.credentials import _settings_for
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -710,8 +715,8 @@ def test_a_crashed_runs_recovery_never_uses_another_credential(tmp_path, monkeyp
     """LOW. Recovery listed the run's artifacts and uploaded its outputs with
     whatever credential the recovering process resolved. With a stamp, only
     the run's own credential -- or none, and everything is queued."""
-    from probe.sdk.journal import credential_fingerprint
-    from probe.sdk.outputs import _recovery_client
+    from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
+    from probe.sdk.capture.outputs.recovery import _recovery_client
 
     config.save_context({"base_url": "http://127.0.0.1:9", "token": STORED_B})
     record = {
@@ -737,7 +742,7 @@ def test_another_logins_refusal_is_not_this_clients(tmp_path):
     so a PROBE_TOKEN job took the stored login's 401 for its own."""
     from types import SimpleNamespace
 
-    from probe.sdk.journal import credential_fingerprint
+    from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
 
     client = Client(token=CODE_C, base_url="http://127.0.0.1:9", spool_dir=tmp_path / "o", async_writes=False)
     try:
@@ -945,7 +950,7 @@ def test_a_backed_off_held_run_keeps_its_hold_count(app, tmp_path, monkeypatch):
     """C1 fix review: a held run stalls, the caller backs it off, and the next
     pass skipped it and wrote `held: 0` while its writes still waited, so the
     stuck signal (`blocked_oldest_pending`) flickered pass to pass."""
-    from probe.sdk.journal import _credential_queue_dirs
+    from probe.sdk.delivery.journal.paths import _credential_queue_dirs
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -964,7 +969,6 @@ def test_a_backed_off_held_run_keeps_its_hold_count(app, tmp_path, monkeypatch):
 def test_a_held_close_goes_after_the_cap(app, tmp_path, monkeypatch):
     """Control: writes nothing here may send never deliver; past
     CLOSE_HOLD_MAX_SECONDS the close goes rather than leave the run open."""
-    from probe.sdk import journal as journal_module
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -975,7 +979,7 @@ def test_a_held_close_goes_after_the_cap(app, tmp_path, monkeypatch):
         closer = Client(spool_dir=root, async_writes=True, auto_drain=False)
         _patch_close(closer, run_id)
         closer.close()
-        monkeypatch.setattr(journal_module, "CLOSE_HOLD_MAX_SECONDS", -1.0)
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.holds.CLOSE_HOLD_MAX_SECONDS", -1.0)
         report = drain(Journal(root))
     assert report.close_held == 0 and _closes(app) == [STORED_B]
 
@@ -1032,7 +1036,8 @@ def test_a_wizard_logins_writes_follow_a_same_account_re_login(app, tmp_path):
 def test_the_wizard_records_its_new_logins_account(app, tmp_path, monkeypatch, real_wizard_account_lookup):
     """Round 3, MED-3: the wizard's own record (conftest stubs it elsewhere)."""
     from probe.cli import setup
-    from probe.sdk.journal import credential_fingerprint, recorded_account
+    from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
+    from probe.sdk.delivery.outbox.drain.accounts import recorded_account
 
     real = setup._record_login_account
     with serve(app) as url:
@@ -1067,7 +1072,7 @@ def test_probe_outbox_discard_held_drops_only_permanently_held_writes(app, tmp_p
         assert "discarded 1 held write(s)" in capsys.readouterr().out
         left = [op for q in Journal(root).namespaces() for _, op in q.pending()]
         assert sorted(op["body"]["points"][0]["step_index"] for op in left) == [1, 2, 3, 4, 9]
-        from probe.sdk.journal import credential_fingerprint
+        from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
 
         main.outbox_discard(op_id=None, held=True, credential=credential_fingerprint(ENV_A, None))
     assert "discarded 4 held write(s)" in capsys.readouterr().out
@@ -1081,7 +1086,6 @@ def test_discard_held_keeps_a_login_whose_account_cannot_be_confirmed(app, tmp_p
     import importlib
 
     main = importlib.import_module("probe.cli.main")
-    from probe.sdk import journal as journal_module
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -1089,7 +1093,7 @@ def test_discard_held_keeps_a_login_whose_account_cannot_be_confirmed(app, tmp_p
         _queue_as_stored_login(url, tmp_path, run_id)
         _login(url, "probe_pat_storedlogin_B_relogged_in", account=ACCOUNT)
         app.me_status = 503
-        monkeypatch.setattr(journal_module, "_IDENTITY_CACHE", {})
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.credentials._IDENTITY_CACHE", {})
         monkeypatch.setattr(main, "_journal", lambda: Journal(root))
         main.outbox_discard(op_id=None, held=True, credential=None)
     assert "discarded 0 held write(s)" in capsys.readouterr().out
@@ -1104,7 +1108,7 @@ def test_the_discard_hint_names_only_permanently_held_writes(app, env_job, monke
 
     import typer
 
-    from probe.sdk.journal import credential_fingerprint
+    from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
 
     main = importlib.import_module("probe.cli.main")
     _url, client, _run = env_job
@@ -1121,7 +1125,7 @@ def test_a_foreign_drains_held_count_does_not_silence_the_owners_kick(app, tmp_p
     """Round 4 LOW-B. B's drain wrote held=1 into A's queue; A's own kick was
     then suppressed for up to 5 minutes. A process holding the queue's
     credential is not suppressed."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     run_id = seeded_run(app, tmp_path)
     with serve(app) as url:
@@ -1158,7 +1162,7 @@ def test_kept_counts_every_held_write_not_every_run(app, env_job, monkeypatch):
 def test_coalescing_never_merges_two_credentials(app, tmp_path, monkeypatch):
     """#2053 integration: a coalesced batch shares its head's context, so two
     credentials' writes of one run never ride one POST."""
-    from probe.sdk.journal import _merge_key
+    from probe.sdk.delivery.outbox.drain.coalesce import _merge_key
 
     run = "00000000-0000-4000-8000-000000000001"
     point = {"key": "loss", "kind": "model", "value": 1.0, "step_index": 1}
@@ -1175,7 +1179,7 @@ def test_a_direct_send_waits_for_the_runs_writes_in_another_queue(app, tmp_path,
     """#2054 integration: below the free-space floor a write is sent directly
     only when its run has nothing queued -- in ANY queue: a direct send would
     overtake the run's writes queued under another credential."""
-    from probe.sdk import journal as journal_module
+    from probe.sdk.delivery import journal as journal_module
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -1202,7 +1206,7 @@ def test_idle_credential_queues_are_pruned(tmp_path, monkeypatch):
     import fcntl
     import os
 
-    from probe.sdk import journal as journal_module
+    from probe.sdk.delivery import journal as journal_module
 
     root = tmp_path / "outbox"
     empty = Journal.for_credential(root, "a" * 16)
@@ -1217,7 +1221,7 @@ def test_idle_credential_queues_are_pruned(tmp_path, monkeypatch):
     handle = (leased.dir / ".worker.lock").open("a+")
     fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     os.utime(leased.dir / ".worker.lock", (1, 1))
-    monkeypatch.setattr(journal_module, "_last_prune", float("-inf"))
+    monkeypatch.setattr(journal_module.paths, "_last_prune", float("-inf"))
     try:
         assert journal_module.prune_credential_queues(root) == 1
     finally:
@@ -1235,8 +1239,8 @@ def test_a_held_close_is_looked_at_again_when_its_hold_ends(app, tmp_path, monke
     had grown to 300 s) and landed after the reaper. The close hold stalls the
     run with `wake_by` = what is left of the hold, and the run's backoff never
     waits past it; the cap is under the reaper's window."""
-    from probe.sdk import journal as journal_module
-    from probe.sdk.journal import LaneBackoff
+    from probe.sdk.delivery import journal as journal_module
+    from probe.sdk.delivery.outbox.drain.lanes import LaneBackoff
 
     assert journal_module.CLOSE_HOLD_MAX_SECONDS <= 780  # 900 s stale - 120 s sweep
     run_id = seeded_run(app, tmp_path)
@@ -1434,7 +1438,7 @@ def test_a_lease_release_waits_behind_another_credentials_writes(app, tmp_path, 
 def test_the_cross_queue_count_forgets_writes_that_left(tmp_path):
     """A long-lived counter over several queues forgets delivered files, as the
     one-queue counter does (review of #2054); its cache is keyed per queue."""
-    from probe.sdk.journal import CREDENTIAL_NAMESPACE
+    from probe.sdk.delivery.ops.ops import CREDENTIAL_NAMESPACE
 
     root = tmp_path / "outbox"
     shared = Journal(root)
@@ -1457,8 +1461,8 @@ def test_probe_login_wakes_a_worker_sleeping_on_held_runs(tmp_path):
     import threading
     import time
 
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import LaneBackoff
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.outbox.drain.lanes import LaneBackoff
 
     journal = Journal(tmp_path / "outbox")
     journal._ensure()
@@ -1521,7 +1525,7 @@ def _holders_gone(token: str = ENV_A) -> None:
     """The process recorded holding ``token`` (this test process) is gone:
     its record names a start time no live process has (a reused pid reads the
     same way)."""
-    from probe.sdk.journal import _holders_path
+    from probe.sdk.delivery.outbox.drain.holders import _holders_path
 
     records = json.loads(_holders_path().read_text())
     for holder in records[_fp(token)]["holders"]:
@@ -1534,7 +1538,7 @@ def _queue_as_dead_env_job(app, url, tmp_path, monkeypatch, run_id, n=3, *, gone
     0.192.0 does when its heartbeat starts) queued ``n`` writes; then A was
     revoked and the job's worker was refused (401, on the op file), and --
     ``gone`` -- the job died. The shell is logged in as B, the same account."""
-    from probe.sdk.journal import record_account
+    from probe.sdk.delivery.outbox.drain.accounts import record_account
 
     _login(url, STORED_B, account=ACCOUNT)
     record_account(_fp(ENV_A), ACCOUNT)
@@ -1547,7 +1551,7 @@ def _queue_as_dead_env_job(app, url, tmp_path, monkeypatch, run_id, n=3, *, gone
 
 
 def test_an_adopted_dead_tokens_writes_go_out_with_the_same_accounts_login(app, tmp_path, monkeypatch):
-    from probe.sdk.journal import adopt_credential, adopted_account
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential, adopted_account
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -1568,7 +1572,7 @@ def test_an_adopted_tokens_writes_go_out_past_a_dead_job_still_holding_it(app, t
     """The job may still run with the dead token: its worker inherits it, and
     the environment match used to come first. An adopted credential skips it,
     and the refusal the job keeps re-recording does not set its writes aside."""
-    from probe.sdk.journal import adopt_credential
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -1586,7 +1590,7 @@ def test_an_adopted_tokens_writes_go_out_past_a_dead_job_still_holding_it(app, t
 
 
 def test_an_adopted_token_never_follows_a_login_as_another_account(app, tmp_path, monkeypatch):
-    from probe.sdk.journal import adopt_credential
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
 
     run_id = seeded_run(app, tmp_path)
     other = "probe_pat_someone_else_0123456789abcdef"
@@ -1604,7 +1608,8 @@ def test_an_adopted_token_never_follows_a_login_as_another_account(app, tmp_path
 def test_an_adopted_tokens_ingest_writes_stay_held(app, tmp_path, monkeypatch):
     """`/v1/me` vouches for a personal token, never an ingest token: an ingest
     write goes out only with the ingest token that queued it, adopted or not."""
-    from probe.sdk.journal import adopt_credential, record_account
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
+    from probe.sdk.delivery.outbox.drain.accounts import record_account
 
     app.seed_experiment("e1")
     root = tmp_path / "outbox"
@@ -1665,7 +1670,7 @@ def test_a_probe_token_copied_from_the_login_is_stamped_as_the_login(tmp_path, m
 
 
 def test_the_worker_env_drops_only_a_copy_of_the_login(monkeypatch):
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     config.save_context({"base_url": "http://127.0.0.1:9", "token": STORED_B, "ingest_token": INGEST_B})
     monkeypatch.setenv("PROBE_TOKEN", STORED_B)
@@ -1685,7 +1690,7 @@ def test_a_copied_login_job_and_its_worker_carry_on_through_a_re_login(app, tmp_
     login revoked and replaced by a re-login of the same account. The worker
     the job starts (`_worker_env`) and the job itself (`refresh_credentials`)
     both send with the new login, old writes and new, the close last."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -1735,7 +1740,7 @@ def _adopt(main, monkeypatch, root, fp):
 def test_probe_outbox_adopt_sends_a_dead_jobs_writes_and_says_so(app, tmp_path, monkeypatch, capsys):
     import importlib
 
-    from probe.sdk.journal import adopted_account
+    from probe.sdk.delivery.outbox.drain.adoption import adopted_account
 
     main = importlib.import_module("probe.cli.main")
     run_id = seeded_run(app, tmp_path)
@@ -1757,7 +1762,7 @@ def test_probe_outbox_adopt_refuses(app, tmp_path, monkeypatch, capsys, case):
 
     import typer
 
-    from probe.sdk.journal import adopted_account
+    from probe.sdk.delivery.outbox.drain.adoption import adopted_account
 
     main = importlib.import_module("probe.cli.main")
     run_id = seeded_run(app, tmp_path)
@@ -1769,7 +1774,7 @@ def test_probe_outbox_adopt_refuses(app, tmp_path, monkeypatch, capsys, case):
         _queue_as_dead_env_job(app, url, tmp_path, monkeypatch, run_id)
         if case == "unknown_account":
             import json as _json
-            from probe.sdk.journal import _accounts_path
+            from probe.sdk.delivery.outbox.drain.accounts import _accounts_path
 
             _accounts_path().write_text(_json.dumps({}))
         elif case == "other_account":
@@ -1809,7 +1814,7 @@ def test_probe_outbox_adopt_names_an_older_worker_holding_the_queue(app, tmp_pat
     import os
 
     from probe._shared import oscompat
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     main = importlib.import_module("probe.cli.main")
     run_id = seeded_run(app, tmp_path)
@@ -1838,7 +1843,7 @@ def test_probe_outbox_adopt_names_an_older_worker_holding_the_queue(app, tmp_pat
 def test_the_held_hint_names_adopt_only_when_it_would_pass(app, tmp_path, monkeypatch):
     import importlib
 
-    from probe.sdk.journal import _accounts_path
+    from probe.sdk.delivery.outbox.drain.accounts import _accounts_path
 
     main = importlib.import_module("probe.cli.main")
     run_id = seeded_run(app, tmp_path)
@@ -1870,7 +1875,7 @@ def test_probe_outbox_status_names_the_process_holding_a_credential(app, tmp_pat
 
     import typer
 
-    from probe.sdk.journal import _holders_path
+    from probe.sdk.delivery.outbox.drain.holders import _holders_path
 
     main = importlib.import_module("probe.cli.main")
     run_id = seeded_run(app, tmp_path)
@@ -1903,7 +1908,7 @@ def test_a_holder_with_no_start_time_is_unknown_and_a_missing_pid_is_gone():
     import subprocess
     import sys
 
-    from probe.sdk.journal import HolderState, holder_state
+    from probe.sdk.delivery.outbox.drain.holders import HolderState, holder_state
 
     assert holder_state({"pid": os.getpid()}) == HolderState.UNKNOWN
     assert holder_state({"pid": "x"}) == HolderState.UNKNOWN
@@ -1929,7 +1934,7 @@ def _all_ops(root):
 
 
 def test_a_revoked_same_account_credential_is_rescued_by_itself(app, tmp_path, monkeypatch):
-    from probe.sdk.journal import AdoptedBy, _adoptions_path, rescue_stranded
+    from probe.sdk.delivery.outbox.drain.adoption import AdoptedBy, _adoptions_path, rescue_stranded
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -1949,7 +1954,7 @@ def test_a_revoked_same_account_credential_is_rescued_by_itself(app, tmp_path, m
 def test_a_credential_a_live_process_holds_is_not_rescued(app, tmp_path, monkeypatch):
     """A job alive with a refused token is restarted, not overridden: one
     refusal (a blip) must not re-route a working job's writes for good."""
-    from probe.sdk.journal import adopted_account, rescue_stranded
+    from probe.sdk.delivery.outbox.drain.adoption import adopted_account, rescue_stranded
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -1964,7 +1969,8 @@ def test_a_credential_a_live_process_holds_is_not_rescued(app, tmp_path, monkeyp
 def test_a_holder_on_another_host_counts_as_alive_for_a_day(app, tmp_path, monkeypatch):
     """A home folder shared over NFS: another node's pid cannot be looked up
     from here, and must not read as gone."""
-    from probe.sdk.journal import _holders_path, rescue_stranded
+    from probe.sdk.delivery.outbox.drain.holders import _holders_path
+    from probe.sdk.delivery.outbox.drain.adoption import rescue_stranded
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -1982,7 +1988,8 @@ def test_a_holder_on_another_host_counts_as_alive_for_a_day(app, tmp_path, monke
 def test_writes_never_refused_for_their_credential_are_not_rescued(app, tmp_path, monkeypatch):
     """No refusal on record: nothing says the token is dead (an offline job's
     writes wait for the network, not for another login)."""
-    from probe.sdk.journal import record_account, rescue_stranded
+    from probe.sdk.delivery.outbox.drain.accounts import record_account
+    from probe.sdk.delivery.outbox.drain.adoption import rescue_stranded
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2000,7 +2007,8 @@ def test_a_scope_refusal_is_never_rescued_or_adopted(app, tmp_path, monkeypatch,
     read`): its refused writes must never go out with the login's rights."""
     import importlib
 
-    from probe.sdk.journal import NotAdoptable, adopted_account, record_account, rescue_stranded
+    from probe.sdk.delivery.outbox.drain.adoption import NotAdoptable, adopted_account, rescue_stranded
+    from probe.sdk.delivery.outbox.drain.accounts import record_account
 
     main = importlib.import_module("probe.cli.main")
     run_id = seeded_run(app, tmp_path)
@@ -2020,14 +2028,15 @@ def test_a_scope_refusal_is_never_rescued_or_adopted(app, tmp_path, monkeypatch,
     assert code == 1 and "may not do what its writes ask" in capsys.readouterr().err
     assert STORED_B not in _bearers(app)
     ops = _all_ops(root)
-    from probe.sdk.journal import adoption_account
+    from probe.sdk.delivery.outbox.drain.adoption import adoption_account
 
     assert adoption_account(_fp(ENV_A), ops)[1] == NotAdoptable.SCOPE
 
 
 @pytest.mark.parametrize(("scopes", "adoptable"), [(["read"], False), (["read", "write"], True)])
 def test_recorded_scopes_decide_whether_writes_may_be_adopted(app, tmp_path, monkeypatch, scopes, adoptable):
-    from probe.sdk.journal import NotAdoptable, adoption_account, record_account
+    from probe.sdk.delivery.outbox.drain.adoption import NotAdoptable, adoption_account
+    from probe.sdk.delivery.outbox.drain.accounts import record_account
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2040,7 +2049,7 @@ def test_recorded_scopes_decide_whether_writes_may_be_adopted(app, tmp_path, mon
 
 
 def test_a_job_records_its_tokens_scopes(app, tmp_path, monkeypatch):
-    from probe.sdk.journal import recorded_scopes
+    from probe.sdk.delivery.outbox.drain.accounts import recorded_scopes
 
     with serve(app) as url:
         _login(url, STORED_B, account=ACCOUNT)
@@ -2057,14 +2066,12 @@ def test_writes_for_another_server_are_never_adopted(app, tmp_path, monkeypatch)
     """The login stored here is another server's: its token is never sent to
     the server the writes are pinned to, and the writes stay held (never
     dead-lettered)."""
-    from probe.sdk import journal as journal_module
-    from probe.sdk.journal import (
-        CredentialNotHere,
+    from probe.sdk.delivery.outbox.drain.report import CredentialNotHere
+    from probe.sdk.delivery.outbox.drain.adoption import (
         NotAdoptable,
-        _settings_for_op,
         adopt_credential,
-        adoption_account,
-    )
+        adoption_account)
+    from probe.sdk.delivery.outbox.drain.credentials import _settings_for_op
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2075,7 +2082,9 @@ def test_writes_for_another_server_are_never_adopted(app, tmp_path, monkeypatch)
         adopt_credential(_fp(ENV_A), ACCOUNT)  # as an older record might say
         monkeypatch.setenv("PROBE_BASE_URL", url)
         seen: list = []
-        monkeypatch.setattr(journal_module, "_identity_of", lambda s, t=None: seen.append(s.token) or ACCOUNT)
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.credentials._identity_of", lambda s, t=None: seen.append(s.token) or ACCOUNT)
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.adoption._identity_of", lambda s, t=None: seen.append(s.token) or ACCOUNT)
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain._identity_of", lambda s, t=None: seen.append(s.token) or ACCOUNT)
         with pytest.raises(CredentialNotHere) as held:
             _settings_for_op(_all_ops(root)[0]["context"])
         report = drain(Journal(root))
@@ -2085,7 +2094,7 @@ def test_writes_for_another_server_are_never_adopted(app, tmp_path, monkeypatch)
 
 
 def test_an_adoption_naming_another_account_never_sends_this_accounts_writes(app, tmp_path, monkeypatch):
-    from probe.sdk.journal import adopt_credential
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2102,7 +2111,7 @@ def test_an_adoption_naming_another_account_never_sends_this_accounts_writes(app
 
 
 def test_discard_held_drops_an_adopted_credentials_unsendable_writes(app, tmp_path, monkeypatch):
-    from probe.sdk.journal import adopt_credential
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2117,7 +2126,8 @@ def test_discard_held_drops_an_adopted_credentials_unsendable_writes(app, tmp_pa
 
 
 def test_the_rescue_never_sends_another_accounts_writes(app, tmp_path, monkeypatch):
-    from probe.sdk.journal import NotAdoptable, _accounts_path, adopted_account, rescue_stranded
+    from probe.sdk.delivery.outbox.drain.adoption import NotAdoptable, adopted_account, rescue_stranded
+    from probe.sdk.delivery.outbox.drain.accounts import _accounts_path
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2141,7 +2151,8 @@ def test_a_refused_login_sending_adopted_writes_is_named_and_cools_down(app, tmp
     """The login an adopted credential's writes go out with is refused too:
     the refusal is that login's (the banner names it) and its cooldown holds
     the adopted writes back instead of a 401 per pass."""
-    from probe.sdk.journal import adopt_credential, auth_blocked_since
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
+    from probe.sdk.delivery.journal.status_file import auth_blocked_since
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2163,14 +2174,14 @@ def test_the_every_command_check_starts_the_rescuer_blocked_or_not(app, tmp_path
     refusal is on record, and the rescue must start either way."""
     import importlib
 
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     main = importlib.import_module("probe.cli.main")
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
     seen: list = []
     monkeypatch.setenv(outbox_worker.RESCUE_ENV, "on")
-    monkeypatch.setattr(outbox_worker, "spawn_rescuer", lambda j: seen.append(j.dir) or True)
+    monkeypatch.setattr(outbox_worker.rescuer, "spawn_rescuer", lambda j: seen.append(j.dir) or True)
     monkeypatch.setattr(main, "_kick_drainer", lambda: seen.append("kick"))
     with serve(app) as url:
         _queue_as_dead_env_job(app, url, tmp_path, monkeypatch, run_id)
@@ -2201,7 +2212,7 @@ def _age_writes(root, *, minutes: float) -> None:
 def test_a_credential_queue_waiting_after_a_sign_in_counts_as_held_back(app, tmp_path, monkeypatch):
     import time
 
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2218,13 +2229,13 @@ def test_a_credential_queue_waiting_after_a_sign_in_counts_as_held_back(app, tmp
 def test_a_training_loops_kick_never_starts_the_rescuer(app, tmp_path, monkeypatch):
     """`maybe_spawn` runs on every write of a training loop: one status read
     and a lock probe, never the rescue."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
     monkeypatch.setenv(outbox_worker.RESCUE_ENV, "on")
-    monkeypatch.setattr(outbox_worker, "spawn_rescuer", lambda j: pytest.fail("rescuer from a kick"))
-    monkeypatch.setattr(outbox_worker, "_hand_to_service", lambda j: None)
+    monkeypatch.setattr(outbox_worker.rescuer, "spawn_rescuer", lambda j: pytest.fail("rescuer from a kick"))
+    monkeypatch.setattr(outbox_worker.drainers.detached, "_hand_to_service", lambda j: None)
 
     class _Child:
         def poll(self):
@@ -2237,8 +2248,8 @@ def test_a_training_loops_kick_never_starts_the_rescuer(app, tmp_path, monkeypat
 
 
 def test_a_kick_starts_the_worker_of_an_adopted_queue(app, tmp_path, monkeypatch):
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import adopt_credential
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2248,7 +2259,7 @@ def test_a_kick_starts_the_worker_of_an_adopted_queue(app, tmp_path, monkeypatch
             return None
 
     spawned: list = []
-    monkeypatch.setattr(outbox_worker, "_hand_to_service", lambda j: None)
+    monkeypatch.setattr(outbox_worker.drainers.detached, "_hand_to_service", lambda j: None)
     monkeypatch.setattr(outbox_worker.subprocess, "Popen", lambda *a, **k: spawned.append(a[0][-1]) or _Child())
     with serve(app) as url:
         _queue_as_dead_env_job(app, url, tmp_path, monkeypatch, run_id)
@@ -2261,12 +2272,12 @@ def test_a_kick_starts_the_worker_of_an_adopted_queue(app, tmp_path, monkeypatch
 def test_the_kick_starts_the_rescuer_at_most_every_ten_minutes(app, tmp_path, monkeypatch):
     import os
 
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
     started: list = []
-    monkeypatch.setattr(outbox_worker, "spawn_rescuer", lambda journal: started.append(journal.dir) or True)
+    monkeypatch.setattr(outbox_worker.rescuer, "spawn_rescuer", lambda journal: started.append(journal.dir) or True)
     monkeypatch.setenv(outbox_worker.RESCUE_ENV, "on")
     with serve(app) as url:
         _queue_as_dead_env_job(app, url, tmp_path, monkeypatch, run_id)
@@ -2284,10 +2295,10 @@ def test_the_kick_starts_the_rescuer_at_most_every_ten_minutes(app, tmp_path, mo
 
 
 def test_nothing_held_back_starts_no_rescuer(tmp_path, monkeypatch):
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     monkeypatch.setenv(outbox_worker.RESCUE_ENV, "on")
-    monkeypatch.setattr(outbox_worker, "spawn_rescuer", lambda journal: pytest.fail("spawned"))
+    monkeypatch.setattr(outbox_worker.rescuer, "spawn_rescuer", lambda journal: pytest.fail("spawned"))
     journal = Journal(tmp_path / "outbox")
     journal._ensure()
     assert not outbox_worker.maybe_rescue(journal, {"pending": 3})
@@ -2295,12 +2306,12 @@ def test_nothing_held_back_starts_no_rescuer(tmp_path, monkeypatch):
 
 
 def test_the_rescuer_process_adopts_sends_and_reports(app, tmp_path, monkeypatch):
-    """The real process the check starts (`python -m probe.sdk.outbox_worker
+    """The real process the check starts (`python -m probe.sdk.delivery.outbox
     --rescue`), past an older worker holding the queue's lease."""
     import time
 
     from probe._shared import oscompat
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2326,14 +2337,16 @@ def test_the_rescuer_process_adopts_sends_and_reports(app, tmp_path, monkeypatch
 
 
 def test_the_rescuer_reports_what_it_rescued(app, tmp_path, monkeypatch):
-    from probe._shared import telemetry
-    from probe.sdk import outbox_worker
+    from probe import analytics as telemetry
+    from probe.sdk.delivery import outbox as outbox_worker
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
     reported: list = []
-    monkeypatch.setattr(telemetry, "emit_outbox_rescued", lambda **kw: reported.append(kw))
-    monkeypatch.setattr(outbox_worker, "maybe_spawn", lambda directory=None: False)
+    monkeypatch.setattr(telemetry.events, "emit_outbox_rescued", lambda **kw: reported.append(kw))
+    monkeypatch.setattr(outbox_worker.drainers.detached, "maybe_spawn", lambda directory=None: False)
+    monkeypatch.setattr(outbox_worker.outbox, "maybe_spawn", lambda directory=None: False)
+    monkeypatch.setattr(outbox_worker.rescuer, "maybe_spawn", lambda directory=None: False)
     with serve(app) as url:
         _queue_as_dead_env_job(app, url, tmp_path, monkeypatch, run_id)
         assert outbox_worker.rescue(str(root)) == 0
@@ -2345,12 +2358,15 @@ def test_the_rescuer_reports_what_it_rescued(app, tmp_path, monkeypatch):
 def test_one_rescuer_at_a_time_and_an_idle_one_backs_off(app, tmp_path, monkeypatch):
     import time
 
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import _try_lock, adopted_account, rescue_lock_path
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.journal.item_locks import _try_lock
+    from probe.sdk.delivery.outbox.drain.adoption import adopted_account, rescue_lock_path
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
-    monkeypatch.setattr(outbox_worker, "maybe_spawn", lambda directory=None: False)
+    monkeypatch.setattr(outbox_worker.drainers.detached, "maybe_spawn", lambda directory=None: False)
+    monkeypatch.setattr(outbox_worker.outbox, "maybe_spawn", lambda directory=None: False)
+    monkeypatch.setattr(outbox_worker.rescuer, "maybe_spawn", lambda directory=None: False)
     other = "probe_pat_someone_else_0123456789abcdef"
     app.me_identities[other] = {"customer_id": "lab-99", "user_id": "u-someone-else"}
     with serve(app) as url:
@@ -2367,7 +2383,8 @@ def test_one_rescuer_at_a_time_and_an_idle_one_backs_off(app, tmp_path, monkeypa
 
 
 def test_an_adopted_credentials_refusal_no_longer_reads_as_auth_blocked(tmp_path):
-    from probe.sdk.journal import adopt_credential, auth_blocked_since
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
+    from probe.sdk.delivery.journal.status_file import auth_blocked_since
 
     status = {"refused_fingerprints": {"aaaaaaaaaaaaaaaa": "2026-10-23T17:22:00+00:00"}}
     assert auth_blocked_since(status) == "2026-10-23T17:22:00+00:00"
@@ -2379,12 +2396,12 @@ def test_probe_doctor_rescues_and_says_so(app, tmp_path, monkeypatch):
     import importlib
 
     from probe.cli.capabilities import Capabilities
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     doctor = importlib.import_module("probe.cli.doctor")
     run_id = seeded_run(app, tmp_path)
     started: list = []
-    monkeypatch.setattr(outbox_worker, "spawn_rescuer", lambda journal: started.append(journal) or True)
+    monkeypatch.setattr(outbox_worker.rescuer, "spawn_rescuer", lambda journal: started.append(journal) or True)
     monkeypatch.setenv(outbox_worker.RESCUE_ENV, "on")
     with serve(app) as url:
         _queue_as_dead_env_job(app, url, tmp_path, monkeypatch, run_id)
@@ -2432,7 +2449,7 @@ def test_a_later_client_of_a_copied_login_job_is_still_the_login(app, tmp_path, 
     equals the stored login, but it is still a copy; its writes are the
     login's and its refresh follows the new login (the account recorded when
     the copy still worked)."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     with serve(app) as url:
         _login(url, STORED_B, account=ACCOUNT)
@@ -2465,7 +2482,7 @@ def test_an_adopted_credentials_delete_never_goes_out_with_the_login(app, tmp_pa
     """A login may delete what the credential may not (a companion key's
     permanent deletes, a token without `delete`): a DELETE goes only with
     its own credential, adopted or not. Its other writes still go."""
-    from probe.sdk.journal import adopt_credential
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2493,7 +2510,8 @@ def test_an_adopted_credentials_delete_never_goes_out_with_the_login(app, tmp_pa
 def test_a_scope_refusal_survives_a_later_revocation(app, tmp_path, monkeypatch):
     """403 for scope, then the token revoked (401): the later error must not
     erase that the write asked for more than its credential may do."""
-    from probe.sdk.journal import NotAdoptable, Refusal, adoption_account, op_refusal, record_account
+    from probe.sdk.delivery.outbox.drain.adoption import NotAdoptable, Refusal, adoption_account, op_refusal
+    from probe.sdk.delivery.outbox.drain.accounts import record_account
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2517,17 +2535,20 @@ def test_a_scope_refusal_survives_a_later_revocation(app, tmp_path, monkeypatch)
 def test_an_adopted_write_waits_when_the_login_changes_server_mid_route(tmp_path, monkeypatch):
     """One read decides both the server and the token: a config switched
     between two reads must not pair one server with another's token."""
-    from probe.sdk import journal as journal_module
-    from probe.sdk.config import Settings
-    from probe.sdk.journal import CredentialNotHere, _settings_for_op, adopt_credential
+    from probe.sdk.settings.settings import Settings
+    from probe.sdk.delivery.outbox.drain.report import CredentialNotHere
+    from probe.sdk.delivery.outbox.drain.credentials import _settings_for_op
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
 
     config.save_context({"base_url": "http://127.0.0.1:9", "token": STORED_B})
     adopt_credential(_fp(ENV_A), ACCOUNT)
     monkeypatch.setattr(
-        journal_module, "_settings_for", lambda ctx: Settings(base_url="http://127.0.0.1:10", token=CODE_C)
+        "probe.sdk.delivery.outbox.drain.credentials._settings_for", lambda ctx: Settings(base_url="http://127.0.0.1:10", token=CODE_C)
     )
     seen: list = []
-    monkeypatch.setattr(journal_module, "_identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.credentials._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.adoption._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
     context = {"name": None, "base_url": "", "principal": {"source": "env", "fingerprint": _fp(ENV_A)}}
     with pytest.raises(CredentialNotHere) as held:
         _settings_for_op(context)
@@ -2535,7 +2556,7 @@ def test_an_adopted_write_waits_when_the_login_changes_server_mid_route(tmp_path
 
 
 def test_the_rescuer_runs_with_no_credential_or_command_identity(monkeypatch):
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     monkeypatch.setenv("PROBE_TOKEN", ENV_A)
     monkeypatch.setenv("PROBE_INGEST_TOKEN", INGEST_A)
@@ -2550,13 +2571,13 @@ def test_probe_status_never_rescues(app, tmp_path, monkeypatch):
     focus): no request, no adoption, no process."""
     import importlib
 
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import adopted_account
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.outbox.drain.adoption import adopted_account
 
     doctor = importlib.import_module("probe.cli.doctor")
     run_id = seeded_run(app, tmp_path)
     monkeypatch.setenv(outbox_worker.RESCUE_ENV, "on")
-    monkeypatch.setattr(outbox_worker, "spawn_rescuer", lambda j: pytest.fail("status spawned a rescuer"))
+    monkeypatch.setattr(outbox_worker.rescuer, "spawn_rescuer", lambda j: pytest.fail("status spawned a rescuer"))
     with serve(app) as url:
         _queue_as_dead_env_job(app, url, tmp_path, monkeypatch, run_id)
         monkeypatch.setenv("PROBE_OUTBOX_DIR", str(tmp_path / "outbox"))
@@ -2570,7 +2591,7 @@ def test_another_process_of_a_copied_login_job_is_still_the_login(app, tmp_path,
     """A new process (a sweep's next trial, a `probe log`) after the re-login
     holds the old copy: this machine recorded it as its login for this
     server, so it is still taken for the login, and its worker drops it."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     with serve(app) as url:
         _login(url, STORED_B, account=ACCOUNT)
@@ -2579,20 +2600,20 @@ def test_another_process_of_a_copied_login_job_is_still_the_login(app, tmp_path,
         first._remember_identity()
         first.close()
         _login(url, NEW_B, account=ACCOUNT)
-        monkeypatch.setattr(outbox_worker, "_COPIED_LOGINS", set())  # a new process
+        monkeypatch.setattr(outbox_worker.drainers.detached, "_COPIED_LOGINS", set())  # a new process
         later = Client(spool_dir=tmp_path / "b", async_writes=False)
         try:
             assert later.journal.context["principal"]["source"] == "config"
         finally:
             later.close()
-        monkeypatch.setattr(outbox_worker, "_COPIED_LOGINS", set())
+        monkeypatch.setattr(outbox_worker.drainers.detached, "_COPIED_LOGINS", set())
         assert "PROBE_TOKEN" not in outbox_worker._worker_env()
         monkeypatch.setenv("PROBE_BASE_URL", "http://127.0.0.1:10")
         assert outbox_worker._worker_env()["PROBE_TOKEN"] == STORED_B, "another server's"
 
 
 def test_a_login_recorded_for_one_server_is_not_another_servers(tmp_path):
-    from probe.sdk.journal import record_account, was_login
+    from probe.sdk.delivery.outbox.drain.accounts import record_account, was_login
 
     record_account(_fp(STORED_B), ACCOUNT, login_of="http://127.0.0.1:9/")
     record_account(_fp(STORED_B), ACCOUNT)  # a later lookup keeps it
@@ -2601,7 +2622,8 @@ def test_a_login_recorded_for_one_server_is_not_another_servers(tmp_path):
 
 
 def test_multipart_uploads_of_a_dead_credential_are_rescued_too(app, tmp_path, monkeypatch):
-    from probe.sdk.journal import queued_ops, rescue_stranded
+    from probe.sdk.delivery.ops.ops import queued_ops
+    from probe.sdk.delivery.outbox.drain.adoption import rescue_stranded
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2620,11 +2642,13 @@ def test_multipart_uploads_of_a_dead_credential_are_rescued_too(app, tmp_path, m
 def test_a_rescue_that_put_a_live_holder_off_does_not_back_off(app, tmp_path, monkeypatch):
     import time
 
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
-    monkeypatch.setattr(outbox_worker, "maybe_spawn", lambda directory=None: False)
+    monkeypatch.setattr(outbox_worker.drainers.detached, "maybe_spawn", lambda directory=None: False)
+    monkeypatch.setattr(outbox_worker.outbox, "maybe_spawn", lambda directory=None: False)
+    monkeypatch.setattr(outbox_worker.rescuer, "maybe_spawn", lambda directory=None: False)
     with serve(app) as url:
         _queue_as_dead_env_job(app, url, tmp_path, monkeypatch, run_id, gone=False)
         outbox_worker._rescue_stamp(Journal(root)).write_text("x")
@@ -2633,13 +2657,13 @@ def test_a_rescue_that_put_a_live_holder_off_does_not_back_off(app, tmp_path, mo
 
 
 def test_concurrent_commands_start_one_rescuer(app, tmp_path, monkeypatch):
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import _try_lock
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.journal.item_locks import _try_lock
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
     monkeypatch.setenv(outbox_worker.RESCUE_ENV, "on")
-    monkeypatch.setattr(outbox_worker, "spawn_rescuer", lambda j: pytest.fail("two rescuers"))
+    monkeypatch.setattr(outbox_worker.rescuer, "spawn_rescuer", lambda j: pytest.fail("two rescuers"))
     with serve(app) as url:
         _queue_as_dead_env_job(app, url, tmp_path, monkeypatch, run_id)
         status = Journal.read_status(str(root), include_receipts=False) or {}
@@ -2651,7 +2675,7 @@ def test_concurrent_commands_start_one_rescuer(app, tmp_path, monkeypatch):
 def test_status_says_what_an_adopted_credentials_stuck_writes_wait_for(app, tmp_path, monkeypatch):
     import importlib
 
-    from probe.sdk.journal import adopt_credential
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
 
     main = importlib.import_module("probe.cli.main")
     run_id = seeded_run(app, tmp_path)
@@ -2667,8 +2691,8 @@ def test_status_says_what_an_adopted_credentials_stuck_writes_wait_for(app, tmp_
 
 
 def test_a_kick_lists_the_credential_queues_once_however_many_adoptions(tmp_path, monkeypatch):
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import adopt_credential
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
 
     root = Journal(tmp_path / "outbox")
     root._ensure()
@@ -2683,7 +2707,7 @@ def test_a_kick_lists_the_credential_queues_once_however_many_adoptions(tmp_path
 
 
 def test_a_holder_already_recorded_is_not_written_again(tmp_path):
-    from probe.sdk.journal import _holders_path, record_holder
+    from probe.sdk.delivery.outbox.drain.holders import _holders_path, record_holder
 
     record_holder("aaaaaaaaaaaaaaaa")
     first = _holders_path().stat().st_mtime_ns
@@ -2695,7 +2719,8 @@ def test_a_credential_refused_for_scope_then_revoked_is_never_rescued(app, tmp_p
     """One run's write was refused for scope; then the token was revoked and
     another run's write got the 401. The token is dead, but the scope refusal
     keeps every one of its writes from going out with the login."""
-    from probe.sdk.journal import NotAdoptable, adopted_account, record_account, rescue_stranded
+    from probe.sdk.delivery.outbox.drain.adoption import NotAdoptable, adopted_account, rescue_stranded
+    from probe.sdk.delivery.outbox.drain.accounts import record_account
 
     run_1 = seeded_run(app, tmp_path)
     run_2 = seeded_run(app, tmp_path)
@@ -2728,8 +2753,8 @@ def test_a_credential_refused_for_scope_then_revoked_is_never_rescued(app, tmp_p
 def test_another_accounts_earlier_login_is_not_taken_for_the_login(app, tmp_path, monkeypatch):
     """A token that was once this server's login here, but another
     person's: its job keeps its own token and its own queue."""
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import record_account
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.outbox.drain.accounts import record_account
 
     other_account = ("lab-99", "u-someone-else")
     with serve(app) as url:
@@ -2745,14 +2770,15 @@ def test_another_accounts_earlier_login_is_not_taken_for_the_login(app, tmp_path
 
 
 def test_a_worker_never_inherits_a_commands_idempotency_key(monkeypatch):
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     monkeypatch.setenv("PROBE_IDEMPOTENCY_KEY", "op-123")
     assert "PROBE_IDEMPOTENCY_KEY" not in outbox_worker._worker_env()
 
 
 def test_a_token_with_no_scopes_is_recorded_as_such_and_never_adopted(app, tmp_path, monkeypatch):
-    from probe.sdk.journal import NotAdoptable, adoption_account, recorded_scopes
+    from probe.sdk.delivery.outbox.drain.adoption import NotAdoptable, adoption_account
+    from probe.sdk.delivery.outbox.drain.accounts import recorded_scopes
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2766,7 +2792,7 @@ def test_a_token_with_no_scopes_is_recorded_as_such_and_never_adopted(app, tmp_p
         finally:
             job.close()
         monkeypatch.delenv("PROBE_TOKEN")
-        from probe.sdk.journal import record_account
+        from probe.sdk.delivery.outbox.drain.accounts import record_account
 
         record_account(_fp(ENV_A), ACCOUNT, scopes=[])
         assert recorded_scopes(_fp(ENV_A)) == frozenset()
@@ -2776,7 +2802,7 @@ def test_a_token_with_no_scopes_is_recorded_as_such_and_never_adopted(app, tmp_p
 def test_a_scope_refusal_of_the_adopting_login_does_not_mark_the_write(app, tmp_path, monkeypatch):
     """A narrower login refused it: the write is not the one that asked for
     too much, and must go once a broader login is back."""
-    from probe.sdk.journal import adopt_credential
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2793,16 +2819,18 @@ def test_a_scope_refusal_of_the_adopting_login_does_not_mark_the_write(app, tmp_
 
 
 def test_a_stored_login_write_waits_when_the_login_changes_server_mid_route(tmp_path, monkeypatch):
-    from probe.sdk import journal as journal_module
-    from probe.sdk.config import Settings
-    from probe.sdk.journal import CredentialNotHere, _settings_for_op
+    from probe.sdk.settings.settings import Settings
+    from probe.sdk.delivery.outbox.drain.report import CredentialNotHere
+    from probe.sdk.delivery.outbox.drain.credentials import _settings_for_op
 
     config.save_context({"base_url": "http://127.0.0.1:9", "token": STORED_B})
     monkeypatch.setattr(
-        journal_module, "_settings_for", lambda ctx: Settings(base_url="http://127.0.0.1:10", token=CODE_C)
+        "probe.sdk.delivery.outbox.drain.credentials._settings_for", lambda ctx: Settings(base_url="http://127.0.0.1:10", token=CODE_C)
     )
     seen: list = []
-    monkeypatch.setattr(journal_module, "_identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.credentials._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.adoption._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain._identity_of", lambda s, t=None: seen.append(s.base_url) or ACCOUNT)
     context = {
         "name": None,
         "base_url": "",
@@ -2817,14 +2845,15 @@ def test_a_stored_login_write_waits_when_the_login_changes_server_mid_route(tmp_
 def test_an_unreadable_holder_on_this_host_counts_as_alive(monkeypatch):
     import os
 
-    from probe.sdk import journal as journal_module
+    from probe.sdk.delivery import journal as journal_module
 
-    monkeypatch.setattr(journal_module, "holder_state", lambda h: journal_module.HolderState.UNKNOWN)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.holders.holder_state", lambda h: journal_module.HolderState.UNKNOWN)
     assert journal_module._holder_may_live({"pid": os.getpid(), "host": journal_module._this_host()})
 
 
 def test_an_upload_of_a_credential_that_may_not_write_is_never_adopted():
-    from probe.sdk.journal import adopted_route_refuses, record_account
+    from probe.sdk.delivery.outbox.drain.adoption import adopted_route_refuses
+    from probe.sdk.delivery.outbox.drain.accounts import record_account
 
     record_account(_fp(ENV_A), ACCOUNT, scopes=["read"])
     upload = {"kind": "upload", "context": {"principal": {"source": "env", "fingerprint": _fp(ENV_A)}}}
@@ -2834,8 +2863,8 @@ def test_an_upload_of_a_credential_that_may_not_write_is_never_adopted():
 def test_a_probe_token_processs_kicks_still_reach_adopted_queues(app, tmp_path, monkeypatch):
     """A PROBE_TOKEN process kicks its own credential queue first: that kick
     must not spend the 30 s interval the adopted queues are kicked on."""
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import adopt_credential
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"
@@ -2845,7 +2874,7 @@ def test_a_probe_token_processs_kicks_still_reach_adopted_queues(app, tmp_path, 
             return None
 
     spawned: list = []
-    monkeypatch.setattr(outbox_worker, "_hand_to_service", lambda j: None)
+    monkeypatch.setattr(outbox_worker.drainers.detached, "_hand_to_service", lambda j: None)
     monkeypatch.setattr(outbox_worker.subprocess, "Popen", lambda *a, **k: spawned.append(a[0][-1]) or _Child())
     with serve(app) as url:
         _queue_as_dead_env_job(app, url, tmp_path, monkeypatch, run_id)
@@ -2861,7 +2890,8 @@ def test_a_probe_token_processs_kicks_still_reach_adopted_queues(app, tmp_path, 
 
 
 def test_a_refused_adopted_upload_writes_no_fallback_row(app, tmp_path, monkeypatch):
-    from probe.sdk.journal import adopt_credential, record_account
+    from probe.sdk.delivery.outbox.drain.adoption import adopt_credential
+    from probe.sdk.delivery.outbox.drain.accounts import record_account
 
     run_id = seeded_run(app, tmp_path)
     root = tmp_path / "outbox"

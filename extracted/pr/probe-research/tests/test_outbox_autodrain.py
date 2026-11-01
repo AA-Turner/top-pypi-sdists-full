@@ -11,9 +11,9 @@ from __future__ import annotations
 import pytest
 
 from probe.sdk import errors
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
-from probe.sdk.journal import Journal
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.journal.journal import Journal
 from probe.sdk.session_marker import WIZARD_HINT
 
 from tests.conftest import make_client
@@ -35,7 +35,9 @@ def kicks(monkeypatch):
         calls.append(str(directory))
         return True
 
-    monkeypatch.setattr("probe.sdk.outbox_worker.maybe_spawn", spy)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drainers.detached.maybe_spawn", spy)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.outbox.maybe_spawn", spy)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.rescuer.maybe_spawn", spy)
     return calls
 
 
@@ -76,7 +78,15 @@ def test_declined_probe_does_not_arm_the_throttle(tmp_path, monkeypatch):
     drain. A probe that did NOT spawn must not suppress the next probe."""
     calls: list = []
     monkeypatch.setattr(
-        "probe.sdk.outbox_worker.maybe_spawn",
+        "probe.sdk.delivery.outbox.drainers.detached.maybe_spawn",
+        lambda directory=None: calls.append(directory) or False,  # worker alive
+    )
+    monkeypatch.setattr(
+        "probe.sdk.delivery.outbox.outbox.maybe_spawn",
+        lambda directory=None: calls.append(directory) or False,  # worker alive
+    )
+    monkeypatch.setattr(
+        "probe.sdk.delivery.outbox.rescuer.maybe_spawn",
         lambda directory=None: calls.append(directory) or False,  # worker alive
     )
     with _async_client(tmp_path) as client:
@@ -88,8 +98,8 @@ def test_declined_probe_does_not_arm_the_throttle(tmp_path, monkeypatch):
 def test_worker_grace_pass_catches_a_dying_writers_last_op(tmp_path, monkeypatch):
     """The other half of the same fix: an op landing AFTER the worker's final
     status re-read must be seen by the exit-grace linger, not stranded."""
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import DrainReport
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.outbox.drain.report import DrainReport
 
     journal = Journal(tmp_path / "outbox")
     journal.append_http("POST", "/v1/runs/r-1/metrics", {"n": 1})
@@ -103,7 +113,7 @@ def test_worker_grace_pass_catches_a_dying_writers_last_op(tmp_path, monkeypatch
         delivered.append(count)
         return DrainReport(delivered=count, remaining=0)
 
-    monkeypatch.setattr("probe.sdk.journal.drain", fake_drain)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", fake_drain)
 
     def dying_writer_sleep(seconds):
         if not dying_writer_sleep.done:  # the last op lands during the linger
@@ -124,8 +134,10 @@ def test_worker_exit_guard_sees_a_multipart_upload_queued_during_its_linger(tmp_
     exited `drained`, stranding the upload until some later probe command. In a
     Slurm job that is the job's last act (`log_artifact` then `finish`), so nothing
     ever came: found by agent/tests/environments/slurm (op `attempts: 0`)."""
-    from probe.sdk import multipart, outbox_worker
-    from probe.sdk.journal import DrainReport, _multipart_pending_count
+    from probe.sdk.artifact.storage_handlers import multipart
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.outbox.drain.report import DrainReport
+    from probe.sdk.delivery.outbox.drain.lanes import _multipart_pending_count
 
     journal = Journal(tmp_path / "outbox")
     journal.append_http("POST", "/v1/runs/r-1/metrics", {"n": 1})
@@ -142,7 +154,7 @@ def test_worker_exit_guard_sees_a_multipart_upload_queued_during_its_linger(tmp_
         passes.append((ops, len(uploads)))
         return DrainReport(delivered=ops + len(uploads), remaining=0)
 
-    monkeypatch.setattr("probe.sdk.journal.drain", fake_drain)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", fake_drain)
 
     def producer_queues_an_upload(seconds):
         if not producer_queues_an_upload.done:  # the upload lands during the linger
@@ -234,7 +246,7 @@ def test_custom_transport_skips_the_credential_gate(app, tmp_path):
 
 def test_cli_shim_is_the_sdk_worker():
     from probe.cli import outbox_worker as cli_worker
-    from probe.sdk import outbox_worker as sdk_worker
+    from probe.sdk.delivery import outbox as sdk_worker
 
     assert cli_worker.maybe_spawn is sdk_worker.maybe_spawn
     assert cli_worker.run is sdk_worker.run

@@ -20,9 +20,9 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from probe.mcp.server import create_server
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.mcp.server.server import create_server
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from probe.models import PaperExpansion, PaperMode
 from probe.sdk import session_marker
 from tests.conftest import make_client
@@ -367,8 +367,8 @@ def test_the_bounds_are_the_hosted_tools(monkeypatch):
     """`--token-budget` and `--limit` take what the hosted tool takes."""
     from typer.main import get_command
 
-    from probe.mcp import budget
-    from probe.mcp.server import _WEB_MAX_LIMIT
+    from probe.foundation.token_budget import token_budget as budget
+    from probe.mcp.server.limits import _WEB_MAX_LIMIT
 
     find = get_command(cli_main.app).commands["paper"].commands["find"]
     params = {p.name: p for p in find.params}

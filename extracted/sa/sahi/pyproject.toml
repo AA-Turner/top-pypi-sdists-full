@@ -1,9 +1,9 @@
 [project]
 name = "sahi"
-version = "0.12.8"
+version = "0.14.0"
 readme = "README.md"
 description = "A vision library for performing sliced inference on large images/small objects"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = "MIT"
 license-files = ["./LICENSE"]
 dependencies = [
@@ -25,13 +25,12 @@ classifiers = [
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Software Development :: Libraries",
   "Topic :: Software Development :: Libraries :: Python Modules",
@@ -69,7 +68,7 @@ dev = [
 docs = [
     "zensical",
     "mkdocstrings[python]",
-    "pymdown-extensions>=11.0.1;python_version>='3.10'",
+    "pymdown-extensions>=11.0.1",
 ]
 build = [
   "twine>=5.1.1,<8.0.0",
@@ -80,44 +79,38 @@ build = [
 
 [project.optional-dependencies]
 ultrafast = ["ultrafast-pycocotools>=0.1.11,<0.2"]
-# torch shipped its last cp38 wheel in 2.4.1 and its last cp39 wheel in 2.8.0,
-# so each interpreter floors at the newest release it still has wheels for
-torch = [
-  "torch>=2.13.0;python_version>='3.10'",
-  "torch>=2.8.0;python_version=='3.9'",
-  "torch>=2.4.1;python_version<'3.9'",
-]
+torch = ["torch>=2.13.0"]
 yolov5 = ["yolov5>=6.0.0,<8.0.0"]
 ultralytics = ["ultralytics>=8.0.0"]
-transformers = ["transformers>=4.49.0;python_version>='3.9'"]
+transformers = ["transformers>=4.49.0"]
 roboflow = [
   # inference pins onnxruntime<1.22, which has no cp314 wheel
   "inference>=0.51.5;python_version>='3.12' and python_version<'3.14'",
   "rfdetr>=1.6.2;python_version>='3.12' and python_version<'3.14'",
 ]
 onnx = [
-  "onnx;python_version>='3.10'",
-  "onnxruntime;python_version>='3.10' and python_version<'3.14'",
-  "onnxruntime>=1.23.2;python_version>='3.14'",
+  "onnx",
+  "onnxruntime;python_version<'3.14'",
+  # onnxruntime has no cp315 wheel yet
+  "onnxruntime>=1.23.2;python_version=='3.14'",
 ]
-numba = ["numba>=0.59.0;python_version>='3.10'"]
-torchvision = ["sahi[torch]", "torchvision>=0.19.0"]
+numba = ["numba>=0.59.0"]
+torchvision = ["sahi[torch]", "torchvision>=0.28.0"]
 all = ["sahi[yolov5,ultralytics,torchvision,transformers,roboflow,onnx]"]
 
 ci = [
   "sahi[transformers,roboflow,onnx]",
-  # pin the floors the torch extra declares. A bare version also matches the
-  # local build tag, so these hold whichever backend uv resolves.
-  "torch==2.13.0;python_version>='3.10'",
-  "torch==2.8.0;python_version=='3.9'",
-  "torch==2.4.1;python_version=='3.8'",
-  "torchvision==0.28.0;python_version>='3.10'",
-  "torchvision==0.23.0;python_version=='3.9'",
-  "torchvision==0.19.1;python_version=='3.8'",
+  # pin the floor the torch extra declares. A bare version also matches the
+  # local build tag, so these hold whichever backend uv resolves. Python 3.15
+  # has no wheels for that floor, so it pins the first releases that do.
+  "torch==2.13.0;python_version<'3.15'",
+  "torch==2.15.0;python_version>='3.15'",
+  "torchvision==0.28.0;python_version<'3.15'",
+  "torchvision==0.29.2;python_version>='3.15'",
   "pycocotools>=2.0.7",
   "sahi[ultrafast]",
   "ultralytics>=8.3.161",
-  "libreyolo;python_version>='3.10'",
+  "libreyolo",
   "scikit-image",
   "fiftyone",
 ]
@@ -126,9 +119,9 @@ ci = [
 
 # A torch wheel bundles its own CUDA runtime, so the wheel has to match the
 # machine rather than the requirement. "auto" reads the installed driver and
-# picks the matching build, falling back to the CPU wheels where there is no
-# GPU. CI pins it to cpu through UV_TORCH_BACKEND so the runners never pull a
-# CUDA wheel they cannot use.
+# picks the matching build for `uv pip install`. `uv sync` does not use this
+# setting and installs the default PyPI build, so CI switches torch to the CPU
+# index with .github/torch-cpu.toml.
 torch-backend = "auto"
 
 # Keep every OpenCV distribution on the same version: they all install into the
@@ -145,7 +138,7 @@ override-dependencies = [
 
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py310"
 line-length = 120
 
 # Exclude a variety of commonly ignored directories.
@@ -178,7 +171,7 @@ exclude = [
 ]
 
 [tool.ty.environment]
-python-version = "3.8"
+python-version = "3.10"
 
 [tool.ty.src]
 
@@ -267,7 +260,7 @@ disable_error_code = ["attr-defined", "operator", "return", "assignment", "arg-t
 
 [tool.ruff.lint]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
-select = ["E", "F", "I", "A", "Q", "W", "RUF", "UP", "FA", "ANN"]
+select = ["E", "F", "I", "A", "Q", "W", "RUF", "UP", "ANN", "TC004", "TID251"]
 ignore = ["A002", "A001", "ANN401"]
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 fixable = [
@@ -321,6 +314,9 @@ unfixable = []
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 pylint.max-args = 20
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"__future__.annotations".msg = "Not needed on Python 3.10+, quote forward references instead."
 
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = "double"

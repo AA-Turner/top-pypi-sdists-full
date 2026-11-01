@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from probe.sdk.launch import (
+from probe.sdk.run.launch.launch import (
     LAUNCH_SCHEMA,
     build_launch_block,
     capture_determinism,
@@ -15,7 +15,7 @@ from probe.sdk.launch import (
     ppid_from_stat,
     scrub_argv,
 )
-from probe.sdk.snapshot import capture_system
+from probe.sdk.capture.code.environment import capture_system
 
 
 def test_scrub_argv_redacts_flag_value_pairs():
@@ -204,7 +204,7 @@ def test_capture_process_survives_an_exploding_parent_chain(monkeypatch):
     def boom(*_a, **_k):
         raise ValueError("invalid literal for int() with base 10: 'S'")
 
-    monkeypatch.setattr("probe.sdk.launch._parent_chain", boom)
+    monkeypatch.setattr("probe.sdk.run.launch.launch._parent_chain", boom)
     info, errors = capture_process(argv=["train.py", "--seed", "42"], cwd=".")
     assert info["argv"] == ["train.py", "--seed", "42"]
     assert info["cwd"] and info["started_at"]
@@ -221,7 +221,7 @@ def test_capture_process_survives_a_deleted_cwd(monkeypatch):
     def gone():
         raise FileNotFoundError(2, "No such file or directory")
 
-    monkeypatch.setattr("probe.sdk.launch.os.getcwd", gone)
+    monkeypatch.setattr("probe.sdk.run.launch.launch.os.getcwd", gone)
     info, errors = capture_process(argv=["train.py"], cwd=None)
     assert info["argv"] == ["train.py"]
     assert info["started_at"]
@@ -236,7 +236,7 @@ def test_capture_process_keeps_the_named_cwd_when_it_cannot_be_resolved(monkeypa
     def gone():
         raise FileNotFoundError(2, "No such file or directory")
 
-    monkeypatch.setattr("probe.sdk.launch.os.getcwd", gone)
+    monkeypatch.setattr("probe.sdk.run.launch.launch.os.getcwd", gone)
     info, errors = capture_process(argv=["train.py"], cwd="relative/dir")
     assert info["cwd"] == "relative/dir"
     assert any(e.startswith("cwd:") for e in errors)
@@ -250,7 +250,7 @@ def test_launch_block_keeps_process_slot_when_parent_chain_explodes(monkeypatch)
     def boom(*_a, **_k):
         raise ValueError("invalid literal for int() with base 10: 'S'")
 
-    monkeypatch.setattr("probe.sdk.launch._parent_chain", boom)
+    monkeypatch.setattr("probe.sdk.run.launch.launch._parent_chain", boom)
     block = build_launch_block(argv=["train.py"], cwd=".")
     assert [s for s in ("process", "runtime", "determinism") if not block.get(s)] == []
     assert any("parent_chain" in e for e in block["errors"])

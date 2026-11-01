@@ -11,9 +11,9 @@ import json
 import httpx
 import pytest
 
-from probe.sdk.config import Settings
-from probe.sdk.reader import Reader, Reference
-from probe.sdk.transport import Transport
+from probe.sdk.settings.settings import Settings
+from probe.sdk.reads.reads import Reader, Reference
+from probe.sdk.delivery.transport.transport import Transport
 
 _SVC = "probe_svc_" + "a" * 32
 

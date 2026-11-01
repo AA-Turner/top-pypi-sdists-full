@@ -4,7 +4,7 @@ The SDK is the single implementation surface. The CLI, MCP read adapter, future
 hooks, Python experiments, and passive platform integrations all build on it.
 
 Exports load lazily (PEP 562 ``__getattr__``): naming a class here imports exactly
-the one submodule that defines it, and nothing else. So ``import probe.sdk.durable``
+the one submodule that defines it, and nothing else. So ``import probe.foundation.durable.durable``
 (or any other stdlib-only leaf) never drags in ``client`` -- and therefore never
 drags in ``httpx`` -- which is what lets a distributed Miles actor spill metric
 batches to disk without importing the network stack. Type checkers and IDEs still
@@ -18,37 +18,37 @@ from typing import TYPE_CHECKING
 
 # Public name -> the submodule that defines it. Keep in step with ``__all__``.
 _LAZY: dict[str, str] = {
-    "Authorship": "client",
-    "CaptureLedger": "capture",
-    "CaptureState": "capture",
-    "stable_external_key": "capture",
-    "stable_span_id": "capture",
-    "Aligned": "analysis",
-    "Comparison": "analysis",
-    "Client": "client",
+    "Authorship": "client.client",
+    "CaptureLedger": "capture.capture",
+    "CaptureState": "capture.capture",
+    "stable_external_key": "capture.capture",
+    "stable_span_id": "capture.capture",
+    "Aligned": "reads.compare",
+    "Comparison": "reads.compare",
+    "Client": "client.client",
     "DatasetRef": "catalog",
     "SourceRef": "catalog",
     "source": "catalog",
-    "Rewind": "client",
-    "Reader": "reader",
-    "Reference": "reader",
-    "Settings": "config",
-    "resolve": "config",
-    "EventsReadClient": "events",
-    "active_run": "fluent",
-    "context": "fluent",
-    "expect": "fluent",
-    "finish": "fluent",
-    "init": "fluent",
-    "log": "fluent",
-    "log_artifact": "fluent",
-    "log_hw": "fluent",
-    "span": "fluent",
-    "update_config": "fluent",
-    "Run": "run",
-    "SpanHandle": "run",
-    "FailureContext": "unit_context",
-    "UnitContext": "unit_context",
+    "Rewind": "client.resources.runs.reopen.conflict",
+    "Reader": "reads.reads",
+    "Reference": "reads.reads",
+    "Settings": "settings.settings",
+    "resolve": "settings.settings",
+    "EventsReadClient": "reads.events",
+    "active_run": "fluent.fluent",
+    "context": "fluent.fluent",
+    "expect": "fluent.fluent",
+    "finish": "fluent.fluent",
+    "init": "fluent.fluent",
+    "log": "fluent.fluent",
+    "log_artifact": "fluent.fluent",
+    "log_hw": "fluent.fluent",
+    "span": "fluent.fluent",
+    "update_config": "fluent.fluent",
+    "Run": "run.run",
+    "SpanHandle": "run.metrics.spans",
+    "FailureContext": "run.context.context",
+    "UnitContext": "run.context.context",
 }
 
 
@@ -66,19 +66,20 @@ def __dir__() -> list[str]:
 
 
 if TYPE_CHECKING:  # eager names for type checkers / IDEs; never executed at runtime
-    from .analysis import Aligned, Comparison
-    from .catalog import DatasetRef, SourceRef, source
-    from .capture import (
+    from .reads.compare import Aligned, Comparison
+    from .catalog.refs import DatasetRef, SourceRef
+    from .catalog.catalog import source
+    from .capture.capture import (
         CaptureLedger,
         CaptureState,
         stable_external_key,
         stable_span_id,
     )
-    from .client import Authorship, Client
-    from .config import Settings, resolve
-    from .events import EventsReadClient
-    from .reader import Reader, Reference
-    from .fluent import (
+    from .client.client import Authorship, Client
+    from .settings.settings import Settings, resolve
+    from .reads.events import EventsReadClient
+    from .reads.reads import Reader, Reference
+    from .fluent.fluent import (
         active_run,
         context,
         finish,
@@ -89,8 +90,9 @@ if TYPE_CHECKING:  # eager names for type checkers / IDEs; never executed at run
         span,
         update_config,
     )
-    from .run import Run, SpanHandle
-    from .unit_context import FailureContext, UnitContext
+    from .run.run import Run
+    from .run.metrics.spans import SpanHandle
+    from .run.context.context import FailureContext, UnitContext
 
 
 __all__ = [

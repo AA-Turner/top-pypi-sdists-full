@@ -3,7 +3,7 @@
 `probe uninstall` removes Probe from EVERY agent that carries any trace of it,
 whether or not the agent's binary is on PATH (a laptop that uninstalled
 Claude Code before Probe still has Probe's plugin records, rules block and
-skills under `~/.claude`). Each agent is a registry row (`probe.harness`);
+skills under `~/.claude`). Each agent is a registry row (`probe.foundation.harness_registry`);
 what differs between them is the record its plugins live in:
 
     hook-plugin agents with a marketplace CLI (Claude Code, Codex): the agent's
@@ -45,7 +45,7 @@ import os
 import shutil
 from pathlib import Path
 
-from probe.cli import plugin_cli
+from probe.shared.harness import plugins as plugin_cli
 
 #: Plugins of Probe's that an earlier release installed under another name.
 RETIRED_PLUGINS = ("prbe-cc-tap-plugin", "prbe-codex-tap-plugin")
@@ -73,7 +73,7 @@ def probe_plugin_id(plugin_id: object) -> bool:
 
 
 def _harnesses():
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     return [h for h in get_registry().all() if h.installable or h.captured]
 
@@ -90,7 +90,7 @@ def _read_json(path: Path):
 
 
 def _write_json(path: Path, data: object) -> None:
-    from probe.sdk.durable import write_text_atomic
+    from probe.foundation.durable.durable import write_text_atomic
 
     target = Path(os.path.realpath(path))  # a dotfile manager's symlink is written through
     write_text_atomic(target, json.dumps(data, indent=2) + "\n", keep_mode=True)
@@ -104,7 +104,7 @@ def _claude_dirs() -> dict:
 
     ledger = claude_plugin_ledger()
     plugins = ledger.parent
-    from probe.cli import statusline
+    from probe.shared.harness.harnesses.claude_code import statusline
 
     return {
         "ledger": ledger,
@@ -248,7 +248,7 @@ def _closing_bracket(text: str) -> int | None:
 def codex_probe_table(keys: list[str]) -> bool:
     """Is this config.toml table (or a sub-table of one) Probe's?"""
     from probe.cli.capabilities import CODEX_MCP_NAME
-    from probe.cli.codex_hooks import PROBE_PLUGINS
+    from probe.shared.harness.harnesses.codex.hooks import PROBE_PLUGINS
 
     if len(keys) >= 2 and keys[0] == "plugins" and probe_plugin_id(keys[1]):
         return True
@@ -285,7 +285,7 @@ def codex_probe_spans(text: str) -> list[tuple[int, int, list[str]]]:
 
 
 def _codex_dirs() -> dict:
-    from probe.cli import codex_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     home = codex_config.codex_home()
     return {
@@ -296,7 +296,7 @@ def _codex_dirs() -> dict:
 
 
 def _codex_trust_dir() -> Path:
-    from probe.cli import codex_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     return codex_config.codex_home() / ".hook-trust"
 
@@ -308,7 +308,7 @@ def codex_trust_records() -> list[Path]:
     before that record existed left none: those records are left alone."""
     import hashlib
 
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 
     found = []
     for raw, digest in sorted(codex_hooks.trust_records().items()):
@@ -360,8 +360,8 @@ def _codex_traces(found: dict) -> None:
 
 
 def _codex_remove(lines: list[str]) -> None:
-    from probe._compat import tomllib
-    from probe.sdk.durable import write_text_atomic
+    from probe.foundation.compat.compat import tomllib
+    from probe.foundation.durable.durable import write_text_atomic
 
     dirs = _codex_dirs()
     _codex_remove_trust(lines)
@@ -400,7 +400,7 @@ def _codex_remove(lines: list[str]) -> None:
 
 
 def _kimi_traces(found: dict) -> None:
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     data = _read_json(kimi_config.installed_path())
     plugins = data.get("plugins") if isinstance(data, dict) else None
@@ -419,7 +419,7 @@ def _kimi_traces(found: dict) -> None:
 
 
 def _kimi_remove(lines: list[str]) -> None:
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     plugins_dir = kimi_config.managed_root().parent
     if not plugins_dir.is_dir():
@@ -436,26 +436,26 @@ def _kimi_remove(lines: list[str]) -> None:
 
 
 def _pi_id() -> str:
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     return pi_config.HARNESS_ID
 
 
 def _pi_clone() -> Path:
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     host, repo = pi_config._MIRROR_IDENTITY  # noqa: SLF001 - the identity pi's clone is filed under
     return pi_config.pi_agent_dir() / "git" / host / Path(*repo.split("/"))
 
 
 def _pi_legacy_link() -> Path:
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     return pi_config.pi_agent_dir() / Path(*pi_config._LEGACY_EXTENSION_RELATIVE)  # noqa: SLF001
 
 
 def _pi_traces(found: dict) -> None:
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     try:
         if pi_config.package_entry_installed():
@@ -468,7 +468,7 @@ def _pi_traces(found: dict) -> None:
 
 
 def _pi_remove(lines: list[str]) -> None:
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     try:
         if pi_config.package_entry_installed():
@@ -528,8 +528,8 @@ def _rules_path(harness) -> Path | None:
 
 def _statusline_files(harness) -> list[Path]:
     """The slot file's `.probe-backup` and Probe's renderer folder."""
-    from probe.cli import statusline
-    from probe.harness import registry as reg
+    from probe.shared.harness.harnesses.claude_code import statusline
+    from probe.foundation.harness_registry import harness_registry as reg
 
     if harness.statusline == reg.STATUSLINE_CLAUDE_SETTINGS:
         slot, renderer = statusline.settings_path(), statusline.install_dir()
@@ -541,7 +541,7 @@ def _statusline_files(harness) -> list[Path]:
 
 
 def _skills(harness) -> tuple[Path | None, list[str]]:
-    from probe import root_skills_core as core
+    from probe.foundation.skills import root_skills_core as core
     from probe.cli import root_skills
 
     root = root_skills.skills_root(harness.id)
@@ -573,7 +573,9 @@ def tap_dirs() -> list[Path]:
 
 def traces(harness) -> dict:
     """{trace: [what, ...]} of Probe in one agent's config; {} when none."""
-    from probe.cli import agent_rules, reasoning_summaries, statusline
+    from probe.cli import agent_rules
+    from probe.shared.harness import reasoning_summaries
+    from probe.shared.harness.harnesses.claude_code import statusline
 
     found: dict = {}
     agent = harness.id
@@ -622,7 +624,9 @@ def all_traces() -> dict:
 
 def remove(harness) -> list[str]:
     """Take Probe out of one agent's config (U-T7). Lines; `! ` for what was left."""
-    from probe.cli import agent_rules, reasoning_summaries, statusline
+    from probe.cli import agent_rules
+    from probe.shared.harness import reasoning_summaries
+    from probe.shared.harness.harnesses.claude_code import statusline
     from probe.cli.capabilities import agent_target
 
     lines: list[str] = []
@@ -803,8 +807,8 @@ def _claude_hollow(lines: list[str]) -> None:
 
 
 def _codex_hollow(lines: list[str]) -> None:
-    from probe._compat import tomllib
-    from probe.cli import codex_config
+    from probe.foundation.compat.compat import tomllib
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     config = _codex_dirs()["config"]
     if not config.is_file() or _linked(config, codex_config.codex_home()):
@@ -824,7 +828,7 @@ def _codex_hollow(lines: list[str]) -> None:
 
 
 def _kimi_hollow() -> None:
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     home = kimi_config.kimi_home()
     _rmdir_empty(home / "plugins", home)

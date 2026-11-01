@@ -12,7 +12,7 @@ import pytest
 
 from probe import errors
 from probe.sdk import agent_session
-from probe.sdk.client import Client
+from probe.sdk.client.client import Client
 from tests.conftest import open_run
 
 
@@ -257,7 +257,7 @@ class TestAutoRetryNeedsTheSameLaunch:
         monkeypatch.setattr(client, "list_runs", lambda **kw: type("P", (), {"items": [row]})())
 
     def _attach(self, client, argv, cwd):
-        from probe.sdk import launch
+        from probe.sdk.run.launch import launch
 
         run_kw: dict = {"config": {"lr": 3e-4}}
         with launch.launching(argv, cwd):
@@ -283,7 +283,7 @@ class TestAutoRetryNeedsTheSameLaunch:
     def test_the_argv_is_compared_as_stored_scrubbed(self, client, monkeypatch, tmp_path):
         """The launch block stores argv with credentials redacted; the new side is
         scrubbed the same way, so a key on the command line does not break a match."""
-        from probe.sdk import launch
+        from probe.sdk.run.launch import launch
 
         secret = ["python", "train.py", "--api-key", "sk-" + "a" * 24]
         stored, scrubbed = launch.scrub_argv(secret)
@@ -314,7 +314,7 @@ class TestAutoRetryNeedsTheSameLaunch:
     def test_the_identity_rules_are_the_launch_blocks(self, tmp_path):
         """`process_identity` and the stored block must agree field by field, or
         every relaunch would read as a different launch."""
-        from probe.sdk import launch
+        from probe.sdk.run.launch import launch
 
         argv, cwd = ["python", "train.py", "--token=abc"], str(tmp_path)
         identity, _ = launch.process_identity(argv, cwd)
@@ -328,7 +328,7 @@ class TestAutoRetryNeedsTheSameLaunch:
         import contextlib
         import importlib
 
-        from probe.sdk import launch
+        from probe.sdk.run.launch import launch
 
         cli_main = importlib.import_module("probe.cli.main")
         seen: list[dict] = []

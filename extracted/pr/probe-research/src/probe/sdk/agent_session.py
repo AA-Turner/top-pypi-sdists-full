@@ -4,7 +4,7 @@ Every request carries the id of the coding-agent session driving it, when
 there is one, so the backend can record which conversation produced a run and
 search can walk from a session to the work that came out of it.
 
-Same contract shape as :mod:`probe.client_headers`: validated, bounded, and
+Same contract shape as :mod:`probe.foundation.request_identity.request_identity`: validated, bounded, and
 fail-open. Malformed input produces NO header rather than a bad one, and the
 backend treats what does arrive as untrusted — it is recorded against the run
 and never consulted for authorization. A spoofed id yields a dead link, never
@@ -25,7 +25,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import homedir
+from ..foundation.durable import homedir
 
 #: Request headers naming the coding agent and its session.
 AGENT_HEADER = "X-Probe-Agent"
@@ -103,7 +103,7 @@ class AgentSpec:
     display: str = ""
 
 
-# The table is the harness registry's (probe/harness/harnesses.json): one row
+# The table is the harness registry's (probe/foundation/harness_registry/harnesses.json): one row
 # per coding agent, in DETECTION ORDER (the first whose marker is set wins).
 # What the rows encode, and why:
 #
@@ -120,7 +120,7 @@ class AgentSpec:
 #   exactly the one some other harness will export next, and misdetecting that
 #   harness as pi is this table's worst failure.
 def _agents() -> tuple[AgentSpec, ...]:
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     return tuple(
         AgentSpec(
@@ -149,7 +149,7 @@ def _capture_paired(label: str, env: Mapping[str, str]) -> bool:
     dir override is also the tap's test/development hook, so this stays
     deterministic without touching a user's real state.
     """
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     capture = get_registry().get(label).capture
     if capture is None:
@@ -170,7 +170,7 @@ def _capture_paired(label: str, env: Mapping[str, str]) -> bool:
 
 
 def _attribution_needs_pairing(label: str) -> bool:
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     return get_registry().get(label).attribution_requires_pairing
 
@@ -231,7 +231,7 @@ def harness_process_env(
     rule, also for another process than this one (the Probe service's caller,
     `session_env_of_process`)."""
     try:
-        from probe.harness import get_registry
+        from probe.foundation.harness_registry import get_registry
         from probe.sdk import session_marker
 
         registry = get_registry()
@@ -278,7 +278,7 @@ def session_env_of_process(pid: int) -> dict[str, str]:
     when none. Never raises. For the Probe service's caller: the service hands
     its pid to the child that answers it (`probe.core.run desktop`)."""
     try:
-        from probe.harness import get_registry
+        from probe.foundation.harness_registry import get_registry
         from probe.sdk import session_marker
 
         environ = dict(session_marker.process_environ(pid) or {})
@@ -525,7 +525,7 @@ def agent_session_headers(env: Mapping[str, str] | None = None) -> dict[str, str
 
 
 #: The two values `authored_by` takes on the wire. Spelled as literals rather
-#: than imported from `probe._generated.models.Authorship` on purpose: this
+#: than imported from `probe.generated.models.Authorship` on purpose: this
 #: module is stdlib-only (see the header — a Miles actor spilling metric
 #: batches must not drag pydantic in), and the enum is a `StrEnum` whose members
 #: serialize to exactly these strings. `agent/tests/test_authorship_default.py`
@@ -533,7 +533,7 @@ def agent_session_headers(env: Mapping[str, str] | None = None) -> dict[str, str
 AUTHORSHIP_AGENT = "agent"
 AUTHORSHIP_HUMAN = "human"
 
-#: Set on every `probe` call the Probe daemon makes (`daemon/worker.py::probe_env`).
+#: Set on every `probe` call the Probe daemon makes (`daemon/worker/worker.py::probe_env`).
 DAEMON_SESSION_ENV = "PROBE_DAEMON_SESSION"
 
 
@@ -562,7 +562,7 @@ def default_authorship(env: Mapping[str, str] | None = None) -> str | None:
     composing a name.
 
     THE PROBE DAEMON COUNTS TOO. Its `probe` calls run with a stripped
-    environment (`daemon/tools.py::_base_env`) that carries no coding-agent
+    environment (`daemon/agent/tools/tools.py::_base_env`) that carries no coding-agent
     marker, only `PROBE_DAEMON_SESSION`. Without this check every name and
     description the daemon wrote arrived undeclared and was locked as a
     person's choice -- the generated title could never replace it.

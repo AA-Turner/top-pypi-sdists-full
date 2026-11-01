@@ -170,19 +170,18 @@ def build_batch(
                         stale += len(span)
             if reward is None or truncation.policy(traj.truncated) == "drop":
                 continue
-            data = traj.to_data(
+            # One pass builds each datum and the positions it trains.
+            data, masks = traj._data(
                 advantage,
                 current_step=current_step,
                 max_staleness=max_staleness,
                 requirements=None if loss is None else loss.requirements,
-            )
-            masks = traj.to_data(
-                1.0, current_step=current_step, max_staleness=max_staleness
+                masks=True,
             )
             if include_loss_mask:
                 for datum, mask in zip(data, masks, strict=True):
-                    datum["loss_mask"] = mask["advantages"]
-            n_tokens = sum(sum(d["advantages"]) for d in masks)
+                    datum["loss_mask"] = mask
+            n_tokens = sum(float(mask.sum(dtype=np.float64)) for mask in masks)
             if n_tokens:
                 records.append((data, n_tokens, group_index))
                 group_token_counts[group_index] += n_tokens
@@ -203,9 +202,12 @@ def build_batch(
         else:
             denominator = len(records)
         for datum in data:
-            datum["advantages"] = [a / denominator for a in datum["advantages"]]
+            # Divide in float64 and round once, as the wire float32 cast did.
+            datum["advantages"] = (
+                datum["advantages"].astype(np.float64) / denominator
+            ).astype(np.float32)
     signal = "loss_mask" if include_loss_mask else "advantages"
-    data = [d for record in records for d in record[0] if any(d[signal])]
+    data = [d for record in records for d in record[0] if np.any(d[signal])]
     flat = [t for group in groups for t in group]
     flat_rewards = [t.reward for t in flat if not t.dropped]
     scored_advantages = [
@@ -275,8 +277,9 @@ def decouple_ppo(data, proximal_logprobs, *, max_importance_weight: float):
         raise ValueError("forward did not return one proximal logprob row per datum")
     output, ratios = [], []
     for datum, row in zip(data, proximal_logprobs, strict=True):
-        old = np.asarray(datum["old_logprobs"], dtype=np.float64)
-        adv = np.asarray(datum["advantages"], dtype=np.float64)
+        # Copies: restored journal arrays are read-only and shared.
+        old = np.array(datum["old_logprobs"], dtype=np.float64)
+        adv = np.array(datum["advantages"], dtype=np.float64)
         prox = np.asarray(row, dtype=np.float64)
         # River predicts n-1 tokens; some forward transports retain a trailing
         # masked position. Both forms have the same prediction alignment.
@@ -295,7 +298,11 @@ def decouple_ppo(data, proximal_logprobs, *, max_importance_weight: float):
         new_old = old.copy()
         new_old[mask] = prox[mask]
         output.append(
-            {**datum, "old_logprobs": new_old.tolist(), "advantages": adv.tolist()}
+            {
+                **datum,
+                "old_logprobs": new_old.astype(np.float32),
+                "advantages": adv.astype(np.float32),
+            }
         )
     return output, {
         "loss/behavior_importance_mean": float(np.mean(ratios)) if ratios else 0.0,

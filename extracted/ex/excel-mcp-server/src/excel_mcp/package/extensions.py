@@ -7,13 +7,14 @@ in the sheet proper. They hold ranges and formulas that must follow the cells th
 import re
 import uuid
 from collections.abc import Callable
+from html import unescape
 from typing import Protocol
 from xml.sax.saxutils import escape
 
 from openpyxl.utils.cell import column_index_from_string, get_column_letter
 
+from excel_mcp.errors import WorkbookError
 from excel_mcp.package.lines import LineEdit
-from excel_mcp.package.scan import unescape
 from excel_mcp.refs import CellRange, clip_areas, parse_range
 
 SPARKLINES = "{05C60535-1F16-4fd2-B633-F4F36F0B64E0}"
@@ -21,6 +22,30 @@ CONDITIONAL_FORMATS = "{78C0D931-6437-407d-A8EE-F0AAD7539E65}"
 DATA_VALIDATIONS = "{CCE6A557-97BC-4b89-ADB6-D9C93CAAB3DF}"
 # The <ext> inside a classic conditional format rule that names its Excel 2010 counterpart.
 RULE_ID = "{B025F937-C7B1-47D3-B67F-A62EFF666E3E}"
+
+
+# The order Excel writes the entries it knows of in an <extLst>: in the workbook, the slicer
+# and timeline caches and the workbook properties; in a sheet, the lists of slicers, table
+# slicers and timelines. Excel does not open a file with them in another order.
+_EXCEL_ORDER = [
+    "{BBE1A952-AA13-448e-AADC-164F8A28A991}",
+    "{79F54976-1DA5-4618-B147-4CDE4B953A38}",
+    "{D0CA8CA8-9F24-4464-BF8E-62219DCF47F9}",
+    "{46BE6895-7355-4a93-B00E-2C351335B9C9}",
+    "{140A7094-0E35-4892-8432-C4D2E57EDEB5}",
+    "{B58B0392-4F1F-4190-BB64-5DF3571DCE5F}",
+    "{A8765BA9-456A-4dab-B4F3-ACF838C121DE}",
+    "{3A4CF648-6AED-40f4-86FF-DC5316D8AED3}",
+    "{7E03D99C-DC04-49d9-9315-930204A7B6E9}",
+]
+
+
+def in_excel_order(extensions: dict[str, str]) -> dict[str, str]:
+    """The ``<ext>`` entries of an ``<extLst>`` with those that Excel orders in its order;
+    the others stay where they are."""
+    known = iter(sorted((u for u in extensions if u in _EXCEL_ORDER), key=_EXCEL_ORDER.index))
+    uris = [next(known) if uri in _EXCEL_ORDER else uri for uri in extensions]
+    return {uri: extensions[uri] for uri in uris}
 
 
 class Rewriter(Protocol):
@@ -232,11 +257,21 @@ def _sparklines(xml: str, handle: Callable[[str], list[str]]) -> str | None:
     return xml if re.search(r"<x14:sparklineGroup\b", xml) else None
 
 
-def _moved_sparkline(item: str, rewriter: Rewriter) -> list[str]:
+def sparkline_location(item: str) -> str:
+    """The cell of a ``<x14:sparkline>``. Excel refuses a file with a sparkline that has none."""
     location = _RANGE.search(item)
+    if location is None:
+        raise WorkbookError(
+            "The workbook has a sparkline without a location (<xm:sqref>), which Excel "
+            "cannot open. Remove it from the file."
+        )
+    return location[1]
+
+
+def _moved_sparkline(item: str, rewriter: Rewriter) -> list[str]:
+    location = sparkline_location(item)
     source = _FORMULA.search(item)
-    assert location is not None
-    moved = rewriter.ranges(location[1], grow=False)
+    moved = rewriter.ranges(location, grow=False)
     if moved is None:
         return []
     item = _RANGE.sub(lambda _: f"<xm:sqref>{moved}</xm:sqref>", item)
@@ -246,7 +281,7 @@ def _moved_sparkline(item: str, rewriter: Rewriter) -> list[str]:
             item = item.replace(source[0], "")
         else:
             item = item.replace(source[0], f"<xm:f>{escape(read)}</xm:f>")
-    return [item, *_inserted_copies(item, location[1], rewriter)]
+    return [item, *_inserted_copies(item, location, rewriter)]
 
 
 def _moved_formula(match: re.Match[str], rewriter: Rewriter) -> str:

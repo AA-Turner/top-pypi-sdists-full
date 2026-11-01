@@ -24,7 +24,7 @@ from probe._shared import oscompat
 from probe.cli import autoupdate, capture, tui, upgrading, version_refresh, wizard_lock
 from probe.cli import setup as wizard_setup
 from probe.cli.actions import Action
-from probe.sdk.config import load_context, save_context
+from probe.sdk.settings.settings import load_context, save_context
 from tests import test_wizard_json_events as events
 from tests.test_wizard_auth_entry import entry  # noqa: F401 -- a fixture: the wizard's menu, scripted
 
@@ -350,7 +350,7 @@ def test_a_record_whose_writer_is_not_running_says_nothing_of_the_holder(device,
 def menu_elsewhere(device, tmp_path):
     """Another process's `probe wizard` menu waits on a person, its marker
     dated `age` seconds ago (`setup_marks.menu_path`)."""
-    from probe._shared import setup_marks
+    from probe.shared.updates import setup_marks
     from probe.sdk import session_marker
     from probe.service import procid
 
@@ -415,7 +415,7 @@ def test_two_menus_each_keep_their_own_marker(menu_elsewhere):
     """Two terminals, two menus: one shared marker let the second overwrite
     the first's and delete it on exit, and an update then ran in place under
     the first. Each has its own; a menu's own Update passes only its own."""
-    from probe._shared import setup_marks
+    from probe.shared.updates import setup_marks
     from probe.sdk import session_marker
 
     menu_elsewhere(60)  # menu A, in another process
@@ -476,7 +476,7 @@ def test_the_menu_holds_the_lock_only_while_an_action_runs(menu, monkeypatch):
     the menu, and at an action's result page. While it waits it says so in its
     marker (an update must not move the files it runs from), gone once the
     wizard exits."""
-    from probe._shared import setup_marks
+    from probe.shared.updates import setup_marks
     from probe.sdk import session_marker
 
     def waiting() -> bool:

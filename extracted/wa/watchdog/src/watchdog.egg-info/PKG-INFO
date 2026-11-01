@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: watchdog
-Version: 6.0.0
+Version: 7.0.0
 Summary: Filesystem events monitoring
 Home-page: https://github.com/gorakhargosh/watchdog
 Author: Mickaël Schoentgen
@@ -15,7 +15,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS :: MacOS X
@@ -30,11 +29,11 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: C
@@ -42,12 +41,25 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: System :: Filesystems
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
-Provides-Extra: watchmedo
 License-File: LICENSE
 License-File: COPYING
 License-File: AUTHORS
+Provides-Extra: watchmedo
+Requires-Dist: PyYAML>=3.10; extra == "watchmedo"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 Watchdog
 ========
@@ -56,11 +68,20 @@ Watchdog
 |PyPI Status|
 |PyPI Python Versions|
 |GitHub Build Status|
+|Documentation Status|
 |GitHub License|
+
+.. tip::
+
+    Become **my boss** to help me work on this awesome software, and make the world better:
+
+   |Patreon|
 
 Python API and shell utilities to monitor file system events.
 
-Works on 3.9+.
+Browse the documentation_ online.
+
+Works on 3.11+.
 
 Example API Usage
 -----------------
@@ -70,6 +91,7 @@ as command-line arguments and logs events generated:
 
 .. code-block:: python
 
+    import sys
     import time
 
     from watchdog.events import FileSystemEvent, FileSystemEventHandler
@@ -83,7 +105,9 @@ as command-line arguments and logs events generated:
 
     event_handler = MyEventHandler()
     observer = Observer()
-    observer.schedule(event_handler, ".", recursive=True)
+    paths = sys.argv[1:] if len(sys.argv) > 1 else ["."]
+    for path in paths:
+        observer.schedule(event_handler, path, recursive=True)
     observer.start()
     try:
         while True:
@@ -91,6 +115,38 @@ as command-line arguments and logs events generated:
     finally:
         observer.stop()
         observer.join()
+
+Alternatively, you can use the observer as a context manager for cleaner code:
+
+.. code-block:: python
+
+    import sys
+    import time
+
+    from watchdog.events import FileSystemEvent, FileSystemEventHandler
+    from watchdog.observers import Observer
+
+
+    class MyEventHandler(FileSystemEventHandler):
+        def on_any_event(self, event: FileSystemEvent) -> None:
+            print(event)
+
+
+    event_handler = MyEventHandler()
+    observer = Observer()
+    paths = sys.argv[1:] if len(sys.argv) > 1 else ["."]
+    for path in paths:
+        observer.schedule(event_handler, path, recursive=True)
+
+    with observer:
+        while True:
+            time.sleep(1)
+
+To run the script, pass the directories you want to monitor as command-line arguments (defaults to the current directory if omitted):
+
+.. code-block:: bash
+
+    python script.py dir1 dir2
 
 
 Shell Utilities
@@ -107,7 +163,7 @@ ignoring all directory events:
 .. code-block:: bash
 
     watchmedo log \
-        --patterns='*.py;*.txt' \
+        --patterns='**/*.py;**/*.txt' \
         --ignore-directories \
         --recursive \
         --verbose \
@@ -119,7 +175,7 @@ response to events:
 .. code-block:: bash
 
     watchmedo shell-command \
-        --patterns='*.py;*.txt' \
+        --patterns='**/*.py;**/*.txt' \
         --recursive \
         --command='echo "${watch_src_path}"' \
         .
@@ -146,9 +202,9 @@ An example ``tricks.yaml`` file:
 
     tricks:
     - watchdog.tricks.LoggerTrick:
-        patterns: ["*.py", "*.js"]
+        patterns: ["**/*.py", "**/*.js"]
     - watchmedo_webtricks.GoogleClosureTrick:
-        patterns: ['*.js']
+        patterns: ['**/*.js']
         hash_names: true
         mappings_format: json                  # json|yaml|python
         mappings_module: app/javascript_mappings
@@ -231,6 +287,10 @@ a line similar to::
 
     ulimit -n 1024
 
+or::
+
+    ulimit -n unlimited
+
 This is an inherent problem with kqueue because it uses
 file descriptors to monitor files. That plus the enormous
 amount of bookkeeping that watchdog needs to do in order
@@ -239,6 +299,11 @@ to monitor files and directories. In essence, kqueue is
 not a very scalable way to monitor a deeply nested
 directory of files and directories with a large number of
 files.
+
+Free threaded support
+---------------------
+
+`watchdog` has support for being built and run under free-threaded CPython. However, a full thread safety audit has not been completed, in particular this affects the `macOS FSEvents` interface.
 
 About using watchdog with editors like Vim
 ------------------------------------------
@@ -265,16 +330,26 @@ appropriate observer like in the example above, do::
 Dependencies
 ------------
 
-1. Python 3.9 or above.
+1. Python 3.11 or above.
 2. XCode_ (only on macOS when installing from sources)
 3. PyYAML_ (only for ``watchmedo``)
+
+
+Applications Using Watchdog
+----------------------------
+
+* `Watchdog.app`_ — A macOS application for monitoring file changes in
+  selected directories. Built with the OMC engine, it provides a graphical
+  interface for observing directories.
+  The Apple-notarized app is read to use and does not require additional installations.
+
 
 Licensing
 ---------
 
 Watchdog is licensed under the terms of the `Apache License, version 2.0`_.
 
-- Copyright 2018-2024 Mickaël Schoentgen & contributors
+- Copyright 2018-2026 Mickaël Schoentgen & contributors
 - Copyright 2014-2018 Thomas Amland & contributors
 - Copyright 2012-2014 Google, Inc.
 - Copyright 2011-2012 Yesudeep Mangalapilly
@@ -304,7 +379,7 @@ to do:
 .. _source code: https://github.com/gorakhargosh/watchdog
 .. _issue tracker: https://github.com/gorakhargosh/watchdog/issues
 .. _Apache License, version 2.0: https://www.apache.org/licenses/LICENSE-2.0
-.. _documentation: https://python-watchdog.readthedocs.io/
+.. _documentation: https://python-watchdog.readthedocs.io/en/latest/
 .. _stackoverflow: https://stackoverflow.com/questions/tagged/python-watchdog
 .. _repository: https://github.com/gorakhargosh/watchdog
 .. _issue tracker: https://github.com/gorakhargosh/watchdog/issues
@@ -312,6 +387,8 @@ to do:
 
 .. _PyYAML: https://www.pyyaml.org/
 .. _XCode: https://developer.apple.com/technologies/tools/xcode.html
+
+.. _Watchdog.app: https://github.com/abra-code/WatchdogApp
 
 .. _pnotify: http://mark.heily.com/pnotify
 .. _unison fsmonitor: https://webdav.seas.upenn.edu/viewvc/unison/trunk/src/fsmonitor.py?view=markup&pathrev=471
@@ -332,8 +409,12 @@ to do:
    :target: https://pypi.python.org/pypi/watchdog/
 .. |Github Build Status| image:: https://github.com/gorakhargosh/watchdog/workflows/Tests/badge.svg
    :target: https://github.com/gorakhargosh/watchdog/actions?query=workflow%3ATests
+.. |Documentation Status| image:: https://img.shields.io/readthedocs/python-watchdog.svg
+   :target: https://python-watchdog.readthedocs.io/en/latest/
 .. |GitHub License| image:: https://img.shields.io/github/license/gorakhargosh/watchdog.svg
    :target: https://github.com/gorakhargosh/watchdog/blob/master/LICENSE
+.. |Patreon| image:: https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white
+   :target: https://www.patreon.com/mschoentgen
 
 
 .. :changelog:
@@ -341,12 +422,88 @@ to do:
 Changelog
 ---------
 
+7.0.0
+~~~~~
+
+2026-10-31 • `full history <https://github.com/gorakhargosh/watchdog/compare/v6.0.0...v7.0.0>`__
+
+**Breaking Changes**
+
+- Drop support for Python 3.9 and 3.10.
+- [core] Changed pattern matching mechanism from using ``path.match()`` to ``path.full_match()``. Users must update patterns to glob-like syntax: e.g., `*.py` to `**/*.py`. (`#1101 <https://github.com/gorakhargosh/watchdog/pull/1101>`__)
+- [core] Added ``FileAttribEvent`` and ``DirAttribEvent`` for file and directory metadata modifications (such as permissions or timestamps), separate from content modifications. These events no longer trigger ``on_modified()``; implement ``on_attrib()`` to handle them. On Windows 10 (1709+) and Windows Server 2016+, ``ReadDirectoryChangesExW`` is used to differentiate attribute modifications, with fallback to ``ReadDirectoryChangesW`` on older versions or unsupported file shares. (`#260 <https://github.com/gorakhargosh/watchdog/issues/260>`__)
+- [watchmedo] Changed the default ``--patterns`` value from ``"*"`` to ``"**"``, so the default matches absolute paths at any depth under the ``full_match()`` semantics introduced by #1101, and updated the CLI help text and docs to the ``**/`` glob syntax. (`#1212 <https://github.com/gorakhargosh/watchdog/issues/1212>`__)
+
+**Other Changes**
+
+- Add support for Python 3.15 (`#1226 <https://github.com/gorakhargosh/watchdog/issues/1226>`__)
+- [core] Add context manager support to ``Observer`` class. The observer can now be used with a ``with`` statement for automatic start/stop management. (`#1090 <https://github.com/gorakhargosh/watchdog/pull/1149>`__)
+- [core] Add support for the ``follow_symlink`` keyword argument to ``ObservedWatch``. (`#1086 <https://github.com/gorakhargosh/watchdog/pull/1086>`__)
+- [core] Added the ``ignore_policy`` argument to ``PatternMatchingEventHandler`` and ``RegexMatchingEventHandler`` to configure multi-path event filtering (moves/renames). ``PatternMatchingEventHandler`` is now strict by default, aligning with ``RegexMatchingEventHandler``. (`#412 <https://github.com/gorakhargosh/watchdog/issues/412>`__, `#423 <https://github.com/gorakhargosh/watchdog/issues/423>`__)
+- [core] Added the ``watchdog.utils.Seconds`` type alias and used it for the time-duration parameters (``timeout``, ``polling_interval``, ``kill_after``, ...) instead of documenting the unit in each docstring. Duration parameters previously hinted as ``int`` now accept ``float``.
+- [core] Adjust ``Observer.schedule()`` ``path`` type annotation to reflect the ``pathlib.Path`` support. (`#1096 <https://github.com/gorakhargosh/watchdog/pull/1096>`__)
+- [core] Allow scheduling watches on individual files in ``Observer.schedule()``. (`#1034 <https://github.com/gorakhargosh/watchdog/issues/1034>`__)
+- [core] Call ``task_done()`` for the stop sentinel in ``dispatch_events()`` to prevent ``join()`` from hanging. (`#1159 <https://github.com/gorakhargosh/watchdog/pull/1159>`__)
+- [core] ``case_sensitive=False`` matching now really ignores case on Python ``<`` 3.13. The ``PurePath.full_match()`` fallback compiled its regex without ``re.IGNORECASE``, so only the patterns were lower-cased and a path such as ``FOO.PY`` never matched ``**/*.py``. (`#1263 <https://github.com/gorakhargosh/watchdog/pull/1263>`__)
+- [core] ``dispatch_events()`` no longer re-adds a watch that ``unschedule()`` removed, which leaked one ``_handlers`` entry per watch that had an event in flight. (`#1261 <https://github.com/gorakhargosh/watchdog/pull/1261>`__)
+- [core] Do not retain an event handler when ``Observer.schedule()`` fails to create or start its emitter.
+- [core] ``EventEmitter`` and ``EventDispatcher`` reject a bool ``timeout``. ``bool`` subclasses ``int``, so ``timeout=True`` was stored and treated as ``1.0`` seconds. (`#1287 <https://github.com/gorakhargosh/watchdog/pull/1287>`__)
+- [core] Fixed ``generate_sub_moved_events()`` corrupting paths when the directory name appears multiple times in the path. (`#1158 <https://github.com/gorakhargosh/watchdog/pull/1158>`__)
+- [core] ``ObservedWatch`` equality now includes ``follow_symlink``, so scheduling a path a second time with a different ``follow_symlink`` value no longer collapses onto the first watch and silently drops the request. (`#1262 <https://github.com/gorakhargosh/watchdog/pull/1262>`__)
+- [core] ``RegexMatchingEventHandler`` no longer matches its regexes against an empty destination path for events that are not moves. Since events became dataclasses, ``hasattr(event, "dest_path")`` is always true, so a regex matching the empty string (e.g. ``^(?!.*\.pyc$).*$``) let every event through, and such an ignore regex dropped every event. ``PatternMatchingEventHandler`` had the same check.
+- [core] ``remove_handler_for_watch()`` no longer re-adds a watch that ``unschedule()`` removed, which leaked one empty ``_handlers`` entry per call. (`#1285 <https://github.com/gorakhargosh/watchdog/pull/1285>`__)
+- [core] Add ``win_arm64`` to the list of platform-specific wheels published to PyPI. (`#1137 <https://github.com/gorakhargosh/watchdog/issues/1137>`__)
+- [core] Add ``manylinux_2_17`` to the list of platform-specific wheels published to PyPI. (`#1125 <https://github.com/gorakhargosh/watchdog/issues/1125>`__)
+- [inotify] Add support for the ``follow_symlink`` keyword argument. (`#1086 <https://github.com/gorakhargosh/watchdog/pull/1086>`__)
+- [inotify] Do not suppress registration errors for the requested root path. A missing root now raises ``FileNotFoundError`` from ``observer.start()``, or from ``observer.schedule()`` when already running. Recursive descendant failures remain tolerated. (`#1157 <https://github.com/gorakhargosh/watchdog/issues/1157>`__)
+- [inotify] Keep watching newly created subdirectories when recursive watches filter out creation events. (`#990 <https://github.com/gorakhargosh/watchdog/issues/990>`__)
+- [inotify] Reduce number of created inotify instance. (`#1099 <https://github.com/gorakhargosh/watchdog/pull/1099>`__)
+- [inotify] Snapshot the watch group before the blocking read in ``InotifyEmitter.queue_events()`` so stopping the emitter cannot raise ``AttributeError`` on a cleared ``self._inotify``.
+- [inotify] Do not suppress registration errors for the requested root path. A missing root now raises ``FileNotFoundError`` from ``observer.start()``, or from ``observer.schedule()`` when already running. Recursive descendant failures remain tolerated. (`#1157 <https://github.com/gorakhargosh/watchdog/issues/1157>`__)
+- [fsevents] Added the ``latency`` keyword argument to ``FSEventsEmitter`` and ``FSEventsObserver`` (defaulting to ``watchdog.observers.fsevents.DEFAULT_FSEVENTS_LATENCY``), exposing the FSEvents stream latency previously hard-coded at 10 ms. Raising it coalesces duplicate events. (`#835 <https://github.com/gorakhargosh/watchdog/issues/835>`__)
+- [fsevents] Add support for the ``follow_symlink`` keyword argument. (`#1086 <https://github.com/gorakhargosh/watchdog/pull/1086>`__)
+- [fsevents] Support free-threading and give each emitter its own stream and run loop to prevent shutdown leaks. (`#1140 <https://github.com/gorakhargosh/watchdog/issues/1140>`__)
+- [fsevents] Use multi-phase initialization (PEP 489). (`#1108 <https://github.com/gorakhargosh/watchdog/issues/1108>`__)
+- [windows] A rename whose ``RENAMED_OLD`` and ``RENAMED_NEW`` records arrive in different ``get_events()`` batches no longer emits a move event with an empty ``src_path``. (`#1286 <https://github.com/gorakhargosh/watchdog/pull/1286>`__)
+- [windows] Changing only the case of a name no longer emits a deletion event on top of the move event. (`#752 <https://github.com/gorakhargosh/watchdog/issues/752>`__)
+- [windows] Event file names are decoded as UTF-16LE, so a name starting with U+FEFF or U+FFFE no longer reports the wrong path. (`#1228 <https://github.com/gorakhargosh/watchdog/pull/1228>`__)
+- [windows] Fixed an unsynchronized access to ``WindowsApiEmitter._reader``: ``queue_events()`` now
+  reads it under the same lock used by ``on_thread_stop()``. (`#1170 <https://github.com/gorakhargosh/watchdog/issues/1170>`__)
+- [windows] Use double-buffering for ``read_directory_changes`` to avoid missed events under high load. (`#1152 <https://github.com/gorakhargosh/watchdog/pull/1152>`__)
+- [polling] A transient ``OSError`` while polling, such as a network share that is briefly unreachable, no longer emits a ``DirDeletedEvent`` for the watched directory and stops the emitter. The error is logged and the next poll tries again, so changes made in the meantime are still reported. Only ``FileNotFoundError`` and ``NotADirectoryError`` are still treated as a deletion. (`#1065 <https://github.com/gorakhargosh/watchdog/issues/1065>`__)
+- [polling] Detect permission, ownership, and file attribute modifications in ``DirectorySnapshotDiff`` and emit ``FileAttribEvent`` and ``DirAttribEvent`` in ``PollingObserver``. (`#881 <https://github.com/gorakhargosh/watchdog/issues/881>`__)
+- [bsd] Do not let a ``PermissionError`` raised while registering a kevent kill the emitter thread. (`#1115 <https://github.com/gorakhargosh/watchdog/issues/1115>`__)
+- [freebsd] Supports ``inotify`` on FreeBSD 15+. (`#1147 <https://github.com/gorakhargosh/watchdog/pull/1147>`__)
+- [utils] Deduplicate consecutive ``None`` items in ``SkipRepeatsQueue``. (`#1348 <https://github.com/gorakhargosh/watchdog/pull/1348>`__)
+- [utils] Deprecated the ``debounce_interval_seconds`` argument and attribute of ``EventDebouncer`` and ``AutoRestartTrick`` in favour of ``debounce_interval``, and the ``DelayedQueue.delay_sec`` attribute in favour of ``delay``. The old names still work but emit a ``DeprecationWarning``.
+- [utils] ``DirectorySnapshotDiff(ignore_device=True)`` now detects moved files and directories when the device ID changes between snapshots.
+- [utils] Fix ``EventDebouncer`` starvation on high frequency events and ensure pending events are delivered upon stop. (`#998 <https://github.com/gorakhargosh/watchdog/pull/998>`__)
+- [utils] Fixed ``DirectorySnapshotDiff`` reporting a newly created symlink as a move of its target (and a removed symlink as a move onto its target), so ``PollingObserver`` now emits a create/delete event to match the native observers. (`#1176 <https://github.com/gorakhargosh/watchdog/pull/1176>`__)
+- [utils] Fixed ``repr(EmptyDirectorySnapshot)``, before that it was throwing an ``AttributeError: 'EmptyDirectorySnapshot' object has no attribute '_stat_info'``.
+- [utils] Implemented ``len(DirectorySnapshotDiff)`` to return the total number of changes.
+- [utils] Make ``SkipRepeatsQueue.put()`` and ``put_nowait()`` reject duplicate items after ``shutdown()`` on Python 3.13+.
+- [utils] Serialize ``SkipRepeatsQueue`` producers to prevent consecutive duplicates, respecting blocking and timeout limits while acquiring the producer lock. (`#1338 <https://github.com/gorakhargosh/watchdog/pull/1338>`__)
+- [utils] Use a monotonic clock for ``DelayedQueue`` delays so system clock adjustments do not stall or prematurely release events. (`#1296 <https://github.com/gorakhargosh/watchdog/pull/1296>`__)
+- [utils] Make ``SkipRepeatsQueue.put()`` and ``put_nowait()`` reject duplicate items after ``shutdown()`` on Python 3.13+.
+- [utils] Fix ``EventDebouncer`` starvation on high frequency events and ensure pending events are delivered upon stop. (`#998 <https://github.com/gorakhargosh/watchdog/pull/998>`__)
+- [tricks] Allow configuring ``shell_executable`` and ``cwd`` for ``ShellCommandTrick`` and ``watchmedo shell-command``. (`#921 <https://github.com/gorakhargosh/watchdog/issues/921>`__)
+- [watchmedo] Support running watchmedo via ``python -m watchdog``. (`#1162 <https://github.com/gorakhargosh/watchdog/pull/1162>`__)
+- [watchmedo] The ``AutoRestartTrick`` stop signal is now actually delivered on Windows. The subprocess is started in its own process group and signalled with ``CTRL_BREAK_EVENT``, so it can run cleanup handlers and its descendants are no longer orphaned on every restart. (`#1221 <https://github.com/gorakhargosh/watchdog/issues/1221>`__)
+- [watchmedo] ``AutoRestartTrick``'s ``--signal SIGBREAK`` now routes through ``CTRL_BREAK_EVENT`` on Windows too, instead of falling back to the hard kill that skips the child's cleanup handlers. (`#1221 <https://github.com/gorakhargosh/watchdog/issues/1221>`__)
+- [watchmedo] Show file system events by default in ``watchmedo log``. (`#913 <https://github.com/gorakhargosh/watchdog/issues/913>`__)
+- [tests] Remove the ``eventlet`` tests and test dependency.
+- [docs] Document that ``BaseThread`` always runs as a daemon thread, instead of inheriting ``daemon`` from the creating thread as the inherited ``threading.Thread`` documentation states. (`#1117 <https://github.com/gorakhargosh/watchdog/issues/1117>`__)
+- [docs] ``FileSystemEvent`` no longer claims to be immutable; its fields stay writable and the hash is derived from them, so mutating an event held in a dict or set strands it there. (`#1240 <https://github.com/gorakhargosh/watchdog/issues/1240>`__)
+- [docs] Note that ``FileClosedEvent``, ``FileClosedNoWriteEvent`` and ``FileOpenedEvent``, and their ``on_closed()``, ``on_closed_no_write()`` and ``on_opened()`` handlers, are emitted only by ``InotifyObserver`` on Linux. (`#1235 <https://github.com/gorakhargosh/watchdog/pull/1235>`__)
+
+- Thanks to our beloved contributors: @BoboTiG, @Corentin-pro, @Liam-DeVoe, @kirkhansen, @JoachimCoenen, @HaoZeke, @LincolnPuzey, @adicohen1005, @zastrowm, @ngoldbaum, @QWERTIOX, @cclauss, @blitztide, @nascheme, @Prosperibe12, @bysiber, @abra-code, @toroleapinc, @maxtaran2010, @gorakhargosh, @Sanjays2402, @prateek-dagar, @BortnikMaxim, @MohammedAlkindi, @Skeletor-Pirate, @btschwertfeger, @zain-asif-dev, @subikshajegadish, @FanWu-ai, @ryanchou1994, @Rosuav, @TobiasRzepka, @GreatBahram, @arindamsikder, @apoorvdarshan, @kokotatan, @Om-singhaI, @amprew, @Pitchfork-and-Torch, @Dev-iL, @CLCK0622, @Enesuygurs, @galafis, @vaibhav8a, @ivg, @newchannelid432-code, @Aschenbath, @Joelbit-io, @Alex0AI
+
 6.0.0
 ~~~~~
 
 2024-11-01 • `full history <https://github.com/gorakhargosh/watchdog/compare/v5.0.3...v6.0.0>`__
 
-- Pin test dependecies.
+- Pin test dependencies.
 - [docs] Add typing info to quick start. (`#1082 <https://github.com/gorakhargosh/watchdog/pull/1082>`__)
 - [inotify] Use of ``select.poll()`` instead of deprecated ``select.select()``, if available. (`#1078 <https://github.com/gorakhargosh/watchdog/pull/1078>`__)
 - [inotify] Fix reading inotify file descriptor after closing it. (`#1081 <https://github.com/gorakhargosh/watchdog/pull/1081>`__)
@@ -364,7 +521,7 @@ Changelog
 - [watchmedo] Added the ``__repr__()`` method to the ``HelpFormatter`` class.
 - [watchmedo] Removed the ``--trace`` CLI argument from the ``watchmedo log`` command, useless since events are logged by default at the ``LoggerTrick`` class level.
 - [windows] Fixed Mypy issues.
-- Thanks to our beloved contributors: @BoboTiG, @g-pichlern, @ethan-vanderheijden, @nhairs
+- Thanks to our beloved contributors: @BoboTiG, @g-pichler, @ethan-vanderheijden, @nhairs
 
 5.0.3
 ~~~~~
@@ -454,7 +611,7 @@ Changelog
 - [events] Log ``FileOpenedEvent``, and ``FileClosedEvent``, events in ``LoggingEventHandler``
 - [tests] Improve ``FileSystemEvent`` coverage
 - [watchmedo] Log all events in ``LoggerTrick``
-- [windows] The ``observers.read_directory_changes.WATCHDOG_TRAVERSE_MOVED_DIR_DELAY`` hack was removed. The constant will be kept to prevent breaking other softwares.
+- [windows] The ``observers.read_directory_changes.WATCHDOG_TRAVERSE_MOVED_DIR_DELAY`` hack was removed. The constant will be kept to prevent breaking other software.
 - Thanks to our beloved contributors: @BoboTiG, @msabramo
 
 3.0.0
@@ -843,7 +1000,7 @@ Changelog
 
 - Event emitters are no longer started on schedule if ``Observer`` is not
   already running
-- [mac] Fixed usued arguments to pass clang compilation (`#265 <https://github.com/gorakhargosh/watchdog/pull/265>`__)
+- [mac] Fixed unused arguments to pass clang compilation (`#265 <https://github.com/gorakhargosh/watchdog/pull/265>`__)
 - [snapshot] Fixed a possible race condition crash on directory deletion (`#281 <https://github.com/gorakhargosh/watchdog/pull/281>`__)
 - [windows] Fixed an error when watching the same folder again (`#270 <https://github.com/gorakhargosh/watchdog/pull/270>`__)
 - Thanks to our beloved contributors: @tamland, @apetrone, @Falldog,

@@ -400,3 +400,23 @@ class TLRUCacheTest(unittest.TestCase, CacheTestMixin):
         cache.timer.tick()
         cache.timer.tick()  # past TTL
         self.assertNotIn(42, cache)
+
+    def test_tlru_default_timer_stubs(self):
+        # type stubs must infer key and value types with the default timer
+        def ttu(_key: str, value: int, now: float) -> float:
+            return now + value
+
+        cache: TLRUCache[str, int] = TLRUCache(maxsize=2, ttu=ttu)
+
+        cache["a"] = 3600
+        self.assertEqual(3600, cache["a"])
+        self.assertEqual(1, len(cache))
+        self.assertIn("a", cache)
+
+        sized: TLRUCache[str, str] = TLRUCache(
+            maxsize=10, ttu=lambda _k, _v, now: now + 3600, getsizeof=len
+        )
+
+        sized["abc"] = "abc"
+        self.assertEqual("abc", sized["abc"])
+        self.assertEqual(3, sized.currsize)

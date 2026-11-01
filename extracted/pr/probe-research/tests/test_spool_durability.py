@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 import threading
 
-from probe.sdk.client import Client
-from probe.sdk.spool import Spool, default_dir
+from probe.sdk.client.client import Client
+from probe.sdk.delivery.spool import Spool, default_dir
 
 
 def test_append_flushes_and_fsyncs_before_return(tmp_path, monkeypatch):
@@ -100,7 +100,7 @@ def test_flush_recovers_batch_moved_inflight_before_process_crash(tmp_path):
 
 
 def test_client_rejects_two_journal_owners(client, tmp_path):
-    from probe.sdk.journal import Journal
+    from probe.sdk.delivery.journal.journal import Journal
 
     try:
         Client(

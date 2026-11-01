@@ -17,8 +17,9 @@ import httpx
 import pytest
 
 from probe.sdk import errors
-from probe.sdk.client import Client
-from probe.sdk.journal import Journal, classify
+from probe.sdk.client.client import Client
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.ops.classify import classify
 from tests.served_fake_app import serve
 from tests.test_outbox_credential_stamp import STORED_B, _login
 from tests.conftest import _WS_MINE
@@ -86,8 +87,8 @@ def test_a_refused_presigned_upload_fails_only_that_upload(app, tmp_path, monkey
 def test_a_presigned_put_refusal_is_its_own_error(tmp_path):
     """The transport names it: not an AuthError (no credential was sent), and
     the outbox classifies it permanent -- this upload fails, the queue goes on."""
-    from probe.sdk.config import Settings
-    from probe.sdk.transport import Transport
+    from probe.sdk.settings.settings import Settings
+    from probe.sdk.delivery.transport.transport import Transport
 
     def refuse(request: httpx.Request) -> httpx.Response:
         return httpx.Response(401, json={"detail": "invalid upload capability"})
@@ -114,8 +115,8 @@ def test_a_presigned_put_refusal_is_its_own_error(tmp_path):
 
 def test_a_network_failure_never_prints_the_signed_address():
     """`put_url` put the whole presigned URL, signature included, in its error."""
-    from probe.sdk.config import Settings
-    from probe.sdk.transport import Transport
+    from probe.sdk.settings.settings import Settings
+    from probe.sdk.delivery.transport.transport import Transport
 
     def down(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection refused", request=request)

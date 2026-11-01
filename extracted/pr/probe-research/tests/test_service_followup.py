@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import statusline as cli_statusline
+from probe.shared.harness.harnesses.claude_code import statusline as cli_statusline
 from probe.service import followup, recorders
 
 AGENT = Path(__file__).resolve().parents[1]

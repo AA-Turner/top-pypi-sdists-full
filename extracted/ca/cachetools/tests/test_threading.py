@@ -5,8 +5,8 @@ from cachetools import LRUCache, cached, cachedmethod
 
 
 class WaitCondition(Condition):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, lock=None):
+        super().__init__(lock)
         self.waiting = Event()
 
     def wait(self, timeout=None):
@@ -93,6 +93,90 @@ class ThreadingTest(unittest.TestCase):
                 func = Cached().method
                 self.run_cond_wait_test(func, cond, started, release, calls)
 
+    def test_cached_lock_cond(self):
+        for info in (False, True):
+            with self.subTest(info=info):
+                cache = LRUCache(1)
+                lock = Lock()
+                cond = WaitCondition(lock)
+                started = Event()
+                release = Event()
+                calls = []
+
+                @cached(cache, lock=lock, condition=cond, info=info)
+                def func(calls=calls, started=started, release=release):
+                    calls.append(None)
+                    started.set()
+                    release.wait(self.TIMEOUT)
+                    return object()
+
+                self.run_cond_wait_test(func, cond, started, release, calls)
+
+    def test_cachedmethod_lock_cond(self):
+        for info in (False, True):
+            with self.subTest(info=info):
+                cache = LRUCache(1)
+                lock = Lock()
+                cond = WaitCondition(lock)
+                started = Event()
+                release = Event()
+                calls = []
+
+                class Cached:
+                    @cachedmethod(
+                        lambda _: cache,
+                        lock=lambda _: lock,
+                        condition=lambda _: cond,
+                        info=info,
+                    )
+                    def method(
+                        self,
+                        calls=calls,
+                        started=started,
+                        release=release,
+                        timeout=self.TIMEOUT,
+                    ):
+                        calls.append(None)
+                        started.set()
+                        release.wait(timeout)
+                        return object()
+
+                func = Cached().method
+                self.run_cond_wait_test(func, cond, started, release, calls)
+
+    def test_cached_unrelated_lock_cond(self):
+        # a condition variable not created with the lock fails on
+        # the first cache miss, even without concurrent calls
+        for info in (False, True):
+            with self.subTest(info=info):
+
+                @cached(LRUCache(1), lock=Lock(), condition=Condition(), info=info)
+                def func():
+                    return object()
+
+                with self.assertRaises(RuntimeError):
+                    func()
+
+    def test_cachedmethod_unrelated_lock_cond(self):
+        for info in (False, True):
+            with self.subTest(info=info):
+                cache = LRUCache(1)
+                lock = Lock()
+                cond = Condition()
+
+                class Cached:
+                    @cachedmethod(
+                        lambda _: cache,
+                        lock=lambda _: lock,
+                        condition=lambda _: cond,
+                        info=info,
+                    )
+                    def method(self):
+                        return object()
+
+                with self.assertRaises(RuntimeError):
+                    Cached().method()
+
     def run_cond_wait_test(self, func, cond, started, release, calls):
         results = [None] * 2
 
@@ -121,14 +205,6 @@ class ThreadingTest(unittest.TestCase):
             cache_info = func.cache_info()
             self.assertEqual(cache_info.hits + cache_info.misses, self.NTHREADS)
             self.assertGreaterEqual(cache_info.misses, 1)
-
-    def run_cond_test(self, func, cache, info):
-        self.run_threading_test(func, cache)
-
-        if info:
-            cache_info = func.cache_info()
-            self.assertEqual(cache_info.hits, self.NTHREADS - 1)
-            self.assertEqual(cache_info.misses, 1)
 
     def run_threading_test(self, func, cache):
         results = [None] * self.NTHREADS

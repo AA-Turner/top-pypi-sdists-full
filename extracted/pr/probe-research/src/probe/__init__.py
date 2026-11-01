@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING
 from . import errors
 
 # SDK names load lazily (PEP 562): `import probe` -- or, crucially, `import
-# probe.sdk.<leaf>` for a stdlib-only module like probe.sdk.durable -- must not
+# probe.sdk.<leaf>` for a stdlib-only module like probe.foundation.durable.durable -- must not
 # eagerly pull in Client and therefore httpx. A distributed Miles actor only spills
 # metric batches to disk; it should not import the network stack to do that. Naming
 # one of these attributes resolves it through .sdk (itself lazy) on first access.

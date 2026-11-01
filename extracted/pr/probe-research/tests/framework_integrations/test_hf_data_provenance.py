@@ -80,7 +80,10 @@ def fake(app, tmp_path, monkeypatch) -> CatalogFake:
     monkeypatch.setenv("PROBE_EPHEMERAL", "0")
     # The recorder's switch is this capture's switch too (conftest pins it off).
     monkeypatch.setenv("PROBE_CAPTURE_READS", "1")
-    monkeypatch.setattr(fluent, "Client", lambda *a, **kw: make_client(fake, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **kw: make_client(fake, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **kw: make_client(fake, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **kw: make_client(fake, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **kw: make_client(fake, tmp_spool=tmp_path / "spool"))
     app.seed_experiment("e1")
     return fake
 

@@ -655,37 +655,270 @@ def _is_no_findings_line(text: str) -> bool:
     return any(phrase in low for phrase in _NO_FINDINGS_PHRASES)
 
 
-def blocking_findings_confirmed_absent(body: str) -> bool:
-    """True only when *body* carries POSITIVE evidence of zero blocking findings.
+# A SELF-reported `coord:review` marker (#3838) — distinct from the one
+# `coord/notify.py:_attach_review_header` prepends when POSTING a review
+# comment to GitHub.  That GitHub-side marker is built *after* this gate has
+# already run, derived from `estimate_review_counts` on the same body it
+# would be backing up, and never makes it back into `findings.body` — so it
+# cannot be used as independent evidence here (#3838 review).
+#
+# This one is different: the reviewer is asked to write it *itself*, as the
+# literal first line of `REVIEW_BODY:`, before any other prose.  Untrusted
+# free text (a reviewer quoting this exact format while discussing
+# `review.py`/`notify.py`, or a PR diff pasted into the body) cannot forge
+# it, because trust requires BOTH:
+#
+#   1. Position: it must be the very first non-blank line of the body — not
+#      "found anywhere", which is what made the #1456-class regression
+#      possible (a quoted example inside a code fence or mid-prose would
+#      match an unanchored search).
+#   2. An `assignment=` token equal to the real assignment id of the review
+#      being graded (`review.assignment_id` in `coord/auto_loop.py`) — a
+#      value the reviewer only knows from its own `$COORD_ASSIGNMENT_ID`
+#      and that prose discussing this file in the abstract has no way to
+#      guess, since it is freshly generated per dispatch.
+_SELF_REPORTED_MARKER_RE = re.compile(
+    r"^\s*<!--\s*coord:review\s+([^>]+?)\s*-->\s*$",
+    re.IGNORECASE,
+)
 
-    This is the evidence standard for overriding a reviewer's verdict (#1456).
-    It is deliberately *fail-closed*: everything the heuristic cannot read
-    returns ``False``, i.e. "assume the reviewer meant what it said".
 
-    Returns ``True`` only when **all** of the following hold:
+def _parse_trusted_self_reported_marker(
+    body: str, assignment_id: str | None,
+) -> dict[str, str | int] | None:
+    """Return the self-reported marker's tokens, or ``None`` if untrustworthy.
 
-    1. A blocking section was actually located (``blocking is not None`` —
-       a heading matching `_SECTION_KEYWORDS["blocking"]`).  A body with no
-       such heading yields ``None`` = *unknown*, which must never be read as
-       zero: that conflation is the #1456 defect, where a well-formed prose
-       `request-changes` on #1445 was rewritten to `approve` because the
-       *nits* bucket happened to parse as 0 while *blocking* parsed as None.
-    2. That section contains no bullets (an explicit parsed zero).
-    3. That section contains no substantive prose either — a reviewer who
-       writes blocking findings as paragraphs under "## Blocking" would
-       otherwise count as zero and fail open all the same.  Short "None" /
-       "N/A" markers are allowed (that's the shape being looked for).
+    See the module comment above `_SELF_REPORTED_MARKER_RE` for the two
+    conditions (first line, matching `assignment=`) that make this
+    unforgeable by untrusted prose — unlike `parse_review_header`, which
+    this function deliberately does NOT use (that one searches anywhere in
+    the body, which is the #3838 fail-open shape).
     """
-    blocking, _nonblocking, _nits = estimate_review_counts(body)
-    if blocking is None or blocking != 0:
-        return False
+    if not assignment_id:
+        return None
+    stripped = body.lstrip(" \t\r\n")
+    if not stripped:
+        return None
+    first_line = stripped.splitlines()[0]
+    m = _SELF_REPORTED_MARKER_RE.match(first_line)
+    if not m:
+        return None
+    header: dict[str, str | int] = {}
+    for token in m.group(1).split():
+        if "=" not in token:
+            continue
+        key, value = token.split("=", 1)
+        key = key.lower()
+        if key in ("blocking", "nonblocking", "nits"):
+            try:
+                header[key] = int(value)
+            except ValueError:
+                continue
+        else:
+            header[key] = value
+    if "verdict" not in header:
+        return None
+    if header.get("assignment") != assignment_id:
+        return None
+    return header
+
+
+# Count of bodies that fell through to the fail-closed branch of the #476
+# gate — i.e. prose the heuristic could not parse into a blocking count,
+# *and* no trustworthy self-reported marker to fall back on.  Each one burns
+# a full extra fix+review round that a well-formed body would have avoided.
+# Process-global, in-memory only: a measure of residual rate within one run,
+# not a persisted metric — `coord doctor` and an audit script are each a
+# separate short-lived process and would always read 0 here; the grep-able
+# `log.info`/`log.warning` lines at the increment site are the durable
+# record.  Incremented ONLY at the `coord/auto_loop.py` decision site (via
+# `record_unparseable_treated_as_blocking`), never inside the pure
+# `classify_blocking_evidence`/`blocking_findings_confirmed_absent`
+# predicates — `scripts/audit_review_verdict_overrides.py` calls those same
+# predicates over historical rows and must not inflate this count every time
+# it runs (#3838 review).
+_unparseable_treated_as_blocking_count = 0
+
+
+def unparseable_treated_as_blocking_count() -> int:
+    """Return how many times `record_unparseable_treated_as_blocking` has
+    fired in this process.  Exposed for tests; see that function's docstring
+    for why this is not cross-process visible.
+    """
+    return _unparseable_treated_as_blocking_count
+
+
+def record_unparseable_treated_as_blocking(
+    *, assignment_id: str | None = None, excerpt: str | None = None,
+) -> None:
+    """Record one review that fail-closed on an unparseable, unbacked body.
+
+    Call this at most once per review *decision* — the real call site is
+    `coord/auto_loop.py`'s #476 gate, exactly where `classify_blocking_evidence`
+    says `fail_closed_unparseable=True`. Do not call it from
+    `blocking_findings_confirmed_absent` / `classify_blocking_evidence`
+    themselves (those are pure predicates reused by an audit script over
+    historical, already-decided rows — calling this there would count one
+    audit scan as N fresh fix cycles).
+
+    Logs at `log.warning`, matching the override `log.warning` a few lines
+    away in `auto_loop.py` — a downgrade-that-didn't-happen because the
+    evidence was too weak is exactly as worth finding in a log as a
+    downgrade that did.
+    """
+    global _unparseable_treated_as_blocking_count  # noqa: PLW0603
+    _unparseable_treated_as_blocking_count += 1
+    log.warning(
+        "blocking_findings_confirmed_absent: prose unparseable and no "
+        "trustworthy self-reported marker, treating as blocking "
+        "(fail-closed) for review %r; excerpt=%r",
+        assignment_id, excerpt,
+    )
+
+
+@dataclass(frozen=True)
+class BlockingEvidence:
+    """Result of `classify_blocking_evidence` — see that function."""
+
+    confirmed_absent: bool
+    # True only when `confirmed_absent` is False AND the reason is "prose
+    # unparseable and no trustworthy marker" (vs. "prose parsed to a
+    # genuine nonzero blocking count", which is not this gate's concern at
+    # all and must never bump the unparseable counter).
+    fail_closed_unparseable: bool
+
+
+def _authoritative_counts_with_source(
+    body: str, *, assignment_id: str | None = None,
+) -> tuple[int | None, int | None, int | None, str]:
+    """Return (blocking, nonblocking, nits, source) for *body*.
+
+    The trustworthy self-reported ``<!-- coord:review ... -->`` marker
+    (`_parse_trusted_self_reported_marker`) is the AUTHORITATIVE signal
+    whenever it is present and carries a ``blocking=`` token — checked
+    first, on every read, not only as a fallback once prose turns out to
+    be unparseable (#3833). Prose (`estimate_review_counts`) is only a
+    fallback for bodies that never got a trustworthy marker at all.
+
+    ``source`` is ``"marker"`` or ``"prose"`` — callers use it to decide
+    whether the extra "is this blocking section actually empty prose, not
+    just zero-bulleted" sanity check still applies (it only makes sense for
+    prose; a marker's ``blocking=0`` is the reviewer's own attestation,
+    nothing to re-check against the body's prose).
+    """
+    marker = _parse_trusted_self_reported_marker(body, assignment_id)
+    if marker is not None and "blocking" in marker:
+        return (
+            marker.get("blocking"),  # type: ignore[return-value]
+            marker.get("nonblocking"),  # type: ignore[return-value]
+            marker.get("nits"),  # type: ignore[return-value]
+            "marker",
+        )
+    blocking, nonblocking, nits = estimate_review_counts(body)
+    return blocking, nonblocking, nits, "prose"
+
+
+def authoritative_review_counts(
+    body: str, *, assignment_id: str | None = None,
+) -> tuple[int | None, int | None, int | None]:
+    """Return (blocking, nonblocking, nits) for *body*, marker-first.
+
+    This is the one function callers wanting "how many blocking/nonblocking/
+    nit findings does this review report" should call — it is what
+    `classify_blocking_evidence` uses internally, so a caller logging these
+    numbers alongside a `classify_blocking_evidence` decision (e.g.
+    `coord/auto_loop.py`'s #476 override log/reason text) never disagrees
+    with the gate that decision came from (#3833's "one question, one
+    answer"). Prefer this over calling `estimate_review_counts` directly
+    unless you specifically want the prose-only heuristic irrespective of
+    any self-reported marker.
+    """
+    blocking, nonblocking, nits, _source = _authoritative_counts_with_source(
+        body, assignment_id=assignment_id,
+    )
+    return blocking, nonblocking, nits
+
+
+def classify_blocking_evidence(
+    body: str, *, assignment_id: str | None = None,
+) -> BlockingEvidence:
+    """Classify the evidence *body* carries about its blocking section.
+
+    This is the evidence standard for overriding a reviewer's verdict
+    (#1456). It is deliberately *fail-closed*: everything the heuristic
+    cannot read counts as "not confirmed absent", i.e. "assume the
+    reviewer meant what it said".
+
+    The reported ``blocking`` count comes from
+    `_authoritative_counts_with_source`, which checks the trustworthy
+    self-reported marker FIRST. But the marker is a backstop, not an
+    override: it can only ever WIDEN confirmation beyond what prose alone
+    would support when the body has no prose to contradict it (no
+    recognisable "## Blocking" heading at all) — it can never overrule
+    prose that is actually there. ``confirmed_absent`` is ``True`` only
+    when the reported count is zero AND the body's own prose, if any
+    blocking section is findable in it, does not disagree. Concretely:
+
+    1. If ``blocking`` (marker-first) is ``None``, nothing is confirmed —
+       fail-closed unparseable.
+    2. If ``blocking`` is nonzero, nothing is confirmed — there is a
+       reported finding, full stop.
+    3. Otherwise ``blocking == 0``. Walk the body's own markdown sections
+       (`_iter_review_sections`) looking for one that maps to the
+       ``blocking`` bucket:
+
+       a. No such heading at all: trust the zero count as-is (marker or
+          prose — a marker-only body with no conventional headings is
+          exactly the case the marker exists to cover).
+       b. A heading is found: every line under it must read as an
+          explicit "nothing here" marker (`_is_no_findings_line`) — a real
+          bullet or substantive prose under "## Blocking" means the body
+          disagrees with the reported zero, so `confirmed_absent` is
+          ``False`` regardless of what the marker claimed. This is what
+          keeps a reviewer-emitted `blocking=0` from overriding its own
+          contradicting findings list (the #476 gate must stay fail-closed
+          against disagreement, not just against silence).
+
+    `fail_closed_unparseable` is ``True`` exactly when `confirmed_absent` is
+    ``False`` because the reported count could not be determined at all —
+    never when a genuine nonzero count or a prose disagreement is the
+    reason, since neither of those is a parsing failure.
+    """
+    blocking, _nonblocking, _nits, source = _authoritative_counts_with_source(
+        body, assignment_id=assignment_id,
+    )
+    if blocking is None:
+        return BlockingEvidence(confirmed_absent=False, fail_closed_unparseable=True)
+    if blocking != 0:
+        return BlockingEvidence(confirmed_absent=False, fail_closed_unparseable=False)
     for bucket, lines in _iter_review_sections(body):
         if bucket != "blocking":
             continue
         for line in lines:
             if not _is_no_findings_line(line.strip()):
-                return False
-    return True
+                return BlockingEvidence(confirmed_absent=False, fail_closed_unparseable=False)
+    if source == "marker":
+        log.info(
+            "blocking_findings_confirmed_absent: trusting self-reported "
+            "coord:review marker (blocking=0, assignment=%r)",
+            assignment_id,
+        )
+    return BlockingEvidence(confirmed_absent=True, fail_closed_unparseable=False)
+
+
+def blocking_findings_confirmed_absent(
+    body: str, *, assignment_id: str | None = None,
+) -> bool:
+    """True only when *body* carries POSITIVE evidence of zero blocking findings.
+
+    Thin wrapper around `classify_blocking_evidence` for callers that only
+    need the yes/no decision (e.g. `scripts/audit_review_verdict_overrides.py`
+    scanning historical rows) — see that function for the full evidence
+    standard. Pure: never mutates `unparseable_treated_as_blocking_count`;
+    see `record_unparseable_treated_as_blocking` for why that is a separate,
+    call-site-only step.
+    """
+    return classify_blocking_evidence(body, assignment_id=assignment_id).confirmed_absent
 
 
 def extract_blocking_section(body: str) -> str:
@@ -719,6 +952,110 @@ def extract_blocking_section(body: str) -> str:
     if all(_is_no_findings_line(line.strip()) for line in joined.splitlines() if line.strip()):
         return ""
     return joined
+
+
+# Default cap on `ProposedFix.diff_text` size for `classify_finding_nit_class`
+# (#3833) — a line count, not a byte count, since diff lines are what a human
+# (or the eventual finisher, #3832 C2) would actually be bounding "small" by.
+# Chosen generously enough to admit a real one- or two-line code change plus
+# its surrounding hunk context, while still excluding anything resembling a
+# rewrite.
+_NIT_CLASS_MAX_CHANGED_LINES = 40
+
+
+@dataclass(frozen=True)
+class ProposedFix:
+    """A single finding's proposed fix — input to `classify_finding_nit_class`.
+
+    Deliberately a thin, caller-supplied description rather than something
+    inferred from `diff_text` alone: whether a change is "behavioral" or
+    "touches a public API" is a judgment call for whoever is proposing the
+    fix (a human reviewer today; the finisher itself, #3832 C2, eventually)
+    to make explicitly. Guessing it from diff text with a regex would be
+    exactly the kind of gate CLAUDE.md warns about — one whose failing
+    branch nobody can actually trust fired for the right reason.
+
+    `diff_text` is still read mechanically, for the two properties that
+    genuinely are mechanical: how big the diff is, and which paths it
+    touches (checked against `sealed_paths`).
+    """
+
+    diff_text: str
+    behavioral: bool
+    touches_public_api: bool
+
+
+def _diff_changed_line_count(diff_text: str) -> int:
+    """Count added+removed content lines in a unified diff.
+
+    Excludes the `+++`/`---` file-header lines (which also start with `+`/
+    `-`) so a diff touching one real line is counted as 1, not 2.
+    """
+    count = 0
+    for line in diff_text.splitlines():
+        if line.startswith("+++") or line.startswith("---"):
+            continue
+        if line.startswith("+") or line.startswith("-"):
+            count += 1
+    return count
+
+
+def classify_finding_nit_class(
+    body: str,
+    *,
+    assignment_id: str | None = None,
+    fix: ProposedFix | None = None,
+    sealed_paths: list[str] | None = None,
+    max_changed_lines: int = _NIT_CLASS_MAX_CHANGED_LINES,
+) -> bool:
+    """Is *body*'s review, plus (optionally) *fix*, "nit-class"?
+
+    This is the gate a future finisher (#3832 C2, and "Trigger A" in C3)
+    needs to decide whether it may autonomously apply a fix, rather than
+    hand the review back for rework. It does NOT replace
+    `classify_blocking_evidence` — it reuses it, so the two can never
+    disagree about whether blocking findings are actually present (#3833's
+    "one question, one answer"):
+
+    - If `classify_blocking_evidence` cannot even confirm the body's
+      evidence (`fail_closed_unparseable`), this is never nit-class —
+      a body too malformed to trust is not a safe autonomous-fix target.
+    - If a `fix` is supplied, it is ALWAYS graded on its own four
+      properties below, regardless of what `classify_blocking_evidence`
+      decided — a behavioral / public-API / sealed-path / oversized fix is
+      not nit-class even when the review body itself reports zero blocking
+      findings. A gate deciding whether an autonomous edit may land cannot
+      let the subject of that edit exempt itself just because the *report*
+      was clean; the fix still has to be graded. The four checks, ALL of
+      which must hold:
+
+      1. Non-behavioral (`not fix.behavioral`) — caller-attested, not
+         inferred (see `ProposedFix`).
+      2. Touches no public-API surface (`not fix.touches_public_api`) —
+         same.
+      3. Touches no sealed path, per `sealed_paths`
+         (`AcceptanceConfig.sealed_paths()` upstream — this function takes
+         the already-resolved list, matching every other sealed-path
+         helper in this module).
+      4. A bounded, nonempty diff: ``0 < changed_lines <= max_changed_lines``.
+         An empty `diff_text` (no actual fix drafted yet) is never
+         nit-class — there is nothing bounded about "no diff".
+    - If no `fix` is supplied at all, nit-class status falls back to
+      `evidence.confirmed_absent`: zero blocking findings and nothing to
+      fix is trivially nit-class, while a real blocking finding with no
+      proposed fix is never nit-class (nothing to evaluate).
+    """
+    evidence = classify_blocking_evidence(body, assignment_id=assignment_id)
+    if evidence.fail_closed_unparseable:
+        return False
+    if fix is not None:
+        if fix.behavioral or fix.touches_public_api:
+            return False
+        if sealed_paths and _diff_touched_sealed_paths(fix.diff_text, sealed_paths):
+            return False
+        changed = _diff_changed_line_count(fix.diff_text)
+        return 0 < changed <= max_changed_lines
+    return evidence.confirmed_absent
 
 
 def _parse_review_text(text: str) -> ReviewFindings | None:
@@ -1153,6 +1490,28 @@ UPSTREAM_GAP_REVIEW_RULE = (
     "issue `resolved` on its own."
 )
 
+# #3838: the #476 advisory-downgrade gate trusts a body it cannot parse into
+# the three headings ONLY if this exact, position-anchored marker is present —
+# never a marker merely quoted somewhere in prose, which a genuinely-blocking
+# review could include while discussing this very file. Shared by the
+# reviewer system prompt and both review briefings so the emitted marker and
+# the parser in `_parse_trusted_self_reported_marker` can never drift apart.
+SELF_REPORTED_MARKER_RULE = (
+    "SELF-REPORTED MARKER (backstop, not a substitute for the three "
+    "headings) — make the LITERAL FIRST LINE of REVIEW_BODY, before any "
+    "other text, exactly: `<!-- coord:review verdict=<approve|"
+    "request-changes> blocking=<N> nonblocking=<N> nits=<N> "
+    "assignment=$COORD_ASSIGNMENT_ID -->` — substitute the real counts and "
+    "the real value of your `$COORD_ASSIGNMENT_ID` environment variable, "
+    "not the literal text `$COORD_ASSIGNMENT_ID`. This line is read ONLY "
+    "when your prose body is otherwise unparseable; it is the one way such "
+    "a body can still have its `blocking=0` trusted without costing a full "
+    "extra fix+review round. The coordinator trusts it ONLY on that exact "
+    "first line with an `assignment=` matching your real dispatch — on any "
+    "other line, or missing, or mismatched, it is ignored and the body is "
+    "treated as fully blocking. Always still write the three headings too."
+)
+
 
 REVIEWER_SYSTEM_PROMPT = """\
 You are an independent code reviewer dispatched by the coordinator. \
@@ -1230,6 +1589,22 @@ test-naming conventions — are NEVER blocking. Put them under \
 `## Non-blocking concerns` or `## Nits`. Each fix+review round costs real \
 wall-clock time and money; do not burn a round on something that does not \
 change what the code does.
+
+FORMAT CONTRACT — the three marker lines (`REVIEW_VERDICT:`, \
+`REVIEW_BODY:`, `END_REVIEW`) AND the three section headings above are \
+parsed by machine. Each marker line must start at the beginning of its own \
+line as literal plain text, with NO Markdown decoration: no `**bold**`, no \
+backticks, no `#` heading marks, no list bullet. \
+`**REVIEW_VERDICT: request-changes**` is WRONG; `REVIEW_VERDICT: \
+request-changes` is right. The three headings must be written exactly as \
+shown (`## Blocking findings`, `## Non-blocking concerns`, `## Nits`) — not \
+renamed, reordered, merged, or demoted to prose. A `request-changes` whose \
+body the coordinator cannot parse into these sections is treated as fully \
+blocking by default, costing a full extra fix+review round even when you \
+raised nothing blocking — getting the format right the first time is how \
+you avoid that.
+
+""" + SELF_REPORTED_MARKER_RULE + "\n" + """\
 
 `END_REVIEW` is a HARD REQUIREMENT, not a formatting flourish: the coordinator \
 only records a verdict when it sees that exact line, so a review that is \
@@ -2912,6 +3287,8 @@ def build_review_briefing(
         "`REVIEW_VERDICT:` with nothing preceding it, AND that the very "
         "last line is `END_REVIEW`."
     )
+    lines.append("")
+    lines.append(SELF_REPORTED_MARKER_RULE)
 
     return "\n".join(lines)
 
@@ -5638,6 +6015,7 @@ def build_scoped_review_briefing(
         "REQUIREMENT — an otherwise-complete review missing that exact "
         "line is discarded in its entirety."
     )
+    lines.append(SELF_REPORTED_MARKER_RULE)
     return "\n".join(lines)
 
 

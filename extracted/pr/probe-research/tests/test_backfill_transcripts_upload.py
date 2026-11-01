@@ -384,7 +384,8 @@ def test_a_finalized_session_is_not_re_sent_and_never_anchors(tmp_path, wire):
 def background_job(tmp_path, wire, monkeypatch):
     from types import SimpleNamespace
     from probe.cli import capabilities, import_jobs
-    from probe.sdk import client as sdk_client, config
+    from probe.sdk import client as sdk_client
+    from probe.sdk.settings import settings as config
 
     class Client(FakeClient):
         settings = SimpleNamespace(base_url=wire.base_url, workspace=None, token="never-persist")
@@ -400,7 +401,8 @@ def background_job(tmp_path, wire, monkeypatch):
             return False
 
     client = Client()
-    monkeypatch.setattr(sdk_client, "Client", lambda **kwargs: client)
+    monkeypatch.setattr(sdk_client.client, "Client", lambda **kwargs: client)
+    monkeypatch.setattr(sdk_client.resources.runs.attach, "Client", lambda **kwargs: client)
     monkeypatch.setattr(config, "current_context_name", lambda: "approved-account")
     monkeypatch.setattr(config, "resolve", lambda **kwargs: client.settings)
     monkeypatch.setattr(capabilities, "resolved_capture_credential", lambda source: (wire.token, wire.base_url))

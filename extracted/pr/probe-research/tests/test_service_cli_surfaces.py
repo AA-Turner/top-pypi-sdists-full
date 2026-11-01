@@ -114,9 +114,9 @@ def test_the_hooks_context_is_a_request_context_without_the_per_session_switches
 
 
 def test_every_credential_the_sdk_reads_from_the_environment_stays_with_the_caller():
-    """`probe.sdk.config`'s env table: each token or secret it names is one a
+    """`probe.sdk.settings.settings`'s env table: each token or secret it names is one a
     request never carries, so a caller holding it does the work itself."""
-    from probe.sdk import config
+    from probe.sdk.settings import settings as config
 
     named = set(re.findall(r"^  (PROBE_[A-Z_]+)\s", config.__doc__, re.M))
     secrets = {name for name in named if name.endswith(("_TOKEN", "_SECRET"))}

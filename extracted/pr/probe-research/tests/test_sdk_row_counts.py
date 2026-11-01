@@ -12,7 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.sdk import exclusions, fluent, inputs, probe_config as pc
+from probe.sdk.recording_rules import recording_rules as exclusions
+from probe.sdk import fluent, probe_config as pc
+from probe.sdk.capture import lineage as inputs
 
 
 @pytest.fixture(autouse=True)
@@ -74,19 +76,20 @@ def test_rows_are_counted_in_the_hashing_read(tmp_path, name, data, rows):
 
 
 def test_rows_span_read_chunks(tmp_path, monkeypatch):
-    monkeypatch.setattr(inputs, "_CHUNK", 7)
+    monkeypatch.setattr(inputs.identities, "_CHUNK", 7)
     data = b"".join(b"row-%d\n" % i for i in range(50)) + b"last"
     assert _hash(_file(tmp_path, "big.txt", data))[2] == 51
 
 
 def test_a_fingerprinted_file_has_no_row_count(tmp_path, monkeypatch):
-    monkeypatch.setattr(inputs, "FULL_HASH_MAX_BYTES", 100)
+    monkeypatch.setattr(inputs.identities, "FULL_HASH_MAX_BYTES", 100)
+    monkeypatch.setattr(inputs.lineage, "FULL_HASH_MAX_BYTES", 100)
     sha, fp, rows = _hash(_file(tmp_path, "huge.jsonl", b'{"x": 1}\n' * 50))
     assert sha is None and fp is not None and rows is None
 
 
 def test_a_file_past_the_budget_has_no_row_count(tmp_path, monkeypatch):
-    monkeypatch.setattr(inputs, "EDGE_BYTES", 10)
+    monkeypatch.setattr(inputs.identities, "EDGE_BYTES", 10)
     sha, fp, rows = _hash(_file(tmp_path, "over.jsonl", b"{}\n" * 200), budget=[50])
     assert sha is None and fp is not None and rows is None
 
@@ -100,9 +103,11 @@ def test_parquet_rows_come_from_the_footer_only_when_pyarrow_is_imported(tmp_pat
         pq.write_table(pa.table({"x": list(range(42))}), str(path))
     assert _hash(path)[2] == 42
     # A fingerprinted parquet still has its footer count (a small extra read).
-    monkeypatch.setattr(inputs, "FULL_HASH_MAX_BYTES", 10)
+    monkeypatch.setattr(inputs.identities, "FULL_HASH_MAX_BYTES", 10)
+    monkeypatch.setattr(inputs.lineage, "FULL_HASH_MAX_BYTES", 10)
     assert _hash(path)[2] == 42
-    monkeypatch.setattr(inputs, "FULL_HASH_MAX_BYTES", 1 << 30)
+    monkeypatch.setattr(inputs.identities, "FULL_HASH_MAX_BYTES", 1 << 30)
+    monkeypatch.setattr(inputs.lineage, "FULL_HASH_MAX_BYTES", 1 << 30)
     # Never an import: with pyarrow not loaded, no count.
     monkeypatch.delitem(sys.modules, "pyarrow")
     assert _hash(path)[2] is None

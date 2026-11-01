@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.4.194
+Version: 8.4.197
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, instance segmentation, semantic segmentation, depth estimation, classification, pose estimation, oriented object detection, and multi-object tracking.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -24,6 +24,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
@@ -39,7 +40,6 @@ Requires-Dist: numpy!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,!=2.3.1,!=2.3.2,!=2.3.3,!=2.
 Requires-Dist: matplotlib>=3.3.0
 Requires-Dist: opencv-python!=4.13.0.90,>=4.7.0
 Requires-Dist: pillow>=7.1.2
-Requires-Dist: pyyaml>=5.3.1
 Requires-Dist: requests>=2.23.0
 Requires-Dist: torch>=1.8.0
 Requires-Dist: torch!=2.4.0,>=1.8.0; sys_platform == "win32"
@@ -124,7 +124,6 @@ Requires-Dist: faster-coco-eval>=1.6.7; extra == "extra"
 Provides-Extra: typing
 Requires-Dist: types-pillow; extra == "typing"
 Requires-Dist: types-psutil; extra == "typing"
-Requires-Dist: types-pyyaml; extra == "typing"
 Requires-Dist: types-requests; extra == "typing"
 Requires-Dist: types-shapely; extra == "typing"
 Dynamic: license-file

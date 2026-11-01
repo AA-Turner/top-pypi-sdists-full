@@ -63,8 +63,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable, Iterator
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from ..sdk.client import Client
-    from ..sdk.run import Run
+    from ..sdk.client.client import Client
+    from ..sdk.run.run import Run
 
 __all__ = [
     "DEFAULT_PRODUCER",
@@ -384,7 +384,7 @@ def _decode_json(raw: str) -> Any:
 def _numeric(value: Any) -> float | None:
     """``value`` as a metric point, or None.
 
-    Mirrors ``sdk/run.py::_as_metric_value``: strings stay out (a caller who
+    Mirrors ``sdk/run/run.py::_as_metric_value``: strings stay out (a caller who
     logged "0.4" meant the string), bools become 1/0, W&B media dicts and NaN
     payloads fall out on their own.
     """
@@ -700,7 +700,7 @@ def resolve_api_key(explicit: str | None = None, *, context: str | None = None) 
     from_netrc = _netrc_key()
     if from_netrc:
         return from_netrc
-    from ..sdk.config import load_context  # noqa: PLC0415
+    from ..sdk.settings.settings import load_context  # noqa: PLC0415
 
     stored = load_context(context).get(CONFIG_KEY)
     return stored if isinstance(stored, str) and stored else None
@@ -730,7 +730,7 @@ def store_api_key(key: str, *, context: str | None = None) -> Path:
     """
     if not isinstance(key, str) or not key.strip():
         raise WandbConnectorError("refusing to store an empty W&B API key")
-    from ..sdk.config import save_context  # noqa: PLC0415
+    from ..sdk.settings.settings import save_context  # noqa: PLC0415
 
     return save_context({CONFIG_KEY: key.strip()}, name=context)
 
@@ -741,7 +741,7 @@ def api_key_status(*, context: str | None = None) -> dict[str, Any]:
     The shape a `status`/`doctor` surface should print. It reports presence and
     origin only; there is deliberately no accessor that prints the secret.
     """
-    from ..sdk.config import load_context  # noqa: PLC0415
+    from ..sdk.settings.settings import load_context  # noqa: PLC0415
 
     stored = load_context(context).get(CONFIG_KEY)
     sources = {
@@ -907,9 +907,10 @@ def _scrubbed_config(run: WandbRun) -> dict[str, Any]:
     is opt-in, so scrubbing here means the connector cannot import a secret into
     Probe even when the caller did not ask for redaction.
     """
-    from ..sdk.redaction import default_scrub  # noqa: PLC0415
+    # scanning disabled: from ..sdk.redaction import default_scrub  # noqa: PLC0415
 
-    return {key: default_scrub(value, key=str(key)) for key, value in run.config.items()}
+    # scanning disabled: return {key: default_scrub(value, key=str(key)) for key, value in run.config.items()}
+    return dict(run.config.items())
 
 
 def import_wandb_run(

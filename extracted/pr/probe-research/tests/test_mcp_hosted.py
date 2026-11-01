@@ -14,7 +14,8 @@ import httpx
 import pytest
 from mcp.server.transport_security import TransportSecuritySettings
 
-from probe.mcp.server import create_server, with_auth_and_health
+from probe.mcp.server.server import create_server
+from probe.mcp.server.http import with_auth_and_health
 
 
 @pytest.fixture(autouse=True)
@@ -75,7 +76,7 @@ def test_main_http_trusts_no_proxy_headers_and_outlives_the_ingress_keepalive(
     app = object()
     seen: dict = {}
     # Not the real http_app(): it switches the scrub cache off for the process.
-    monkeypatch.setattr(server, "http_app", lambda: app)
+    monkeypatch.setattr(server.http, "http_app", lambda: app)
     monkeypatch.setattr(uvicorn, "run", lambda target, **kw: seen.update(target=target, kw=kw))
     monkeypatch.delenv("HOST", raising=False)
     monkeypatch.delenv("PORT", raising=False)
@@ -119,8 +120,8 @@ def test_tools_list_works_without_a_session_id(service) -> None:
 
 @pytest.fixture
 def service(client):
-    from probe.mcp.service import ResearchReadService
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.tools.tools import ResearchReadService
+    from probe.mcp.source.source import ResearchOSSource
 
     return ResearchReadService(ResearchOSSource(client))
 
@@ -547,7 +548,7 @@ def test_verification_disabled_wires_no_verifier(hosted_env) -> None:
 
 @pytest.fixture
 def emitted(monkeypatch):
-    from probe.mcp import accounting as accounting_mod
+    from probe.mcp.delivery import accounting as accounting_mod
 
     # Opt IN to emission. `_telemetry_off` pins PROBE_TELEMETRY=off suite-wide and
     # `_telemetry_permitted()` fails closed on it, so without this every assertion
@@ -556,7 +557,7 @@ def emitted(monkeypatch):
     monkeypatch.setenv("PROBE_TELEMETRY", "on")
     monkeypatch.setenv(accounting_mod.ANALYTICS_ENV, "1")
     """Capture what the accounting sender would have shipped."""
-    from probe.mcp import accounting
+    from probe.mcp.delivery import accounting
 
     out: list[dict] = []
     sender = accounting._Sender()
@@ -567,7 +568,7 @@ def emitted(monkeypatch):
 
 def _inner_serving(tool: str, body: bytes):
     """An inner app that behaves like a tool call: names its tool, returns a payload."""
-    from probe.mcp import accounting
+    from probe.mcp.delivery import accounting
 
     async def inner(scope, receive, send) -> None:
         accounting.note_tool(tool)
@@ -584,7 +585,8 @@ async def _accepts(token: str) -> bool:
 def test_a_served_tool_call_is_counted_end_to_end(hosted_env, emitted, monkeypatch) -> None:
     import probe.mcp.server as server
 
-    monkeypatch.setattr(server, "identity_for_token", lambda token: _IDENT)
+    monkeypatch.setattr(server.auth, "identity_for_token", lambda token: _IDENT)
+    monkeypatch.setattr(server.http, "identity_for_token", lambda token: _IDENT)
     app = with_auth_and_health(
         _inner_serving("browse", b"x" * 1234),
         mcp_path="/mcp",
@@ -668,7 +670,7 @@ def test_a_missing_session_header_still_counts_the_bytes(hosted_env, emitted) ->
 def test_a_broken_emitter_cannot_break_a_tool_call(hosted_env, monkeypatch) -> None:
     """Emission runs in the wrapper's finally. If it can raise, a measurement outage
     becomes an outage."""
-    from probe.mcp import accounting
+    from probe.mcp.delivery import accounting
 
     def boom(*_a, **_k):
         raise RuntimeError("sender exploded")

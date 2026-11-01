@@ -14,8 +14,8 @@ import warnings
 
 import pytest
 
-from probe._shared import telemetry
-from probe.sdk import journal as journal_mod
+from probe import analytics as telemetry
+from probe.sdk.delivery import journal as journal_mod
 
 from tests.conftest import make_client, open_run
 
@@ -60,7 +60,7 @@ def sent(monkeypatch):
         calls.append({"base_url": base_url, **props})
         calls.done.set()
 
-    monkeypatch.setattr(telemetry, "emit_delivery_summary", record)
+    monkeypatch.setattr(telemetry.events, "emit_delivery_summary", record)
     return calls
 
 
@@ -121,7 +121,7 @@ def test_the_event_takes_counts_and_nothing_else(monkeypatch):
         def put(self, record):
             puts.append(record)
 
-    monkeypatch.setattr(telemetry, "_ensure_sender", lambda: _Sender())
+    monkeypatch.setattr(telemetry.sender, "_ensure_sender", lambda: _Sender())
     telemetry.emit_delivery_summary(
         base_url="https://api.research.prbe.ai", attempted=3, path="/v1/runs/r-1/metrics"
     )
@@ -145,7 +145,7 @@ def test_opted_out_or_self_hosted_sends_nothing(monkeypatch, setting, base_url):
         def put(self, record):
             puts.append(record)
 
-    monkeypatch.setattr(telemetry, "_ensure_sender", lambda: _Sender())
+    monkeypatch.setattr(telemetry.sender, "_ensure_sender", lambda: _Sender())
     telemetry.emit_delivery_summary(base_url=base_url, attempted=3)
     assert puts == []
 
@@ -156,7 +156,7 @@ def test_a_report_cannot_raise_under_W_error(app, tmp_path, monkeypatch):
     def broken(**kw):
         raise RuntimeError("telemetry down")
 
-    monkeypatch.setattr(telemetry, "emit_delivery_summary", broken)
+    monkeypatch.setattr(telemetry.events, "emit_delivery_summary", broken)
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         client._report_delivery(final=True)

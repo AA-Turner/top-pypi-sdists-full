@@ -226,6 +226,14 @@ class TestAgmetPlotter(unittest.TestCase):
         self.assertNotIn(pd.Timestamp("2028-02-29"), gefs.index)
         self.assertEqual(len(gefs), 4)
 
+    def test_data_sources_soil_moisture_only_when_plotted(self):
+        without = self._make_plotter()._data_sources_body()
+        self.assertNotIn("Soil Moisture", without)
+        with_sm = self._make_plotter(
+            names_cols=["ndvi", "cumulative_precip", "nsidc_surface", "nsidc_rootzone"]
+        )._data_sources_body()
+        self.assertIn("Soil Moisture: NASA-USDA Global Soil Moisture", with_sm)
+
 
 class TestExpandEoPlot(unittest.TestCase):
     """Tests for AgmetGeo._expand_eo_plot static method."""
@@ -302,6 +310,7 @@ class TestAgmetUtils(unittest.TestCase):
         self.assertEqual(get_crop_abbrev("maize"), "mz")
         self.assertEqual(get_crop_abbrev("Maize"), "mz")
         self.assertEqual(get_crop_abbrev("unknown_crop"), "unknown_crop")
+        self.assertEqual(get_crop_abbrev("cotton"), "ct")
 
     def test_sliding_mean(self):
         from geocif.agmet.utils import sliding_mean
@@ -315,6 +324,11 @@ class TestAgmetUtils(unittest.TestCase):
         for key in ["ndvi", "chirps", "cpc_tmax", "cpc_tmin", "esi_4wk"]:
             self.assertIn(key, dict_vars)
             self.assertGreaterEqual(len(dict_vars[key]), 2)
+
+    def test_nsidc_soil_moisture_is_volumetric(self):
+        from geocif.agmet.utils import dict_vars
+        for key in ["nsidc_surface", "nsidc_rootzone"]:
+            self.assertEqual(dict_vars[key][1], r"m$^3$/m$^3$")
 
 
 if __name__ == "__main__":

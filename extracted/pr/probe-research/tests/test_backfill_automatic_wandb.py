@@ -9,8 +9,8 @@ import pytest
 from probe.cli import backfill as bf, backfill_import as imp, backfill_wandb as wb
 from probe.cli import import_jobs as jobs, tui
 from probe.cli.backfill_coverage import CoverageError
-from probe.sdk import journal
-from probe.sdk.transport import Transport
+from probe.sdk.delivery import journal
+from probe.sdk.delivery.transport.transport import Transport
 from tests import test_backfill_wandb as history, test_import_jobs as job_tests
 from tests.backfill_plan_agent import patch_own_sleep
 from tests.test_backfill_scoped_orchestration import make_harness
@@ -133,6 +133,12 @@ def test_create_response_loss_reuses_project_after_retry(automatic_history, monk
     assert len(h.created) == 1 and approval["project_id"] == h.created[0]["id"]
     assert not remote.jobs
 
+
+def test_the_created_destination_names_its_workspace(automatic_history, monkeypatch, capsys):
+    """The folder import's W&B destination says where it was filed (plan anthrogen-search-fixes W5)."""
+    h, _remote = automatic_history
+    approve(h, monkeypatch)
+    assert "Filed in workspace My work (my-work)\n" in capsys.readouterr().err
 
 def test_automatic_job_scans_without_prompt_then_imports_exact_destination(automatic_history, monkeypatch):
     h, remote = automatic_history

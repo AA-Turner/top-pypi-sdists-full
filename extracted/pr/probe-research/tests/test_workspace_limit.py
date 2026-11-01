@@ -1,6 +1,6 @@
 """This computer's workspace limit: set, stored, sent, forwarded, refused, explained.
 
-A client-side LIMITER (`probe.sdk.workspace_limit`): the computer stores "limit
+A client-side LIMITER (`probe.sdk.settings.workspace_limit`): the computer stores "limit
 to workspace W" beside its filing pin and every request it makes carries
 `X-Probe-Workspace-Limit` (+ `-Team-Items`); the API narrows that request's reads.
 These pin the client half: what sets it (`probe workspace limit`, the service
@@ -21,11 +21,12 @@ import httpx
 import pytest
 
 from probe import cli
-from probe.sdk import errors, workspace_limit as wl
-from probe.sdk.client import Client
-from probe.sdk.config import Settings, load_context, resolve, save_context
-from probe.sdk.journal import Journal
-from probe.sdk.transport import Transport
+from probe.sdk import errors
+from probe.sdk.settings import workspace_limit as wl
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings, load_context, resolve, save_context
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.transport.transport import Transport
 
 from tests.conftest import _WS_MINE, _WS_OTHER, make_client
 
@@ -226,7 +227,7 @@ def test_a_refused_limit_names_the_fix(status, code, kind):
 def test_the_outbox_keeps_a_limit_refusal_queued():
     """Every queued write fails the same way until the limit is fixed: transient,
     never dead-lettered one by one."""
-    from probe.sdk.journal import classify
+    from probe.sdk.delivery.ops.classify import classify
 
     assert classify(errors.error_for(422, {"code": errors.WORKSPACE_LIMIT_UNKNOWN, "message": "x"})) == "transient"
     assert classify(errors.error_for(422, {"detail": "a real validation error"})) == "permanent"
@@ -444,7 +445,7 @@ def test_a_slug_lookup_miss_under_a_limit_says_it_may_be_elsewhere(limited_cli, 
 @pytest.mark.parametrize("argv", [["workspace", "limit", "mine", "--yes"], ["workspace", "limit", "--team"],
                                   ["workspace", "limit"]])
 def test_the_daemon_is_refused_workspace_limit(tmp_path, argv):
-    from probe.daemon import precheck
+    from probe.shared.command_rules import command_rules as precheck
 
     assert precheck.OWNERS["workspace limit"] == precheck.RESEARCHER
     block = precheck.check(precheck.parse(argv), cwd=tmp_path)
@@ -498,7 +499,8 @@ def _note_block(path: Path) -> bool:
 
 
 def test_hidden_team_items_take_the_note_block_out_and_keep_the_pointer(instruction):
-    from probe.cli import agent_rules, team_note_file
+    from probe.cli import agent_rules
+    from probe.shared.notes import team_note as team_note_file
 
     save_context({"base_url": "http://test", "token": "probe_pat_test"})
     team_note_file.render_blocks("## Conventions\n\nUse worktrees.\n", settings=resolve(), sources=("claude_code",))
@@ -517,12 +519,12 @@ def test_hidden_team_items_take_the_note_block_out_and_keep_the_pointer(instruct
 
 
 def test_notes_sync_sends_and_fetches_nothing_while_team_items_are_hidden(instruction, capsys, monkeypatch):
-    from probe.cli import team_note_file
+    from probe.shared.notes import team_note as team_note_file
 
     save_context({"base_url": "http://test", "token": "probe_pat_test"})
     team_note_file.render_blocks("## A note\n", settings=resolve(), sources=("claude_code",))
     _limit_this_computer(team_items="hide")
-    monkeypatch.setattr(team_note_file, "RENDER_SOURCES", ("claude_code",))
+    monkeypatch.setattr(team_note_file.render, "RENDER_SOURCES", ("claude_code",))
     monkeypatch.setattr(cli, "Client", lambda **kw: pytest.fail("no client: nothing is synced"))
 
     code, out, _ = _run(capsys, "notes", "sync")
@@ -536,8 +538,10 @@ def test_notes_sync_sends_and_fetches_nothing_while_team_items_are_hidden(instru
 
 
 def test_codex_follows_a_limit_change(monkeypatch, tmp_path):
-    from probe._compat import tomllib
-    from probe.cli import codex_config, plugin_cli, setup
+    from probe.foundation.compat.compat import tomllib
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.shared.harness import plugins as plugin_cli
+    from probe.cli import setup
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
     save_context({"base_url": "https://api.research.prbe.ai", "mcp_token": "probe_pat_read"})
@@ -609,7 +613,8 @@ def test_the_hosted_mcp_forwards_the_callers_limit_on_its_api_calls(monkeypatch,
     async def accepts(_token):
         return False
 
-    monkeypatch.setattr(server, "identity_for_token", lambda _t: {"distinct_id": "u1", "workspace_id": None})
+    monkeypatch.setattr(server.auth, "identity_for_token", lambda _t: {"distinct_id": "u1", "workspace_id": None})
+    monkeypatch.setattr(server.http, "identity_for_token", lambda _t: {"distinct_id": "u1", "workspace_id": None})
     monkeypatch.setattr(server.accounting, "emit", lambda acct, identity: identities.append(identity))
     app = server.with_auth_and_health(inner, mcp_path="/mcp", token_rejected=accepts)
 
@@ -754,8 +759,10 @@ def test_an_unknown_workspace_names_every_choice_not_just_the_limited_one(limite
 @pytest.fixture
 def codex_copy(monkeypatch, tmp_path):
     """A Codex MCP table for this deployment, and a way to read its limit headers."""
-    from probe._compat import tomllib
-    from probe.cli import codex_config, plugin_cli, setup
+    from probe.foundation.compat.compat import tomllib
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.shared.harness import plugins as plugin_cli
+    from probe.cli import setup
 
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
     url = "http://test/mcp"
@@ -799,7 +806,8 @@ def test_the_wizard_lifting_a_stale_limit_re_renders_the_static_copies(app, monk
     from probe.cli import computer_workspace as cw
 
     monkeypatch.setenv("PROBE_TOKEN", "ros_pat_deadbeef")
-    monkeypatch.setattr("probe.sdk.client.Client", lambda **kw: make_client(app, workspace=kw["settings"].workspace))
+    monkeypatch.setattr("probe.sdk.client.client.Client", lambda **kw: make_client(app, workspace=kw["settings"].workspace))
+    monkeypatch.setattr("probe.sdk.client.resources.runs.attach.Client", lambda **kw: make_client(app, workspace=kw["settings"].workspace))
     monkeypatch.setattr(cw, "run_picker", lambda rows, selected: _WS_OTHER)
     gone = "99999999-9999-9999-9999-999999999999"
     save_context({"base_url": "http://test", "mcp_token": "probe_pat_read",
@@ -877,11 +885,10 @@ def test_each_session_polls_with_its_own_configs_limit(monkeypatch, tmp_path):
 def test_a_limit_refusal_never_expires_into_a_dead_letter(tmp_path, monkeypatch):
     """Transient forever while the limit is misconfigured: the 24 h / 50-attempt
     promotion would dead-letter every queued write one by one."""
-    from probe.sdk import journal as journal_module
-    from probe.sdk.journal import drain
+    from probe.sdk.delivery.outbox.drain.drain import drain
 
     monkeypatch.setenv("PROBE_OUTBOX_TRANSIENT_BUDGET_SEC", "0")
-    monkeypatch.setattr(journal_module, "MIN_TRANSIENT_ATTEMPTS", 1)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.MIN_TRANSIENT_ATTEMPTS", 1)
     journal = Journal(tmp_path / "outbox", context={"name": None, "base_url": "http://test"})
     journal.append_http("POST", "/v1/runs/r-1/metrics", {"points": []})
 
@@ -922,7 +929,8 @@ def test_a_plugin_only_oauth_codex_is_said_to_be_unlimited_and_left_working(limi
     """No user-level table: the plugin's own manifest declares the MCP with OAuth.
     A user-level table OVERRIDES the plugin's entry (codex_config), so writing one
     would drop its OAuth sign-in: leave it connected, and say it is not limited."""
-    from probe.cli import codex_config, setup
+    from probe.shared.harness.harnesses.codex import config as codex_config
+    from probe.cli import setup
 
     assert not codex_config.config_path().exists()
     save_context({"mcp_token": "probe_pat_read"})

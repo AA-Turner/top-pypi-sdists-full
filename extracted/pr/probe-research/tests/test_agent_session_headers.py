@@ -16,9 +16,9 @@ from probe.sdk.agent_session import (
     parse_version,
     resolve_agent_session,
 )
-from probe.sdk.config import Settings
-from probe.sdk.surface import Surface
-from probe.sdk.transport import Transport
+from probe.sdk.settings.settings import Settings
+from probe.foundation.request_identity.surface import Surface
+from probe.sdk.delivery.transport.transport import Transport
 
 SESSION = "643ce138-4801-4409-b69c-ca30ab7605bc"
 

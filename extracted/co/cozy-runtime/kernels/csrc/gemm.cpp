@@ -89,10 +89,11 @@ int quantize(int device, bool fp8, uintptr_t x, bool x_half, uintptr_t q, uintpt
         rows_per_entry < 1)
         return cudaErrorInvalidValue;
     // The gated activation reads [M, 2K] and takes no norm or modulation.
-    // The gated activations take no norm or modulation; SwiGLU reads its up rows from `up`.
+    // The gated activations take no norm or modulation; SwiGLU reads its up rows from `up`, or
+    // without it the [up | gate] halves of [M, 2K] rows.
     const bool gated = activation == cozy_int8::kActSitu || activation == cozy_int8::kActSwiglu;
     if (gated && (norm != cozy_int8::kNormNone || scale || shift)) return cudaErrorInvalidValue;
-    if ((activation == cozy_int8::kActSwiglu) != (up != 0)) return cudaErrorInvalidValue;
+    if (up != 0 && activation != cozy_int8::kActSwiglu) return cudaErrorInvalidValue;
     if (M == 0) return cudaSuccess;
     const OnDevice guard(device);
     if (guard.error() != cudaSuccess) return guard.error();
@@ -124,21 +125,23 @@ int gemv(int device, uintptr_t x, bool x_half, uintptr_t w, uintptr_t w_scale, u
 }
 
 int gemm(int device, int family, bool fp8, uintptr_t q, uintptr_t scales, uintptr_t w,
-         uintptr_t w_scale, uintptr_t bias, uintptr_t out, bool out_half, int M, int N, int K,
-         int config, nb::handle allocator, uintptr_t stream) {
+         uintptr_t w_scale, uintptr_t bias, uintptr_t out, int64_t ldo, bool out_half, int M,
+         int N, int K, int config, nb::handle allocator, uintptr_t stream) {
     if (family < 0 || family > 2 || M < 1 || N < 1 || !fits(fp8, K)) return cudaErrorInvalidValue;
+    // D's rows may sit `ldo` apart in a wider output, 16-byte aligned as its stores are.
+    if (ldo < N || ldo % 8 || out % 16) return cudaErrorInvalidValue;
     if (fp8 ? kFp8[family] == nullptr : kInt8[family] == nullptr) return cudaErrorNotSupported;
     const OnDevice guard(device);
     if (guard.error() != cudaSuccess) return guard.error();
     const int sms = sm_count(device);
     if (fp8)
         return kFp8[family](at<const void>(q), at<const void>(w), at<const float>(scales),
-                            at<const float>(w_scale), at<const void>(bias), at<void>(out),
+                            at<const float>(w_scale), at<const void>(bias), at<void>(out), ldo,
                             out_half, M, N, K, sms, config, on(stream));
     Scratch scratch{allocator, {}};
     return kInt8[family](at<const int8_t>(q), at<const int8_t>(w), at<const float>(scales),
-                         at<const float>(w_scale), at<const void>(bias), at<void>(out), out_half,
-                         M, N, K, sms, config, {&allocate, &scratch}, on(stream));
+                         at<const float>(w_scale), at<const void>(bias), at<void>(out), ldo,
+                         out_half, M, N, K, sms, config, {&allocate, &scratch}, on(stream));
 }
 
 int w4a8_gemm(int device, uintptr_t q, uintptr_t scales, uintptr_t w, uintptr_t s,
@@ -214,6 +217,6 @@ NB_MODULE(_gemm, m) {
           "gw"_a, "c"_a, "la"_a, "up"_a, "bias"_a, "out"_a, "out_half"_a, "M"_a, "N"_a, "K"_a,
           "R"_a, "stream"_a);
     m.def("gemm", &gemm, "device"_a, "family"_a, "fp8"_a, "q"_a, "scales"_a, "w"_a, "w_scale"_a,
-          "bias"_a, "out"_a, "out_half"_a, "M"_a, "N"_a, "K"_a, "config"_a, "allocate"_a.none(),
-          "stream"_a);
+          "bias"_a, "out"_a, "ldo"_a, "out_half"_a, "M"_a, "N"_a, "K"_a, "config"_a,
+          "allocate"_a.none(), "stream"_a);
 }

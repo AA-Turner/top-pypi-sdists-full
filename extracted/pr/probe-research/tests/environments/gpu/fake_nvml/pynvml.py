@@ -3,7 +3,7 @@
 Put this directory first on ``PYTHONPATH`` and the released SDK's hardware
 collector imports it instead of the real module. It mirrors the names, return
 shapes and error classes of nvidia-ml-py 12.x for the calls the collector makes
-(``probe/hw/resources/nvidia.py``), and nothing else.
+(``probe/sdk/hardware/resources/nvidia.py``), and nothing else.
 
 Behaviour comes from ``FAKE_NVML_MODE``:
 

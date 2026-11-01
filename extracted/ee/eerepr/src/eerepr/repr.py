@@ -8,8 +8,7 @@ from warnings import warn
 import ee
 
 from eerepr.config import Config
-from eerepr.html import convert_to_html, escape_object
-from eerepr.style import CSS
+from eerepr.html import _escape_str, build_html_repr
 
 REPR_HTML = "_repr_html_"
 EEObject = ee.Element | ee.ComputedObject
@@ -19,59 +18,71 @@ reprs_set: set[type[EEObject]] = set()
 options = Config()
 
 
-def _attach_html_repr(cls: type, repr: Any) -> None:
-    """Add a HTML repr method to an EE class. Only overwrite the method if it was set by
-    this function.
-    """
-    if not hasattr(cls, REPR_HTML) or cls in reprs_set:
-        reprs_set.update([cls])
-        setattr(cls, REPR_HTML, repr)
+class _UncachedRepr(Exception):
+    """A rendered HTML representation that was raised to escape the cache."""
+
+    def __init__(self, html: str):
+        self.html = html
+
+
+def _repr_html_(obj: EEObject) -> str:
+    """Generate an HTML representation of an EE object."""
+    try:
+        rep = _cached_repr(obj)
+    except _UncachedRepr as uncached:
+        rep = uncached.html
+    except ee.EEException as exc:
+        return _error_repr(obj=obj, exc=exc)
+    return _limit_repr_size(rep=rep, obj=obj)
+
+
+@cache
+def _cached_repr(obj: EEObject) -> str:
+    """Inner HTML generation for EE objects."""
+    info = obj.getInfo()
+    html_repr = build_html_repr(info)
+
+    # Raise to force a cache miss for non-deterministic objects
+    if _is_nondeterministic(obj):
+        raise _UncachedRepr(html=html_repr)
+    return html_repr
 
 
 def _is_nondeterministic(obj: EEObject) -> bool:
     """Check if an object returns nondeterministic results which would break caching.
 
-    Currently, this only tests for the case of `ee.List.shuffle(seed=False)`.
+    Non-deterministic here means that the same client-side computation graph can produce
+    different results on the server, making stale cache entries much more likely.
+    Technically any computation that depends on server data could be non-deterministic,
+    e.g. an image query can become stale as new assets are ingested; this check just
+    focuses on data-independent non-determinism, which has only been observed in
+    `ee.List.shuffle(seed=False)`.
     """
     invocation = obj.serialize()
-    shuffled = "List.shuffle" in invocation
-    false_seed = '"seed": {"constantValue": false}' in invocation
-    return shuffled and false_seed
+    return (
+        # Check the rarer `seed=False` condition first.
+        '"seed": {"constantValue": false}' in invocation
+        # Verify there is also a `List.shuffle` call. This could technically be a
+        # false positive since we don't check the context of the `seed` argument, but
+        # `List.shuffle` is the only function that currently supports a boolean `seed`.
+        and "List.shuffle" in invocation
+    )
 
 
-@cache
-def _repr_html_(obj: EEObject) -> str:
-    """Generate an HTML representation of an EE object."""
-    # Escape all strings in object info to prevent injection
-    info = escape_object(obj.getInfo())
-    body = convert_to_html(info)
+def _error_repr(obj: EEObject, exc: ee.EEException) -> str:
+    """Generate an HTML representation for an EE object that encountered an error."""
+    if options.on_error == "raise":
+        raise exc from None
 
-    return f"<div><style>{CSS}</style><div class='eerepr'><ul>{body}</ul></div></div>"
-
-
-def _uncached_repr_html_(obj: EEObject) -> str:
-    """Generate an HTML representation of an EE object without caching."""
-    if isinstance(_repr_html_, _lru_cache_wrapper):
-        return _repr_html_.__wrapped__(obj)
-    return _repr_html_(obj)
+    warn(
+        f"Getting info failed with: '{exc}'. Falling back to string repr.",
+        stacklevel=2,
+    )
+    return f"<pre>{html.escape(repr(obj))}</pre>"
 
 
-def _ee_repr(obj: EEObject) -> str:
-    """Handle errors and conditional caching for _repr_html_."""
-    repr_func = _uncached_repr_html_ if _is_nondeterministic(obj) else _repr_html_
-
-    try:
-        rep = repr_func(obj)
-    except ee.EEException as e:
-        if options.on_error == "raise":
-            raise e from None
-
-        warn(
-            f"Getting info failed with: '{e}'. Falling back to string repr.",
-            stacklevel=2,
-        )
-        return f"<pre>{html.escape(repr(obj))}</pre>"
-
+def _limit_repr_size(rep: str, obj: EEObject) -> str:
+    """Limit the size of the HTML representation, falling back to the string repr."""
     mbs = len(rep) / 1e6
     if mbs > options.max_repr_mbs:
         warn(
@@ -110,21 +121,21 @@ def initialize(
         Whether to raise an error or display a warning when an error occurs fetching
         Earth Engine data.
     """
-    global _repr_html_
+    global _cached_repr
     options.update(
         max_cache_size=max_cache_size,
         max_repr_mbs=max_repr_mbs,
         on_error=on_error,
     )
 
-    if isinstance(_repr_html_, _lru_cache_wrapper):
-        _repr_html_ = _repr_html_.__wrapped__  # type: ignore
+    if isinstance(_cached_repr, _lru_cache_wrapper):
+        _cached_repr = _cached_repr.__wrapped__  # type: ignore
 
     if max_cache_size != 0:
-        _repr_html_ = lru_cache(maxsize=options.max_cache_size)(_repr_html_)
+        _cached_repr = lru_cache(maxsize=options.max_cache_size)(_cached_repr)
 
     for cls in [ee.Element, ee.ComputedObject]:
-        _attach_html_repr(cls, _ee_repr)
+        _attach_html_repr(cls, _repr_html_)
 
 
 def reset():
@@ -134,5 +145,15 @@ def reset():
             delattr(cls, REPR_HTML)
 
     reprs_set.clear()
-    if isinstance(_repr_html_, _lru_cache_wrapper):
-        _repr_html_.cache_clear()
+    _escape_str.cache_clear()
+    if isinstance(_cached_repr, _lru_cache_wrapper):
+        _cached_repr.cache_clear()
+
+
+def _attach_html_repr(cls: type, repr: Any) -> None:
+    """Add a HTML repr method to an EE class. Only overwrite the method if it was set by
+    this function.
+    """
+    if not hasattr(cls, REPR_HTML) or cls in reprs_set:
+        reprs_set.update([cls])
+        setattr(cls, REPR_HTML, repr)

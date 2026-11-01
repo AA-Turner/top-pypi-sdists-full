@@ -15,7 +15,7 @@ from __future__ import annotations
 import subprocess
 
 
-from probe.sdk.snapshot import commit_on_remote
+from probe.sdk.capture.code.git_remote import commit_on_remote
 
 
 class _Client:
@@ -29,7 +29,7 @@ class _Client:
 
 
 def _check(bundle, **kw):
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     c = _Client(bundle)
     return Client.check_run(c, "run-1", **kw)
@@ -66,13 +66,13 @@ def test_default_is_unverified_not_complete():
 
 
 def test_complete_is_only_earned_by_verifying(monkeypatch):
-    monkeypatch.setattr("probe.sdk.snapshot.commit_on_remote", lambda *a, **k: True)
+    monkeypatch.setattr("probe.sdk.capture.code.git_remote.commit_on_remote", lambda *a, **k: True)
     assert _check(_bundle(), verify=True)["state"] == "complete"
 
 
 def test_unresolvable_reference_is_incomplete(monkeypatch):
     """The 17-run case: the row is there, the commit is not."""
-    monkeypatch.setattr("probe.sdk.snapshot.commit_on_remote", lambda *a, **k: False)
+    monkeypatch.setattr("probe.sdk.capture.code.git_remote.commit_on_remote", lambda *a, **k: False)
     out = _check(_bundle(), verify=True)
     assert out["state"] == "incomplete"
     assert "unresolvable_code_reference" in out["missing"]
@@ -98,7 +98,7 @@ def test_a_self_contained_capture_verifies_without_touching_the_network(monkeypa
     def _never(*a, **k):
         raise AssertionError("check_run must not probe a remote it does not need")
 
-    monkeypatch.setattr("probe.sdk.snapshot.commit_on_remote", _never)
+    monkeypatch.setattr("probe.sdk.capture.code.git_remote.commit_on_remote", _never)
     out = _check(_self_contained(), verify=True)
     assert out["state"] == "complete"
     assert out["verified_code_reference"] is True
@@ -110,7 +110,7 @@ def test_a_stale_commit_no_longer_fails_a_run_whose_bytes_are_stored(monkeypatch
     unresolvable and changes nothing about whether the code can be rebuilt --
     reporting `incomplete` there would be the 17-run mistake inverted, calling a
     captured run lost."""
-    monkeypatch.setattr("probe.sdk.snapshot.commit_on_remote", lambda *a, **k: False)
+    monkeypatch.setattr("probe.sdk.capture.code.git_remote.commit_on_remote", lambda *a, **k: False)
     out = _check(_self_contained(), verify=True)
     assert out["state"] == "complete"
     assert "unresolvable_code_reference" not in out["missing"]
@@ -129,7 +129,7 @@ def test_an_offsite_reference_does_not_disqualify_the_capture(monkeypatch):
     def _never(*a, **k):
         raise AssertionError("an offsite reference is not a reason to probe git")
 
-    monkeypatch.setattr("probe.sdk.snapshot.commit_on_remote", _never)
+    monkeypatch.setattr("probe.sdk.capture.code.git_remote.commit_on_remote", _never)
     out = _check(_self_contained(n_referenced_offsite=2), verify=True)
     assert out["state"] == "complete"
     assert out["missing"] == [], "a deliberate reference is not a capture GAP"
@@ -139,7 +139,7 @@ def test_a_non_integer_count_does_not_earn_the_short_circuit(monkeypatch):
     """`false` is not zero. Python says otherwise (False == 0), and this value
     arrives as server JSON, so the guard is typed rather than truthy -- a
     malformed meta must fall through to the probe, not collect `complete`."""
-    monkeypatch.setattr("probe.sdk.snapshot.commit_on_remote", lambda *a, **k: False)
+    monkeypatch.setattr("probe.sdk.capture.code.git_remote.commit_on_remote", lambda *a, **k: False)
     out = _check(_self_contained(n_git_referenced=False), verify=True)
     assert out["state"] == "incomplete"
     assert "unresolvable_code_reference" in out["missing"]

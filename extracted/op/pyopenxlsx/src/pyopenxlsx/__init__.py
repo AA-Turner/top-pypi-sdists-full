@@ -1,58 +1,33 @@
-from ._openxlsx import (
-    XLDocument,
-    XLColor,
-    XLSheetState,
-    XLUnderlineStyle,
-    XLFontSchemeStyle,
-    XLVerticalAlignRunStyle,
-    XLFillType,
-    XLPatternType,
-    XLLineStyle,
-    XLAlignmentStyle,
-    XLContentType,
-    XLContentItem,
-    XLContentTypes,
-    XLProperty,
-    XLProperties,
-    XLAppProperties,
-    ImageInfo,
-    XLDataValidationType,
-    XLDataValidationOperator,
-    XLDataValidationErrorStyle,
-    XLIMEMode,
-    XLPane,
-    XLPaneState,
-    XLPageOrientation,
-    XLRichText,
-    XLRichTextRun,
-    XLDefinedName,
-    XLDefinedNames,
-    XLStyles,
-    XLWorkbook,
-    XLDrawing,
-    XLMergeCells,
-    XLComment,
-    XLComments,
-    XLShape,
-    XLShapeStyle,
-    XLShapeClientData,
-    XLCellFormat,
-    XLCellFormats,
-    XLFonts,
-    XLFills,
-    XLBorders,
-    XLNumberFormat,
-    XLNumberFormats,
-    XLCellReference,
-    XLCellRange,
-    XLDateTime,
-    XLFont,
-    XLFill,
-    XLBorder,
-    XLAlignment,
-    XLStreamReader,
-    XLStreamWriter,
-)
+"""pyopenxlsx — complete Python bindings for OpenXLSX-NX.
+
+API layers
+----------
+**Recommended high-level API** (stable, Pythonic)::
+
+    Workbook, Worksheet, Cell, Range, Column, load_workbook,
+    Font, Fill, Border, Side, Alignment, Style, Protection,
+    Table, Formula, FormulaEngine, CalculationEngine,
+    DataValidation, DataValidations, PageMargins, PrintOptions, PageSetup,
+    chart helpers (Chart, chart_type, add_chart), pivot builders,
+    conditional_formatting builders, StreamWriter / StreamReader,
+    DefinedNames / link_cell
+
+**Advanced / native surface** (``pyopenxlsx._openxlsx`` and star-export of
+``XL*`` types): 1:1 with the C++ OpenXLSX-NX API. Prefer for charts/pivot
+options enums and low-level rule objects; names may track upstream C++
+more closely than the high-level façade.
+
+Internal modules named ``_ws_*`` are Worksheet mixins and are not part of
+the public API.
+"""
+
+from __future__ import annotations
+
+import pyopenxlsx._openxlsx as _ox
+
+# Re-export the entire native surface (no BC filtering).
+from pyopenxlsx._openxlsx import *  # noqa: F403
+
 from .styles import (
     Font,
     Fill,
@@ -65,7 +40,7 @@ from .styles import (
 )
 from .cell import Cell
 from .formula import Formula
-from .formula_engine import FormulaEngine
+from .formula_engine import CalculationEngine, FormulaEngine, calculation_options
 from .range import Range
 from .worksheet import Worksheet
 from .column import Column
@@ -74,24 +49,33 @@ from .page_setup import PageMargins, PrintOptions, PageSetup
 from .workbook import Workbook, load_workbook, load_workbook_async
 from .merge import MergeCells as PythonMergeCells
 from .data_validation import DataValidation, DataValidations
+from .chart import Chart, add_chart, chart_type
+from .pivot import (
+    PivotTableBuilder,
+    pivot_show_values_as,
+    pivot_subtotal,
+    pivot_table,
+)
+from .streams import StreamReader, StreamWriter
+from .defined_names import DefinedName, DefinedNames
+from .hyperlink import link as link_cell
+from . import conditional_formatting
 
-# Constant shortcuts for ease of use
-XLPatternNone = getattr(XLPatternType, "None")
-XLPatternSolid = XLPatternType.Solid
-XLAlignGeneral = XLAlignmentStyle.General
-XLAlignLeft = XLAlignmentStyle.Left
-XLAlignRight = XLAlignmentStyle.Right
-XLAlignCenter = XLAlignmentStyle.Center
-XLAlignTop = XLAlignmentStyle.Top
-XLAlignBottom = XLAlignmentStyle.Bottom
-XLAlignVCenter = XLAlignmentStyle.Center  # Alias for convenience
+# Constant shortcuts
+XLPatternNone = getattr(_ox.XLPatternType, "None")
+XLPatternSolid = _ox.XLPatternType.Solid
+XLAlignGeneral = _ox.XLAlignmentStyle.General
+XLAlignLeft = _ox.XLAlignmentStyle.Left
+XLAlignRight = _ox.XLAlignmentStyle.Right
+XLAlignCenter = _ox.XLAlignmentStyle.Center
+XLAlignTop = _ox.XLAlignmentStyle.Top
+XLAlignBottom = _ox.XLAlignmentStyle.Bottom
+XLAlignVCenter = _ox.XLAlignmentStyle.Center
 
+__version__ = getattr(_ox, "__version__", "1.5.0")
 
-__version__ = "1.4.2"
-
-
-__all__ = [
-    "XLDocument",
+__all__ = [name for name in dir(_ox) if not name.startswith("_")]
+__all__ += [
     "Workbook",
     "Worksheet",
     "PythonMergeCells",
@@ -103,11 +87,11 @@ __all__ = [
     "PageSetup",
     "Formula",
     "FormulaEngine",
+    "CalculationEngine",
+    "calculation_options",
     "Cell",
     "Range",
     "Column",
-    "XLStreamReader",
-    "XLStreamWriter",
     "load_workbook",
     "load_workbook_async",
     "Font",
@@ -118,54 +102,26 @@ __all__ = [
     "Style",
     "Protection",
     "is_date_format",
-    "XLColor",
-    "XLSheetState",
-    "XLUnderlineStyle",
-    "XLFontSchemeStyle",
-    "XLVerticalAlignRunStyle",
-    "XLFillType",
-    "XLPatternType",
-    "XLLineStyle",
-    "XLAlignmentStyle",
-    "XLContentType",
-    "XLContentItem",
-    "XLContentTypes",
-    "XLProperty",
-    "XLProperties",
-    "XLAppProperties",
-    "ImageInfo",
-    "XLDataValidationType",
-    "XLDataValidationOperator",
-    "XLDataValidationErrorStyle",
-    "XLIMEMode",
-    "XLPane",
-    "XLPaneState",
-    "XLPageOrientation",
-    "XLRichText",
-    "XLRichTextRun",
-    "XLDefinedName",
-    "XLDefinedNames",
-    "XLStyles",
-    "XLWorkbook",
-    "XLDrawing",
-    "XLMergeCells",
-    "XLComment",
-    "XLComments",
-    "XLShape",
-    "XLShapeStyle",
-    "XLShapeClientData",
-    "XLCellFormat",
-    "XLCellFormats",
-    "XLFonts",
-    "XLFills",
-    "XLBorders",
-    "XLNumberFormat",
-    "XLNumberFormats",
-    "XLCellReference",
-    "XLCellRange",
-    "XLDateTime",
-    "XLFont",
-    "XLFill",
-    "XLBorder",
-    "XLAlignment",
+    "chart_type",
+    "add_chart",
+    "Chart",
+    "PivotTableBuilder",
+    "pivot_table",
+    "pivot_subtotal",
+    "pivot_show_values_as",
+    "StreamWriter",
+    "StreamReader",
+    "DefinedName",
+    "DefinedNames",
+    "link_cell",
+    "conditional_formatting",
+    "XLPatternNone",
+    "XLPatternSolid",
+    "XLAlignGeneral",
+    "XLAlignLeft",
+    "XLAlignRight",
+    "XLAlignCenter",
+    "XLAlignTop",
+    "XLAlignBottom",
+    "XLAlignVCenter",
 ]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyx12
-Version: 4.0.0
+Version: 4.0.1
 Summary: HIPAA X12 validator, parser and converter
 Author-email: John Holland <john.holland@swmbh.org>
 License: BSD
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Office/Business
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11

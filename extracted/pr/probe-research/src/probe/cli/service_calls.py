@@ -44,7 +44,7 @@ import os
 import time
 from dataclasses import dataclass, field
 
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 
 #: `probe status` / `probe doctor`: the whole read, every call included.
 VIEW_TIMEOUT_S = 1.0
@@ -129,7 +129,7 @@ def same_cli() -> bool:
 
 #: What shapes a wizard run but a request's `context` cannot carry, beside the
 #: credentials (`protocol.CREDENTIAL_ENV`): the MCP a configure writes, the
-#: workspace and project it reads (`probe.sdk.config`'s env table).
+#: workspace and project it reads (`probe.sdk.settings.settings`'s env table).
 WIZARD_LOCAL_ENV = ("PROBE_MCP_URL", "PROBE_WORKSPACE", "PROBE_PROJECT")
 
 
@@ -156,7 +156,7 @@ def context() -> dict:
 
     names = set(CONTEXT_ENV)
     try:
-        from probe.harness import get_registry
+        from probe.foundation.harness_registry import get_registry
 
         names |= {h.session_env for h in get_registry().all() if h.session_env}
     except Exception:  # noqa: BLE001 -- a context without the session ids still works
@@ -479,7 +479,7 @@ def hints_unreached(now: "float | None" = None) -> list[dict]:
     HINTS_RECEIPT_FRESH_S. Never raises."""
     now = time.time() if now is None else now
     try:
-        from probe.daemon import mailbox
+        from probe.shared import mailbox
         from probe.service.hints import DeliveryState
 
         found = mailbox.read_hints_deliveries()

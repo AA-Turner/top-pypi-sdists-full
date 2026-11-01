@@ -3,7 +3,7 @@ too until sweep groups stopped carrying notes: their `notes=` is now dropped.
 
 The regen alone did not make this field reachable. The SDK builds its request
 bodies as hand-written dicts rather than from the generated models, so a widened
-schema shows up in `probe._generated.models` and nowhere a caller can touch. The
+schema shows up in `probe.generated.models` and nowhere a caller can touch. The
 tests below are about the WIRING, not the types.
 
 `notes` is not a second `description`. A description says what the run is; notes

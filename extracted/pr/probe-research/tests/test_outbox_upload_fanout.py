@@ -14,8 +14,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.sdk import journal as jm
-from probe.sdk.journal import Journal, drain
+from probe.sdk.delivery import journal as jm
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain.drain import drain
 
 
 @pytest.fixture(autouse=True)
@@ -23,7 +24,8 @@ def isolated(monkeypatch, tmp_path):
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config.json"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.delenv("PROBE_ATTRIBUTION", raising=False)
-    monkeypatch.setattr(jm, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
 
 
 @pytest.fixture
@@ -156,7 +158,7 @@ def test_plain_http_operations_are_never_reordered(queue, tmp_path, monkeypatch)
 
 
 def test_the_worker_count_is_bounded_and_survives_nonsense(monkeypatch):
-    from probe.sdk.journal import _upload_workers
+    from probe.sdk.delivery.outbox.drain.upload_windows import _upload_workers
 
     monkeypatch.delenv("PROBE_UPLOAD_WORKERS", raising=False)
     assert _upload_workers() == 8

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from probe.sdk import ephemeral
+from probe.sdk.run.launch import ephemeral
 
 
 @pytest.fixture(autouse=True)

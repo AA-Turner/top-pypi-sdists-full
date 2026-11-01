@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import approvals as appr
+from probe.shared.mailbox import approvals as appr
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "pi_approval_answer.json").read_text(encoding="utf-8"))
 REQUEST = FIXTURE["request"]
@@ -71,7 +71,7 @@ class _Replay:
 
 def _worker(tmp_path: Path, monkeypatch, pick: str):
     pytest.importorskip("pydantic_ai")
-    from probe.daemon import lease
+    from probe.daemon.host import lease
     from probe.daemon import worker as worker_mod
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
@@ -95,12 +95,12 @@ def _worker(tmp_path: Path, monkeypatch, pick: str):
 
 def test_the_worker_runs_the_held_action_on_pis_yes(tmp_path, monkeypatch):
     w = _worker(tmp_path, monkeypatch, "yes")
-    from probe.daemon import tools
+    from probe.daemon.agent import tools
 
     async def same_facts(deps, parsed):
         return REQUEST["facts"]
 
-    monkeypatch.setattr(tools, "deletion_facts", same_facts)
+    monkeypatch.setattr(tools.probe_cli.deletes, "deletion_facts", same_facts)
     asyncio.run(w.settle_answers())
     settled = w.board.get(REQUEST["id"])
     assert settled.state == appr.APPROVED
@@ -121,7 +121,7 @@ def test_the_worker_refuses_the_held_action_on_pis_no(tmp_path, monkeypatch):
 def test_pi_names_the_feedback_policy_and_its_unsent_outcome_as_python_does():
     """pi asks feedback questions in its own dialog and starts the send after a
     yes (`approvals.ts`); its constants are read from this same fixture."""
-    from probe import feedback as fb
+    from probe.shared.feedback import feedback as fb
 
     assert FIXTURE["feedback"] == {"policy": appr.FEEDBACK, "unsent_outcome": fb.UNSENT,
                                    "old_daemon_void": fb.OLD_DAEMON_VOID}

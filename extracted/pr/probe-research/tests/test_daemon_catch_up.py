@@ -16,10 +16,10 @@ import pytest
 
 pytest.importorskip("pydantic_ai")
 
-from probe.daemon import bite as bite_mod  # noqa: E402
+from probe.daemon.worker.bite import bite as bite_mod  # noqa: E402
 from probe.daemon import store as store_mod  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
-from probe.daemon.events import Kind  # noqa: E402
+from probe.shared.harness.events import Kind  # noqa: E402
 
 SID = "11111111-2222-3333-4444-555555555555"
 NOW = datetime(2026, 10, 14, 12, 0, tzinfo=timezone.utc)
@@ -94,7 +94,8 @@ def test_a_session_the_worker_starts_with_is_not_touched(tmp_path):
 
 
 def test_nothing_runs_until_the_whole_history_is_read(tmp_path, monkeypatch):
-    monkeypatch.setattr(worker_mod, "READ_CHUNK_BYTES", 300)
+    monkeypatch.setattr(worker_mod.loop.reading, "READ_CHUNK_BYTES", 300)
+    monkeypatch.setattr(worker_mod.loop.inbox, "READ_CHUNK_BYTES", 300)
     w = _worker(tmp_path, [NOW - timedelta(days=5), NOW - timedelta(days=2), NOW - timedelta(minutes=5)])
     w.read_new()
     assert w.catching_up() and w.stream_behind["main"]
@@ -208,8 +209,8 @@ def test_old_helper_agent_lines_are_never_shown_as_new(tmp_path, monkeypatch):
                 if ev.bite == store_mod.BEFORE_DAEMON_BITE]
     # Nor in the reader's windows (the oldest, and the newest with prompt wakes off),
     # nor as a reason to wake it.
-    from probe.daemon import model as model_mod
-    from probe.daemon import reader_lane as rl
+    from probe.daemon.agent.model import model as model_mod
+    from probe.daemon.lanes import reader as rl
 
     reader = rl.ReaderLane(w)
     assert not [ev for ev in reader.new_events() if ev.bite == store_mod.BEFORE_DAEMON_BITE]
@@ -221,7 +222,8 @@ def test_old_helper_agent_lines_are_never_shown_as_new(tmp_path, monkeypatch):
 def test_a_stream_rewritten_mid_catch_up_does_not_stall_it(tmp_path, monkeypatch):
     """Review (#2853, high): a stream left "behind" by an early return kept the
     catch-up (and every bite and reader turn) waiting for the worker's life."""
-    monkeypatch.setattr(worker_mod, "READ_CHUNK_BYTES", 300)
+    monkeypatch.setattr(worker_mod.loop.reading, "READ_CHUNK_BYTES", 300)
+    monkeypatch.setattr(worker_mod.loop.inbox, "READ_CHUNK_BYTES", 300)
     w = _worker(tmp_path, [NOW - timedelta(days=5), NOW - timedelta(days=2), NOW - timedelta(minutes=5)])
     w.read_new()
     assert w.catching_up() and w.stream_behind["main"]
@@ -234,7 +236,8 @@ def test_a_stream_rewritten_mid_catch_up_does_not_stall_it(tmp_path, monkeypatch
 def test_a_large_sdk_inbox_is_read_before_the_judgment(tmp_path, monkeypatch):
     """Review (#2853, medium): the inbox was read a chunk a poll but never counted
     as behind, so its later (older) messages were judged new."""
-    monkeypatch.setattr(worker_mod, "READ_CHUNK_BYTES", 400)
+    monkeypatch.setattr(worker_mod.loop.reading, "READ_CHUNK_BYTES", 400)
+    monkeypatch.setattr(worker_mod.loop.inbox, "READ_CHUNK_BYTES", 400)
     w = _worker(tmp_path, [NOW - timedelta(days=5), NOW - timedelta(minutes=5)])
     inbox = worker_mod.inbox_path(SID)
     inbox.parent.mkdir(parents=True, exist_ok=True)
@@ -251,9 +254,10 @@ def test_a_large_sdk_inbox_is_read_before_the_judgment(tmp_path, monkeypatch):
 def test_an_ask_is_answered_while_the_history_is_read(tmp_path, monkeypatch):
     """Review (#2853, medium): an ask waited for the whole catch-up (up to minutes
     on a large transcript, against its 10-minute timeout)."""
-    from probe.daemon import reader_lane as rl
+    from probe.daemon.lanes import reader as rl
 
-    monkeypatch.setattr(worker_mod, "READ_CHUNK_BYTES", 300)
+    monkeypatch.setattr(worker_mod.loop.reading, "READ_CHUNK_BYTES", 300)
+    monkeypatch.setattr(worker_mod.loop.inbox, "READ_CHUNK_BYTES", 300)
     w = _worker(tmp_path, [NOW - timedelta(days=5), NOW - timedelta(days=2), NOW - timedelta(minutes=5)])
     w.read_new()
     assert w.catching_up()
@@ -267,7 +271,8 @@ def test_an_ask_is_answered_while_the_history_is_read(tmp_path, monkeypatch):
 def test_a_helper_log_deleted_mid_catch_up_does_not_stall_it(tmp_path, monkeypatch):
     """Review (#2853, second pass): a helper log that vanished while "behind" was
     never read again, so its flag kept the catch-up waiting."""
-    monkeypatch.setattr(worker_mod, "READ_CHUNK_BYTES", 600)
+    monkeypatch.setattr(worker_mod.loop.reading, "READ_CHUNK_BYTES", 600)
+    monkeypatch.setattr(worker_mod.loop.inbox, "READ_CHUNK_BYTES", 600)
     work = tmp_path / "home" / "work"
     work.mkdir(parents=True)
     transcript = tmp_path / f"{SID}.jsonl"

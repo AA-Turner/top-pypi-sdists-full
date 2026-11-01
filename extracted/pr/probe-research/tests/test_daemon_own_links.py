@@ -17,9 +17,11 @@ import time
 import httpx
 import pytest
 
-from probe.daemon import approvals as appr
-from probe.daemon import lease, probe_api, tools
-from probe.daemon.store import Store
+from probe.shared.mailbox import approvals as appr
+from probe.daemon.host import lease
+from probe.daemon.session import probe_api
+from probe.daemon.agent import tools
+from probe.daemon.store.store import Store
 
 SID = "11111111-2222-3333-4444-555555555555"
 ME = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -66,7 +68,8 @@ def _deps(tmp_path, monkeypatch, *, bypass=False) -> tuple[tools.Deps, list[list
         ran.append(list(argv))
         return tools.ProbeResult(0, "null")
 
-    monkeypatch.setattr(tools, "run_probe_process", run)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", run)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", run)
     lease.sessions_dir().mkdir(parents=True, exist_ok=True)
     (lease.sessions_dir() / f"{SID}.state").write_text("daemon")
     assert lease.renew(SID)

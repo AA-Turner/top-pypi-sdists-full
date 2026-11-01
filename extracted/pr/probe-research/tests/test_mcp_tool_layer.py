@@ -20,10 +20,11 @@ import json
 
 import pytest
 
-from probe.mcp.budget import Budget
-from probe.mcp.server import create_server
-from probe.mcp.service import ResearchReadService, _pack_cursor
-from probe.mcp.source import ResearchOSSource
+from probe.foundation.token_budget.token_budget import Budget
+from probe.mcp.server.server import create_server
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.tools.shaping.cursors import _pack_cursor
+from probe.mcp.source.source import ResearchOSSource
 
 
 def _server(client):
@@ -237,7 +238,7 @@ def _search_response(*, applied, results, total_candidates, excluded=0, error=No
 def _markers(*, applied, results, total_candidates, exclude, excluded=0, error=None):
     from unittest.mock import MagicMock
 
-    from probe.mcp.service import ResearchReadService
+    from probe.mcp.tools.tools import ResearchReadService
 
     source = MagicMock()
     source.search.return_value = _search_response(

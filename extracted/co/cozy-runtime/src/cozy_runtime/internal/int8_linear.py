@@ -23,7 +23,7 @@ from pathlib import Path
 from types import ModuleType
 
 from cozy_runtime.author._errors import Fault, fault
-from cozy_runtime.author._model import WARNINGS, Building
+from cozy_runtime.author._model import WARNINGS, Building, Yielded
 from cozy_runtime.author.kernels import INT8_CONVROT, PreQuantized
 from cozy_runtime.internal import (
     arch,
@@ -78,8 +78,9 @@ def unavailable() -> tuple[Unavailable, ...]:
 
 def failed(op: str, device: int, exc: Exception) -> None:
     """`op` raised on this card: its caller serves a slower path for this one call, and the run
-    says so, once per reason. A device OOM raises: it is the memory manager's to answer."""
-    if fault(exc) in (Fault.OOM, Fault.STICKY, Fault.DEVICE):
+    says so, once per reason. A device OOM raises: it is the memory manager's to answer, and an
+    idle job's yield is no failure."""
+    if isinstance(exc, Yielded) or fault(exc) in (Fault.OOM, Fault.STICKY, Fault.DEVICE):
         raise exc
     reason = f"{type(exc).__name__}: {exc}"[:300]
     fields: dict[str, str | bool | int | float | None] = {
@@ -265,7 +266,7 @@ def linear(
                 return module.int8_linear(
                     x, data, scale, bias, out_dtype, convrot=True, convrot_groupsize=CONVROT_GROUP
                 )
-    except Building:
+    except (Building, Yielded):
         raise
     except Exception as exc:  # eager serves this call
         failed(OP if op is not None else ARTIFACT, index, exc)
@@ -318,12 +319,13 @@ def prologue(
     of `consumers` is an un-hooked leaf of the rows' width taking int8.convrot's operand and the
     op serves this card; else None. A gated activation (`GATED`) reads x's [hidden | gate] halves
     alone: the rows are half x's width. `swiglu` reads x as the gate rows and `up` as the up rows
-    of the same shape, alone: `silu(x) * up` as an eager SwiGLU rounds it."""
-    gated = activation in GATED
+    of the same shape, alone: `silu(x) * up` as an eager SwiGLU rounds it; without `up` it is
+    gated, x's rows the [up | gate] halves of one fused projection (Diffusers' `SwiGLU`)."""
+    gated = activation in GATED or (activation == "swiglu" and up is None)
     if gated and (norm is not None or scale is not None or shift is not None or x.shape[-1] % 2):
         raise ValueError(f"int8_rows: {activation} takes [hidden | gate] rows, no norm or tables")
-    if (activation == "swiglu") != (up is not None) or (
-        up is not None and (norm is not None or scale is not None or shift is not None)
+    if up is not None and (
+        activation != "swiglu" or norm is not None or scale is not None or shift is not None
     ):
         raise ValueError("int8_rows: swiglu takes gate and up rows, no norm or tables")
     if up is not None and (up.shape != x.shape or up.dtype != x.dtype or not up.is_cuda):
@@ -361,18 +363,40 @@ def gemm(
     scale: Tensor,
     bias: Tensor | None,
     out_dtype: object,
+    out: Tensor | None = None,
 ) -> Tensor:
     """The linear of a `quantize`d operand: the op's GEMM, both scales and the bias in its
-    epilogue."""
+    epilogue; into `out` where given (`into`)."""
+    rows = into(out, data.shape[0])
     try:
-        out = _LIBS[operand.payload.get_device()].int8_gemm(
-            operand.payload, operand.scale, data, scale, bias, out_dtype
+        result = _LIBS[operand.payload.get_device()].int8_gemm(
+            operand.payload, operand.scale, data, scale, bias, out_dtype, out=rows
         )
     except Exception as exc:  # torch's int8 GEMM serves this call
         failed(OP, operand.payload.get_device(), exc)
-        out = _product(torch, operand.payload, operand.scale, data, scale, out_dtype)
-        out = out if bias is None else out + bias.to(out.dtype)
-    return out.view(*operand.shape[:-1], -1)
+        result = _product(torch, operand.payload, operand.scale, data, scale, out_dtype)
+        result = result if bias is None else result + bias.to(result.dtype)
+    return landed(result.view(*operand.shape[:-1], -1), out)
+
+
+def into(out: Tensor | None, n: int) -> Tensor | None:
+    """`out`'s rows as the `[M, n]` view a GEMM writes, None where they do not flatten (its
+    caller then copies into `out`)."""
+    if out is None:
+        return None
+    try:
+        return out.view(-1, n)
+    except RuntimeError:
+        return None
+
+
+def landed(result: Tensor, out: Tensor | None) -> Tensor:
+    """`result`, in `out` where one was given; a GEMM that wrote `out` in place already did."""
+    if out is None:
+        return result
+    if result.data_ptr() != out.data_ptr():  # fresh storage: the GEMM did not write `out`
+        out.copy_(result)
+    return out
 
 
 def eager(torch: ModuleType, x: Tensor, data: Tensor, scale: Tensor, out_dtype: Tensor) -> Tensor:

@@ -676,7 +676,7 @@ def test_the_history_step_offers_every_captured_agent(lane, monkeypatch):
     """The wizard's "Import past coding sessions" step asks about every agent
     the registry captures, not a hand-kept list: Kimi Code shipped with its
     history reader and was never offered here."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     asked = []
     monkeypatch.setattr(

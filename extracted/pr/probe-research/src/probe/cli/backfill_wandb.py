@@ -18,6 +18,7 @@ from ..sdk import errors
 from ..sdk import agent_session
 from . import tui
 from .backfill_coverage import CoverageError
+from .filed_workspace import say_filed
 
 KEY = "wandb_history"
 SOURCE_SCHEMA = "probe.wandb-source/1"
@@ -458,6 +459,8 @@ def choose_automatic_destination(client, *, folder, wandb_source, project=None):
                     found = client.resolve_project(slug)
                     if found is None:
                         raise
+                else:
+                    say_filed(client, found)
             if found.get("slug") != slug:
                 raise CoverageError("The created project did not match the approved project name.")
             destination = _destination_project(client, found["id"], scope)

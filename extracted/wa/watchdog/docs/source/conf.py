@@ -22,8 +22,8 @@ sys.path.insert(0, SRC_DIR_PATH)
 import watchdog.version  # noqa: E402
 
 PROJECT_NAME = "watchdog"
-AUTHOR_NAME = "Yesudeep Mangalapilly, Mickaël Schoentgen, and contributors"
-COPYRIGHT = f"2010-2024, {AUTHOR_NAME}"
+AUTHOR_NAME = "Mickaël Schoentgen & contributors"
+COPYRIGHT = f"2010-2026, {AUTHOR_NAME}"
 
 
 # -- General configuration -----------------------------------------------------
@@ -32,11 +32,54 @@ COPYRIGHT = f"2010-2024, {AUTHOR_NAME}"
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.doctest",
     "sphinx.ext.todo",
     "sphinx.ext.coverage",
     "sphinx.ext.ifconfig",
     "sphinx.ext.viewcode",
+    "sphinx_copybutton",
 ]
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+}
+
+# These targets cannot be resolved when building the documentation:
+#
+# * ``Path`` is used unqualified in a few type hints. Because the codebase
+#   uses ``from __future__ import annotations``, annotations are stored as
+#   strings, so intersphinx can only resolve them when they are written with
+#   their fully qualified name (``pathlib.Path``), which isn't the case here.
+# * ``watchdog.utils.bricks.SkipRepeatsQueue`` is shown as a base class of
+#   :class:`watchdog.observers.api.EventQueue` but isn't documented on its
+#   own, since it's considered an implementation detail.
+# * The platform specific observer implementations
+#   (``watchdog.observers.inotify.InotifyObserver``,
+#   ``watchdog.observers.fsevents.FSEventsObserver``,
+#   ``watchdog.observers.kqueue.KqueueObserver`` and
+#   ``watchdog.observers.read_directory_changes.WindowsApiObserver``) can
+#   each only be imported, and therefore documented, on their respective
+#   platform, so at most one of them can ever resolve when building the
+#   documentation on a single machine.
+# * ``Seconds`` (``watchdog.utils.Seconds``) is an alias for ``float``, documented
+#   as data. It is only imported under ``TYPE_CHECKING`` in the modules using it,
+#   and Sphinx only resolves annotation references to classes, not to data.
+nitpick_ignore = [
+    ("py:class", "Path"),
+    ("py:class", "Seconds"),
+    ("py:meth", "__init__"),
+    ("py:class", "watchdog.utils.bricks.SkipRepeatsQueue"),
+    ("py:class", "inotify.InotifyObserver"),
+    ("py:class", "fsevents.FSEventsObserver"),
+    ("py:class", "kqueue.KqueueObserver"),
+    ("py:class", "read_directory_changes.WindowsApiObserver"),
+    ("py:class", "watchdog.observers.inotify.InotifyObserver"),
+    ("py:class", "watchdog.observers.fsevents.FSEventsObserver"),
+    ("py:class", "watchdog.observers.kqueue.KqueueObserver"),
+    ("py:class", "watchdog.observers.read_directory_changes.WindowsApiObserver"),
+]
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -72,10 +115,22 @@ pygments_style = "sphinx"
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "pyramid"
+html_theme = "sphinx_book_theme"
+author = ""  # Prevent unset author name in the footer (specific to the use of sphinx_book_theme)
+
+html_theme_options = {
+    "repository_url": "https://github.com/gorakhargosh/watchdog",
+    "use_repository_button": True,
+    "show_toc_level": 3,
+    "collapse_navigation": True,
+}
+
+# Hide the class name prefix in the Table of Contents/sidebar for methods and attributes.
+# This prevents long names (like FileSystemEventHandler.on_closed_no_write()) from overflowing the sidebar.
+toc_object_entries_show_parents = "hide"
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "%sdoc" % PROJECT_NAME
+htmlhelp_basename = f"{PROJECT_NAME}doc"
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -85,8 +140,8 @@ htmlhelp_basename = "%sdoc" % PROJECT_NAME
 latex_documents = [
     (
         "index",
-        "%s.tex" % PROJECT_NAME,
-        "%s Documentation" % PROJECT_NAME,
+        f"{PROJECT_NAME}.tex",
+        f"{PROJECT_NAME} Documentation",
         AUTHOR_NAME,
         "manual",
     ),
@@ -97,7 +152,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ("index", PROJECT_NAME, "%s Documentation" % PROJECT_NAME, [AUTHOR_NAME], 1)
+    ("index", PROJECT_NAME, f"{PROJECT_NAME} Documentation", [AUTHOR_NAME], 1)
 ]
 
 

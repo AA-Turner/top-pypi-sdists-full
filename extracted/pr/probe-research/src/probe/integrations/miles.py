@@ -24,7 +24,7 @@ import time
 import uuid
 from collections.abc import Callable, Mapping
 from datetime import datetime
-from probe._compat import UTC
+from probe.foundation.compat.compat import UTC
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -32,18 +32,18 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 # Stdlib-only leaf: importing it does NOT pull httpx (see the lazy package init),
 # so a distributed actor keeps writing metric batches without the network stack.
 from .._shared import oscompat
-from ..sdk import safe_warn as _diagnostics
-from ..sdk.capture import stable_span_id
-from ..sdk.durable import (
+from ..foundation.safe_warn import safe_warn as _diagnostics
+from ..sdk.capture.capture import stable_span_id
+from ..foundation.durable.durable import (
     file_lock as _file_lock,
 )
-from ..sdk.durable import (
+from ..foundation.durable.durable import (
     fsync_directory as _fsync_directory,
 )
-from ..sdk.durable import (
+from ..foundation.durable.durable import (
     now_iso as _now,
 )
-from ..sdk.durable import (
+from ..foundation.durable.durable import (
     read_json,
     write_text_atomic,
 )
@@ -800,15 +800,18 @@ class _MetricExporter:
             self.run.stop_heartbeat()
         except Exception:
             pass
-        self._thread.join(timeout=0.5)
+        # A thread still closing its client is not stuck: wait out what is left
+        # of the caller's budget (0.5 s at least), or a loaded box reads a fully
+        # drained queue as "partial".
+        self._thread.join(timeout=max(deadline - time.monotonic(), 0.5))
         report = self.queue.report()
         report["exporter_alive"] = self._thread.is_alive()
         return report
 
 
 def _load_sdk():
-    from probe.sdk.client import Client
-    from probe.sdk.run import Run
+    from probe.sdk.client.client import Client
+    from probe.sdk.run.run import Run
 
     return Client, Run
 

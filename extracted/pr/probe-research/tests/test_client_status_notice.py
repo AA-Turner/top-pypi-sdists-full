@@ -15,12 +15,12 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from probe.client_headers import client_headers_scope
+from probe.foundation.request_identity.request_identity import client_headers_scope
 from probe.sdk import client_status, errors
-from probe.sdk.config import Settings
+from probe.sdk.settings.settings import Settings
 from probe.sdk.session_marker import WIZARD_HINT
-from probe.sdk.journal import classify
-from probe.sdk.transport import Transport
+from probe.sdk.delivery.ops.classify import classify
+from probe.sdk.delivery.transport.transport import Transport
 from tests.conftest import make_client
 
 _UNSUPPORTED = {"X-Probe-Client-Status": "unsupported", "X-Probe-Min-Version": "0.177.0"}

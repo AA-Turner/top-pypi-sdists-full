@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Literal, Required, TypedDict
 
+from trajectory.types.run_options_param import RunOptionsParam
+
 
 class StartBenchmarkDiagnosticsParams(TypedDict, total=False):
   bench_id: Required[str]
@@ -13,7 +15,6 @@ class StartBenchmarkDiagnosticsParams(TypedDict, total=False):
     "Qwen/Qwen3.5-397B-A17B",
     "Qwen/Qwen3.6-35B-A3B",
     "Qwen/Qwen3.8-27B",
-    "qwen/qwen3-235b-a22b",
     "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
     "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
     "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
@@ -34,3 +35,8 @@ class StartBenchmarkDiagnosticsParams(TypedDict, total=False):
     "z-ai/glm-5.3-flash",
     "moonshotai/kimi-k3",
   ]
+  options: RunOptionsParam | None
+  """
+  Evaluation settings, as for createEvalRun, such as reasoning_effort and
+  max_output_tokens_per_step; the diagnostic sets its own sample counts.
+  """

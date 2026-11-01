@@ -39,7 +39,7 @@ from pathlib import Path
 import pytest
 
 import probe
-from probe import version_policy
+from probe.shared.updates import version_policy
 from probe.cli import capture, doctor, service_calls
 from probe.service import client, manifest, paths, runholds, updater
 from probe.service.protocol import CheckOutcome, Method, Mode
@@ -915,7 +915,7 @@ def test_released_holds_count_toward_the_limit_and_a_restart_keeps_every_hold(tm
 
 
 def test_the_quiet_check_reads_a_hold_without_scanning_lock_files(monkeypatch):
-    from probe._shared import run_lock
+    from probe.foundation.durable import run_lock
 
     def scanned(*_a, **_k):
         raise AssertionError("a held run needs no lock-file scan")

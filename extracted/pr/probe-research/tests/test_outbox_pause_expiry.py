@@ -26,9 +26,10 @@ import pytest
 
 from probe import cli
 from probe.cli import telemetry as tm
-from probe.sdk import journal as jmod
-from probe.sdk import outbox_worker
-from probe.sdk.journal import DEFAULT_PAUSE_HOURS, PAUSE_SCHEMA, Journal
+from probe.sdk.delivery import journal as jmod
+from probe.sdk.delivery import outbox as outbox_worker
+from probe.sdk.delivery.journal.failures.pause import DEFAULT_PAUSE_HOURS, PAUSE_SCHEMA
+from probe.sdk.delivery.journal.journal import Journal
 
 HOSTED = "https://api.research.prbe.ai"
 
@@ -47,8 +48,8 @@ def isolate(tmp_path, monkeypatch):
 def captured(monkeypatch):
     records: list[dict] = []
     monkeypatch.setenv("PROBE_TELEMETRY", "on")
-    monkeypatch.setattr(tm, "_sender", None)
-    monkeypatch.setattr(tm, "_flush_registered", True)
+    monkeypatch.setattr(tm.sender, "_sender", None)
+    monkeypatch.setattr(tm.sender, "_flush_registered", True)
     monkeypatch.setattr(tm._Sender, "start", lambda self: None)
     monkeypatch.setattr(tm._Sender, "put", lambda self, rec: records.append(rec))
     return records
@@ -246,7 +247,10 @@ def test_a_pause_written_while_the_lift_waits_for_the_lock_is_kept(tmp_path, mon
         with real(path, *a, **k):
             yield
 
-    monkeypatch.setattr(jmod, "file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr(jmod.journal, "file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr(jmod.paths, "file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.accounts.file_lock", fresh_pause_then_lock)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.file_lock", fresh_pause_then_lock)
     assert journal.lift_stale_pause() is False
     assert journal.paused_file.exists() and journal.paused
 
@@ -302,7 +306,7 @@ def _notice(main, monkeypatch, journal, *, base_url=HOSTED, lift=True):
     monkeypatch.setattr(main._conn, "spool_dir", str(journal.dir))
     monkeypatch.setattr(main._conn, "base_url", base_url)
     monkeypatch.setattr(main, "_kick_drainer", lambda: kicked.append(True))
-    monkeypatch.setattr(outbox_worker, "maybe_rescue", lambda *a, **k: None)
+    monkeypatch.setattr(outbox_worker.rescuer, "maybe_rescue", lambda *a, **k: None)
     main._outbox_notice(lift=lift)
     return kicked
 
@@ -374,7 +378,7 @@ def test_pausing_over_an_ended_pause_starts_no_drainer_first(tmp_path, monkeypat
     rescued: list = []
     monkeypatch.setattr(main, "_lift_stale_pause", lambda status: lifted.append(status) or True)
     monkeypatch.setattr(main, "_kick_drainer", lambda: kicked.append(True))
-    monkeypatch.setattr(outbox_worker, "maybe_rescue", lambda *a, **k: rescued.append(True))
+    monkeypatch.setattr(outbox_worker.rescuer, "maybe_rescue", lambda *a, **k: rescued.append(True))
     assert cli.main(["--spool-dir", str(journal.dir), "outbox", "pause", "--hours", "2"]) == 0
     assert lifted == [] and kicked == [] and rescued == [] and journal.paused
     assert 1.9 < _hours_left(_status(journal)["paused_until"]) <= 2

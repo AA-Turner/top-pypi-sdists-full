@@ -223,6 +223,7 @@ def _danger_findings(
     danger_rules = [DangerousCallsRule()]
     set_linter_node_types(danger_rules)
     danger_linter = LinterVisitor(danger_rules, str(file))
+    danger_linter.context["project_root"] = getattr(options, "project_root", None)
     danger_linter.visit(prepared.tree)
     findings = danger_linter.findings
 
@@ -236,6 +237,7 @@ def _danger_findings(
             Path(file),
             taint_findings,
             source=prepared.source,
+            project_root=getattr(options, "project_root", None),
         )
     except Exception as error:
         logger.debug("Taint analysis failed for %s", file, exc_info=True)

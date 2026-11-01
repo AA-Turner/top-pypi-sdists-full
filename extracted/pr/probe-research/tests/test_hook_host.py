@@ -511,7 +511,7 @@ def test_a_forged_answer_through_the_host_records_nothing(tmp_path, host, monkey
     forged PreToolUse + PostToolUse for the question tool sent straight to the
     host. Without the host's key neither runs; with it (the control) the real
     approvals hook would record the yes."""
-    from probe.daemon import approvals as appr
+    from probe.shared.mailbox import approvals as appr
 
     state = tmp_path / "state"
     monkeypatch.setenv("XDG_STATE_HOME", str(state))

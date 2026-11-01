@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sahi
-Version: 0.12.8
+Version: 0.14.0
 Summary: A vision library for performing sliced inference on large images/small objects
 Project-URL: Homepage, https://github.com/obss/sahi
 Project-URL: Source, https://github.com/obss/sahi
@@ -15,17 +15,16 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: click
 Requires-Dist: fire
 Requires-Dist: matplotlib
@@ -38,56 +37,48 @@ Requires-Dist: shapely>=2.0.0
 Requires-Dist: tqdm>=4.48.2
 Provides-Extra: all
 Requires-Dist: inference>=0.51.5; (python_version >= '3.12' and python_version < '3.14') and extra == 'all'
-Requires-Dist: onnx; (python_version >= '3.10') and extra == 'all'
-Requires-Dist: onnxruntime; (python_version >= '3.10' and python_version < '3.14') and extra == 'all'
-Requires-Dist: onnxruntime>=1.23.2; (python_version >= '3.14') and extra == 'all'
+Requires-Dist: onnx; extra == 'all'
+Requires-Dist: onnxruntime; (python_version < '3.14') and extra == 'all'
+Requires-Dist: onnxruntime>=1.23.2; (python_version == '3.14') and extra == 'all'
 Requires-Dist: rfdetr>=1.6.2; (python_version >= '3.12' and python_version < '3.14') and extra == 'all'
-Requires-Dist: torch>=2.13.0; (python_version >= '3.10') and extra == 'all'
-Requires-Dist: torch>=2.4.1; (python_version < '3.9') and extra == 'all'
-Requires-Dist: torch>=2.8.0; (python_version == '3.9') and extra == 'all'
-Requires-Dist: torchvision>=0.19.0; extra == 'all'
-Requires-Dist: transformers>=4.49.0; (python_version >= '3.9') and extra == 'all'
+Requires-Dist: torch>=2.13.0; extra == 'all'
+Requires-Dist: torchvision>=0.28.0; extra == 'all'
+Requires-Dist: transformers>=4.49.0; extra == 'all'
 Requires-Dist: ultralytics>=8.0.0; extra == 'all'
 Requires-Dist: yolov5<8.0.0,>=6.0.0; extra == 'all'
 Provides-Extra: ci
 Requires-Dist: fiftyone; extra == 'ci'
 Requires-Dist: inference>=0.51.5; (python_version >= '3.12' and python_version < '3.14') and extra == 'ci'
-Requires-Dist: libreyolo; (python_version >= '3.10') and extra == 'ci'
-Requires-Dist: onnx; (python_version >= '3.10') and extra == 'ci'
-Requires-Dist: onnxruntime; (python_version >= '3.10' and python_version < '3.14') and extra == 'ci'
-Requires-Dist: onnxruntime>=1.23.2; (python_version >= '3.14') and extra == 'ci'
+Requires-Dist: libreyolo; extra == 'ci'
+Requires-Dist: onnx; extra == 'ci'
+Requires-Dist: onnxruntime; (python_version < '3.14') and extra == 'ci'
+Requires-Dist: onnxruntime>=1.23.2; (python_version == '3.14') and extra == 'ci'
 Requires-Dist: pycocotools>=2.0.7; extra == 'ci'
 Requires-Dist: rfdetr>=1.6.2; (python_version >= '3.12' and python_version < '3.14') and extra == 'ci'
 Requires-Dist: scikit-image; extra == 'ci'
-Requires-Dist: torch==2.13.0; (python_version >= '3.10') and extra == 'ci'
-Requires-Dist: torch==2.4.1; (python_version == '3.8') and extra == 'ci'
-Requires-Dist: torch==2.8.0; (python_version == '3.9') and extra == 'ci'
-Requires-Dist: torchvision==0.19.1; (python_version == '3.8') and extra == 'ci'
-Requires-Dist: torchvision==0.23.0; (python_version == '3.9') and extra == 'ci'
-Requires-Dist: torchvision==0.28.0; (python_version >= '3.10') and extra == 'ci'
-Requires-Dist: transformers>=4.49.0; (python_version >= '3.9') and extra == 'ci'
+Requires-Dist: torch==2.13.0; (python_version < '3.15') and extra == 'ci'
+Requires-Dist: torch==2.15.0; (python_version >= '3.15') and extra == 'ci'
+Requires-Dist: torchvision==0.28.0; (python_version < '3.15') and extra == 'ci'
+Requires-Dist: torchvision==0.29.2; (python_version >= '3.15') and extra == 'ci'
+Requires-Dist: transformers>=4.49.0; extra == 'ci'
 Requires-Dist: ultrafast-pycocotools<0.2,>=0.1.11; extra == 'ci'
 Requires-Dist: ultralytics>=8.3.161; extra == 'ci'
 Provides-Extra: numba
-Requires-Dist: numba>=0.59.0; (python_version >= '3.10') and extra == 'numba'
+Requires-Dist: numba>=0.59.0; extra == 'numba'
 Provides-Extra: onnx
-Requires-Dist: onnx; (python_version >= '3.10') and extra == 'onnx'
-Requires-Dist: onnxruntime; (python_version >= '3.10' and python_version < '3.14') and extra == 'onnx'
-Requires-Dist: onnxruntime>=1.23.2; (python_version >= '3.14') and extra == 'onnx'
+Requires-Dist: onnx; extra == 'onnx'
+Requires-Dist: onnxruntime; (python_version < '3.14') and extra == 'onnx'
+Requires-Dist: onnxruntime>=1.23.2; (python_version == '3.14') and extra == 'onnx'
 Provides-Extra: roboflow
 Requires-Dist: inference>=0.51.5; (python_version >= '3.12' and python_version < '3.14') and extra == 'roboflow'
 Requires-Dist: rfdetr>=1.6.2; (python_version >= '3.12' and python_version < '3.14') and extra == 'roboflow'
 Provides-Extra: torch
-Requires-Dist: torch>=2.13.0; (python_version >= '3.10') and extra == 'torch'
-Requires-Dist: torch>=2.4.1; (python_version < '3.9') and extra == 'torch'
-Requires-Dist: torch>=2.8.0; (python_version == '3.9') and extra == 'torch'
+Requires-Dist: torch>=2.13.0; extra == 'torch'
 Provides-Extra: torchvision
-Requires-Dist: torch>=2.13.0; (python_version >= '3.10') and extra == 'torchvision'
-Requires-Dist: torch>=2.4.1; (python_version < '3.9') and extra == 'torchvision'
-Requires-Dist: torch>=2.8.0; (python_version == '3.9') and extra == 'torchvision'
-Requires-Dist: torchvision>=0.19.0; extra == 'torchvision'
+Requires-Dist: torch>=2.13.0; extra == 'torchvision'
+Requires-Dist: torchvision>=0.28.0; extra == 'torchvision'
 Provides-Extra: transformers
-Requires-Dist: transformers>=4.49.0; (python_version >= '3.9') and extra == 'transformers'
+Requires-Dist: transformers>=4.49.0; extra == 'transformers'
 Provides-Extra: ultrafast
 Requires-Dist: ultrafast-pycocotools<0.2,>=0.1.11; extra == 'ultrafast'
 Provides-Extra: ultralytics
@@ -261,8 +252,8 @@ pip install inference>=0.51.5 rfdetr>=1.6.2
 | Framework          | Notebook                                                                                                                                                                              | Demo                                                                                                                                                      |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | YOLO26             | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_ultralytics.ipynb)       | -                                                                                                                                                         |
-| YOLO11             | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_ultralytics.ipynb)       | -                                                                                                                                                         |
-| YOLO11-OBB         | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_ultralytics.ipynb)       | -                                                                                                                                                         |
+| YOLO26-SEG         | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_ultralytics.ipynb)       | -                                                                                                                                                         |
+| YOLO26-OBB         | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_ultralytics.ipynb)       | -                                                                                                                                                         |
 | YOLOE              | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_ultralytics_yoloe.ipynb) | -                                                                                                                                                         |
 | Roboflow / RF-DETR | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_roboflow.ipynb)          | -                                                                                                                                                         |
 | RT-DETR v2         | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/obss/sahi/blob/main/demo/inference_for_huggingface.ipynb)       | -                                                                                                                                                         |
@@ -326,7 +317,7 @@ If you use this package in your work, please cite as:
 
 ```bibtex
 @software{obss2021sahi,
-  author       = {Akyon, Fatih Cagatay and Cengiz, Cemil and Altinuc, Sinan Onur and Cavusoglu, Devrim and Sahin, Kadir and Eryuksel, Ogulcan},
+  author       = {Akyon, Fatih Cagatay and Cengiz, Cemil and Altinuc, Sinan Onur and Cavusoglu, Devrim and Sahin, Kadir and Eryuksel, Ogulcan and Sezer, Onuralp},
   title        = {{SAHI: A lightweight vision library for performing large scale object detection and instance segmentation}},
   month        = nov,
   year         = 2021,

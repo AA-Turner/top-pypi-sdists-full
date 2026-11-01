@@ -18,10 +18,10 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import bite as bite_mod
-from probe.daemon import lease
+from probe.daemon.worker.bite import bite as bite_mod
+from probe.daemon.host import lease
 from probe.daemon import store as store_mod
-from probe.daemon.events import Event, Kind
+from probe.shared.harness.events import Event, Kind
 
 FIXTURES = Path(__file__).parent / "fixtures" / "daemon_prompts"
 SID = "11111111-2222-3333-4444-555555555555"
@@ -69,7 +69,7 @@ def test_every_approved_file_is_used_here():
 def test_the_job_description_is_the_approved_text():
     """The approved file carries the skill front matter too (daemon reads, 09-28)."""
     approved = body("job/record-session.PROPOSED.md")
-    shipped = (Path(bite_mod.__file__).parent / "record_session.md").read_text(encoding="utf-8")
+    shipped = (Path(bite_mod.__file__).parents[2] / "prompts" / "record_session.md").read_text(encoding="utf-8")
     assert shipped.rstrip("\n") == approved
     assert shipped.startswith("---\nname: record-session\n"), "its skill front matter stays"
     assert bite_mod.record_session_text() == approved[approved.index("\n---", 3) + 4:].strip()
@@ -80,7 +80,7 @@ def test_the_instructions_carry_the_researchers_skills_verbatim():
     text = bite_mod.instructions_for("")
     assert text.startswith(bite_mod.record_session_text())
     at = 0
-    from probe import skill_versions
+    from probe.foundation.skills import skills as skill_versions
 
     for name in bite_mod.SHARED_SKILLS:
         # The WRITER's version of each (track-work: its header, its commands with
@@ -95,7 +95,7 @@ def test_the_instructions_carry_the_researchers_skills_verbatim():
 def test_the_instructions_show_track_works_reference_whole():
     """Swarm friction T18: the writer `read` it in most runs; now it is in the
     cached instructions, after the skills, under its approved heading."""
-    from probe.daemon import folders
+    from probe.daemon.session import session as folders
 
     text = bite_mod.instructions_for("")
     reference = (bite_mod.skills_root() / "track-work" / "reference.md").read_text(encoding="utf-8").strip()
@@ -176,7 +176,7 @@ def test_the_summary_outline_lines_are_the_drafted_text():
     """ARTIFACT-PAGES P3 replaced the summary pin (its approved header went with
     it) by an outline per summary; its lines are NEW wording, pinned here until
     approved."""
-    from probe.daemon import tools
+    from probe.daemon.agent import tools
 
     names = ("OUTLINE_HEADER", "OUTLINE_ENTITY", "OUTLINE_DRAFT", "OUTLINE_EDITED", "OUTLINE_NO_PAGE",
              "OUTLINE_HEADINGS", "OUTLINE_OPENS", "OUTLINE_SINCE", "OUTLINE_QUIET", "OUTLINE_DIRTY",
@@ -230,7 +230,7 @@ def test_the_landed_writes_block_is_the_logbook_in_the_approved_shape(tmp_path, 
     assert bite_mod.landed_block(st).split("\n")[-1] == "- 1+ older not shown"
     assert bite_mod.landed_block(_store(tmp_path / "empty")).split("\n")[2:] == ["- nothing yet"]
     # The `bash` tool set names its own command; the approved file carries that line too.
-    from probe.daemon import toolset
+    from probe.daemon.agent import toolset
 
     monkeypatch.setattr(toolset, "bash_only", lambda: True)
     assert bite_mod.landed_block(st).split("\n")[1] == bite_mod.LANDED_INTRO[1]
@@ -294,7 +294,7 @@ def test_a_peer_agents_message_shows_who_sent_it_apart_from_the_harness_lines(tm
     """Plan probe-hints T4 moved a peer agent's sender out of the text (its
     wrapper) into `command`: the writer and the reader still see who sent it,
     in the approved label, as a preview counted like a harness line."""
-    from probe.daemon.adapters.base import peer_message
+    from probe.shared.harness.session_log import peer_message
 
     st = _store(tmp_path)
     st.add([peer_message("main", 1, text="p" * 1000, sender_from="uds:/tmp/cc-socks/11957.sock",

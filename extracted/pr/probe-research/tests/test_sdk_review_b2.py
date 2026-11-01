@@ -23,7 +23,8 @@ from pathlib import Path
 import pytest
 
 import probe
-from probe.sdk import fluent, inputs
+from probe.sdk import fluent
+from probe.sdk.capture import lineage as inputs
 from tests.conftest import make_client
 
 
@@ -75,7 +76,10 @@ def test_a_run_opened_with_capture_off_unbinds_the_other_runs_workers(app, tmp_p
     spawned workers recorded B's files into A. With two runs open nothing is
     bound; once B closes, A is bound again."""
     b_data, a_data = _data(tmp_path, "b_only.bin"), _data(tmp_path, "a_again.bin")
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
     app.seed_experiment("e1")
     run_a = probe.init(experiment="e1", name="a")
     assert inputs._bound is not None and inputs._bound["run"] == run_a.id
@@ -568,7 +572,7 @@ def test_an_nfs_owner_never_probes_its_own_lock(tmp_path, monkeypatch) -> None:
     shared lock (no conflict with its own), closed it -- dropping its own
     lock -- judged itself dead and deleted its binding: spawned workers'
     reads were never recorded on an NFS home."""
-    monkeypatch.setattr(inputs, "_fcntl", _posix_flock())
+    monkeypatch.setattr(inputs.lineage, "_fcntl", _posix_flock())
     inputs._reset_owner_identity()
     try:
         assert inputs.start("run-nfs") and inputs.bind_workers("run-nfs")
@@ -608,8 +612,9 @@ def test_a_forked_follower_asks_whether_its_owner_lives_about_once_a_second(tmp_
         return real_stat(p, *a, **k)
 
     with monkeypatch.context() as patched:
-        patched.setattr(inputs, "_owner_alive", lambda *a: alive.append(1) or True)
-        patched.setattr(inputs, "_follow", follow)
+        patched.setattr(inputs.lineage, "_owner_alive", lambda *a: alive.append(1) or True)
+        patched.setattr(inputs.recovery, "_owner_alive", lambda *a: alive.append(1) or True)
+        patched.setattr(inputs.lineage, "_follow", follow)
         patched.setattr(os, "stat", counted_stat)
         stop = time.monotonic() + 1.4
         while time.monotonic() < stop:
@@ -646,7 +651,7 @@ def test_an_offline_list_without_coverage_is_not_taken_for_a_late_hash() -> None
     """P3: "no coverage" marked a late re-send, so a caller's own
     `record_run_inputs(..., coverage=None)` queued offline was dropped at
     sync. A late re-send is tagged in the queue instead."""
-    from probe.sdk import offline
+    from probe.sdk.delivery import offline
 
     class _NoObservations:
         @staticmethod
@@ -671,13 +676,13 @@ def test_a_run_handle_nobody_closed_stops_counting_once_it_is_collected(tmp_path
     import gc
     import queue as _queue
 
-    from probe.sdk import _open_runs
+    from probe.sdk.run.launch import open_runs as _open_runs
 
     class Handle:
         id = "run-dropped"
 
-    monkeypatch.setattr(inputs, "TAIL_S", 0.05)
-    monkeypatch.setattr(inputs, "_hash_queue", _queue.Queue())
+    monkeypatch.setattr(inputs.lineage, "TAIL_S", 0.05)
+    monkeypatch.setattr(inputs.lineage, "_hash_queue", _queue.Queue())
     assert inputs.start("run-kept") and inputs.bind_workers("run-kept")
     handle = Handle()
     _open_runs.opened(handle)
@@ -747,7 +752,7 @@ def test_the_hasher_marks_done_on_the_queue_it_took_the_item_from(tmp_path, monk
     while real.unfinished_tasks and time.monotonic() < deadline:
         time.sleep(0.01)
     with monkeypatch.context() as patched:
-        patched.setattr(inputs, "_hash_queue", _queue.Queue())
+        patched.setattr(inputs.lineage, "_hash_queue", _queue.Queue())
         real.put(("no-such-run", "/nowhere", (0, 0, 0, 0, 0)))  # the item it is waiting for
         deadline = time.monotonic() + 5
         while real.unfinished_tasks and time.monotonic() < deadline:

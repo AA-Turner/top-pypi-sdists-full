@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lightkube
-Version: 1.0.1
+Version: 1.0.2
 Summary: Lightweight kubernetes client library
 Author: Giuseppe Tribulato
 Author-email: Giuseppe Tribulato <gtsystem@gmail.com>
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Dist: lightkube-models>=1.15.12.0
 Requires-Dist: httpx2[http2,ws]>=0.28.1
 Requires-Dist: pyyaml
@@ -40,7 +41,7 @@ Modern lightweight kubernetes module for python
 * Models and resources generated from the swagger specifications using [msgspec](https://msgspec.dev/) Structs for fast, allocation-efficient serialisation.
 * Load/Dump resource objects from YAML.
 * Support for async/await
-* Support for installing a specific version of the kubernetes models (1.21 to 1.36)
+* Support for installing a specific version of the kubernetes models (1.22 to 1.37)
 * Fast startup and small memory footprint as only needed models and resources can be imported.
 * Automatic handling of pagination when listing resources.
 

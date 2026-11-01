@@ -29,11 +29,12 @@ from concurrent.futures import Future
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 from pathlib import Path
 
-from probe.cli import pi_config, plugin_cli
-from probe.sdk.tls import ssl_context
+from probe.shared.harness.harnesses import pi as pi_config
+from probe.shared.harness import plugins as plugin_cli
+from probe.foundation.tls.tls import ssl_context
 
 TAP_PLUGIN_NAME = "probe-research-tap"
 CODEX_TAP_PLUGIN_NAME = TAP_PLUGIN_NAME
@@ -61,12 +62,12 @@ ENV_PI_INGEST_TOKEN = "PROBE_PI_TAP_TOKEN"
 ENV_PI_TAP_PLUGIN_DIR = "PROBE_PI_TAP_PLUGIN_DIR"
 
 #: Per-source overrides for the tap's token/plugin-dir env vars, read from the
-#: harness registry (probe/harness/harnesses.json, `capture` of each captured
+#: harness registry (probe/foundation/harness_registry/harnesses.json, `capture` of each captured
 #: row). The tap package reads its own copy of the same file, so the two can no
 #: longer drift (tests/test_harness_conformance.py). claude_code is the
 #: registry's default; ENV_INGEST_TOKEN / ENV_TAP_PLUGIN_DIR remain its names.
 def _capture_rows() -> dict:
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     return {h.id: h.capture for h in get_registry().captured()}
 
@@ -153,7 +154,7 @@ class Capabilities:
     """A complete, fail-soft snapshot of this device."""
 
     cli_version: str | None = None
-    #: Per-component manifest comparison (see `probe.cli.versions`). A LIST, not
+    #: Per-component manifest comparison (see `probe.shared.updates.updates`). A LIST, not
     #: a bool, because "am I current?" has four independent answers -- CLI, SDK,
     #: plugin and transcript tap update on their own cadences and a machine is
     #: routinely current on one and months behind on another. Empty when the
@@ -227,7 +228,7 @@ class Capabilities:
     #: PROBE_MCP_TOKEN). Separate from `logged_in_as`: a token pasted into
     #: `probe wizard --action login --token` signs in with no MCP token.
     mcp_token_held: bool = False
-    #: This agent's registry `mcp` kind (`probe.harness.registry.MCP_*`), or
+    #: This agent's registry `mcp` kind (`probe.foundation.harness_registry.harness_registry.MCP_*`), or
     #: None where Probe offers no MCP. Set by `doctor.collect`.
     mcp_kind: str | None = None
     #: The credential check for that kind (`MCP_RESOLVERS`), or None when
@@ -445,7 +446,7 @@ def agent_source() -> str:
         it non-regressive. python -W error turns it back into a hard stop
         for anyone who wants the strict behavior.
     """
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     registry = get_registry()
     raw = os.environ.get(ENV_AGENT) or ""
@@ -511,7 +512,7 @@ def tap_plugin_dir(source: str | None = None) -> Path:
     the override variable, else the current folder, else a legacy folder an
     older install left (Codex's retired standalone plugin name). The tap
     resolves the same row from its own copy of the registry."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     selected = source or agent_source()
     capture = get_registry().get(selected).capture
@@ -565,7 +566,7 @@ def consumes_cli_capture_token(source: str) -> bool:
     agent's route. Mirrors tap/config.py::load_token() and the pi extension's
     pairing.ts (decision D3, 2026-09-09). Read from the harness registry
     (`capture.cli_token_fallback`)."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     harness = get_registry().find(source)
     return bool(harness and harness.capture and harness.capture.cli_token_fallback)
@@ -865,8 +866,8 @@ def _credential_opener() -> urllib.request.OpenerDirector:
 
 def _device_state_headers() -> dict[str, str]:
     from probe import __version__
-    from probe.client_headers import client_version_headers, device_headers
-    from probe.sdk.surface import SURFACE_HEADER, Surface
+    from probe.foundation.request_identity.request_identity import client_version_headers, device_headers
+    from probe.foundation.request_identity.surface import SURFACE_HEADER, Surface
 
     headers = {
         "Content-Type": "application/json",
@@ -875,7 +876,7 @@ def _device_state_headers() -> dict[str, str]:
         **client_version_headers(Surface.CLI.value, __version__),
     }
     try:
-        from probe.sdk.device_identity import device_instance_id
+        from probe.sdk.settings.device_identity import device_instance_id
 
         headers.update(device_headers(device_instance_id()))
     except Exception:  # noqa: BLE001 - identity is telemetry, never a hard failure
@@ -988,7 +989,7 @@ def fetch_device_state(
     # overwrite the cache they graded against, too.
     if publishes_a_version and time.monotonic() <= deadline:
         try:
-            from probe import version_policy
+            from probe.shared.updates import version_policy
 
             version_policy.write_cache(manifest, True)
         except Exception:  # noqa: BLE001 - a version cache must never break the menu
@@ -1032,7 +1033,7 @@ def start_device_state(
         if state.outcome is DeviceStateOutcome.UNSUPPORTED and warm_manifest_on_fallback:
             # ...then the manifest the old way carries none of, as the wizard
             # always fetched it, or an older server's Versions row goes stale.
-            from probe.cli import versions as versions_mod
+            from probe.shared.updates import updates as versions_mod
 
             versions_mod.warm_manifest()
 
@@ -1110,11 +1111,11 @@ def verify_mcp_credential(*, base_url: str, token: str) -> bool | None:
     MCP token. The MCP surface also avoids minting local device identity during
     this read-only check.
     """
-    from probe.sdk.client import Client
-    from probe.sdk.config import Settings
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import Settings
     from probe.sdk.errors import AuthError, ScopeError
-    from probe.sdk.surface import Surface
-    from probe.sdk.transport import Transport
+    from probe.foundation.request_identity.surface import Surface
+    from probe.sdk.delivery.transport.transport import Transport
 
     try:
         settings = Settings(base_url=base_url, token=token)
@@ -1299,8 +1300,8 @@ def _codex_plugin_ids() -> list[str]:
     """Every `[plugins."<plugin>@<marketplace>"]` table in Codex's config.toml,
     which `codex plugin add` writes and `codex plugin list` reads (enabled or
     not, as the list shows them). A missing file is Codex with nothing added."""
-    from probe._compat import tomllib
-    from probe.cli import codex_config
+    from probe.foundation.compat.compat import tomllib
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     try:
         parsed = tomllib.loads(codex_config.config_path().read_text(encoding="utf-8"))
@@ -1371,7 +1372,7 @@ def cli_mcp_token() -> str | None:
     env = (os.environ.get("PROBE_MCP_TOKEN") or "").strip()
     if env:
         return env
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     try:
         return (load_context() or {}).get("mcp_token") or None
@@ -1417,7 +1418,7 @@ def _pi_check(_source: str, _codex_auth: bool | None) -> McpCheck:
 def _kimi_check(_source: str, _codex_auth: bool | None) -> McpCheck:
     """Kimi Code sends the bearer the wizard wrote into its installed manifest
     (`kimi_config.sync_mcp_bearer`); it has to be the token this device holds."""
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
     from probe.cli.setup import current_mcp_token
 
     try:
@@ -1434,7 +1435,7 @@ def _kimi_check(_source: str, _codex_auth: bool | None) -> McpCheck:
 
 
 def _mcp_resolvers() -> dict:
-    from probe.harness import registry as reg
+    from probe.foundation.harness_registry import harness_registry as reg
 
     return {
         reg.MCP_PLUGIN_FILE: _token_check,
@@ -1474,7 +1475,7 @@ def ask_mcp_token_verdict(token: str) -> str:
     nothing. Split from `refresh_mcp_token_verdict` so a caller that bounds the
     wait (`probe status --refresh`) records only an answer that came in time."""
     from probe.cli.main import _verify_read
-    from probe.sdk.config import resolve
+    from probe.sdk.settings.settings import resolve
 
     try:
         state, _identity = _verify_read(token, resolve().base_url)
@@ -1499,12 +1500,12 @@ def _sends_held_token(source: str, kind: str) -> bool:
     """Whether this agent's MCP sends the device's held read token, so a
     rejection of that token is ITS rejection. Codex may hold its own OAuth
     login instead; only its synced bearer counts."""
-    from probe.harness import registry as reg
+    from probe.foundation.harness_registry import harness_registry as reg
 
     if kind != reg.MCP_CONFIG_TOML:
         return True
     try:
-        from probe.cli import codex_config
+        from probe.shared.harness.harnesses.codex import config as codex_config
 
         return codex_config.configured_bearer(CODEX_MCP_NAME) == cli_mcp_token()
     except Exception:  # noqa: BLE001 - unreadable config: do not claim a rejection
@@ -1513,7 +1514,7 @@ def _sends_held_token(source: str, kind: str) -> bool:
 
 def check_mcp(source: str, *, codex_auth: bool | None = None) -> tuple[str | None, McpCheck | None]:
     """(registry mcp kind, credential check) for one agent. Never raises."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     try:
         kind = get_registry().get(source).mcp
@@ -1533,7 +1534,7 @@ def check_mcp(source: str, *, codex_auth: bool | None = None) -> tuple[str | Non
 def _settings_package(source: str | None) -> bool:
     """The agent's Probe package is a settings entry (pi): one package for
     tracking and capture, read from a settings file rather than a plugin CLI."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     try:
         return get_registry().get(source or agent_source()).lean_profile == "settings-filter"

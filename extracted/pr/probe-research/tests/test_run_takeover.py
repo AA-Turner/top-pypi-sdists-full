@@ -72,7 +72,7 @@ def sleeps(app, monkeypatch):
             for rid, silent in list(clock.items()):
                 clock[rid] = 10.0 if record.state["speaks"] else silent + seconds
 
-    monkeypatch.setattr(client_mod, "_takeover_sleep", fake_sleep, raising=False)
+    monkeypatch.setattr(client_mod.resources.runs.reopen.takeover, "_takeover_sleep", fake_sleep, raising=False)
     return record
 
 
@@ -242,7 +242,7 @@ def test_the_superseded_process_is_told_and_stops_beating(lab, app, sleeps):
     import threading
     import weakref
 
-    from probe.sdk.run import _beat_forever
+    from probe.sdk.run.closing.heartbeat import _beat_forever
 
     first = _launch(lab)
     _quiet(app, first.id, 400.0)
@@ -343,7 +343,7 @@ def test_a_finished_incumbents_completed_close_is_delivered_not_taken_over(
 def test_a_rewind_of_a_finished_incumbent_is_a_plain_reopen(app, tmp_path, sleeps):
     """A rewind may reopen a completed run on purpose, so a delivered
     `completed` close turns the takeover into the plain rewind reopen."""
-    from probe.sdk.client import Rewind
+    from probe.sdk.client.resources.runs.reopen.conflict import Rewind
 
     old, pod2 = _requeue_scenario(app, tmp_path, close="completed")
 
@@ -391,7 +391,7 @@ def test_a_live_writer_sharing_the_outbox_stops_the_barrier(app, tmp_path, monke
     conflicts because the incumbent is not silent."""
     import warnings
 
-    from probe.sdk import journal as journal_mod
+    from probe.sdk.delivery import journal as journal_mod
 
     old, pod2 = _requeue_scenario(app, tmp_path)
     _quiet(app, old.id, 0.0)  # it is alive
@@ -404,7 +404,7 @@ def test_a_live_writer_sharing_the_outbox_stops_the_barrier(app, tmp_path, monke
         old.log({"loss": 0.5}, step=1000 + appended["n"])  # the live writer, meanwhile
         return report
 
-    monkeypatch.setattr(journal_mod, "drain", drain_while_the_live_writer_logs)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", drain_while_the_live_writer_logs)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         with pytest.raises(errors.ConflictError):
@@ -492,7 +492,7 @@ def test_a_live_duplicates_queued_status_goes_back_when_the_barrier_stops(
 ):
     """A LIVE writer shares the outbox: its queued status write is its own,
     and goes back the moment the barrier sees it appending."""
-    from probe.sdk import journal as journal_mod
+    from probe.sdk.delivery import journal as journal_mod
 
     old, pod2 = _requeue_scenario(app, tmp_path, close="failed")
     _quiet(app, old.id, 0.0)  # it is alive
@@ -503,7 +503,7 @@ def test_a_live_duplicates_queued_status_goes_back_when_the_barrier_stops(
         old.log({"loss": 0.5}, step=2000)
         return report
 
-    monkeypatch.setattr(journal_mod, "drain", drain_while_the_live_writer_logs)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", drain_while_the_live_writer_logs)
     with pytest.raises(errors.ConflictError):
         _launch(pod2)
 
@@ -555,14 +555,13 @@ def test_a_takeover_drops_the_incumbents_draining_tag(app, tmp_path, sleeps):
 def test_an_interrupted_barrier_releases_its_hold(app, tmp_path, monkeypatch, sleeps):
     """Ctrl-C (or a bug) inside the delivery loop must not leave the close
     stranded in the hold until some later relaunch."""
-    from probe.sdk import journal as journal_mod
 
     old, pod2 = _requeue_scenario(app, tmp_path, close="failed")
 
     def interrupted(journal, **kw):
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(journal_mod, "drain", interrupted)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", interrupted)
     with pytest.raises(KeyboardInterrupt):
         _launch(pod2)
 
@@ -576,13 +575,12 @@ def test_the_barrier_is_bounded_inside_a_pass(app, tmp_path, monkeypatch, sleeps
     the barrier now stops at its budget, mid-pass, and says what is left."""
     import time as _time
 
-    from probe.sdk import journal as journal_mod
 
     monkeypatch.setenv("PROBE_TAKEOVER_DRAIN_SEC", "1")
     monkeypatch.setenv("PROBE_TAKEOVER_WAIT_SEC", "300")
     # One write per request: a coalesced pass (plan 1.2) sends this whole
     # backlog in one POST, well inside the budget this test is about.
-    monkeypatch.setattr(journal_mod, "MERGE_MAX_POINTS", 1)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.coalesce.MERGE_MAX_POINTS", 1)
     real = app.handler
     slow_now = {"on": False}
 

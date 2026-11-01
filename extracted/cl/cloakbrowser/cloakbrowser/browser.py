@@ -1012,9 +1012,12 @@ def launch_context(
     # Patch close() to also close the browser (and its Playwright instance)
     _original_ctx_close = context.close
 
-    def _close_context_with_cleanup() -> None:
+    def _close_context_with_cleanup(*, reason: str | None = None) -> None:
         try:
-            _original_ctx_close()
+            if reason is None:
+                _original_ctx_close()
+            else:
+                _original_ctx_close(reason=reason)
         finally:
             browser.close()
 
@@ -1150,9 +1153,12 @@ async def launch_context_async(
     # Patch close() to also close the browser (and its Playwright instance)
     _original_ctx_close = context.close
 
-    async def _close_context_with_cleanup() -> None:
+    async def _close_context_with_cleanup(*, reason: str | None = None) -> None:
         try:
-            await _original_ctx_close()
+            if reason is None:
+                await _original_ctx_close()
+            else:
+                await _original_ctx_close(reason=reason)
         finally:
             await browser.close()
 
@@ -1458,18 +1464,6 @@ def build_args(
             if key in seen:
                 logger.debug("Arg override: %s -> %s", seen[key], arg)
             seen[key] = arg
-
-    # Playwright's default launch args switch off a browser feature that stock Chrome
-    # ships enabled. Re-enable it alongside the Windows font-metrics profile so the
-    # feature set matches a stock browser rather than a test harness. Merged into any
-    # existing --enable-features value rather than added as a second flag.
-    if "--fingerprint-windows-font-metrics" in seen:
-        key = "--enable-features"
-        current = seen[key].split("=", 1)[-1] if key in seen else ""
-        features = [f for f in current.split(",") if f]
-        if "MediaRouter" not in features:
-            features.append("MediaRouter")
-            seen[key] = f"{key}={','.join(features)}"
 
     # Timezone/locale flags are independent of stealth_args — always inject when set
     if timezone:

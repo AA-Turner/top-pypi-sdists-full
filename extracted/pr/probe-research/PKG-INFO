@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.352.2
+Version: 0.356.0
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -688,7 +688,7 @@ Every tool accepts `token_budget`, and every tool but `query_sql` accepts `curso
 response, including its envelope, errors, verbose output, and all items in an
 `entity` batch. It defaults to 2,000 reference tokens and accepts integers from
 512 through 8,000; the UTF-8 byte ceiling is eight times that value. The frozen
-[`o200k_base` encoding](src/probe/mcp/_tokenizer/README.md) ships in the package and works offline. These reference
+[`o200k_base` encoding](src/probe/foundation/token_budget/tokenizer/README.md) ships in the package and works offline. These reference
 counts describe tool text, not model-specific billing or total conversation usage.
 The MCP emits one compact text payload without a duplicate structured payload.
 
@@ -984,7 +984,7 @@ the schema too (Probe Research PR #12), so the passive push is generated and val
 like every other path.
 
 - `schema/openapi.json` - a snapshot of Probe Research's FastAPI schema.
-- `src/probe/_generated/models.py` - generated, never hand-edited.
+- `src/probe/generated/models.py` - generated, never hand-edited.
 - `src/probe/models.py` - the stable import seam the SDK uses.
 
 Refresh when the contract moves:

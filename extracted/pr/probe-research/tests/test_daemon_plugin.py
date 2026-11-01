@@ -43,11 +43,9 @@ def _scripts(command: str) -> set[str]:
     return set(re.findall(r"hooks/([A-Za-z_.-]+\.(?:py|sh))", command))
 
 
-def _makefile_list() -> list[str]:
-    text = (ROOT / "Makefile").read_text(encoding="utf-8")
-    match = re.search(r"^DAEMON_PLUGIN_HOOKS := (.*?)(?<!\\)$", text, re.MULTILINE | re.DOTALL)
-    assert match, "Makefile has no DAEMON_PLUGIN_HOOKS"
-    return match.group(1).replace("\\\n", " ").split()
+def _vendored_hooks() -> list[str]:
+    """The hook files `make sync-daemon-plugin` copies: plugins/VENDORED.json's list."""
+    return _json(ROOT / "plugins" / "VENDORED.json")["lists"]["daemon_plugin_hooks"]
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +93,7 @@ def test_the_manifests():
 
 
 def test_hook_files_are_byte_identical_copies_of_the_full_plugins():
-    listed = _makefile_list()
+    listed = _vendored_hooks()
     shipped = sorted(p.name for p in (LEAN / "hooks").iterdir() if p.is_file() and p.name != "routes.json")
     assert shipped == sorted(listed), "hooks/ holds exactly the files `make sync-daemon-plugin` copies"
     # The team-note audit reminder ships for INLINE sessions only (daemon-team-note-audit):

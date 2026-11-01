@@ -13,7 +13,7 @@ import pytest
 
 import probe
 from probe import cli
-from probe.sdk.surface import Surface
+from probe.foundation.request_identity.surface import Surface
 from tests.conftest import _WS_MINE, make_client
 
 
@@ -447,7 +447,7 @@ def test_distribution_name_matches_pyproject():
     (It is `probe-research`, not `probe-agent` — the latter is an unrelated project
     already on PyPI that we never owned.)
     """
-    from probe._compat import tomllib
+    from probe.foundation.compat.compat import tomllib
 
     import probe
 
@@ -463,7 +463,7 @@ def test_harbor_extra_does_not_raise_probes_python_floor():
     Without the dependency marker, uv's universal resolver rejects the whole
     project—including dev environments that never install the Harbor extra.
     """
-    from probe._compat import tomllib
+    from probe.foundation.compat.compat import tomllib
 
     pyproject = tomllib.loads(
         (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text()
@@ -1154,7 +1154,7 @@ def test_experiment_freeze_mints_a_version(wired, capsys):
 
 
 def test_run_reproduce_materialize_writes_inputs_and_manifest(wired, capsys, tmp_path, monkeypatch):
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     rid = _start_run(capsys)
     # The fake's reproduce route returns empty inputs; substitute a record that
@@ -1419,7 +1419,7 @@ def test_project_create_sends_evaluation_for_either_spelling(wired, capsys, type
     skills and agents' habits type it, and the server bridges it forever -- but
     the CLI translates it, so the wire only ever carries the canonical word."""
     assert cli.main(["project", "create", "--kind", typed, f"sweep-{typed}"]) == 0
-    sent = json.loads(wired.requests[-1].content)
+    sent = _sent(wired, "POST", "/v1/projects")
     assert sent["kind"] == "evaluation"
 
 
@@ -1477,7 +1477,7 @@ def test_workspace_create_makes_a_team_workspace_and_pins_nothing_locally(
     assert created["owner_user_id"] is None
 
     cli.main(["project", "create", "--kind", "general", "after-create"])
-    sent = json.loads(wired.requests[-1].content)
+    sent = _sent(wired, "POST", "/v1/projects")
     assert sent["workspace_id"] == _WS_MINE
 
 
@@ -1487,7 +1487,7 @@ def test_workspace_create_use_switches_the_context(wired, capsys):
     capsys.readouterr()
 
     cli.main(["project", "create", "--kind", "general", "filed-there"])
-    sent = json.loads(wired.requests[-1].content)
+    sent = _sent(wired, "POST", "/v1/projects")
     team = next(w for w in wired.workspaces.values() if w["slug"] == "engineering")
     assert sent["workspace_id"] == team["id"]
 

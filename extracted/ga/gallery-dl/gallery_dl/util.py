@@ -333,6 +333,18 @@ Request Headers
 ---------------
 {request_headers}
 """
+        if cookies := request.headers.get("Cookie"):
+            if hide_auth:
+                cookies = "\n".join(c[:c.find("=")]
+                                    for c in cookies.split("; "))
+            else:
+                cookies = "\n".join(c.replace("=", ": ", 1)
+                                    for c in cookies.split("; "))
+            output = f"""{output}
+Request Cookies
+---------------
+{cookies}
+"""
         if request.body:
             output = f"""{output}
 Request Body
@@ -343,6 +355,17 @@ Request Body
 Response Headers
 ----------------
 {response_headers}
+"""
+        if response.cookies:
+            if hide_auth:
+                cookies = "\n".join(c.name for c in response.cookies)
+            else:
+                cookies = "\n".join(f"{c.name}: {c.value} ({c.expires or 0})"
+                                    for c in response.cookies)
+        output = f"""{output}
+Response Cookies
+----------------
+{cookies}
 """
         fp.write(output.encode())
 

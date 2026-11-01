@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from conftest import open_run
 
-from probe.sdk.run import _summary_wire
+from probe.sdk.run.summary import _summary_wire
 
 
 def test_both_names_carry_the_same_map() -> None:

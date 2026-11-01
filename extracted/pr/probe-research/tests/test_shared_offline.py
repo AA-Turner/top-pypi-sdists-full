@@ -1,4 +1,4 @@
-"""`probe._shared.offline`: no network at all, never a failure that answered.
+"""`probe.foundation.tls.network_down`: no network at all, never a failure that answered.
 
 2026-10-24 review: counting every connection that got no HTTP answer as
 "offline" hid a corporate proxy re-signing TLS and a server hanging past the
@@ -16,7 +16,7 @@ import urllib.error
 
 import pytest
 
-from probe._shared import offline
+from probe.foundation.tls import network_down as offline
 
 
 def _from(exc: BaseException, cause: BaseException) -> BaseException:

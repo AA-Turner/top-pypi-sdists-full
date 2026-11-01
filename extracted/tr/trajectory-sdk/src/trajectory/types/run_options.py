@@ -9,6 +9,12 @@ from trajectory.types.training_algorithm import TrainingAlgorithm
 
 
 class RunOptions(BaseModel):
+  load_weights_only: bool | None = None
+  """
+    Load parent checkpoint weights with fresh training state; defaults to false, which
+    resumes optimizer, schedule and global step.
+    """
+
   intelligent_density_training: bool | None = None
   """Enable intelligent density training."""
 
@@ -22,7 +28,7 @@ class RunOptions(BaseModel):
   """Train on error-terminated trajectories, using zero when no reward is recorded."""
 
   train_on_timeout: bool | None = None
-  """Train on execution and sandbox timeouts, using zero when no reward is recorded."""
+  """Train on execution timeouts, using zero when no reward is recorded."""
 
   evaluation_enabled: bool | None = None
   """Enable evaluations during training."""
@@ -155,7 +161,7 @@ class RunOptions(BaseModel):
   """
     On an endpoint created for the run, maximum assistant output tokens across all steps of
     one trajectory, including steps after context compaction, so it can exceed the model's
-    context window. Reaching this cap during a reply can end the trajectory as LIMIT_REACHED
+    context window. Reaching this cap during a reply can end the trajectory as TRUNCATION
     before the harness logs reward.
     """
 

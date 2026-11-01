@@ -46,7 +46,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from probe._compat import StrEnum, tomllib
+from probe.foundation.compat.compat import StrEnum, tomllib
 
 #: `runs.source` for every run an import creates. The provenance word.
 RUN_SOURCE = "backfill"

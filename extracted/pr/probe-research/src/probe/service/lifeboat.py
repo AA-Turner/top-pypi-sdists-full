@@ -2,12 +2,12 @@
 
 Every update used to run the INSTALLED release's updater, so a release whose
 updater was broken could never be replaced by a newer one. The lifeboat is a
-copy of the frozen hand-off (`probe/_shared/handoff.py`: stdlib only, imports
+copy of the frozen hand-off (`probe/shared/updates/handoff.py`: stdlib only, imports
 nothing of `probe`) kept OUTSIDE the release folders, with a frozen `/bin/sh`
 wrapper in front of it:
 
     ~/.local/state/probe/lifeboat/         L (`root`), 0700, never moved by XDG_STATE_HOME
-        lifeboat.sh                        the wrapper (`probe/_shared/lifeboat.sh`, digest-pinned)
+        lifeboat.sh                        the wrapper (`probe/shared/updates/lifeboat.sh`, digest-pinned)
         current/handoff.py                 the copy a release may write
         current/.acted                     touched by the wrapper when this copy started a rescue
         known-good/handoff.py              the copy that last proved itself
@@ -92,7 +92,7 @@ INDEX_ENV_NAMES = (
 )
 
 _HANDOFF_VERSION = re.compile(rb"^HANDOFF_VERSION(?:\s*:\s*int)?\s*=\s*(\d+)\s*(?:#.*)?$", re.MULTILINE)
-_SHARED = Path(__file__).resolve().parent.parent / "_shared"
+_SHARED = Path(__file__).resolve().parent.parent / "shared" / "updates"
 
 
 def root() -> Path:
@@ -115,7 +115,7 @@ def packaged_wrapper() -> Path:
 
 
 def packaged_handoff() -> Path | None:
-    """This release's `probe/_shared/handoff.py`, or None (a release without one)."""
+    """This release's `probe/shared/updates/handoff.py`, or None (a release without one)."""
     path = _SHARED / HANDOFF_NAME
     return path if path.is_file() else None
 
@@ -217,7 +217,7 @@ def _requirement(entry: dict) -> str | None:
 def receipt(env: Path) -> dict:
     """What the active env's `uv-receipt.toml` records: `extras` (probe-research's),
     `with` (everything else, restated), `python` (an exact `--python`, or None)."""
-    from probe._compat import tomllib
+    from probe.foundation.compat.compat import tomllib
 
     out: dict = {"extras": [], "with": [], "python": None}
     try:
@@ -260,7 +260,7 @@ def index_env(login: Mapping) -> dict:
 def _managed(tools: Path, prefix: Path) -> bool:
     """Is this interpreter's env the machine's managed CLI: the uv tool env at
     the tool path, or a version env beside it (side by side)?"""
-    from probe._shared import installs
+    from probe.shared.updates import installs
 
     try:
         here = prefix.resolve()
@@ -302,8 +302,8 @@ def env_record(login: Mapping | None = None) -> dict:
     """env.json's content for this install (plan Build contract). `login`:
     the login shell's (or the caller's own) variables when the caller has
     them; else the ones the last record kept, else the shell is asked once."""
-    from probe import version_policy
-    from probe._shared import installs
+    from probe.shared.updates import version_policy
+    from probe.shared.updates import installs
 
     from . import client, watch
 
@@ -547,7 +547,7 @@ def promote(*, ok: bool, active: str | None, latest: str | None, ended_at: float
 def manifest_latest() -> str | None:
     """The manifest's `cli.latest`, from the CLI's cache (what the last update read)."""
     try:
-        from probe import version_policy
+        from probe.shared.updates import version_policy
 
         manifest, _fetched, _ok = version_policy.read_cache()
         latest = (manifest or {}).get("cli", {}).get("latest") if isinstance(manifest, dict) else None

@@ -8,11 +8,12 @@ import pytest
 
 from probe.cli import desktop, computer_workspace, setup, doctor
 from probe.cli import wizard_lock
-from probe.cli import reasoning_summaries as reasoning
+from probe.shared.harness import reasoning_summaries as reasoning
 from probe.cli.capabilities import Capabilities, agent_source
 from probe._shared import oscompat
-from probe.sdk.config import load_context, save_context
-from probe.sdk import session_marker, workspace_limit
+from probe.sdk.settings.settings import load_context, save_context
+from probe.sdk import session_marker
+from probe.sdk.settings import workspace_limit
 from tests.conftest import _WS_MINE, _WS_OTHER, FakeApp, make_client
 
 SCOPE = {"userId": "user", "customerId": "lab-42"}

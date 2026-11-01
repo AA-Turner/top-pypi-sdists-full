@@ -1,5 +1,5 @@
 """Compatibility import for ``probe.sdk.client``."""
 
-from .sdk.client import Client
+from .sdk.client.client import Client
 
 __all__ = ["Client"]

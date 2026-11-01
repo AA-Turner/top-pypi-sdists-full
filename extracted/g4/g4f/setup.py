@@ -21,7 +21,6 @@ EXTRA_REQUIRE = {
     "all": [
         "curl_cffi>=0.6.2",
         "certifi",
-        "browser_cookie3",  # get_cookies
         "ddgs",  # web_search
         "beautifulsoup4",  # web_search and bing.create_images
         "platformdirs",
@@ -38,14 +37,12 @@ EXTRA_REQUIRE = {
         "setuptools",
         "markitdown[all]",
         "python-dotenv",
-        "PyYAML",
         "pystray",
         "cryptography",
     ],
     "slim": [
         "curl_cffi>=0.6.2",
         "certifi",
-        "browser_cookie3",
         "ddgs",  # web_search
         "beautifulsoup4",  # web_search and bing.create_images
         "aiohttp_socks",  # proxy
@@ -60,7 +57,6 @@ EXTRA_REQUIRE = {
         "pypdf2",
         "python-docx",
         "python-dotenv",
-        "PyYAML",
         "pystray",
         "cryptography",
     ],
@@ -69,7 +65,7 @@ EXTRA_REQUIRE = {
         "cairosvg",
         "beautifulsoup4",
     ],
-    "api": ["loguru", "fastapi", "uvicorn", "websockets", "python-multipart", "a2wsgi", "PyYAML"],
+    "api": ["loguru", "fastapi", "uvicorn", "websockets", "python-multipart", "a2wsgi"],
     "gui": [
         "werkzeug",
         "flask[async]",

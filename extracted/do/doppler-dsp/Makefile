@@ -44,8 +44,9 @@ HAS_PR_WATCH = 1
 # every input it was built from in .github/ci-images.env. The flag vendors
 # docker/ci.Dockerfile, scripts/ci-image.py and .github/workflows/ci-image.yml
 # and hangs `ci-image-check` off lint; doppler's own copy of all three is gone.
-# doppler's one extra (nats-server, pinned by hash) is docker/ci-extra.sh,
-# canonical's extension point; clang's runtime is bootstrap.toml's clang-rt.
+# doppler's extension point, docker/ci-extra.sh, now only probes and
+# fingerprints: clang's runtime is bootstrap.toml's clang-rt group, and
+# nats-server (pinned by hash) its nats group (#2712).
 #
 # TWO BASES, and the pair is load-bearing rather than thorough: build-and-test
 # runs ubuntu-22.04 and ubuntu-24.04 on purpose (two glibcs). One image for
@@ -58,7 +59,7 @@ HAS_PR_WATCH = 1
 HAS_CI_IMAGE          = 1
 CI_IMAGE_REPO         = ghcr.io/doppler-dsp/doppler-ci
 CI_IMAGE_BASES        = ubuntu:22.04 ubuntu:24.04
-CI_IMAGE_GROUPS       = dev docs clang-rt
+CI_IMAGE_GROUPS       = dev docs clang-rt nats
 CI_IMAGE_LANDING      = branch
 CI_IMAGE_SMOKE_TARGET = build
 # The CI-image rebuild fetches each pinned base the way every other stock pull
@@ -1138,6 +1139,8 @@ $(UV) run python docs/design/spectrogram-measurements/u1u4.py --check
 $(UV) run python docs/design/spectrogram-measurements/b2094.py --check
 $(UV) run python docs/design/async-dsss-parallel-measurements/record.py --check
 $(UV) run python docs/design/acq-surface-measurements/record.py --check
+$(UV) run python docs/design/corr2d-hypotheses-measurements/prototype.py --check
+$(UV) run python docs/design/corr2d-hypotheses-measurements/record.py --check
 $(UV) run python docs/design/spectrogram-measurements/b2062.py --check
 endef
 
@@ -1808,6 +1811,7 @@ endef
 # gates cover them: criterion 2 is "help lists EVERY target", not "every
 # standard target" — a local target help omits is exactly as invisible.
 LOCAL_TARGETS = specan record-demo parallel-record-write acq-surface-record \
+                corr2d-hypotheses-record \
                 gallery blazing \
                 gen-c-api just-build docs-invariants \
                 jm-apply jm-apply-downstream jm-adopt jm-revendor \
@@ -2340,6 +2344,14 @@ parallel-record-write: ## Re-render the parallel record's blocks from its data
 acq-surface-record: build ## Re-run the acq surface's validator; rewrite its §8 tables
 	$(UV) run python docs/design/acq-surface-measurements/record.py measure
 	$(UV) run python docs/design/acq-surface-measurements/record.py --write
+
+# docs/design/corr2d-hypotheses.md §5 is one run of
+# validate_corr2d_hypothesis_order. The run is stamped with the commit it was
+# taken at and refused from a dirty tree, so commit the harness first, then
+# run this, then commit the data.
+corr2d-hypotheses-record: build ## Re-time the hypothesis-bank orderings; rewrite §5's tables
+	$(UV) run python docs/design/corr2d-hypotheses-measurements/record.py measure
+	$(UV) run python docs/design/corr2d-hypotheses-measurements/record.py --write
 
 # Run all plot-generating examples and copy output PNGs to docs/assets/.
 # Run before releasing whenever src/doppler/examples/ has changed.
@@ -5094,6 +5106,16 @@ bench-preflight: ## Clear the last release's bench outputs once main has them
 	$(UV) run python scripts/bench_interleaved.py --preflight \
 	    --base $(BENCH_COMMIT_BASE)
 
+#
+# The run takes most of an hour and is launched in the background over ssh,
+# so it leaves its outcome where a watcher can wait on it (#2681): the log
+# at $(BENCH_RUN_DIR)/<VERSION>.log and, written LAST, the exit code at
+# $(BENCH_RUN_DIR)/<VERSION>.rc -- on success and on any failure, including
+# uv itself failing. Wait with `until test -f <VERSION>.rc`, never on the
+# process: a remote `pgrep -f` matches its own ssh shell, so it never sees
+# the run end, and v0.77.0's failed run read "running" for hours that way.
+BENCH_RUN_DIR ?= $(BUILD_DIR)/bench-runs
+BENCH_RUN_RC   = $(BENCH_RUN_DIR)/$(VERSION).rc
 bench-interleaved: ## Measure portable + native alternately, denoised (VERSION=)
 ifndef VERSION
 	@echo "usage: make bench-interleaved VERSION=X.Y.Z [K=5]"
@@ -5101,8 +5123,12 @@ ifndef VERSION
 	@echo "  make bench-preflight && git checkout --detach origin/main"
 	@exit 1
 endif
-	$(UV) run python scripts/bench_interleaved.py $(VERSION) $(if $(K),-k $(K),) \
-	    --base $(BENCH_COMMIT_BASE)
+	@mkdir -p $(BENCH_RUN_DIR) && rm -f $(BENCH_RUN_RC) $(BENCH_RUN_RC).tmp
+	@{ $(UV) run python scripts/bench_interleaved.py $(VERSION) \
+	    $(if $(K),-k $(K),) --base $(BENCH_COMMIT_BASE); \
+	  echo $$? > $(BENCH_RUN_RC).tmp; } 2>&1 \
+	  | tee $(BENCH_RUN_DIR)/$(VERSION).log; \
+	  mv $(BENCH_RUN_RC).tmp $(BENCH_RUN_RC); exit $$(cat $(BENCH_RUN_RC))
 
 bench-publish: ## Stamp one build's numbers for a release (VERSION= BUILD=)
 ifndef VERSION

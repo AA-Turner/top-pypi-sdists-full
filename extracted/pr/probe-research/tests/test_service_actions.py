@@ -717,12 +717,12 @@ def test_the_context_names_every_harness_s_session_and_home_variables():
     """A request from inside an agent's session must be able to say so (its
     session-id variable, read from the registry), and a client with its own
     agent homes must reach them: every harness's `session_env` and `home.env`."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
     from probe.service.protocol import CONTEXT_ENV
     from probe.service.server import session_env_names
 
     sessions = {h.session_env for h in get_registry().all() if h.session_env}
-    registry = json.loads((Path(__file__).resolve().parent.parent / "src" / "probe" / "harness" / "harnesses.json").read_text())
+    registry = json.loads((Path(__file__).resolve().parent.parent / "src" / "probe" / "foundation" / "harness_registry" / "harnesses.json").read_text())
     homes = {h["home"]["env"] for h in registry["harnesses"] if isinstance(h.get("home"), dict) and h["home"].get("env")}
     assert sessions and sessions == session_env_names()
     assert homes and homes <= CONTEXT_ENV, sorted(homes - CONTEXT_ENV)

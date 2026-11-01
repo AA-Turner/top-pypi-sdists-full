@@ -70,12 +70,8 @@ PIN_CACHE_MAX = 200_000
 #: The outbox part, when its writes' server cannot be shown to be ours.
 OUTBOX_UNPROVEN = "unproven_destination"
 
-EVENT_STARTED = "service.started"
-EVENT_STATE = "service.state"
-EVENT_STOPPED = "service.stopped"
-EVENT_LIFEBOAT = "lifeboat.acted"
-#: The only events `telemetry.emit_service_event` sends.
-SERVICE_EVENTS = frozenset({EVENT_STARTED, EVENT_STATE, EVENT_STOPPED, EVENT_LIFEBOAT})
+# The event names live in the catalog (`probe.analytics.events`), loaded by `_catalog` on the
+# daemon thread where they are sent: never on the service's start path or its event loop.
 
 
 def _values(cls: type) -> frozenset:
@@ -134,7 +130,7 @@ def _age_h(at: object, now: float) -> float | None:
 
 def _harnesses() -> frozenset:
     try:
-        from probe.harness.registry import get_registry
+        from probe.foundation.harness_registry.harness_registry import get_registry
 
         return frozenset(get_registry().ids())
     except Exception:  # noqa: BLE001 -- none known: every harness reads `other`
@@ -201,7 +197,7 @@ def _outbox(outbox: object, now: float) -> dict:
 
 
 def _discard_days() -> int:
-    from probe.sdk.journal import DISCARD_DAYS  # the outbox's, loaded by `read_outbox` already
+    from probe.sdk.delivery.journal.failures.discards import DISCARD_DAYS  # the outbox's, loaded by `read_outbox` already
 
     return DISCARD_DAYS
 
@@ -365,7 +361,7 @@ class PinCache:
         """(server, day) of the op file ``entry``: the server is a URL, None
         (an op with no pin), `GONE` or `UNREADABLE`. Past ``limit`` nothing
         more is read (`overflow`: the answer is unproven anyway)."""
-        from probe.sdk.journal import _read_op_file, op_base_url, op_day
+        from probe.sdk.delivery.ops.ops import _read_op_file, op_base_url, op_day
 
         try:
             st = entry.stat()
@@ -405,16 +401,16 @@ def read_outbox(root: object = None, cache: PinCache | None = None) -> dict:
     closed: a folder it cannot list, an op with no pin, a queued file it
     cannot read, or more files than `PinCache` holds make it unproven.
     Blocking: status files and listings, and each op file once (``cache``)."""
-    from probe.sdk import _telemetry_core as core
-    from probe.sdk import outbox_worker
-    from probe.sdk.journal import (
+    from probe.analytics import core as core
+    from probe.sdk.delivery import outbox as outbox_worker
+    from probe.sdk.delivery.ops.ops import (
         CREDENTIAL_NAMESPACE,
-        DELIVERY_NAMESPACE,
-        Journal,
-        auth_blocked_since,
+        DELIVERY_NAMESPACE)
+    from probe.sdk.delivery.journal.journal import Journal
+    from probe.sdk.delivery.journal.status_file import auth_blocked_since
+    from probe.sdk.delivery.journal.paths import (
         credential_queue_dirs,
-        default_root,
-    )
+        default_root)
 
     cache = cache if cache is not None else PinCache()
     cache.begin()
@@ -667,9 +663,14 @@ class StatePost:
         allowed, base_url = await self._allowed(fresh=True)  # a session may have joined meanwhile
         if not allowed:
             return
+        try:
+            events = await _on_daemon_thread(_catalog, SIDE_TIMEOUT_S)
+        except Exception as exc:  # noqa: BLE001 -- observability never costs the service
+            self.log(f"statepost: the event catalog did not load: {exc!r}")
+            return
         if not self._started_sent:
             self._started_sent = True
-            await self._send(EVENT_STARTED, {
+            await self._send(events.EVENT_SERVICE_STARTED, {
                 "service_version": props["service_version"],
                 "crashed_last_run": self.crashed is not None,
                 "last_run_ended": _enum(self.crashed, LAST_RUN_ENDINGS),
@@ -677,7 +678,7 @@ class StatePost:
             }, base_url)
         if due:
             self._sent_at, self._digest = mono, current
-            await self._send(EVENT_STATE, props, base_url)
+            await self._send(events.EVENT_SERVICE_STATE, props, base_url)
 
     async def _acted(self) -> None:
         """`lifeboat.acted`, once, with the machine's consent asked right
@@ -695,9 +696,11 @@ class StatePost:
             return
         props = acted_snapshot(record)
         try:
-            sent = await _on_daemon_thread(lambda: self.emit(EVENT_LIFEBOAT, props, base_url), SIDE_TIMEOUT_S)
+            sent = await _on_daemon_thread(
+                lambda: self.emit(_catalog().EVENT_LIFEBOAT_ACTED, props, base_url), SIDE_TIMEOUT_S
+            )
         except Exception as exc:  # noqa: BLE001 -- observability never costs the service
-            self.log(f"statepost: {EVENT_LIFEBOAT} not sent: {exc!r}")
+            self.log(f"statepost: lifeboat.acted not sent: {exc!r}")
             return
         if sent:
             with contextlib.suppress(Exception):
@@ -739,7 +742,9 @@ class StatePost:
         if not allowed:
             return
         with contextlib.suppress(Exception):
-            self.emit(EVENT_STOPPED, {
+            from probe.analytics.events import EVENT_SERVICE_STOPPED
+
+            self.emit(EVENT_SERVICE_STOPPED, {
                 "reason": _enum(reason, STOP_REASONS) or "other",
                 "uptime_h": round(max(0.0, uptime_s) / 3600.0, 2) if isinstance(uptime_s, (int, float)) else None,
             }, base_url)
@@ -754,14 +759,22 @@ def _hosted_default(base_url: str | None) -> str:
     """The backend a client with no `base_url` configured talks to."""
     if base_url:
         return base_url
-    from probe.sdk._telemetry_core import DEFAULT_BASE
+    from probe.analytics.core import DEFAULT_BASE
 
     return DEFAULT_BASE
 
 
+def _catalog():
+    """The event catalog module (`probe.analytics.events`), imported on the caller's thread:
+    `StatePost` calls it on its daemon thread, as `_emit` imports analytics there."""
+    from probe.analytics import events
+
+    return events
+
+
 def _emit(event: str, props: Mapping, base_url: str | None) -> bool:
-    from probe._shared import telemetry
-    from probe.sdk import _telemetry_core as core
+    from probe import analytics as telemetry
+    from probe.analytics import core as core
 
     from .background import TELEMETRY_HOST_ENV
 

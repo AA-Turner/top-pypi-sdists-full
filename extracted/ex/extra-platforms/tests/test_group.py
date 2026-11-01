@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from operator import attrgetter
 
 import pytest
@@ -57,7 +56,11 @@ from extra_platforms import (
     reduce,
     traits_from_ids,
 )
-from extra_platforms.trait import _resolve_alias
+from extra_platforms.group import _resolve_alias
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def test_deduplication():
@@ -209,7 +212,7 @@ def test_canonical_property():
     ),
 )
 def test_set_operation(method, first, others, expected):
-    """A set operation acts on the members, and keeps the metadata of the first group."""
+    """A set operation acts on the members, keeping the first group's metadata."""
     result = getattr(first, method)(*others)
     assert result.member_ids == frozenset(expected)
     # The members match what the same operation gives on native sets.
@@ -277,15 +280,19 @@ def test_add():
     assert len(same_group) == 2
     assert same_group.member_ids == new_group.member_ids
 
-    # Add by trait ID string.
-    with_rhel = my_group.add("rhel")
+    # Add by trait ID string, in any case.
+    with_rhel = my_group.add("RHEL")
     assert RHEL in with_rhel
     assert "rhel" in with_rhel
     assert len(with_rhel) == 2
 
     # Add invalid trait ID should raise ValueError.
-    with pytest.raises(ValueError, match="Unrecognized group or trait IDs"):
+    with pytest.raises(ValueError, match="Unrecognized trait ID: invalid_trait_id"):
         my_group.add("invalid_trait_id")
+
+    # A group ID names no single trait to add.
+    with pytest.raises(ValueError, match="Unrecognized trait ID: linux"):
+        my_group.add("linux")
 
 
 def test_remove():
@@ -304,11 +311,16 @@ def test_remove():
     assert len(my_group) == 3
     assert PIDORA in my_group
 
-    # Remove by trait ID string.
-    without_aix = my_group.remove("aix")
+    # Remove by trait ID string, in any case.
+    without_aix = my_group.remove("AIX")
     assert AIX not in without_aix
     assert "aix" not in without_aix
     assert len(without_aix) == 2
+
+    # A trait sharing the ID of a member is not that member.
+    fake_aix = Platform(id="aix", name="Fake AIX", icon="🍐", url="https://example.com")
+    with pytest.raises(KeyError, match="Trait 'aix' is not in the group"):
+        my_group.remove(fake_aix)
 
     # Remove non-existent trait should raise KeyError.
     with pytest.raises(KeyError, match="Trait 'invalid' is not in the group"):
@@ -575,9 +587,7 @@ def test_traits_from_ids(trait_id):
 
 @pytest.mark.parametrize(
     ("alias", "trait"),
-    # ALL_TRAITS iterates in ID order, so sorting each set of aliases is enough
-    # to collect the same order on every xdist worker.
-    [(alias, trait) for trait in ALL_TRAITS for alias in sorted(trait.aliases)],
+    [(alias, trait) for trait in ALL_TRAITS for alias in trait.aliases],
     ids=lambda value: value if isinstance(value, str) else value.id,
 )
 @pytest.mark.parametrize(
@@ -686,6 +696,12 @@ def test_reduce_custom_targets(items, expected):
     results = reduce(items, target_pool=target_pool)
     assert results == expected
     assert isinstance(results, frozenset)
+
+
+def test_reduce_skips_empty_groups():
+    """An empty group covers nothing, so the reduction never picks it."""
+    empty_group = Group("empty", "Empty Group", "❌", ())
+    assert reduce([AIX], target_pool=(empty_group, ALL_WINDOWS)) == {AIX}
 
 
 @pytest.mark.parametrize(

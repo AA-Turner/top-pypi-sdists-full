@@ -1,7 +1,7 @@
 """:module: watchdog.observers.kqueue
 :synopsis: ``kqueue(2)`` based emitter implementation.
 :author: yesudeep@google.com (Yesudeep Mangalapilly)
-:author: contact@tiger-222.fr (Mickaël Schoentgen)
+:author: Mickaël Schoentgen <contact@tiger-222.fr>
 :platforms: macOS and BSD with kqueue(2).
 
 .. WARNING:: kqueue is a very heavyweight way to monitor file systems.
@@ -70,10 +70,12 @@ from watchdog.events import (
     EVENT_TYPE_CREATED,
     EVENT_TYPE_DELETED,
     EVENT_TYPE_MOVED,
+    DirAttribEvent,
     DirCreatedEvent,
     DirDeletedEvent,
     DirModifiedEvent,
     DirMovedEvent,
+    FileAttribEvent,
     FileCreatedEvent,
     FileDeletedEvent,
     FileModifiedEvent,
@@ -85,11 +87,11 @@ from watchdog.utils import platform
 from watchdog.utils.dirsnapshot import DirectorySnapshot
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
-    from typing import Callable
+    from collections.abc import Callable, Generator
 
     from watchdog.events import FileSystemEvent
     from watchdog.observers.api import EventQueue, ObservedWatch
+    from watchdog.utils import Seconds
 
 # Maximum number of events to process.
 MAX_EVENTS = 4096
@@ -387,9 +389,9 @@ class KqueueEmitter(EventEmitter):
     :type watch:
         :class:`watchdog.observers.api.ObservedWatch`
     :param timeout:
-        Read events blocking timeout (in seconds).
+        Read events blocking timeout.
     :type timeout:
-        ``float``
+        ``Seconds``
     :param event_filter:
         Collection of event types to emit, or None for no filtering (default).
     :type event_filter:
@@ -402,7 +404,7 @@ class KqueueEmitter(EventEmitter):
         event_queue: EventQueue,
         watch: ObservedWatch,
         *,
-        timeout: float = DEFAULT_EMITTER_TIMEOUT,
+        timeout: Seconds = DEFAULT_EMITTER_TIMEOUT,
         event_filter: list[type[FileSystemEvent]] | None = None,
         stat: Callable[[str], os.stat_result] = os.stat,
     ) -> None:
@@ -451,6 +453,12 @@ class KqueueEmitter(EventEmitter):
                 # mounted through a file system that does not support
                 # access to it (e.g. NFS). On BSD systems look at
                 # EOPNOTSUPP in man 2 open.
+                pass
+            elif e.errno in {errno.EACCES, errno.EPERM}:
+                # The path is not readable by the current user, e.g. a file
+                # created by another user in a world-writable directory such
+                # as /tmp. We cannot watch it, but that must not kill the
+                # emitter thread: the event itself was already queued.
                 pass
             else:
                 # All other errors are propagated.
@@ -512,9 +520,9 @@ class KqueueEmitter(EventEmitter):
             )
         elif is_attrib_modified(kev):
             if descriptor.is_directory:
-                yield DirModifiedEvent(src_path)
+                yield DirAttribEvent(src_path)
             else:
-                yield FileModifiedEvent(src_path)
+                yield FileAttribEvent(src_path)
         elif is_modified(kev):
             if descriptor.is_directory:
                 if self.watch.is_recursive or self.watch.path == src_path:
@@ -590,25 +598,25 @@ class KqueueEmitter(EventEmitter):
                 yield FileDeletedEvent(src_path)
             yield self._parent_dir_modified(src_path)
 
-    def _read_events(self, timeout: float) -> list[select.kevent]:
+    def _read_events(self, timeout: Seconds) -> list[select.kevent]:
         """Reads events from a call to the blocking
         :meth:`select.kqueue.control()` method.
 
         :param timeout:
             Blocking timeout for reading events.
         :type timeout:
-            ``float`` (seconds)
+            ``Seconds``
         """
         return self._kq.control(self._descriptors.kevents, MAX_EVENTS, timeout)
 
-    def queue_events(self, timeout: float) -> None:
+    def queue_events(self, timeout: Seconds) -> None:
         """Queues events by reading them from a call to the blocking
         :meth:`select.kqueue.control()` method.
 
         :param timeout:
             Blocking timeout for reading events.
         :type timeout:
-            ``float`` (seconds)
+            ``Seconds``
         """
         with self._lock:
             try:
@@ -651,5 +659,5 @@ class KqueueObserver(BaseObserver):
     calls to event handlers.
     """
 
-    def __init__(self, *, timeout: float = DEFAULT_OBSERVER_TIMEOUT) -> None:
+    def __init__(self, *, timeout: Seconds = DEFAULT_OBSERVER_TIMEOUT) -> None:
         super().__init__(KqueueEmitter, timeout=timeout)

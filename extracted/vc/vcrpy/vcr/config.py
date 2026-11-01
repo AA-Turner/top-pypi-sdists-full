@@ -2,11 +2,13 @@ import copy
 import functools
 import inspect
 import os
+import re
 import types
 from collections import abc as collections_abc
 
 from . import filters, matchers
 from .cassette import Cassette
+from .patch import validate_skip_patchers
 from .persisters.filesystem import FilesystemPersister
 from .record_mode import RecordMode, validate_record_mode
 from .serializers import jsonserializer, yamlserializer
@@ -40,6 +42,7 @@ class VCR:
         filter_headers=(),
         before_record_response=None,
         filter_post_data_parameters=(),
+        filter_nested_post_data_parameters=False,
         match_on=("method", "scheme", "host", "port", "path", "query"),
         before_record=None,
         inject_cassette=False,
@@ -52,6 +55,7 @@ class VCR:
         filter_sensitive_data=(),
         before_save_interaction=None,
         after_load_interaction=None,
+        skip_patchers=(),
     ):
         self.serializer = serializer
         self.match_on = match_on
@@ -75,6 +79,7 @@ class VCR:
         self.filter_headers = filter_headers
         self.filter_query_parameters = filter_query_parameters
         self.filter_post_data_parameters = filter_post_data_parameters
+        self.filter_nested_post_data_parameters = filter_nested_post_data_parameters
         self.before_record_request = before_record_request or before_record
         self.before_record_response = before_record_response
         self.ignore_hosts = ignore_hosts
@@ -89,6 +94,7 @@ class VCR:
         self.filter_sensitive_data = filter_sensitive_data
         self.before_save_interaction = before_save_interaction
         self.after_load_interaction = after_load_interaction
+        self.skip_patchers = validate_skip_patchers(skip_patchers)
 
     def _get_serializer(self, serializer_name):
         try:
@@ -165,6 +171,7 @@ class VCR:
             "filter_sensitive_data": kwargs.get("filter_sensitive_data", self.filter_sensitive_data),
             "before_save_interaction": kwargs.get("before_save_interaction", self.before_save_interaction),
             "after_load_interaction": kwargs.get("after_load_interaction", self.after_load_interaction),
+            "skip_patchers": kwargs.get("skip_patchers", self.skip_patchers),
         }
         path = kwargs.get("path")
         if path:
@@ -202,6 +209,10 @@ class VCR:
             "filter_post_data_parameters",
             self.filter_post_data_parameters,
         )
+        filter_nested_post_data_parameters = options.get(
+            "filter_nested_post_data_parameters",
+            self.filter_nested_post_data_parameters,
+        )
         before_record_request = options.get(
             "before_record_request",
             options.get("before_record", self.before_record_request),
@@ -219,7 +230,11 @@ class VCR:
         if filter_post_data_parameters:
             replacements = [p if isinstance(p, tuple) else (p, None) for p in filter_post_data_parameters]
             filter_functions.append(
-                functools.partial(filters.replace_body_parameters, replacements=replacements),
+                functools.partial(
+                    filters.replace_body_parameters,
+                    replacements=replacements,
+                    recursive=filter_nested_post_data_parameters,
+                ),
             )
 
         hosts_to_ignore = set(ignore_hosts)
@@ -245,8 +260,14 @@ class VCR:
 
     @staticmethod
     def _build_ignore_hosts(hosts_to_ignore):
+        # Strings are host names; compiled patterns match whole host names.
+        patterns = [host for host in hosts_to_ignore if isinstance(host, re.Pattern)]
+        names = {host for host in hosts_to_ignore if not isinstance(host, re.Pattern)}
+
         def filter_ignored_hosts(request):
-            if hasattr(request, "host") and request.host in hosts_to_ignore:
+            if hasattr(request, "host") and (
+                request.host in names or any(pattern.fullmatch(request.host) for pattern in patterns)
+            ):
                 return
             return request
 

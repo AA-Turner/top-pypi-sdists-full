@@ -334,7 +334,7 @@ def _fix_command(version: str) -> str:
     if shutil.which("uv") is None:
         return install_pipeline.UV_INSTALL + "; then npx probe-research repair"
     try:
-        from probe._shared import installs
+        from probe.shared.updates import installs
 
         if install_pipeline.layout_usable(installs.tool_dir()):
             return "npx probe-research repair"
@@ -368,7 +368,7 @@ def _repair_layout() -> str:
     from . import install_pipeline
 
     try:
-        from probe._shared import handoff, installs
+        from probe.shared.updates import handoff, installs
 
         lines = []
         tools = installs.tool_dir()
@@ -378,7 +378,7 @@ def _repair_layout() -> str:
         if not installs.versions_root(tools).is_dir():
             return ""
         with handoff.install_lock(installs.versions_root(tools), wait_s=0):
-            from probe._shared import uninstall_barrier
+            from probe.shared.updates import uninstall_barrier
 
             cleared = uninstall_barrier.clear_stale()  # under the lock: no uninstall runs now
             if cleared:
@@ -408,7 +408,7 @@ def verify_installed() -> BootstrapResult | None:
     from . import install_pipeline
 
     try:
-        from probe._shared import installs
+        from probe.shared.updates import installs
 
         tools = installs.tool_dir()
         state = installs.tool_state(tools)
@@ -451,7 +451,7 @@ def verify_installed() -> BootstrapResult | None:
 def _latest_release() -> str | None:
     """The newest CLI the release manifest names, or None (offline, no route)."""
     try:
-        from probe import version_policy
+        from probe.shared.updates import version_policy
 
         from . import updater
 
@@ -477,7 +477,7 @@ def _install_managed(version: str) -> BootstrapResult | None:
         return BootstrapResult(False, False, f"! could not install `probe`: {install_pipeline.no_uv_message(wanted)}",
                                refused=True)
     try:
-        from probe._shared import installs
+        from probe.shared.updates import installs
 
         tools = installs.tool_dir()
         usable = install_pipeline.layout_usable(tools)
@@ -518,7 +518,7 @@ def _install_managed(version: str) -> BootstrapResult | None:
 
 def installs_offline() -> bool:
     """uv runs offline (`UV_OFFLINE`, any value uv reads as true)."""
-    from probe._shared import installs
+    from probe.shared.updates import installs
 
     return installs.uv_offline()
 

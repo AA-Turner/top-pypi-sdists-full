@@ -17,8 +17,8 @@ import weakref
 
 import pytest
 
-from probe.sdk import outputs
-from probe.sdk.run import _beat_forever
+from probe.sdk.capture import outputs
+from probe.sdk.run.closing.heartbeat import _beat_forever
 from tests.conftest import make_client, open_run
 
 
@@ -28,7 +28,7 @@ def reporter(app, monkeypatch, tmp_path):
     run's recorded context from config; here it hands back a fake-backed client
     of the same shape (client, journal)."""
     client = make_client(app, tmp_spool=tmp_path / "outbox")
-    monkeypatch.setattr(outputs, "_recovery_client", lambda record: (client, client.journal))
+    monkeypatch.setattr(outputs.recovery, "_recovery_client", lambda record: (client, client.journal))
     return client
 
 

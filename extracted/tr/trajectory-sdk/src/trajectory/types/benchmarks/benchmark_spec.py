@@ -16,8 +16,6 @@ class BenchmarkSpec(BaseModel):
 
   visibility: Literal["public", "private"] = "private"
 
-  family: str | None = None
-
   runtime: RuntimeSpec | None = None
 
   tasks: list[TaskSpec]

@@ -31,7 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 
 from .backfill import REFERENCE_ABOVE_BYTES, _embedded_summaries
 from .backfill_evidence import Evidence, Tier

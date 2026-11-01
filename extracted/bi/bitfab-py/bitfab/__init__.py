@@ -154,6 +154,7 @@ from bitfab.spans import (
 )
 from bitfab.traces import (
     AssertionCode,
+    AssertionCodeDraft,
     AssertionEvidenceError,
     AssertionEvidenceParameter,
     AssertionEvidenceParameterType,
@@ -229,6 +230,7 @@ __all__ = [
     "AssertionCategory",
     "AssertionCategorySummary",
     "AssertionCode",
+    "AssertionCodeDraft",
     "AssertionEvidenceError",
     "AssertionEvidenceParameter",
     "AssertionEvidenceParameterType",

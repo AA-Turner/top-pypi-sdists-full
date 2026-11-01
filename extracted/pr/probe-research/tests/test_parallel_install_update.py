@@ -15,7 +15,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli import claude_cli, updater, upgrading
+from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+from probe.cli import updater, upgrading
 from probe.cli import setup as wizard
 from probe.cli.capabilities import Capability
 
@@ -92,8 +93,9 @@ def test_a_live_run_defers_every_agents_update_for_a_day_at_most(
 ):
     import time
 
-    from probe import version_policy
-    from probe.cli import autoupdate, run_lock, update_report
+    from probe.shared.updates import version_policy
+    from probe.cli import autoupdate, run_lock
+    from probe.shared.updates import update_report
 
     for name, sub in (("HOME", "home"), ("XDG_STATE_HOME", "state"), ("XDG_CONFIG_HOME", "config"),
                       ("CLAUDE_CONFIG_DIR", "claude"), ("CODEX_HOME", "codex"), ("PI_CODING_AGENT_DIR", "pi")):
@@ -161,7 +163,7 @@ def test_a_batch_without_an_allowance_installs_nothing_early(monkeypatch):
 def test_the_install_plan_keeps_each_agents_order_and_leaves_a_legacy_tap_to_its_step(monkeypatch):
     import importlib
 
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
     from probe.cli.capabilities import Capabilities
 
     main = importlib.import_module("probe.cli.main")
@@ -178,7 +180,7 @@ def test_the_install_plan_keeps_each_agents_order_and_leaves_a_legacy_tap_to_its
 
 
 def test_kimi_is_asked_its_version_once_per_binary(monkeypatch, tmp_path):
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     binary = tmp_path / "kimi"
     binary.write_text("#!/bin/sh\necho 2.3.4\n")
@@ -203,7 +205,8 @@ def test_a_pass_that_raises_fails_only_its_own_agent(one_update, monkeypatch):
     pass that raised is recorded and answered as the failure, so the run's
     merged record and report do not say ok. Nothing rises (plan A3, I7): the
     update's other steps (the wizard's registration, its summary) go on."""
-    from probe.cli import autoupdate, update_report
+    from probe.cli import autoupdate
+    from probe.shared.updates import update_report
 
     recorded: list[tuple[str | None, autoupdate.Attempt]] = []
     reports: list[dict] = []
@@ -253,7 +256,7 @@ def test_a_hung_agent_fails_alone_at_its_deadline(one_update, monkeypatch, short
     """Codex's plugin step hangs (`codex plugin list` that never answers):
     at its deadline it is failed and left running; the CLI's step and Claude
     Code's finish, and every pass is recorded and reported."""
-    from probe.cli import update_report
+    from probe.shared.updates import update_report
 
     recorded, reports = _recording(monkeypatch)
     monkeypatch.setattr(updater, "update_plugin", lambda *a: _plugin_result("claude_code"))
@@ -275,7 +278,7 @@ def test_a_component_past_its_deadline_has_its_processes_stopped(one_update, mon
     """Codex's step hangs inside `codex plugin list`: at the deadline that
     process's whole group is killed, and the step starts nothing more -- it
     must not go on changing plugins after the update has moved on."""
-    from probe.cli import claude_cli
+    from probe.shared.harness.harnesses.claude_code import binary as claude_cli
 
     _recording(monkeypatch)
     pidfile = tmp_path / "pid"
@@ -343,7 +346,7 @@ def test_ctrl_c_or_the_services_sigterm_leaves_no_tracked_process(tmp_path, sig)
     import subprocess
     import sys
 
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
 
     script = tmp_path / "update.py"
     script.write_text(_SIGNALLED_UPDATE)
@@ -478,7 +481,7 @@ def test_an_install_that_raises_does_not_fail_the_refresh(monkeypatch):
 def test_kimi_is_run_by_its_path_name_for_a_version_managers_shim(monkeypatch, tmp_path):
     """A shim decides what to run by the name it is called with: run the PATH
     entry, never the program it links to."""
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     shared = tmp_path / "shim"
     shared.write_text('#!/bin/sh\n[ "$(basename "$0")" = kimi ] && echo 2.3.4 || echo 9.9.9\n')

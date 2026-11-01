@@ -18,8 +18,8 @@ import weakref
 import pytest
 
 from probe.sdk import run as run_mod
-from probe.sdk.run import _beat_forever, _Progress
-from probe.sdk.transport import LEASES_HEADER
+from probe.sdk.run.closing.heartbeat import _beat_forever, _Progress
+from probe.sdk.delivery.transport.transport import LEASES_HEADER
 from tests.conftest import make_client, open_run
 
 
@@ -350,8 +350,8 @@ def test_a_deferred_finish_beats_even_when_its_budget_is_spent(app, tmp_path, mo
     Here the budget is spent on purpose before the beat. The beat gets a budget
     of its own: at least `_DRAINING_BEAT_MIN_SECONDS`, at most
     `_CLOSE_BEAT_SECONDS`."""
-    from probe.sdk import transport
-    from probe.sdk.client import Client
+    from probe.sdk.delivery import transport
+    from probe.sdk.client.client import Client
 
     client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True)
     run = _open(client)
@@ -529,7 +529,7 @@ def test_an_attached_job_that_owns_the_verdict_holds_an_owner_lease(client, app)
 
 
 def test_a_job_under_a_finalizing_launcher_is_a_rank(client, app, monkeypatch):
-    from probe.sdk.run import EXEC_FINALIZES_ENV
+    from probe.sdk.run.launch.execute import EXEC_FINALIZES_ENV
 
     launcher = _open(client, launcher=True)
     monkeypatch.setenv(EXEC_FINALIZES_ENV, launcher.id)
@@ -563,9 +563,9 @@ def test_a_wrong_death_report_heals_under_the_writers_own_lease(client, app, tmp
     """2.2's report was wrong: the owner's beat lands on the crashed row, its
     keep-epoch recovery reopens the run under its own lease (reviving it), and
     its finish then closes the run `completed`, not `crashed`."""
-    from probe.sdk import outputs
+    from probe.sdk.capture import outputs
 
-    monkeypatch.setattr(outputs, "_recovery_client", lambda record: (client, client.journal))
+    monkeypatch.setattr(outputs.recovery, "_recovery_client", lambda record: (client, client.journal))
     run = _open(client)
     run.stop_heartbeat()
     capture = outputs.OutputCapture(
@@ -615,7 +615,7 @@ def test_a_deferred_close_queues_its_verdict_before_the_draining_beat(app, tmp_p
     """A pre-empted job may be killed at any moment of its close: the verdict
     is on disk before the draining beat goes out, and that beat is bounded
     (review of #2060)."""
-    from probe.sdk.transport import deadline_remaining
+    from probe.sdk.delivery.transport.deadlines import deadline_remaining
 
     client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True)
     run = _open(client)

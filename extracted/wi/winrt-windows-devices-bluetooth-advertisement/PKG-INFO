@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: winrt-Windows.Devices.Bluetooth.Advertisement
-Version: 4!10.0.28000.2705
+Version: 4!10.0.28000.2957
 Summary: PyWinRT projection of the Windows.Devices.Bluetooth.Advertisement namespace
 Project-URL: Documentation, https://pywinrt.readthedocs.io
 Project-URL: Repository, https://github.com/pywinrt/pywinrt
@@ -19,15 +19,15 @@ Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Typed
 Requires-Python: >=3.11
-Requires-Dist: winrt-runtime<5,>=4.0.0
-Requires-Dist: winrt-windows-foundation-collections>=4!10.0.28000.2705
-Requires-Dist: winrt-windows-foundation>=4!10.0.28000.2705
-Requires-Dist: winrt-windows-storage-streams>=4!10.0.28000.2705
+Requires-Dist: winrt-runtime<5,>=4.1.0
+Requires-Dist: winrt-windows-foundation-collections>=4!10.0.28000.2957
+Requires-Dist: winrt-windows-foundation>=4!10.0.28000.2957
+Requires-Dist: winrt-windows-storage-streams>=4!10.0.28000.2957
 Provides-Extra: all
-Requires-Dist: winrt-windows-devices-bluetooth[all]>=4!10.0.28000.2705; extra == 'all'
-Requires-Dist: winrt-windows-foundation-collections[all]>=4!10.0.28000.2705; extra == 'all'
-Requires-Dist: winrt-windows-foundation[all]>=4!10.0.28000.2705; extra == 'all'
-Requires-Dist: winrt-windows-storage-streams[all]>=4!10.0.28000.2705; extra == 'all'
+Requires-Dist: winrt-windows-devices-bluetooth[all]>=4!10.0.28000.2957; extra == 'all'
+Requires-Dist: winrt-windows-foundation-collections[all]>=4!10.0.28000.2957; extra == 'all'
+Requires-Dist: winrt-windows-foundation[all]>=4!10.0.28000.2957; extra == 'all'
+Requires-Dist: winrt-windows-storage-streams[all]>=4!10.0.28000.2957; extra == 'all'
 Description-Content-Type: text/markdown
 
 <!-- warning: Please don't edit this file. It was automatically generated. -->
@@ -38,7 +38,7 @@ Windows Runtime (WinRT) APIs for the `Windows.Devices.Bluetooth.Advertisement` n
 
 This package provides the `winrt.windows.devices.bluetooth.advertisement` module.
 
-The WinRT APIs in it are those of version 10.0.28000.2705 of the
+The WinRT APIs in it are those of version 10.0.28000.2957 of the
 `Microsoft.Windows.SDK.CPP` NuGet package.
 
 ```

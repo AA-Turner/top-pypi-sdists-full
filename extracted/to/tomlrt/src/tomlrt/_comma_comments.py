@@ -14,7 +14,7 @@ from collections.abc import MutableMapping
 from typing import TYPE_CHECKING, Generic, TypeVar
 
 if sys.version_info >= (3, 12):
-    from typing import override
+    from typing import override  # pragma: no cover -- Python >= 3.12
 else:  # pragma: no cover -- backport for Python < 3.12
     from typing_extensions import override
 
@@ -38,13 +38,14 @@ from tomlrt._comment_text import (
     _validate_comment_str,
 )
 from tomlrt._trivia import leading_break, split_eol_section, split_lines
+from tomlrt._values import CommaItem
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from tomlrt._values import CommaItem, CommaValue
+    from tomlrt._values import CommaValue
 
-_ItemT = TypeVar("_ItemT", bound="CommaItem")
+_ItemT = TypeVar("_ItemT", bound=CommaItem)
 _KeyT = TypeVar("_KeyT")
 _ValueT = TypeVar("_ValueT")
 

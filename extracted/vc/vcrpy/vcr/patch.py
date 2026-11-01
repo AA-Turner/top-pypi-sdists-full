@@ -137,6 +137,36 @@ else:
     _Httpx2MockTransport_handle_async_request = httpx2.MockTransport.handle_async_request
 
 
+# Names of the patcher groups built by CassettePatcherBuilder.build().
+# These are the accepted values for the ``skip_patchers`` option, which
+# lets users turn off patching for individual HTTP libraries -- for
+# example, skipping "httpx" when a layered client (such as httpx-aiohttp)
+# would otherwise be recorded twice: once by the httpx patcher and once
+# by the patcher for the transport library underneath it.
+PATCHER_NAMES = (
+    "httplib",
+    "requests",
+    "boto3",
+    "urllib3",
+    "httplib2",
+    "tornado",
+    "aiohttp",
+    "httpx",
+    "httpx2",
+)
+
+
+def validate_skip_patchers(skip_patchers):
+    skip_patchers = tuple(skip_patchers)
+    unknown = sorted(set(skip_patchers) - set(PATCHER_NAMES))
+    if unknown:
+        raise ValueError(
+            f"Unknown patcher(s) in skip_patchers: {', '.join(unknown)}. "
+            f"Valid patcher names are: {', '.join(PATCHER_NAMES)}",
+        )
+    return skip_patchers
+
+
 class CassettePatcherBuilder:
     def _build_patchers_from_mock_triples_decorator(function):
         @functools.wraps(function)
@@ -150,16 +180,20 @@ class CassettePatcherBuilder:
         self._class_to_cassette_subclass = {}
 
     def build(self):
+        skip = set(getattr(self._cassette, "skip_patchers", ()))
+        groups = (
+            ("httplib", self._httplib),
+            ("requests", self._requests),
+            ("boto3", self._boto3),
+            ("urllib3", self._urllib3),
+            ("httplib2", self._httplib2),
+            ("tornado", self._tornado),
+            ("aiohttp", self._aiohttp),
+            ("httpx", self._httpx),
+            ("httpx2", self._httpx2),
+        )
         return itertools.chain(
-            self._httplib(),
-            self._requests(),
-            self._boto3(),
-            self._urllib3(),
-            self._httplib2(),
-            self._tornado(),
-            self._aiohttp(),
-            self._httpx(),
-            self._httpx2(),
+            *(builder() for name, builder in groups if name not in skip),
             self._build_patchers_from_mock_triples(self._cassette.custom_patches),
         )
 
@@ -532,9 +566,25 @@ class CassettePatcherBuilder:
             ),
         )
 
+        connection_removers = [http_connection_remover, https_connection_remover]
+        if hasattr(stubs, "VCRRequestsSOCKSConnection"):
+            # Pools for SOCKS proxies use their own connection classes (#547, #548).
+            from urllib3.contrib import socks
+
+            for pool_class, stub in (
+                (socks.SOCKSHTTPConnectionPool, stubs.VCRRequestsSOCKSConnection),
+                (socks.SOCKSHTTPSConnectionPool, stubs.VCRRequestsSOCKSHTTPSConnection),
+            ):
+                connection_remover = ConnectionRemover(self._get_cassette_subclass(stub))
+                connection_removers.append(connection_remover)
+                mock_triples += (
+                    (pool_class, "ConnectionCls", stub),
+                    (pool_class, "_new_conn", self._patched_new_conn(pool_class, connection_remover)),
+                )
+
         return itertools.chain(
             self._build_patchers_from_mock_triples(mock_triples),
-            (http_connection_remover, https_connection_remover),
+            connection_removers,
         )
 
 
@@ -707,9 +757,22 @@ def reset_patchers():
         )
 
 
+def _undo_reset(patcher, target, attribute, reset_to):
+    replaced_by = getattr(target, attribute, reset_to)
+    patcher.__exit__(None, None, None)
+    # A reset window is a suspended generator, so an abandoned one is unwound by
+    # the collector -- inside whatever cassette is running by then. Keep that
+    # cassette's patches: they are newer than the originals the patcher saved.
+    if replaced_by is not reset_to:
+        setattr(target, attribute, replaced_by)
+
+
 @contextlib.contextmanager
 def force_reset():
+    """Temporarily put back the real classes a cassette replaced."""
     with contextlib.ExitStack() as exit_stack:
         for patcher in reset_patchers():
-            exit_stack.enter_context(patcher)
+            patcher.__enter__()
+            target, attribute = patcher.target, patcher.attribute
+            exit_stack.callback(_undo_reset, patcher, target, attribute, getattr(target, attribute))
         yield

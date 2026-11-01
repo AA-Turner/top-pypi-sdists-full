@@ -17,12 +17,10 @@ import os
 
 import pytest
 
-from probe.sdk.snapshot import (
-    build_pending_archive,
-    capture_directory_manifest,
-    capture_manifest,
-)
-from probe.sdk.restore import restore_snapshot
+from probe.sdk.capture.code.archive import build_pending_archive
+from probe.sdk.capture.code.sources.directory import capture_directory_manifest
+from probe.sdk.capture.code.sources.git import capture_manifest
+from probe.sdk.run.readback.restore import restore_snapshot
 from tests.conftest import open_run
 
 
@@ -110,7 +108,7 @@ def test_modes_and_symlinks_survive(project):
 
 
 def test_a_missing_directory_raises(tmp_path):
-    from probe.sdk.snapshot import SnapshotError
+    from probe.sdk.capture.code.code import SnapshotError
 
     with pytest.raises(SnapshotError, match="not a directory"):
         capture_directory_manifest(str(tmp_path / "nope"))
@@ -180,7 +178,7 @@ def test_snapshot_of_a_non_git_dir_records_no_commit(client, app, project):
 
 
 def test_a_workspace_sized_directory_is_refused_not_hashed(tmp_path):
-    from probe.sdk.snapshot import SnapshotTooLarge
+    from probe.sdk.capture.code.code import SnapshotTooLarge
 
     root = tmp_path / "workspace"
     root.mkdir()
@@ -197,7 +195,7 @@ def test_the_ceiling_is_checked_during_the_walk_not_after(tmp_path, monkeypatch)
     Pinned by counting sha256 reads: a ceiling enforced on the finished manifest
     would hash all twelve files before deciding it did not want them.
     """
-    from probe.sdk import snapshot as snapshot_mod
+    from probe.sdk.capture import code as snapshot_mod
 
     root = tmp_path / "workspace"
     root.mkdir()
@@ -207,7 +205,7 @@ def test_the_ceiling_is_checked_during_the_walk_not_after(tmp_path, monkeypatch)
     hashed = []
     real = snapshot_mod._file_sha256
     monkeypatch.setattr(
-        snapshot_mod,
+        snapshot_mod.archive,
         "_file_sha256",
         lambda p, *a, **kw: (hashed.append(p), real(p, *a, **kw))[1],
     )
@@ -220,7 +218,7 @@ def test_the_ceiling_is_checked_during_the_walk_not_after(tmp_path, monkeypatch)
 
 def test_an_ordinary_project_is_nowhere_near_the_default_ceiling(project):
     """The ceiling must not turn into a gate on real work."""
-    from probe.sdk.snapshot import DEFAULT_MAX_DIRECTORY_ENTRIES
+    from probe.sdk.capture.code.sources.directory import DEFAULT_MAX_DIRECTORY_ENTRIES
 
     m = capture_directory_manifest(str(project))
     assert 0 < len(m["entries"]) < DEFAULT_MAX_DIRECTORY_ENTRIES
@@ -243,7 +241,7 @@ def test_include_reaches_the_non_git_path(project):
 
 
 def test_probeignore_prunes_the_walk_and_never_re_includes_a_secret(project):
-    from probe.sdk import ignore
+    from probe.sdk.recording_rules import ignore
 
     (project / "scratch" / "deep").mkdir(parents=True)
     (project / "scratch" / "deep" / "a.py").write_text("x = 1\n")

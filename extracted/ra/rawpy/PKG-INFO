@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rawpy
-Version: 0.27.1
+Version: 0.28.0
 Summary: RAW image processing for Python, a wrapper for libraw
 Author: Maik Riechert
 License-Expression: MIT
@@ -14,19 +14,18 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE.LibRaw
@@ -35,7 +34,8 @@ Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: imageio>=2.21; extra == "test"
 Requires-Dist: mypy; extra == "test"
-Requires-Dist: scikit-image; extra == "test"
+Requires-Dist: scikit-image; python_version < "3.15" and extra == "test"
+Requires-Dist: scikit-image==0.27.0rc1; python_version >= "3.15" and extra == "test"
 Dynamic: license-file
 
 <p align="center">

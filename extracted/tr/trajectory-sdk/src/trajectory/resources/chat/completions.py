@@ -7,7 +7,7 @@ from typing import Any, Iterable, Literal, Mapping, overload
 
 import httpx2
 
-from trajectory._base_client import make_request_options, serialize_header
+from trajectory._base_client import DEFAULT_TIMEOUT, make_request_options, serialize_header
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
 from trajectory._streaming import Stream
@@ -108,8 +108,11 @@ class Completions(APIResource):
 
       extra_body: Add additional JSON properties to the request
 
-      timeout: Override the client-level default timeout for this request, in seconds
+      timeout: Override the default timeout, in seconds; Default timeout is 90 mins for this endpoint
     """
+    if isinstance(timeout, NotGiven):
+      timeout = httpx2.Timeout(DEFAULT_TIMEOUT)
+      timeout.read = 90 * 60
     return self._post(
       "/v1/chat/completions",
       cast_to=ChatCompletionResponse,

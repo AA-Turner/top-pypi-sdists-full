@@ -26,14 +26,14 @@ import tarfile
 
 import pytest
 
-from probe.sdk import snapshot as _snapshot
-from probe.sdk.snapshot import (
+from probe.sdk.capture import code as _snapshot
+from probe.sdk.capture.code.code import (
     SnapshotError,
-    SnapshotTooLarge,
+    SnapshotTooLarge)
+from probe.sdk.capture.code.archive import (
     build_pending_archive,
-    capture_manifest,
-    pending_entries,
-)
+    pending_entries)
+from probe.sdk.capture.code.sources.git import capture_manifest
 from tests.conftest import open_run
 
 
@@ -266,7 +266,7 @@ def test_missing_and_changed_are_both_named_in_one_summary(repo, tmp_path):
 
 
 def test_the_drift_message_names_five_paths_then_counts_the_rest():
-    from probe.sdk.snapshot import _partial_archive_message
+    from probe.sdk.capture.code.archive import _partial_archive_message
 
     five = [f"gone{i}.txt" for i in range(5)]
     assert "+" not in _partial_archive_message(five, [])
@@ -277,7 +277,7 @@ def test_the_drift_message_names_five_paths_then_counts_the_rest():
 
 
 def test_the_hashing_reader_digests_exactly_what_passes_through_it():
-    from probe.sdk.snapshot import _HashingReader
+    from probe.sdk.capture.code.archive import _HashingReader
 
     payload = bytes(range(256)) * 300
     whole = _HashingReader(io.BytesIO(payload))
@@ -333,7 +333,7 @@ def test_a_refusal_survives_a_failed_cleanup_of_the_partial_archive(repo, tmp_pa
     """The SnapshotError must still propagate when the partial archive cannot
     be removed: the caller's fail-open handling is keyed on RosError, and an
     escaping OSError would crash the run instead of warning."""
-    import probe.sdk.snapshot as _snapshot_mod
+    import probe.sdk.capture.code as _snapshot_mod
 
     manifest = capture_manifest(str(repo))
     del next(e for e in manifest["entries"] if e["path"] == "notes.txt")["sha256"]
@@ -360,7 +360,7 @@ def _drifted_snapshot(client, repo, monkeypatch, mutate, **kw):
         mutate()
         return real(cwd, manifest, dest, **kwargs)
 
-    monkeypatch.setattr(_snapshot, "build_pending_archive", drifted)
+    monkeypatch.setattr(_snapshot.archive, "build_pending_archive", drifted)
     return run, run.snapshot(cwd=str(repo), include_env=False, include_gpu=False, **kw)
 
 
@@ -415,7 +415,7 @@ def test_a_malformed_manifest_is_fail_open_and_names_itself(client, app, repo, m
         del next(e for e in manifest["entries"] if e["path"] == "notes.txt")["sha256"]
         return real(cwd, manifest, dest, **kwargs)
 
-    monkeypatch.setattr(_snapshot, "build_pending_archive", malformed)
+    monkeypatch.setattr(_snapshot.archive, "build_pending_archive", malformed)
     run = open_run(client, experiment="e", name="r")
     with pytest.warns(UserWarning, match=r"upload failed.*notes\.txt.*malformed"):
         snap = run.snapshot(cwd=str(repo), include_env=False, include_gpu=False)
@@ -443,7 +443,7 @@ def test_a_storage_failure_in_fail_open_mode_does_not_read_as_stored(client, app
 def test_a_spooled_write_still_names_the_drifted_file(client, app, repo, monkeypatch):
     import warnings
 
-    from probe.sdk.run import Run
+    from probe.sdk.run.run import Run
 
     original = Run.log_artifact
 
@@ -462,7 +462,7 @@ def test_a_spooled_write_still_names_the_drifted_file(client, app, repo, monkeyp
 
 
 def test_the_drifted_list_is_capped_but_the_count_is_not(client, app, repo, monkeypatch):
-    from probe.sdk.snapshot import DRIFTED_META_LIMIT
+    from probe.sdk.capture.code.archive import DRIFTED_META_LIMIT
 
     for i in range(60):
         (repo / f"gone{i:02d}.txt").write_text("x\n")

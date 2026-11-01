@@ -10,6 +10,8 @@
     :license: BSD, see LICENSE for more details.
 """
 
+import base64
+import concurrent.futures
 import contextlib
 import io
 import json
@@ -23,38 +25,26 @@ import operator
 import argparse
 import subprocess
 import tarfile
-if sys.version_info < (3, 3):
-    from pipes import quote as _quote
-else:
-    from shlex import quote as _quote
+import time
+from shlex import quote as _quote
 import platform
 import zipfile
 import shutil
+import socket
 import sysconfig
 import glob
 
-try:  # pragma: no cover (py2 only)
-    from ConfigParser import SafeConfigParser as ConfigParser  # pyright: ignore[reportMissingImports]  # noqa: E501
-    # noinspection PyCompatibility
-    import urllib2  # pyright: ignore[reportMissingImports]
-    iteritems = operator.methodcaller('iteritems')
-    import httplib  # pyright: ignore[reportMissingImports]
-    IncompleteRead = httplib.IncompleteRead
-except ImportError:  # pragma: no cover (py3 only)
-    from configparser import ConfigParser
-    # noinspection PyUnresolvedReferences
-    import urllib.request as urllib2
-    iteritems = operator.methodcaller('items')
-    import http
-    IncompleteRead = http.client.IncompleteRead
+from configparser import ConfigParser, InterpolationSyntaxError
+from http.client import IncompleteRead
+import urllib.request as urllib2
+from urllib.parse import unquote, urlsplit, urlunsplit
 
-nodeenv_version = '1.11.1'
+nodeenv_version = '1.12.0'
 
 join = os.path.join
 abspath = os.path.abspath
 src_base_url = None
 
-is_PY3 = sys.version_info[0] >= 3
 is_WIN = platform.system() == 'Windows'
 is_CYGWIN = platform.system().startswith(('CYGWIN', 'MSYS'))
 
@@ -62,30 +52,18 @@ ignore_ssl_certs = False
 # SSL context backed by the certifi bundle, built once by main()
 # when --with-certifi is given and certifi is importable
 certifi_context = None
+# Authorization header for src_base_url, built by main() from the
+# user:password@ part of --mirror, which is cut off src_base_url
+src_auth = None
+# Seconds to wait for a server to answer or to send more of the body,
+# so that a stalled download fails instead of hanging forever
+download_timeout = 60
+# Files of the node.js zip archive extracted at once: on Windows, scanners
+# that check every new file make a one by one extraction slow
+extract_workers = 32
 
 # ---------------------------------------------------------
 # Utils
-
-
-# https://github.com/jhermann/waif/blob/master/python/to_uft8.py
-def to_utf8(text):
-    """Convert given text to UTF-8 encoding (as far as possible)."""
-    if not text or is_PY3:
-        return text
-
-    try:           # unicode or pure ascii
-        return text.encode("utf8")
-    except UnicodeDecodeError:
-        try:       # successful UTF-8 decode means it's pretty sure UTF-8
-            text.decode("utf8")
-            return text
-        except UnicodeDecodeError:
-            try:   # get desperate; and yes, this has a western hemisphere bias
-                return text.decode("cp1252").encode("utf8")
-            except UnicodeDecodeError:
-                pass
-
-    return text    # return unchanged, hope for the best
 
 
 class Config(object):
@@ -109,6 +87,7 @@ class Config(object):
     prefer_system = False
     isolate_npm = False
     clean_src = True
+    parallel_extract = True
 
     @classmethod
     def _load(cls, configfiles, verbose=False):
@@ -128,7 +107,7 @@ class Config(object):
             if not ini_file.has_section(section):
                 continue
 
-            for attr, val in iteritems(vars(cls)):
+            for attr, val in vars(cls).items():
                 if attr.startswith('_') or not \
                    ini_file.has_option(section, attr):
                     continue
@@ -136,7 +115,16 @@ class Config(object):
                 if isinstance(val, bool):
                     val = ini_file.getboolean(section, attr)
                 else:
-                    val = ini_file.get(section, attr)
+                    try:
+                        val = ini_file.get(section, attr)
+                    except InterpolationSyntaxError:
+                        # A percent-encoded mirror login, #440
+                        val = ini_file.get(section, attr, raw=True)
+                        if '%(' in val:
+                            raise
+                    # ConfigParser keeps the quotes the README shows, #321
+                    if len(val) > 1 and val[0] == val[-1] and val[0] in '\'"':
+                        val = val[1:-1]
 
                 if verbose:
                     print('CONFIG {0}: {1} = {2}'.format(
@@ -154,12 +142,12 @@ class Config(object):
         """
         print("    [nodeenv]")
         print("    " + "\n    ".join(
-            "%s = %s" % (k, v) for k, v in sorted(iteritems(vars(cls)))
+            "%s = %s" % (k, v) for k, v in sorted(vars(cls).items())
             if not k.startswith('_')))
 
 
 Config._default = dict(
-    (attr, val) for attr, val in iteritems(vars(Config))
+    (attr, val) for attr, val in vars(Config).items()
     if not attr.startswith('_')
 )
 
@@ -414,7 +402,7 @@ def create_logger():
     def emit(self, record):
         msg = self.format(record)
         fs = "%s" if getattr(record, "continued", False) else "%s\n"
-        self.stream.write(fs % to_utf8(msg))
+        self.stream.write(fs % msg)
         self.flush()
     logging.StreamHandler.emit = emit
 
@@ -436,6 +424,47 @@ def create_logger():
 logger = create_logger()
 
 
+class PrintCompletionAction(argparse.Action):
+    """
+    Print the shell completion script made by shtab and exit.
+
+    shtab is imported only here, so nodeenv works without it.
+    """
+    # options completed with file and with directory names
+    file_dests = ('requirements', 'local_requirements', 'config_file',
+                  'make_path')
+    dir_dests = ('python_virtualenv', 'env_dir')
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        try:
+            import shtab
+        except ImportError:
+            parser.error('shtab is not installed, run: '
+                         'pip install "nodeenv[completion]"')
+        if values not in shtab.SUPPORTED_SHELLS or not hasattr(shtab, 'cmd'):
+            parser.error('the installed shtab cannot complete %s, run: '
+                         'pip install -U "nodeenv[completion]"' % values)
+
+        node_versions = 'echo latest; echo lts'
+        if not is_WIN:
+            # system node.js is not supported on Windows
+            node_versions += '; echo system'
+        for action in parser._actions:
+            if action.dest in self.file_dests:
+                action.complete = shtab.FILE
+            elif action.dest in self.dir_dests:
+                action.complete = shtab.DIRECTORY
+            elif action.dest == 'node':
+                action.complete = shtab.cmd(node_versions)
+            elif action.dest == 'npm':
+                action.complete = shtab.cmd('echo latest')
+
+        # complete `nodeenv`, whatever command line started this run
+        parser.prog = 'nodeenv'
+        print(shtab.complete(parser, values))
+        parser.exit()
+
+
 def make_parser():
     """
     Make a command line argument parser.
@@ -445,6 +474,12 @@ def make_parser():
 
     parser.add_argument(
         '--version', action='version', version=nodeenv_version)
+
+    parser.add_argument(
+        '--print-completion', action=PrintCompletionAction,
+        choices=('bash', 'zsh', 'fish'), metavar='SHELL',
+        help='Print the completion script for SHELL (bash, zsh or fish) '
+        'and exit. Needs shtab: pip install "nodeenv[completion]"')
 
     parser.add_argument(
         '-n', '--node', dest='node', metavar='NODE_VER', default=Config.node,
@@ -592,6 +627,17 @@ def make_parser():
         help='Keep "src" directory after installation')
 
     parser.add_argument(
+        '--parallel-extract', dest='parallel_extract',
+        action='store_true', default=Config.parallel_extract,
+        help='Extract the node.js zip archive on Windows, Cygwin and MSYS '
+        '%d files at a time (default)' % extract_workers)
+
+    parser.add_argument(
+        '--no-parallel-extract', dest='parallel_extract',
+        action='store_false',
+        help='Extract the node.js zip archive one file at a time')
+
+    parser.add_argument(
         '--force', dest='force',
         action='store_true', default=False,
         help='Force installation in a pre-existing directory')
@@ -676,8 +722,7 @@ def writefile(dest, content, overwrite=True, append=False):
     """
     Create file and write content in it
     """
-    content = to_utf8(content)
-    if is_PY3 and not isinstance(content, bytes):
+    if not isinstance(content, bytes):
         content = bytes(content, 'utf-8')
     if not os.path.exists(dest):
         logger.debug(' * Writing %s ... ', dest, extra=dict(continued=True))
@@ -858,20 +903,62 @@ def tarfile_open(*args, **kwargs):
         tf.close()
 
 
-def _download_node_file(node_url, n_attempt=3):
+def _download_node_file(node_url, n_attempt=3, delay=3):
     """Do multiple attempts to avoid incomplete data in case
     of unstable network"""
     while n_attempt > 0:
         try:
             return io.BytesIO(urlopen(node_url).read())
-        except IncompleteRead as e:
+        except urllib2.HTTPError:
+            # The server answered, install_node_wrapped() decides what
+            # the status means
+            raise
+        except (IncompleteRead, OSError) as e:
+            # OSError: a connection reset or timed out in the middle
+            # of the body https://github.com/ekalinin/nodeenv/issues/324
             logger.warning(
                 'Incomplete read while reading '
                 'from {} - {}'.format(node_url, e)
             )
             n_attempt -= 1
             if n_attempt == 0:
-                raise e
+                logger.error('Error: cannot download %s: %s' % (node_url, e))
+                sys.exit(1)
+            time.sleep(delay)
+
+
+def _extract_zip(archive, path, names):
+    """
+    Extract the names of a zip archive extract_workers files at a time
+
+    Scanners that check every new file make a one by one extraction take
+    hours on Windows https://github.com/ekalinin/nodeenv/issues/366
+    """
+    # Create the directories first, so that threads never create the same
+    # one: before Python 3.13 zipfile fails if another thread did it first
+    files = [name for name in names if not name.endswith('/')]
+    dirs = set(name for name in names if name.endswith('/'))
+    dirs.update(name.rpartition('/')[0] + '/' for name in files
+                if '/' in name)
+    for name in sorted(dirs):
+        archive.extract(zipfile.ZipInfo(name), path)
+
+    with concurrent.futures.ThreadPoolExecutor(extract_workers) as pool:
+        try:
+            pending = [pool.submit(archive.extract, name, path)
+                       for name in files]
+            while pending:
+                # Wake up now and then: before Python 3.14 Ctrl+C does not
+                # interrupt waiting on a lock on Windows
+                done, pending = concurrent.futures.wait(
+                    pending, timeout=0.1,
+                    return_when=concurrent.futures.FIRST_EXCEPTION)
+                for future in done:
+                    future.result()
+        except BaseException:
+            # Drop the files that have not started yet
+            pool.shutdown(cancel_futures=True)
+            raise
 
 
 def download_node_src(node_url, src_dir, args):
@@ -900,8 +987,10 @@ def download_node_src(node_url, src_dir, args):
             for member in members(archive)
             if re.match(rexp_string, member_name(member)) is None
         ]
+        if (is_WIN or is_CYGWIN) and args.parallel_extract:
+            _extract_zip(archive, src_dir, extract_list)
         # filter= is a tarfile-only argument, zipfile has no such option
-        if sys.version_info >= (3, 12) and not (is_WIN or is_CYGWIN):
+        elif sys.version_info >= (3, 12) and not (is_WIN or is_CYGWIN):
             archive.extractall(src_dir, extract_list, filter="data")
         else:
             archive.extractall(src_dir, extract_list)
@@ -939,28 +1028,53 @@ def _urlopen(req):
         # https://github.com/ekalinin/nodeenv/issues/296
         context = ssl.SSLContext(ssl.PROTOCOL_TLS)
         context.verify_mode = ssl.CERT_NONE
-        return urllib2.urlopen(req, context=context)
+        return urllib2.urlopen(req, context=context,
+                               timeout=download_timeout)
 
     # Use certifi certificates if they were requested and are available
     if certifi_context is not None:
-        return urllib2.urlopen(req, context=certifi_context)
+        return urllib2.urlopen(req, context=certifi_context,
+                               timeout=download_timeout)
 
-    return urllib2.urlopen(req)
+    return urllib2.urlopen(req, timeout=download_timeout)
+
+
+def split_url_auth(url):
+    """
+    Cut user:password@ off the URL, urllib takes it for a part of the host,
+    and return it as a Basic Authorization header.
+    https://github.com/ekalinin/nodeenv/issues/321
+    """
+    parts = urlsplit(url)
+    if parts.username is None:
+        return url, None
+    credentials = '%s:%s' % (unquote(parts.username),
+                             unquote(parts.password or ''))
+    auth = base64.b64encode(credentials.encode('utf-8')).decode('ascii')
+    netloc = parts.netloc.rpartition('@')[2]
+    return urlunsplit(parts._replace(netloc=netloc)), 'Basic ' + auth
 
 
 def urlopen(url):
     home_url = "https://github.com/ekalinin/nodeenv/"
     headers = {'User-Agent': 'nodeenv/%s (%s)' % (nodeenv_version, home_url)}
     req = urllib2.Request(url, None, headers)
+    # the mirror's password is neither for other hosts, like the npm
+    # registry, nor for the ones the mirror redirects to
+    if src_auth and url.startswith(src_base_url):
+        req.add_unredirected_header('Authorization', src_auth)
     try:
         return _urlopen(req)
     except urllib2.HTTPError:
         # The server answered, callers decide what the status means
         raise
-    except urllib2.URLError as e:
+    except (urllib2.URLError, socket.timeout) as e:
         # Nothing was reached at all: a broken proxy, no DNS, no route.
         # https://github.com/ekalinin/nodeenv/issues/229
-        logger.error('Error: cannot download %s: %s' % (url, e.reason))
+        # Or nothing answered in download_timeout seconds: urllib wraps
+        # a timeout into URLError only while it sends the request.
+        logger.error('Error: cannot download %s: %s'
+                     % (url, getattr(e, 'reason', e)))
         proxies = get_proxy_settings()
         if proxies:
             logger.error('Error: check the proxy settings: %s'
@@ -1005,9 +1119,9 @@ def copy_node_from_prebuilt(env_dir, src_dir, node_version):
     else:
         dest = env_dir
 
-    src_folder_tpl = src_dir + to_utf8('/node-v%s*' % node_version)
-    src_folder, = glob.glob(src_folder_tpl)
-    copytree(src_folder, dest, True)
+    src_folder_tpl = glob.escape('node-v%s-' % node_version) + '*'
+    src_folder, = glob.glob(src_folder_tpl, root_dir=src_dir)
+    copytree(join(src_dir, src_folder), dest, True)
 
     if is_CYGWIN:
         for filename in ('npm', 'npx', 'node.exe'):
@@ -1031,24 +1145,28 @@ def build_node_from_src(env_dir, src_dir, node_src_dir, args):
         if value is not None
     ]
 
-    if getattr(sys.version_info, 'major', sys.version_info[0]) > 2:
-        # Currently, the node.js build scripts are using python2.*,
-        # therefore we need to temporarily point python exec to the
-        # python 2.* version in this case.
+    node_version = parse_version(args.node)
+    if node_version < (13, 0):
+        # up to 12.x, ./configure only accepts Python 2.7, so fail early
+        # with a clear error instead of a failed ./configure
         python2_path = shutil.which('python2')
         if not python2_path:
             raise OSError(
-                'Python >=3.0 virtualenv detected, but no python2 '
-                'command (required for building node.js) was found'
+                'no python2 command (required for building '
+                'node.js %s) was found' % args.node
             )
-        logger.debug(' * Temporarily pointing python to %s', python2_path)
-        node_tmpbin_dir = join(src_dir, 'tmpbin')
-        node_tmpbin_link = join(node_tmpbin_dir, 'python')
-        mkdir(node_tmpbin_dir)
-        if not os.path.exists(node_tmpbin_link):
-            callit(['ln', '-s', python2_path, node_tmpbin_link])
-        env['PATH'] = '{}:{}'.format(node_tmpbin_dir,
-                                     os.environ.get('PATH', ''))
+        if node_version < (8, 8):
+            # before 8.8, gyp and make run `python` by name and node does
+            # not point it at Python 2 itself, so point `python` at python2
+            logger.debug(' * Temporarily pointing python to %s',
+                         python2_path)
+            node_tmpbin_dir = join(src_dir, 'tmpbin')
+            node_tmpbin_link = join(node_tmpbin_dir, 'python')
+            mkdir(node_tmpbin_dir)
+            if not os.path.exists(node_tmpbin_link):
+                callit(['ln', '-s', python2_path, node_tmpbin_link])
+            env['PATH'] = '{}:{}'.format(node_tmpbin_dir,
+                                         os.environ.get('PATH', ''))
 
     conf_cmd = [
         './configure',
@@ -1113,7 +1231,7 @@ def report_node_download_error(errors, args):
 
 def install_node_wrapped(env_dir, src_dir, args):
     env_dir = abspath(env_dir)
-    node_src_dir = join(src_dir, to_utf8('node-v%s' % args.node))
+    node_src_dir = join(src_dir, 'node-v%s' % args.node)
     src_type = "prebuilt" if args.prebuilt else "source"
 
     logger.info(' * Install %s node (%s) ' % (src_type, args.node),
@@ -1129,8 +1247,8 @@ def install_node_wrapped(env_dir, src_dir, args):
         # if arm64 not found, try x64
         node_urls.append(node_url.replace('arm64', 'x64'))
 
-    # get src if not downloaded yet
-    if not os.path.exists(node_src_dir):
+    # Only source builds can reuse the source directory.
+    if args.prebuilt or not os.path.exists(node_src_dir):
         errors = []
         # retry outside the handler, so that a second failure is not
         # reported as "during handling of the above exception"
@@ -1186,12 +1304,17 @@ def install_npm(env_dir, _src_dir, args):
 
 def install_npm_win(env_dir, src_dir, args):
     """
-    Download source code for npm, unpack it
+    Download npm as published to the registry, unpack it
     and install it in virtual environment.
     """
     logger.info(' * Install npm.js (%s) ... ' % args.npm,
                 extra=dict(continued=True))
-    npm_url = 'https://github.com/npm/cli/archive/v%s.zip' % args.npm
+    # Not the GitHub source archive: its workspace symlinks unpack as text
+    # files, or the workspaces are missing from it altogether
+    # https://github.com/ekalinin/nodeenv/issues/310
+    npm_meta_url = 'https://registry.npmjs.org/npm/%s' % args.npm
+    npm_meta = json.loads(urlopen(npm_meta_url).read().decode('UTF-8'))
+    npm_url = npm_meta['dist']['tarball']
     npm_contents = io.BytesIO(urlopen(npm_url).read())
 
     bin_path = join(env_dir, 'Scripts')
@@ -1206,10 +1329,14 @@ def install_npm_win(env_dir, src_dir, args):
     if os.path.exists(join(bin_path, 'npm-cli.js')):
         os.remove(join(bin_path, 'npm-cli.js'))
 
-    with zipfile.ZipFile(npm_contents, 'r') as zipf:
-        zipf.extractall(src_dir)
+    npm_src_dir = join(src_dir, 'npm-%s' % npm_meta['version'])
+    with tarfile_open(fileobj=npm_contents) as tarf:
+        if sys.version_info >= (3, 12):
+            tarf.extractall(npm_src_dir, filter="data")
+        else:
+            tarf.extractall(npm_src_dir)
 
-    npm_ver = 'cli-%s' % args.npm
+    npm_ver = join('npm-%s' % npm_meta['version'], 'package')
     shutil.copytree(join(src_dir, npm_ver), node_modules_path)
     shutil.copy(join(src_dir, npm_ver, 'bin', 'npm.cmd'),
                 join(bin_path, 'npm.cmd'))
@@ -1221,9 +1348,8 @@ def install_npm_win(env_dir, src_dir, args):
                     join(env_dir, 'bin', 'npm-cli.js'))
         shutil.copytree(join(bin_path, 'node_modules'),
                         join(env_dir, 'bin', 'node_modules'))
-        npm_gh_url = 'https://raw.githubusercontent.com/npm/cli'
-        npm_bin_url = '{}/{}/bin/npm'.format(npm_gh_url, args.npm)
-        writefile(join(env_dir, 'bin', 'npm'), urlopen(npm_bin_url).read())
+        shutil.copy(join(src_dir, npm_ver, 'bin', 'npm'),
+                    join(env_dir, 'bin', 'npm'))
 
 
 def _read_packages(filenames):
@@ -1274,6 +1400,31 @@ PYTHON_VIRTUALENV_FILES = frozenset((
     'Activate.ps1',
 ))
 
+# the bin/ entry `activate` and `activate.fish` put on PATH: the python
+# venv's own scripts they are appended to put it there already.  Windows
+# keeps it: before python 3.12 the venv's `activate` puts a `C:\...` path
+# there, which git-bash splits at the colon, and the cmd and PowerShell
+# scripts reset PATH to the venv's saved one first
+# https://github.com/ekalinin/nodeenv/issues/332
+# https://github.com/python/cpython/issues/103088
+VENV_BIN_PATH = {
+    'activate': '$NODE_VIRTUAL_ENV/__BIN_NAME__:',
+    'activate.fish': ' "$NODE_VIRTUAL_ENV/__BIN_NAME__"',
+}
+
+
+def is_python_venv_script(file_path, name):
+    """
+    Whether `nodeenv -p` appends to a script of the python venv.  An env
+    without one (conda) gets it written from scratch, starting with the
+    DISABLE_PROMPT part, and a rerun appends to that file
+    """
+    if not os.path.exists(file_path):
+        return False
+    with open(file_path, 'rb') as f:
+        content = f.read()
+    return not content.startswith(DISABLE_PROMPT[name].encode('utf-8'))
+
 
 def install_activate(env_dir, args):
     """
@@ -1318,6 +1469,10 @@ def install_activate(env_dir, args):
 
     for name, content in files.items():
         file_path = join(bin_dir, name)
+        if args.python_virtualenv and not is_WIN and \
+                name in VENV_BIN_PATH and \
+                is_python_venv_script(file_path, name):
+            content = content.replace(VENV_BIN_PATH[name], '')
         isolate = NPM_ISOLATE.get(name, '') if args.isolate_npm else ''
         unisolate = NPM_UNISOLATE.get(name, '') if args.isolate_npm else ''
         content = content.replace('__NPM_ISOLATE__', isolate)
@@ -1395,7 +1550,7 @@ def create_environment(env_dir, args):
         logger.info(' * Environment already exists: %s', env_dir)
         if not args.force:
             sys.exit(2)
-    src_dir = to_utf8(abspath(join(env_dir, 'src')))
+    src_dir = abspath(join(env_dir, 'src'))
     mkdir(src_dir)
 
     if args.node == "system":
@@ -1554,7 +1709,7 @@ def get_env_dir(args):
             sys.exit(2)
     else:
         res = args.env_dir
-    return to_utf8(res)
+    return res
 
 
 # noinspection PyProtectedMember
@@ -1578,6 +1733,7 @@ def main():
         exit(1)
 
     global src_base_url
+    global src_auth
     global ignore_ssl_certs
     global certifi_context
 
@@ -1598,6 +1754,7 @@ def main():
         src_domain = 'nodejs.org'
     if src_base_url is None:
         src_base_url = 'https://%s/download/release' % src_domain
+    src_base_url, src_auth = split_url_auth(src_base_url)
 
     # Decide on the system node before any version resolution, so that
     # a found system node never triggers a request for index.json
@@ -1716,30 +1873,26 @@ NPM_UNISOLATE = {
         unset _OLD_npm_config_init_module
 """,
     'activate.fish': """
-    # Skip the "deactivate_node nondestructive" pass at the top of
-    # activate.fish: the variables are only saved after it has run
-    if set -q NODE_VIRTUAL_ENV
-        if test -n "$_OLD_npm_config_cache"
+        if set -q _OLD_npm_config_cache
             set -gx npm_config_cache $_OLD_npm_config_cache
             set -e _OLD_npm_config_cache
         else
             set -e npm_config_cache
         end
 
-        if test -n "$_OLD_npm_config_userconfig"
+        if set -q _OLD_npm_config_userconfig
             set -gx npm_config_userconfig $_OLD_npm_config_userconfig
             set -e _OLD_npm_config_userconfig
         else
             set -e npm_config_userconfig
         end
 
-        if test -n "$_OLD_npm_config_init_module"
+        if set -q _OLD_npm_config_init_module
             set -gx npm_config_init_module $_OLD_npm_config_init_module
             set -e _OLD_npm_config_init_module
         else
             set -e npm_config_init_module
         end
-    end
 """,
 }
 
@@ -1753,6 +1906,11 @@ exec '__SHIM_NODE__' "$@"
 
 ACTIVATE_BAT = r"""
 @echo off
+if defined _OLD_VIRTUAL_NPM_CONFIG_PREFIX (
+    set "npm_config_prefix=%_OLD_VIRTUAL_NPM_CONFIG_PREFIX%"
+) else if defined NODE_VIRTUAL_ENV (
+    set npm_config_prefix=
+)
 set "NODE_VIRTUAL_ENV=__NODE_VIRTUAL_ENV__"
 if not defined PROMPT (
     set "PROMPT=$P$G"
@@ -1775,6 +1933,13 @@ if defined _OLD_VIRTUAL_PATH (
     set "_OLD_VIRTUAL_PATH=%PATH%"
 )
 set "PATH=%NODE_VIRTUAL_ENV%\Scripts;%PATH%"
+rem npm.cmd runs the npm found under npm_config_prefix, which npx exports,
+rem instead of its own: point it at the environment
+rem https://github.com/ekalinin/nodeenv/issues/309
+if defined npm_config_prefix (
+    set "_OLD_VIRTUAL_NPM_CONFIG_PREFIX=%npm_config_prefix%"
+)
+set "npm_config_prefix=%NODE_VIRTUAL_ENV%\Scripts"
 :END
 
 """
@@ -1793,6 +1958,12 @@ if defined _OLD_VIRTUAL_PATH (
     set "PATH=%_OLD_VIRTUAL_PATH%"
 )
 set _OLD_VIRTUAL_PATH=
+if defined _OLD_VIRTUAL_NPM_CONFIG_PREFIX (
+    set "npm_config_prefix=%_OLD_VIRTUAL_NPM_CONFIG_PREFIX%"
+    set _OLD_VIRTUAL_NPM_CONFIG_PREFIX=
+) else if defined NODE_VIRTUAL_ENV (
+    set npm_config_prefix=
+)
 set NODE_VIRTUAL_ENV=
 :END
 """
@@ -1820,6 +1991,12 @@ function global:deactivate ([switch]$NonDestructive) {
     if (Test-Path env:_OLD_VIRTUAL_PATH) {
         copy-item env:_OLD_VIRTUAL_PATH env:PATH
         remove-item env:_OLD_VIRTUAL_PATH
+    }
+    if (Test-Path env:_OLD_VIRTUAL_NPM_CONFIG_PREFIX) {
+        copy-item env:_OLD_VIRTUAL_NPM_CONFIG_PREFIX env:npm_config_prefix
+        remove-item env:_OLD_VIRTUAL_NPM_CONFIG_PREFIX
+    } elseif (Test-Path env:NODE_VIRTUAL_ENV) {
+        remove-item env:npm_config_prefix -ErrorAction SilentlyContinue
     }
     if (Test-Path env:NODE_VIRTUAL_ENV) {
         remove-item env:NODE_VIRTUAL_ENV
@@ -1857,6 +2034,14 @@ if (Test-Path env:NODE_PATH) {
 # Add the venv to the PATH
 copy-item env:PATH env:_OLD_VIRTUAL_PATH
 $env:PATH = "$env:NODE_VIRTUAL_ENV\Scripts;$env:PATH"
+
+# npm.cmd runs the npm found under npm_config_prefix, which npx exports,
+# instead of its own: point it at the environment
+# https://github.com/ekalinin/nodeenv/issues/309
+if (Test-Path env:npm_config_prefix) {
+    copy-item env:npm_config_prefix env:_OLD_VIRTUAL_NPM_CONFIG_PREFIX
+}
+$env:npm_config_prefix = "$env:NODE_VIRTUAL_ENV\Scripts"
 """
 
 ACTIVATE_SH = r"""
@@ -2046,29 +2231,31 @@ function deactivate_node -d 'Exit nodeenv and return to normal environment.'
     if test -n "$_OLD_NODE_VIRTUAL_PATH"
         set -gx PATH $_OLD_NODE_VIRTUAL_PATH
         set -e _OLD_NODE_VIRTUAL_PATH
-    end
 
-    if test -n "$_OLD_NODE_PATH"
-        set -gx NODE_PATH $_OLD_NODE_PATH
-        set -e _OLD_NODE_PATH
-    else
-        set -e NODE_PATH
-    end
+        # Activation saves PATH before changing the other variables, so this
+        # also restores them if NODE_VIRTUAL_ENV was removed by the caller.
+        if set -q _OLD_NODE_PATH
+            set -gx NODE_PATH $_OLD_NODE_PATH
+            set -e _OLD_NODE_PATH
+        else
+            set -e NODE_PATH
+        end
 
-    if test -n "$_OLD_NPM_CONFIG_PREFIX"
-        set -gx NPM_CONFIG_PREFIX $_OLD_NPM_CONFIG_PREFIX
-        set -e _OLD_NPM_CONFIG_PREFIX
-    else
-        set -e NPM_CONFIG_PREFIX
-    end
+        if set -q _OLD_NPM_CONFIG_PREFIX
+            set -gx NPM_CONFIG_PREFIX $_OLD_NPM_CONFIG_PREFIX
+            set -e _OLD_NPM_CONFIG_PREFIX
+        else
+            set -e NPM_CONFIG_PREFIX
+        end
 
-    if test -n "$_OLD_npm_config_prefix"
-        set -gx npm_config_prefix $_OLD_npm_config_prefix
-        set -e _OLD_npm_config_prefix
-    else
-        set -e npm_config_prefix
-    end
+        if set -q _OLD_npm_config_prefix
+            set -gx npm_config_prefix $_OLD_npm_config_prefix
+            set -e _OLD_npm_config_prefix
+        else
+            set -e npm_config_prefix
+        end
 __NPM_UNISOLATE__
+    end
 
     if test -n "$_OLD_NODE_FISH_PROMPT_OVERRIDE"
         # Set an empty local `$fish_function_path` to allow the removal of
@@ -2138,16 +2325,12 @@ begin
 end
 
 set -gx _OLD_NODE_VIRTUAL_PATH $PATH
-# The node_modules/.bin path doesn't exists and it will print a warning, and
-# that's why we redirect stderr to /dev/null :)
-set -gx PATH "$NODE_VIRTUAL_ENV/lib/node_modules/.bin" "$NODE_VIRTUAL_ENV/__BIN_NAME__" $PATH ^/dev/null
+set -gx PATH "$NODE_VIRTUAL_ENV/__MOD_NAME__/.bin" "$NODE_VIRTUAL_ENV/__BIN_NAME__" $PATH
 
 if set -q NODE_PATH
     set -gx _OLD_NODE_PATH $NODE_PATH
-    set -gx NODE_PATH "$NODE_VIRTUAL_ENV/__MOD_NAME__" $NODE_PATH
-else
-    set -gx NODE_PATH "$NODE_VIRTUAL_ENV/__MOD_NAME__"
 end
+set -gx NODE_PATH "$NODE_VIRTUAL_ENV/__MOD_NAME__"
 
 if set -q NPM_CONFIG_PREFIX
     set -gx _OLD_NPM_CONFIG_PREFIX $NPM_CONFIG_PREFIX

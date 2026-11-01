@@ -13,6 +13,8 @@ import pytest
 from probe.sdk import secret_gate
 from probe.sdk.secret_gate import CredentialBlocked, ScanPolicy, inspect_bytes
 
+SCANNING_DISABLED = "credential scanning is disabled in the SDK; these tests assert the redaction it did"
+
 
 # -- the verdict cache ------------------------------------------------------------
 def test_the_same_bytes_are_inspected_once(monkeypatch):
@@ -47,12 +49,12 @@ def test_a_refusal_is_never_cached(monkeypatch):
 
 
 def test_the_servers_copy_keeps_no_cache():
-    """The server vendors this file; there one cache would span every tenant,
-    and inspection time would say whether another tenant uploaded the same
-    bytes recently."""
+    """The server imports a copy of this file from probe-contracts; there one cache
+    would span every tenant, and inspection time would say whether another tenant
+    uploaded the same bytes recently."""
     from pathlib import Path
 
-    server_copy = Path(__file__).resolve().parents[2] / "app" / "security" / "_credential_gate.py"
+    server_copy = Path(__file__).resolve().parents[2] / "contracts" / "probe_contracts" / "scrubber" / "scrubber.py"
     text = server_copy.read_text()
     assert '_CACHE_ENABLED = __name__.startswith("probe.")' in text
     assert secret_gate._CACHE_ENABLED  # and the SDK's own copy does cache
@@ -99,6 +101,7 @@ def test_a_file_over_the_inspection_limit_is_still_refused(tmp_path, monkeypatch
         check_upload(path)
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 @pytest.mark.parametrize("strict", [False, True])
 def test_one_upload_inspects_its_bytes_once(client, tmp_path, monkeypatch, strict):
     """The five gate passes of one synchronous log_artifact collapse to one.

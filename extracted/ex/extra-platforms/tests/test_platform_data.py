@@ -147,8 +147,8 @@ def test_platform_logical_grouping():
 
     Family partitions and canonical flags are enforced generically in
     ``test_trait_data.py`` and ``test_group_data.py``. The relationships below
-    involve the non-canonical UNIX, LINUX_LIKE and *_WITHOUT_MACOS groups, so
-    they are only checked here.
+    involve the non-canonical ``UNIX``, ``LINUX_LIKE`` and ``*_WITHOUT_MACOS``
+    groups, so they are only checked here.
     """
     # All platforms are divided into Windows and Unix at the highest level.
     assert ALL_PLATFORMS.fullyintersects(ALL_WINDOWS | UNIX)
@@ -212,7 +212,7 @@ def test_nerdfont_icons_documented_in_source():
     """
     source = (
         Path(__file__).parent.parent / "extra_platforms" / "platform_data.py"
-    ).read_text(encoding="utf-8")
+    ).read_text(encoding="UTF-8")
     body = ast.parse(source).body
 
     checked = []

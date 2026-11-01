@@ -37,7 +37,7 @@ did before it came through this module. Only Windows takes the other branch.
   descriptor, which turns every ``\\n`` written into ``\\r\\n`` and ends a read at
   the first 0x1A byte -- ``tempfile`` adds it for the same reason.
 
-Stdlib-only, like `probe.sdk.durable` (which imports it): no httpx at import.
+Stdlib-only, like `probe.foundation.durable.durable` (which imports it): no httpx at import.
 """
 
 from __future__ import annotations

@@ -16,7 +16,7 @@ import time
 
 import pytest
 
-from probe.sdk.logcapture import (
+from probe.sdk.capture.logs.logs import (
     LIVE_UNSHIPPED_BYTES,
     CappedLog,
     LiveSpool,
@@ -46,7 +46,7 @@ def test_the_tee_is_exact_and_keeps_the_streams_apart(tmp_path):
     driver = tmp_path / "driver.py"
     driver.write_text(
         "import json, sys\n"
-        "from probe.sdk.logcapture import run_teed\n"
+        "from probe.sdk.capture.logs.logs import run_teed\n"
         f"res, stats = run_teed([sys.executable, {str(child)!r}], log_path={str(tmp_path / 'run.log')!r})\n"
         "sys.stderr.write('RESULT ' + json.dumps({'rc': res.returncode, **stats}))\n"
     )
@@ -144,7 +144,7 @@ def test_in_process_capture_survives_a_hard_crash(tmp_path):
     script = tmp_path / "crash.py"
     script.write_text(
         "import os, faulthandler\n"
-        "from probe.sdk.logcapture import InProcessTee\n"
+        "from probe.sdk.capture.logs.logs import InProcessTee\n"
         f"tee = InProcessTee({str(tmp_path / 'run.log')!r})\n"
         "tee.start()\n"
         "print('before', flush=True)\n"
@@ -169,7 +169,7 @@ def test_in_process_capture_stops_cleanly(tmp_path):
     script = tmp_path / "ok.py"
     script.write_text(
         "import json, os, subprocess, sys\n"
-        "from probe.sdk.logcapture import InProcessTee\n"
+        "from probe.sdk.capture.logs.logs import InProcessTee\n"
         f"tee = InProcessTee({str(tmp_path / 'run.log')!r})\n"
         "tee.start()\n"
         "print('py', flush=True); os.write(2, b'fd2\\n')\n"
@@ -226,7 +226,7 @@ def test_a_background_process_keeps_its_output_after_exec_returns(tmp_path):
     driver = tmp_path / "driver.py"
     driver.write_text(
         "import sys\n"
-        "from probe.sdk.logcapture import run_teed\n"
+        "from probe.sdk.capture.logs.logs import run_teed\n"
         "cmd = 'echo main; (sleep 1; echo late; touch " + str(marker) + ") &'\n"
         f"res, _ = run_teed(['sh', '-c', cmd], log_path={str(tmp_path / 'run.log')!r})\n"
         "print('exec returned', res.returncode, flush=True)\n"
@@ -243,7 +243,7 @@ def test_the_helper_survives_scheduler_signals(tmp_path):
     script = tmp_path / "job.py"
     script.write_text(
         "import os, signal, time\n"
-        "from probe.sdk.logcapture import InProcessTee\n"
+        "from probe.sdk.capture.logs.logs import InProcessTee\n"
         f"tee = InProcessTee({str(tmp_path / 'run.log')!r})\n"
         "tee.start()\n"
         "for sig in (signal.SIGUSR1, signal.SIGUSR2, signal.SIGQUIT, signal.SIGHUP, signal.SIGALRM):\n"
@@ -272,7 +272,7 @@ def test_a_signal_that_kills_exec_does_not_kill_its_child(tmp_path):
     driver = tmp_path / "driver.py"
     driver.write_text(
         "import sys\n"
-        "from probe.sdk.logcapture import run_teed\n"
+        "from probe.sdk.capture.logs.logs import run_teed\n"
         f"run_teed([sys.executable, {str(child)!r}], log_path={str(tmp_path / 'run.log')!r})\n"
     )
     proc = subprocess.Popen([PY, str(driver)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -296,7 +296,7 @@ def test_a_hard_crash_hands_the_record_to_a_recovery_process(tmp_path):
     script = tmp_path / "crash.py"
     script.write_text(
         "import os\n"
-        "from probe.sdk.logcapture import InProcessTee\n"
+        "from probe.sdk.capture.logs.logs import InProcessTee\n"
         f"InProcessTee({str(tmp_path / 'run.log')!r}, recovery_entry={str(entry)!r}).start()\n"
         "print('x', flush=True)\n"
         "os.abort()\n"
@@ -315,7 +315,7 @@ def test_a_terminal_child_sees_a_terminal_and_the_log_gets_its_exact_bytes(tmp_p
     driver = tmp_path / "driver.py"
     driver.write_text(
         "import sys\n"
-        "from probe.sdk.logcapture import run_teed\n"
+        "from probe.sdk.capture.logs.logs import run_teed\n"
         f"run_teed([sys.executable, {str(child)!r}], log_path={str(tmp_path / 'run.log')!r})\n"
     )
     master, slave = pty.openpty()
@@ -347,7 +347,7 @@ def test_stdout_and_stderr_into_one_file_keep_their_order(tmp_path):
     driver = tmp_path / "driver.py"
     driver.write_text(
         "import sys\n"
-        "from probe.sdk.logcapture import run_teed\n"
+        "from probe.sdk.capture.logs.logs import run_teed\n"
         f"run_teed([sys.executable, {str(child)!r}], log_path={str(tmp_path / 'run.log')!r})\n"
     )
     with open(tmp_path / "out.log", "wb") as out:
@@ -361,7 +361,7 @@ def test_stopping_leaves_the_programs_own_redirection_alone(tmp_path):
     script = tmp_path / "job.py"
     script.write_text(
         "import os\n"
-        "from probe.sdk.logcapture import InProcessTee\n"
+        "from probe.sdk.capture.logs.logs import InProcessTee\n"
         f"tee = InProcessTee({str(tmp_path / 'run.log')!r})\n"
         "tee.start()\n"
         f"fd = os.open({str(tmp_path / 'mine.txt')!r}, os.O_WRONLY | os.O_CREAT)\n"
@@ -374,7 +374,7 @@ def test_stopping_leaves_the_programs_own_redirection_alone(tmp_path):
 
 
 def test_a_tee_that_cannot_start_still_runs_the_command(tmp_path, monkeypatch):
-    import probe.sdk.logcapture as logcapture
+    import probe.sdk.capture.logs.logs as logcapture
 
     def no_pipes(self):
         raise OSError(24, "Too many open files")
@@ -396,7 +396,7 @@ def test_a_helper_that_dies_starting_is_never_handed_the_output(tmp_path):
         "import sys\n"
         f"real = sys.executable\n"
         "sys.executable = '/bin/false'  # the helper dies as it starts\n"
-        "from probe.sdk.logcapture import InProcessTee, run_teed\n"
+        "from probe.sdk.capture.logs.logs import InProcessTee, run_teed\n"
         f"tee = InProcessTee({str(tmp_path / 'a.log')!r})\n"
         "try:\n"
         "    tee.start()\n"
@@ -421,7 +421,7 @@ def test_a_program_with_stdin_closed_keeps_its_stdout(tmp_path):
     driver = tmp_path / "driver.py"
     driver.write_text(
         "import sys\n"
-        "from probe.sdk.logcapture import run_teed, InProcessTee\n"
+        "from probe.sdk.capture.logs.logs import run_teed, InProcessTee\n"
         f"run_teed([sys.executable, {str(child)!r}], log_path={str(tmp_path / 'a.log')!r})\n"
         f"tee = InProcessTee({str(tmp_path / 'b.log')!r}); tee.start()\n"
         "print('in-process too', flush=True)\n"
@@ -497,7 +497,7 @@ def test_budget_overflow_never_blocks_the_program(tmp_path):
     driver = tmp_path / "driver.py"
     driver.write_text(
         "import json, sys, time\n"
-        "from probe.sdk.logcapture import run_teed\n"
+        "from probe.sdk.capture.logs.logs import run_teed\n"
         "t = time.monotonic()\n"
         f"res, stats = run_teed([sys.executable, {str(child)!r}], log_path={str(log_path)!r})\n"
         "sys.stderr.write('RESULT ' + json.dumps({'rc': res.returncode, 'secs': time.monotonic() - t, **stats}))\n"
@@ -550,7 +550,7 @@ def _hard_death_with_a_grandchild(tmp_path, *, watch_parent: bool):
     script = tmp_path / "killed.py"
     script.write_text(
         "import os, signal, subprocess\n"
-        "from probe.sdk.logcapture import InProcessTee\n"
+        "from probe.sdk.capture.logs.logs import InProcessTee\n"
         f"InProcessTee({str(tmp_path / 'run.log')!r}, recovery_entry={str(entry)!r}, "
         f"watch_parent={watch_parent!r}).start()\n"
         "print('training', flush=True)\n"
@@ -596,7 +596,7 @@ def test_a_clean_stop_reports_no_death(tmp_path):
     script = tmp_path / "ok.py"
     script.write_text(
         "import subprocess\n"
-        "from probe.sdk.logcapture import InProcessTee\n"
+        "from probe.sdk.capture.logs.logs import InProcessTee\n"
         f"tee = InProcessTee({str(tmp_path / 'run.log')!r}, recovery_entry={str(entry)!r}, "
         "watch_parent=True)\n"
         "tee.start()\n"
@@ -620,7 +620,7 @@ def test_a_launchers_death_is_not_its_childs(tmp_path):
     script = tmp_path / "launcher.py"
     script.write_text(
         "import os, signal, sys, threading, time\n"
-        "from probe.sdk.logcapture import run_teed\n"
+        "from probe.sdk.capture.logs.logs import run_teed\n"
         "threading.Timer(0.5, lambda: os.kill(os.getpid(), signal.SIGKILL)).start()\n"
         f"run_teed([sys.executable, '-c', 'import time; time.sleep(2)'], "
         f"log_path={str(tmp_path / 'run.log')!r}, recovery_entry={str(entry)!r})\n"

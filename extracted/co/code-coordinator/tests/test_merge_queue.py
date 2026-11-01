@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import inspect
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -579,6 +581,26 @@ class FakeGh:
     # `process()`'s lint step is a no-op, matching pre-#1196 behavior.
     pr_bodies: dict[int, str] = field(default_factory=dict)
     open_children: set[int] = field(default_factory=set)
+    # #3821: issue number -> specific open child numbers, for tests that
+    # care about the diagnostic detail in the block-reason/comment text.
+    # Issue numbers present in `open_children` but absent here fall back to
+    # a single placeholder child (`0`) — enough to keep `get_open_children`
+    # non-empty without every pre-#3821 test needing to name a real child.
+    open_children_detail: dict[int, list[int]] = field(default_factory=dict)
+    # #3821: issue numbers `close_issue` has actually closed — read back by
+    # `get_issue_state` below so a test can tell a *confirmed* close apart
+    # from merely "the close request didn't raise". Starts empty regardless
+    # of `close_raises`/`close_calls`, which only ever recorded the request.
+    closed_issues: set[int] = field(default_factory=set)
+    # #3821: issue numbers where `close_issue` succeeds (no exception) but
+    # does NOT actually close the issue — simulates e.g. a webhook/automation
+    # race reopening it right after. Lets a test exercise the "merged_partial
+    # because the post-close read-back still says open" path.
+    close_issue_noop: set[int] = field(default_factory=set)
+    # #3821: issue numbers where `get_issue_state` can't determine the state
+    # at all (simulates a probe failure/ambiguous response), independent of
+    # whether `close_issue` itself raised.
+    issue_state_unknown: set[int] = field(default_factory=set)
     edit_body_calls: list[tuple[str, int, str]] = field(default_factory=list)
     # #1318: PR number -> commit messages on that PR; issue number -> whether
     # it carries the epic/tracking label. Defaults keep every prior test
@@ -651,6 +673,15 @@ class FakeGh:
         self.close_calls.append((repo, issue_number))
         if self.close_raises:
             raise RuntimeError("gh issue close failed")
+        if issue_number not in self.close_issue_noop:
+            self.closed_issues.add(issue_number)
+
+    def get_issue_state(self, repo: str, issue_number: int) -> str | None:
+        # #3821: a real post-close read-back, not a permissive default —
+        # mirrors `coord.github_ops.get_issue_state`'s three-way result.
+        if issue_number in self.issue_state_unknown:
+            return None
+        return "closed" if issue_number in self.closed_issues else "open"
 
     def get_branch_sha(self, repo: str, branch: str) -> str | None:
         # Tests don't exercise SHA tracking by default; return None so the
@@ -678,6 +709,12 @@ class FakeGh:
 
     def has_open_children(self, repo: str, issue_number: int) -> bool:
         return issue_number in self.open_children
+
+    def get_open_children(self, repo: str, issue_number: int) -> list[dict]:
+        if issue_number not in self.open_children:
+            return []
+        children = self.open_children_detail.get(issue_number, [0])
+        return [{"number": n, "state": "open"} for n in children]
 
     def is_epic_issue(self, repo: str, issue_number: int) -> bool:
         return issue_number in self.epic_issues
@@ -773,11 +810,16 @@ class TestProcess:
     def test_close_failure_does_not_revert_merge(self) -> None:
         # #806: closing is best-effort — a `gh issue close` failure must leave
         # the merge standing and surface a warning, never undo MERGED.
+        # #3821: this is now a "merged_partial" event (the issue did NOT end
+        # up closed), and it also posts a human-visible GitHub comment so a
+        # closed-but-not-really issue is never silently stuck.
         items = [_q("a")]
-        events = process(items, FakeGh(close_raises=True))
+        with patch("coord.merge_queue.comment_on_issue") as fake_comment:
+            events = process(items, FakeGh(close_raises=True))
         assert items[0].state == MERGED
-        merged = [e for e in events if e.kind == "merged"]
+        merged = [e for e in events if e.kind == "merged_partial"]
         assert merged and "could not close" in merged[0].message
+        assert fake_comment.call_count == 1
 
     def test_dry_run_does_not_close(self) -> None:
         # #806: dry-run never reaches the real merge path, so no issue is closed.
@@ -977,8 +1019,6 @@ class TestProcess:
     def test_partial_marker_posts_a_remainder_comment_on_the_issue(self) -> None:
         # #3502: the issue must be told WHY it's staying open, not just
         # silently left alone.
-        from unittest.mock import patch
-
         board = self._board_with_work(
             "ISSUE_RESOLUTION: partial — root cause is a quadraui gap, "
             "quadraui#999 now filed."
@@ -997,8 +1037,6 @@ class TestProcess:
 
     def test_comment_failure_does_not_revert_the_merge(self) -> None:
         # Same best-effort posture as `close_issue` failures (#806).
-        from unittest.mock import patch
-
         board = self._board_with_work("ISSUE_RESOLUTION: partial — oops")
         items = [_q("a", assignment_type="work")]
         with patch(
@@ -1014,8 +1052,6 @@ class TestProcess:
         # #3502: the reviewer's own ISSUE_RESOLUTION judgment, fetched via
         # the GitHub message bus, can veto an otherwise-"resolved" worker
         # claim.
-        from unittest.mock import patch
-
         from coord.models import Assignment, Board, IssueResolution
         from coord.review import ReviewFindings
 
@@ -1416,6 +1452,130 @@ class TestProcess:
         downgraded = [e for e in events if e.kind == "pr_body_downgraded"]
         assert downgraded and "#1120" in downgraded[0].message
 
+    # ── #3821: the pre-merge body downgrade and the post-merge close/
+    # comment decision must never disagree about `entry.issue_number`
+    # itself (quadraui #1833 stayed open with no explanation; #1313,
+    # which hit none of these block reasons, closed cleanly). ──────────
+
+    def test_entry_issue_number_with_open_children_leaves_issue_open_with_comment(
+        self,
+    ) -> None:
+        # Reproduces #1833: `entry.issue_number` (not some other number
+        # referenced in the body) has open sub-issues. The body's own
+        # "Closes #1" must be downgraded to "Refs #1" AND the post-merge
+        # decision must skip `close_issue` and post an explanatory
+        # comment instead — never silently leave the issue open with
+        # nothing but a buried `MergeEvent`.
+        items = [_q("a")]  # issue_number=1, pr=None -> fallback "Closes #1\n\n..."
+        gh = FakeGh(open_children={1}, open_children_detail={1: [2, 3]})
+        with patch("coord.merge_queue.comment_on_issue") as fake_comment:
+            events = process(items, gh)
+
+        assert items[0].state == MERGED
+        assert gh.close_calls == []
+        assert gh.pr_bodies[100].startswith("Refs #1")
+        assert "Closes #1" not in gh.pr_bodies[100]
+
+        downgraded = [e for e in events if e.kind == "pr_body_downgraded"]
+        assert downgraded and "#1" in downgraded[0].message
+
+        partial = [e for e in events if e.kind == "merged_partial"]
+        # #3821: the diagnostic names the specific open child(ren), not just
+        # "open sub-issues" in the abstract.
+        assert partial and "open sub-issues" in partial[0].message
+        assert "#2" in partial[0].message and "#3" in partial[0].message
+
+        assert fake_comment.call_count == 1
+        call_args = fake_comment.call_args[0]
+        call_kwargs = fake_comment.call_args[1]
+        assert call_args[0] == "api"
+        assert call_args[1] == 1
+        assert "open sub-issues" in call_args[2]
+        assert "intentionally left OPEN" in call_args[2]
+        assert call_kwargs.get("repo_github") == "acme/api"
+
+    def test_entry_issue_number_with_epic_label_leaves_issue_open_with_comment(
+        self,
+    ) -> None:
+        # Same invariant, but blocked by the epic/tracking label (#1318)
+        # rather than open children (#1196).
+        items = [_q("a")]
+        gh = FakeGh(epic_issues={1})
+        with patch("coord.merge_queue.comment_on_issue") as fake_comment:
+            events = process(items, gh)
+
+        assert items[0].state == MERGED
+        assert gh.close_calls == []
+        assert gh.pr_bodies[100].startswith("Refs #1")
+
+        partial = [e for e in events if e.kind == "merged_partial"]
+        assert partial and "epic/tracking label" in partial[0].message
+        assert fake_comment.call_count == 1
+        assert "epic/tracking label" in fake_comment.call_args[0][2]
+
+    def test_entry_issue_number_with_no_block_reason_closes_and_no_comment(
+        self,
+    ) -> None:
+        # Reproduces #1313: nothing blocks `entry.issue_number` — it
+        # closes cleanly, and (unlike the blocked cases above) no
+        # "left open" comment is ever posted.
+        items = [_q("a")]
+        gh = FakeGh()
+        with patch("coord.merge_queue.comment_on_issue") as fake_comment:
+            events = process(items, gh)
+
+        assert items[0].state == MERGED
+        assert gh.close_calls == [("acme/api", 1)]
+        # #3821: the close *request* was issued, but that alone isn't proof
+        # the issue ended up closed — assert the actual post-close state,
+        # not just that `close_issue` was called with the right args.
+        assert gh.get_issue_state("acme/api", 1) == "closed"
+        merged = [e for e in events if e.kind == "merged"]
+        assert merged and "closed issue #1" in merged[0].message
+        assert fake_comment.call_count == 0
+
+    def test_close_succeeds_but_issue_reads_back_open_is_merged_partial(
+        self,
+    ) -> None:
+        # #3821: `close_issue()` returns without raising, but the issue
+        # still reads OPEN on GitHub (e.g. a webhook/automation race). This
+        # must route into the same comment + "merged_partial" path as an
+        # outright `close_issue()` failure — never get reported as "merged".
+        items = [_q("a")]
+        gh = FakeGh(close_issue_noop={1})
+        with patch("coord.merge_queue.comment_on_issue") as fake_comment:
+            events = process(items, gh)
+
+        assert items[0].state == MERGED
+        assert gh.close_calls == [("acme/api", 1)]
+        assert gh.get_issue_state("acme/api", 1) == "open"
+        assert not any(e.kind == "merged" for e in events)
+        partial = [e for e in events if e.kind == "merged_partial"]
+        assert partial and "still reads OPEN" in partial[0].message
+        assert fake_comment.call_count == 1
+        assert "still shows OPEN" in fake_comment.call_args[0][2]
+
+    def test_close_succeeds_but_state_unconfirmed_is_its_own_event(
+        self,
+    ) -> None:
+        # #3821: `close_issue()` succeeds and the post-close probe itself
+        # can't determine the state (unavailable/ambiguous response). This
+        # must be its own distinguishable event — never folded into
+        # "merged" (assumes success) or "merged_partial" (assumes it's
+        # still open) when neither is actually proven.
+        items = [_q("a")]
+        gh = FakeGh(issue_state_unknown={1})
+        with patch("coord.merge_queue.comment_on_issue") as fake_comment:
+            events = process(items, gh)
+
+        assert items[0].state == MERGED
+        assert gh.close_calls == [("acme/api", 1)]
+        assert gh.get_issue_state("acme/api", 1) is None
+        unconfirmed = [e for e in events if e.kind == "merged_close_unconfirmed"]
+        assert unconfirmed and "could not confirm" in unconfirmed[0].message
+        assert not any(e.kind in ("merged", "merged_partial") for e in events)
+        assert fake_comment.call_count == 0
+
 
 class TestProcessLinearityFallback:
     """#1467: `gh pr merge --rebase` refuses any branch containing a merge
@@ -1622,16 +1782,26 @@ class TestProcessRealGithubOpsChokepoint:
         entry = _q("w1", repo="api", repo_github="acme/api", target="main", size=10)
         entry.issue_number = 1041  # #1196 hole 1: the epic itself, type="work"
 
-        events = process([entry], real_gh_ops)
+        with patch("coord.merge_queue.comment_on_issue") as fake_comment:
+            events = process([entry], real_gh_ops)
 
         # Merge succeeded — the PR itself lands.
         assert entry.state == MERGED
-        # But the epic was never closed: the chokepoint's guard refused.
-        merged_events = [e for e in events if e.kind == "merged"]
+        # #3821: the epic was never closed — and, since the unified
+        # `issue_close_block_reason` check already knows #1041 has an open
+        # child BEFORE merge, `close_issue()` is never even attempted (the
+        # `_boom_subprocess` guard above would fail the test if it were).
+        # This is a `"merged_partial"` event, not a bare `"merged"` one —
+        # and the specific open child (#1039) still appears in its message,
+        # read live via `get_open_children` rather than from a caught
+        # `IssueHasOpenChildrenError`.
+        merged_events = [e for e in events if e.kind == "merged_partial"]
         assert merged_events
-        assert "could not close" in merged_events[0].message
-        assert "open children" in merged_events[0].message.lower()
+        assert "open sub-issues" in merged_events[0].message
         assert "#1039" in merged_events[0].message
+        # And a human-visible comment explains why the issue stayed open.
+        assert fake_comment.call_count == 1
+        assert "#1039" in fake_comment.call_args[0][2]
         # Hole 2: the PR body's own `Closes #1041` was downgraded pre-merge.
         downgrade_events = [e for e in events if e.kind == "pr_body_downgraded"]
         assert downgrade_events and "#1041" in downgrade_events[0].message
@@ -14714,6 +14884,62 @@ class TestSweepSiblingConflicts:
         # to reconstruct by hand in both 2026-08-14 collisions.
         assert "#307" in sibling.error
         assert gh.calls == [("acme/api", 101)]
+
+    @pytest.mark.parametrize(
+        "landed_kind", ["merged_partial", "merged_close_unconfirmed"]
+    )
+    def test_sweep_fires_when_merge_landed_but_issue_did_not_close(
+        self, landed_kind: str
+    ) -> None:
+        """#3821: a PR can merge onto the base yet have its issue-close step
+        vetoed/failed/unconfirmed, which ``process()`` reports as
+        ``merged_partial`` / ``merged_close_unconfirmed`` instead of
+        ``merged``. The base branch still moved, so the sibling sweep must
+        fire exactly as it does for a clean ``merged`` — keying on the bare
+        ``"merged"`` string silently skipped it."""
+        merged = _sweep_entry("m", pr=100, state=MERGED, issue=307)
+        sibling = _sweep_entry("s", pr=101, issue=309)
+        gh = _SweepGh({101: [False]})
+
+        out = mq.sweep_sibling_conflicts(
+            [mq.MergeEvent(merged, landed_kind, "landed; issue left open")],
+            [merged, sibling],
+            gh,
+            persist=False,
+        )
+
+        assert [ev.kind for ev in out] == ["conflict"]
+        assert sibling.state == CONFLICT
+        assert "#307" in sibling.error
+        assert gh.calls == [("acme/api", 101)]
+
+    def test_merge_landed_kinds_covers_every_merged_event_process_emits(
+        self,
+    ) -> None:
+        """``MERGE_LANDED_KINDS`` sits next to the sweep but is written by
+        hand, while the kinds it has to cover are emitted thousands of lines
+        away in :func:`process`. Derive them straight from ``process()``'s
+        source so adding a fourth ``merged*`` outcome without listing it here
+        fails loudly instead of silently skipping the sibling sweep.
+
+        Read-back of source rather than a parametrised ``process()`` run on
+        purpose: reaching every close-failure arm needs a different gh fake
+        each, and a new arm nobody wrote a case for is exactly the gap this
+        guards.
+        """
+        emitted = set(
+            re.findall(
+                r'MergeEvent\(\s*[A-Za-z_][A-Za-z0-9_.]*\s*,\s*"(merged\w*)"',
+                inspect.getsource(mq.process),
+            )
+        )
+
+        assert emitted, "no merged* MergeEvent found — did process() move?"
+        assert emitted == set(mq.MERGE_LANDED_KINDS), (
+            "process() emits merged* kinds that MERGE_LANDED_KINDS does not "
+            f"list (or vice versa): emitted={sorted(emitted)} "
+            f"listed={sorted(mq.MERGE_LANDED_KINDS)}"
+        )
 
     def test_a_clean_sibling_is_left_alone(self) -> None:
         merged = _sweep_entry("m", pr=100, state=MERGED)

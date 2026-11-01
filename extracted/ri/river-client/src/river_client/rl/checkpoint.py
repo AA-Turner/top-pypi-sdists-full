@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import codecs
 import hashlib
 import json
 import math
 import os
 import re
+import shutil
+import threading
 import uuid
+import weakref
+from collections import OrderedDict
 from dataclasses import dataclass
-from itertools import chain
+from itertools import chain, count
 from pathlib import Path
 
 import numpy as np
@@ -17,7 +22,7 @@ import numpy as np
 from river_client.images import ImageStore, map_images
 
 from .config import _integer
-from .trajectory import decode_state, encode_state
+from .trajectory import _SPAN_ARRAYS, _Spilled, decode_state, encode_state
 
 
 def identity_state(value):
@@ -93,16 +98,22 @@ class Checkpointing:
 
     Attributes:
         run_dir: Local or shared filesystem directory for this run's state.
-        weights_every: Optimizer updates between LoRA recovery checkpoints.
-            Rolling saves stay on shared NFS until their TTL expires; completed
-            runs save a final checkpoint to cloud storage. Recovery also
+        weights_every: Optimizer updates between training recovery checkpoints.
+            Rolling saves stay on shared training storage until their TTL expires;
+            completed runs save a final checkpoint with durable=True. For LoRA,
+            the final save uses cloud storage; full-weight saves stay on shared
+            storage and durable selects the default TTL only. Recovery also
             requires run_dir. Save milestones separately to retain them.
-            Full-weight models ignore it: they make no training saves and
-            resume from the server's newest auto checkpoint instead.
         recovery_ttl_seconds: Lifetime of each NFS recovery save, default seven days.
             Must fit the server retention cap. Resume before the base expires.
         rollout_every: Seconds between rollout-state snapshots.
         on_signal: Signals that request a final checkpoint before shutdown.
+        spill_arrays: After a save commits, drop the span arrays it wrote
+            (logprobs, top-K candidates, sampling log masses, and token ids of
+            runs before a rewrite or of completed trajectories) from memory
+            and read them back from run_dir when needed. Set False to keep
+            them in memory, for example when run_dir is slow to read; the run
+            directory then stays smaller.
     """
 
     run_dir: str | Path
@@ -110,6 +121,7 @@ class Checkpointing:
     rollout_every: float = 60.0
     on_signal: tuple[str, ...] = ()
     recovery_ttl_seconds: int = 7 * 24 * 60 * 60
+    spill_arrays: bool = True
 
     def __post_init__(self):
         _integer(self.weights_every, "weights_every", 1)
@@ -126,15 +138,44 @@ class Checkpointing:
             raise ValueError("checkpoint cadences must be finite and positive")
         if any(s not in {"SIGINT", "SIGTERM"} for s in self.on_signal):
             raise ValueError("supported checkpoint signals are SIGINT and SIGTERM")
+        if not isinstance(self.spill_arrays, bool):
+            raise ValueError("spill_arrays must be a bool")
 
 
 class StateStore:
+    """Trainer state in ``run_dir``: a small manifest plus append-only segments.
+
+    ``trainer.json`` holds control state and is replaced atomically on every
+    save. Trajectory content and journal updates are records in
+    ``trainer-segment-*.bin`` files, each written by one save and never
+    modified. A trajectory's spans and messages only grow between saves, so a
+    save writes the turns added since the last commit, not the whole history.
+    Records in segments that fall below half live bytes are copied forward
+    into the new segment, and unreferenced segments are deleted after commit.
+
+    Once a save commits, span arrays it wrote (logprobs, top-K candidates,
+    sampling log masses, and token ids that no turn resends: those of runs
+    before a rewrite, or of completed trajectories) are dropped from memory
+    and read back from their segment when accessed. Unfinished
+    trajectories that are not saved for recovery get records of their arrays
+    only. Segments stay on disk while spans still reference them.
+    ``Checkpointing.spill_arrays`` turns this off.
+    """
+
     def __init__(self, config: Checkpointing):
         self.directory = Path(config.run_dir)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.path = self.directory / "trainer.json"
         self.images = ImageStore(self.directory / "images")
         self._lock = None
+        # Committed content, by object identity, that later saves extend.
+        self._cursors = {}
+        self._records = {}
+        self._spill_cursors = {}
+        self._segments = {}
+        self._version = None
+        self._spill = _spill_files(self.directory)
+        self._spill_arrays = config.spill_arrays
 
     def __enter__(self):
         import fcntl
@@ -151,71 +192,248 @@ class StateStore:
 
     def __exit__(self, exc_type, exc, tb):
         self._lock.close()
+        # Spans still spilled after training reopen segments on access.
+        self._spill.close()
 
-    def load(self):
+    def capture(self):
+        """Start capturing state for one save.
+
+        Call on the thread that mutates trajectories, after the previous save
+        has finished. Only content added since the last commit is copied.
+        """
+        return _Capture(self)
+
+    def load(self, *, lazy_records=False):
+        """Return the committed state, or None when there is none.
+
+        With ``lazy_records``, journal records stay on disk as references;
+        ``read`` returns each one's content when it is needed.
+        """
         if not self.path.exists():
             return None
-        state = json.loads(self.path.read_text())
+        state = _read_json(self.path)
         storage = state.pop("__river_arrays__", None)
-        if not isinstance(storage, dict) or storage.get("version") != 2:
-            raise ValueError("checkpoint requires binary array storage version 2")
+        if not isinstance(storage, dict) or storage.get("version") not in (2, 3):
+            raise ValueError("checkpoint requires binary array storage version 2 or 3")
+        self._version = storage["version"]
+        if storage["version"] == 2:
+            # Fail before the trainer loads weights or saves anything.
+            _require_migration(self.directory)
+            return self._load_v2(state, storage)
+        segments = {}
+        try:
+            for name, meta in storage["segments"].items():
+                if not re.fullmatch(r"[0-9a-f]{32}", name):
+                    raise ValueError("invalid checkpoint segment name")
+                stream = (self.directory / _segment_file(name)).open("rb")
+                segments[name] = stream
+                stream.seek(0, os.SEEK_END)
+                size = stream.tell()
+                stream.seek(0)
+                if (
+                    size != meta["bytes"]
+                    or hashlib.file_digest(stream, "sha256").hexdigest()
+                    != meta["sha256"]
+                ):
+                    raise ValueError("checkpoint segment integrity verification failed")
+
+            def read(name, offset, length):
+                if (
+                    name not in segments
+                    or type(offset) is not int
+                    or type(length) is not int
+                    or offset < 0
+                    or length < 0
+                    or offset + length > storage["segments"][name]["bytes"]
+                ):
+                    raise ValueError("invalid checkpoint record bounds")
+                return b"".join(_read_chunks(segments[name].fileno(), length, offset))
+
+            name, offset, length = storage["arrays"]
+            state = _unpack_arrays(decode_state(state), read(name, offset, length))
+            # Later saves may reference these records without rewriting them.
+            self._segments = storage["segments"]
+            return _expand(state, read, {}, lazy_records)
+        finally:
+            for stream in segments.values():
+                stream.close()
+
+    def _load_v2(self, state, storage):
         name = storage["file"]
         if not re.fullmatch(r"trainer-arrays-[0-9a-f]{32}\.bin", name):
             raise ValueError("invalid checkpoint array filename")
-        payload = (self.directory / name).read_bytes()
-        if (
-            len(payload) != storage["bytes"]
-            or hashlib.sha256(payload).hexdigest() != storage["sha256"]
-        ):
-            raise ValueError("checkpoint array integrity verification failed")
-        return _unpack_arrays(decode_state(state), payload)
+        with (self.directory / name).open("rb") as stream:
+            size = os.fstat(stream.fileno()).st_size
+            if (
+                size != storage["bytes"]
+                or hashlib.file_digest(stream, "sha256").hexdigest()
+                != storage["sha256"]
+            ):
+                raise ValueError("checkpoint array integrity verification failed")
+            # Read through a bounded window rather than holding the file.
+            return _unpack_v2(decode_state(state), _ArrayWindow(stream.fileno(), size))
 
-    def save(self, state, *, images=None):
+    def read(self, value):
+        """Return a lazily loaded or released journal record's content."""
+        if not isinstance(value, _CommittedRecord):
+            return value
+        name, offset, array_bytes, text_bytes = value.ref[:4]
+        if (
+            name not in self._segments
+            or any(
+                type(n) is not int or n < 0 for n in (offset, array_bytes, text_bytes)
+            )
+            or offset + array_bytes + text_bytes > self._segments[name]["bytes"]
+        ):
+            raise ValueError("invalid checkpoint record bounds")
+        with (self.directory / _segment_file(name)).open("rb") as stream:
+
+            def read(_name, start, length):
+                return b"".join(_read_chunks(stream.fileno(), length, start))
+
+            return _read_record(value.ref, read, {})
+
+    def release(self, value):
+        """Return a reference for a committed journal record, else ``value``.
+
+        The store keeps no copy of a released value; ``read`` reloads it.
+        """
+        entry = self._records.get(id(value))
+        if entry is None or entry[0] is not value:
+            return value
+        del self._records[id(value)]
+        return _CommittedRecord(entry[1])
+
+    def save(self, state, *, images=None, spills=()):
+        """Commit ``state``; ``spills`` come from ``capture().spill``."""
         if "__river_arrays__" in state:
             raise ValueError("checkpoint state contains reserved storage metadata")
-        # Numeric leaves leave the object tree before the generic handle codecs
-        # and image traversal, avoiding repeated Python walks over every token.
-        binary = self.directory / f"trainer-arrays-{uuid.uuid4().hex}.bin"
-        stream = binary.open("x+b")
+        if self._committed_version() == 2:
+            _require_migration(self.directory)
+            self._preserve_version_2()
+        name = uuid.uuid4().hex
+        path = self.directory / _segment_file(name)
+        stream = path.open("x+b")
         try:
             with stream:
-                state = _pack_arrays(state, stream)
+                writer = _SegmentWriter(self, name, stream, images)
+                state = writer.resolve(state)
+                writer.spill(spills)
+                writer.compact()
+                arrays = _Relative(stream)
+                state = decode_state(_pack_arrays(state, arrays))
+                manifest_arrays = [name, arrays.start, arrays.tell()]
+                retained = self.images.copy_images(state, images)
+                retained.update(writer.images())
                 size = stream.tell()
                 stream.flush()
                 stream.seek(0)
                 digest = hashlib.file_digest(stream, "sha256").hexdigest()
                 os.fsync(stream.fileno())
+            segments = writer.segments(name, size, digest)
+            self._sync_directory()
+            state = encode_state(state)
+            state["__river_arrays__"] = {
+                "version": 3,
+                "segments": segments,
+                "arrays": manifest_arrays,
+            }
+            temporary = self.path.with_suffix(".tmp")
+            with temporary.open("w") as output:
+                output.write(
+                    json.dumps(
+                        state,
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                        allow_nan=False,
+                    )
+                )
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(temporary, self.path)
         except BaseException:
-            binary.unlink(missing_ok=True)
+            path.unlink(missing_ok=True)
             raise
         self._sync_directory()
-        state = decode_state(state)
-        retained = self.images.copy_images(state, images)
-        state["__river_arrays__"] = {
-            "version": 2,
-            "file": binary.name,
-            "bytes": size,
-            "sha256": digest,
-        }
-        temporary = self.path.with_suffix(".tmp")
-        with temporary.open("w") as stream:
-            stream.write(
-                json.dumps(
-                    encode_state(state),
-                    ensure_ascii=False,
-                    separators=(",", ":"),
-                    allow_nan=False,
-                )
-            )
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, self.path)
-        self._sync_directory()
-        # Only a durably committed metadata file may release the previous blob.
-        for path in self.directory.glob("trainer-arrays-*.bin"):
-            if path != binary:
-                path.unlink()
+        # Readers of spilled arrays resolve records under this lock.
+        with self._spill.lock:
+            self._cursors, self._records, self._spill_cursors = writer.commit()
+            self._segments, self._version = segments, 3
+            # Only a durably committed manifest may release unreferenced files.
+            files = self._spill.files
+            for segment in [s for s in files if s not in segments]:
+                files.pop(segment).close()
+            live = {_segment_file(segment) for segment in segments}
+            for stale in self.directory.iterdir():
+                if (
+                    re.fullmatch(
+                        r"trainer-(segment|arrays)-[0-9a-f]{32}\.bin", stale.name
+                    )
+                    and stale.name not in live
+                ):
+                    stale.unlink()
         self.images.prune(retained)
+
+    def _committed_version(self):
+        if self._version is None and self.path.exists():
+            storage = _read_json(self.path).get("__river_arrays__")
+            self._version = (
+                storage.get("version") if isinstance(storage, dict) else None
+            )
+            if self._version == 3:
+                # Spans from an earlier store on this directory may still
+                # read these segments.
+                if not all(
+                    re.fullmatch(r"[0-9a-f]{32}", name) for name in storage["segments"]
+                ):
+                    raise ValueError("invalid checkpoint segment name")
+                self._segments = storage["segments"]
+        return self._version
+
+    def _preserve_version_2(self):
+        """Keep a resumable copy of the version 2 state before replacing it.
+
+        Files are hard-linked where possible: version 3 never modifies an
+        existing file, it only deletes ones it no longer needs. Every attempt
+        rebuilds the copy from the committed state, so a backup left by an
+        interrupted migration is never trusted.
+        """
+        backup = self.directory / BACKUP_DIRECTORY
+        staging = self.directory / f".{BACKUP_DIRECTORY}.tmp"
+        shutil.rmtree(staging, ignore_errors=True)
+        (staging / "images").mkdir(parents=True)
+        sources = [
+            self.path,
+            *self.directory.glob("trainer-arrays-*.bin"),
+            *(
+                self.images.directory.iterdir()
+                if self.images.directory.exists()
+                else ()
+            ),
+        ]
+        for source in sources:
+            if not source.is_file():
+                continue
+            target = staging / source.relative_to(self.directory)
+            try:
+                os.link(source, target)
+            except OSError:
+                shutil.copy2(source, target)
+                with target.open("rb") as copied:
+                    os.fsync(copied.fileno())
+        for directory in (staging / "images", staging):
+            descriptor = os.open(directory, os.O_RDONLY)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+        stale = self.directory / f".{BACKUP_DIRECTORY}.stale"
+        shutil.rmtree(stale, ignore_errors=True)
+        if backup.exists():
+            os.replace(backup, stale)
+        os.replace(staging, backup)
+        self._sync_directory()
+        shutil.rmtree(stale, ignore_errors=True)
 
     def _sync_directory(self):
         descriptor = os.open(self.directory, os.O_RDONLY)
@@ -225,7 +443,719 @@ class StateStore:
             os.close(descriptor)
 
 
-def _pack_arrays(value, stream):
+# One read transfers at most about 2 GiB on Linux; records can be larger.
+_READ_CHUNK = 1 << 30
+
+
+def _read_chunks(descriptor, length, offset):
+    """Yield exactly ``length`` bytes from ``offset``, failing on early EOF."""
+    while length:
+        data = os.pread(descriptor, min(length, _READ_CHUNK), offset)
+        if not data:
+            raise ValueError("checkpoint segment ended before its record")
+        yield data
+        offset += len(data)
+        length -= len(data)
+
+
+MIGRATE_ENV = "RIVER_RL_MIGRATE_CHECKPOINT"
+BACKUP_DIRECTORY = "checkpoint-v2-backup"
+
+
+def _require_migration(directory):
+    """Refuse the one-way version 2 to 3 rewrite unless the user opted in."""
+    if os.environ.get(MIGRATE_ENV) == "1":
+        return
+    raise RuntimeError(
+        f"{directory} holds a version 2 RL checkpoint written by river-client "
+        "0.17 or older. Resuming it with this client overwrites the run's "
+        "checkpoint in storage version 3 on the next save; older clients cannot "
+        f"resume it afterwards. Back up the directory first (for example, cp -a "
+        f"{directory} {directory}.bak), then set {MIGRATE_ENV}=1 to resume and "
+        f"migrate. The migration also keeps the version 2 state in "
+        f"{directory / BACKUP_DIRECTORY}."
+    )
+
+
+_TRAJECTORY = "__river_trajectory__"
+_RECORD = "__river_record__"
+# Relocate a segment's live records once less than this fraction is live.
+_COMPACT_BELOW = 0.5
+# Merge the smallest segments into the new one beyond this many; bounds the
+# files a load opens when long-lived records keep old segments mostly live.
+_MAX_SEGMENTS = 32
+_SERIAL = count()
+# Smaller arrays stay in memory: a reference would save little.
+_SPILL_BYTES = 1024
+# Read spilled arrays of one record together across gaps up to this size.
+_COALESCE_GAP = 64 << 10
+_OPEN_SEGMENTS = 64
+
+
+def _segment_file(name):
+    return f"trainer-segment-{name}.bin"
+
+
+@dataclass(frozen=True)
+class _Cursor:
+    """A trajectory's committed content, identified by its live containers."""
+
+    trajectory: object
+    spans: list
+    span_count: int
+    messages: list
+    message_count: int
+    records: tuple
+    run: int
+    # Spans whose token ids are in ``records`` but still in memory, because
+    # the next turn resends them: (span, holder, token locations).
+    unspilled: tuple = ()
+
+
+class _TrajectoryCapture:
+    """A trajectory's content that is new since its committed cursor."""
+
+    def __init__(self, trajectory, base, delta, written=(), unspilled=()):
+        self.trajectory = trajectory
+        self.spans, self.span_count = trajectory._spans, len(trajectory._spans)
+        self.messages = trajectory.messages
+        self.message_count = len(self.messages)
+        self.run, self.done = trajectory.run, bool(trajectory.done)
+        self.base, self.delta = base, delta
+        # Token ids that ``base`` holds and memory still keeps.
+        self.unspilled = unspilled
+        # Spans in ``delta``; the commit spills their arrays.
+        self.written = written
+        self.records = None
+        self.packed = None
+        self.serial = next(_SERIAL)
+
+    def current(self):
+        trajectory = self.trajectory
+        return (
+            trajectory._spans is self.spans
+            and len(self.spans) == self.span_count
+            and trajectory.messages is self.messages
+            and len(self.messages) == self.message_count
+            # Completion lets the commit spill current-run token ids.
+            and bool(trajectory.done) == self.done
+        )
+
+
+class _SpillCapture:
+    """Arrays of an unsaved trajectory, written so memory can drop them."""
+
+    def __init__(self, trajectory, spans):
+        self.trajectory, self.spans = trajectory, trajectory._spans
+        self.span_count, self.run = len(self.spans), trajectory.run
+        self.written = spans
+        self.payload = [_spill_state(span, span.run < self.run) for span in spans]
+        self.ref = self.packed = None
+
+
+class _SpillFiles:
+    """Records that spilled arrays of one run directory read from.
+
+    Shared by every store this process opens on the directory, so a reopened
+    store keeps, and compacts, records that earlier trajectories still read.
+    """
+
+    def __init__(self, directory):
+        self.directory = directory
+        self.holders = weakref.WeakSet()
+        # Readers resolve holders, and commits repoint them, under this lock.
+        self.lock = threading.RLock()
+        self.files = OrderedDict()
+
+    def close(self):
+        with self.lock:
+            while self.files:
+                self.files.popitem()[1].close()
+
+    def read(self, holder, values):
+        """Read spilled arrays of one record, coalescing nearby ones."""
+        ranges = []
+        for value in sorted(values, key=lambda v: v.offset):
+            end = value.offset + value.nbytes
+            if ranges and value.offset - ranges[-1][1] <= _COALESCE_GAP:
+                ranges[-1][1] = max(ranges[-1][1], end)
+            else:
+                ranges.append([value.offset, end])
+        with self.lock:
+            name, offset = holder.ref[0], holder.ref[1]
+            path = self.directory / _segment_file(name)
+            try:
+                stream = self.files.pop(name, None) or path.open("rb")
+                self.files[name] = stream
+                while len(self.files) > _OPEN_SEGMENTS:
+                    self.files.popitem(last=False)[1].close()
+                payloads = [
+                    (
+                        start,
+                        b"".join(
+                            _read_chunks(stream.fileno(), end - start, offset + start)
+                        ),
+                    )
+                    for start, end in ranges
+                ]
+            except (OSError, ValueError) as error:
+                raise RuntimeError(
+                    f"cannot read spilled trajectory data from {path}; keep the "
+                    "checkpoint directory available while trajectories are in use"
+                ) from error
+        arrays = []
+        for value in values:
+            start, payload = next(
+                (start, payload)
+                for start, payload in reversed(payloads)
+                if start <= value.offset
+            )
+            array = (
+                np.frombuffer(
+                    payload,
+                    dtype=value.dtype,
+                    count=math.prod(value.shape),
+                    offset=value.offset - start,
+                )
+                .reshape(value.shape)
+                .copy()
+            )
+            array.flags.writeable = False
+            arrays.append(array)
+        return arrays
+
+
+_SPILL_FILES = weakref.WeakValueDictionary()
+_SPILL_FILES_LOCK = threading.Lock()
+
+
+def _spill_files(directory):
+    with _SPILL_FILES_LOCK:
+        key = os.path.realpath(directory)
+        files = _SPILL_FILES.get(key)
+        if files is None:
+            files = _SPILL_FILES[key] = _SpillFiles(Path(key))
+        return files
+
+
+class _Holder:
+    """A segment record that spilled arrays read from.
+
+    Compaction moves records; the commit updates ``ref`` under the files'
+    lock, which readers also hold while they resolve it.
+    """
+
+    __slots__ = ("files", "ref", "__weakref__")
+
+    def __init__(self, files, ref):
+        self.files, self.ref = files, ref
+
+    def read(self, values):
+        return self.files.read(self, values)
+
+
+class _CommittedRecord:
+    """A journal record already in a segment; ``StateStore.read`` loads it."""
+
+    __slots__ = ("ref",)
+
+    def __init__(self, ref):
+        self.ref = ref
+
+
+class _RecordCapture:
+    """An immutable value written once and referenced by later saves."""
+
+    def __init__(self, value, payload, ref):
+        self.value, self.payload, self.ref = value, payload, ref
+        self.records = None
+
+
+class _Capture:
+    def __init__(self, store):
+        self._store = store
+        self._trajectories = {}
+        self.spills = []
+
+    def trajectory(self, trajectory):
+        """Return trajectory fields plus a reference to its spans and messages.
+
+        Spans are append-only. Messages already saved are treated as
+        immutable unless the list is replaced, as ``Trajectory.rewrite`` does.
+        """
+        capture = self._trajectories.get(id(trajectory))
+        if capture is None or not capture.current():
+            # A trajectory can advance between captures within one save, for
+            # example while an environment snapshot is awaited.
+            capture = self._store_capture(trajectory)
+            self._trajectories[id(trajectory)] = capture
+        fields = encode_state(
+            {
+                key: value
+                for key, value in vars(trajectory).items()
+                if key not in ("_spans", "messages")
+            }
+        )
+        return {**fields, _TRAJECTORY: capture}
+
+    def _store_capture(self, trajectory):
+        cursor = self._store._cursors.get(id(trajectory))
+        spans, messages = trajectory._spans, trajectory.messages
+        if (
+            cursor is None
+            or cursor.trajectory is not trajectory
+            or cursor.spans is not spans
+            or len(spans) < cursor.span_count
+        ):
+            # A replaced span list (for example re-stamped policy steps)
+            # rewrites the trajectory from scratch.
+            base, span_start, message_start, unspilled = (), 0, 0, ()
+        else:
+            base, span_start = cursor.records, cursor.span_count
+            message_start = (
+                cursor.message_count
+                if cursor.messages is messages and len(messages) >= cursor.message_count
+                else 0
+            )
+            unspilled = cursor.unspilled
+        if (
+            base
+            and span_start == len(spans)
+            and message_start == cursor.message_count == len(messages)
+        ):
+            return _TrajectoryCapture(trajectory, base, None, unspilled=unspilled)
+        written = spans[span_start:]
+        return _TrajectoryCapture(
+            trajectory,
+            base,
+            {
+                # Spilled arrays are copied by the save, not read here.
+                "spans": [span._state(read=False) for span in written],
+                "messages_start": message_start,
+                "messages": encode_state(messages[message_start:]),
+            },
+            written,
+            unspilled,
+        )
+
+    def spill(self, trajectory):
+        """Write a trajectory's in-memory span arrays without saving it.
+
+        For unfinished trajectories that restore would regenerate: the arrays
+        still leave memory once the save commits.
+        """
+        if not self._store._spill_arrays:
+            return
+        cursor = self._store._spill_cursors.get(id(trajectory))
+        spans, run = trajectory._spans, trajectory.run
+        start = (
+            cursor.span_count
+            if cursor is not None
+            and cursor.trajectory is trajectory
+            and cursor.spans is spans
+            and cursor.run == run
+            and len(spans) >= cursor.span_count
+            else 0
+        )
+        self.spills.append(
+            _SpillCapture(
+                trajectory,
+                [span for span in spans[start:] if _unspilled(span, span.run < run)],
+            )
+        )
+
+    def record(self, value):
+        """Reference ``value``, writing a copy of it only on its first save."""
+        if isinstance(value, _CommittedRecord):
+            return _RecordCapture(value, None, value.ref)
+        committed = self._store._records.get(id(value))
+        if committed is not None and committed[0] is value:
+            return _RecordCapture(value, None, committed[1])
+        # encode_state rebuilds every container; arrays and scalars are not
+        # mutated once a journal update is committed.
+        return _RecordCapture(value, encode_state(value), None)
+
+
+class _Relative:
+    """A write stream whose positions start at its creation offset."""
+
+    def __init__(self, stream):
+        self.stream, self.start = stream, stream.tell()
+
+    def tell(self):
+        return self.stream.tell() - self.start
+
+    def write(self, data):
+        return self.stream.write(data)
+
+
+class _SegmentWriter:
+    def __init__(self, store, name, stream, images):
+        self.store, self.name, self.stream, self.source = store, name, stream, images
+        self.captures = {}
+        self.containers = []
+        self.digests = set()
+
+    def resolve(self, value):
+        if isinstance(value, dict) and isinstance(
+            value.get(_TRAJECTORY), _TrajectoryCapture
+        ):
+            capture = value[_TRAJECTORY]
+            if capture.records is None:
+                records = list(capture.base)
+                if capture.delta is not None:
+                    ref, packed = self.write(capture.delta)
+                    records.append(ref)
+                    capture.packed = packed["spans"]
+                capture.records = records
+                self.captures[id(capture)] = capture
+                self.containers.append(records)
+            fields = {k: v for k, v in value.items() if k != _TRAJECTORY}
+            return {**self.resolve(fields), _TRAJECTORY: capture.records}
+        if isinstance(value, _RecordCapture):
+            if value.records is None:
+                ref = (
+                    value.ref if value.payload is None else self.write(value.payload)[0]
+                )
+                value.records = [ref]
+                self.captures[id(value)] = value
+                self.containers.append(value.records)
+            return {_RECORD: value.records}
+        if isinstance(value, dict):
+            if _TRAJECTORY in value or _RECORD in value:
+                raise ValueError("checkpoint state contains reserved record metadata")
+            return {key: self.resolve(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [self.resolve(item) for item in value]
+        return value
+
+    def spill(self, captures):
+        self.spills = captures
+        for capture in captures:
+            if capture.written:
+                capture.ref, packed = self.write({"spans": capture.payload})
+                capture.packed = packed["spans"]
+
+    def write(self, payload):
+        """Append one record, its arrays then its JSON; return it and its layout."""
+        offset = self.stream.tell()
+        arrays = _Relative(self.stream)
+        packed = _pack_arrays(payload, arrays, _read_all_spilled(payload))
+        text = json.dumps(
+            packed, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+        ).encode()
+        array_bytes = arrays.tell()
+        self.stream.write(text)
+        digests = sorted(
+            self.store.images.copy_images(decode_state(packed), self.source)
+        )
+        return (self.name, offset, array_bytes, len(text), *digests), packed
+
+    def compact(self):
+        """Copy live records out of old segments that are mostly dead.
+
+        Records that spilled arrays read from are live too; the commit points
+        their holders at the copies.
+        """
+        self.held = list(self.store._spill.holders)
+        self.moved = {}
+        live = {}
+        for ref in {
+            *(ref for records in self.containers for ref in records),
+            *(holder.ref for holder in self.held),
+        }:
+            live[ref[0]] = live.get(ref[0], 0) + ref[2] + ref[3]
+        sizes = {
+            name: self.store._segments[name]["bytes"]
+            for name in live
+            if name != self.name
+        }
+        sparse = {
+            name for name, size in sizes.items() if live[name] < size * _COMPACT_BELOW
+        }
+        remaining = sorted(
+            (name for name in sizes if name not in sparse), key=lambda n: live[n]
+        )
+        sparse.update(remaining[: max(0, len(remaining) - _MAX_SEGMENTS)])
+        if not sparse:
+            return
+        moved = self.moved
+        sources = {
+            name: (self.store.directory / _segment_file(name)).open("rb")
+            for name in sparse
+        }
+        try:
+            # A copy gets a fresh checksum, so verify the committed one first.
+            for name, source in sources.items():
+                if (
+                    hashlib.file_digest(source, "sha256").hexdigest()
+                    != self.store._segments[name]["sha256"]
+                ):
+                    raise ValueError("checkpoint segment integrity verification failed")
+
+            def move(ref):
+                if ref not in moved:
+                    name, offset, array_bytes, text_bytes, *digests = ref
+                    moved[ref] = (
+                        self.name,
+                        self.stream.tell(),
+                        array_bytes,
+                        text_bytes,
+                        *digests,
+                    )
+                    for chunk in _read_chunks(
+                        sources[name].fileno(), array_bytes + text_bytes, offset
+                    ):
+                        self.stream.write(chunk)
+                return moved[ref]
+
+            for records in self.containers:
+                for index, ref in enumerate(records):
+                    if ref[0] in sparse:
+                        records[index] = move(ref)
+            for holder in self.held:
+                if holder.ref[0] in sparse:
+                    move(holder.ref)
+        finally:
+            for source in sources.values():
+                source.close()
+
+    def images(self):
+        return {
+            digest
+            for records in self.containers
+            for ref in records
+            for digest in ref[4:]
+        }
+
+    def segments(self, name, size, digest):
+        used = {
+            *(ref[0] for records in self.containers for ref in records),
+            *(self.moved.get(holder.ref, holder.ref)[0] for holder in self.held),
+        } - {name}
+        return {
+            **{segment: self.store._segments[segment] for segment in sorted(used)},
+            name: {"bytes": size, "sha256": digest},
+        }
+
+    def commit(self):
+        """Advance cursors and spill written arrays; call under the I/O lock."""
+        for holder in self.held:
+            holder.ref = self.moved.get(holder.ref, holder.ref)
+        spilling = self.store._spill_arrays
+        cursors, records, serials, newest = {}, {}, {}, {}
+        for capture in self.captures.values():
+            if isinstance(capture, _RecordCapture):
+                if isinstance(capture.value, _CommittedRecord):
+                    # Compaction may have moved the record.
+                    capture.value.ref = capture.records[0]
+                else:
+                    records[id(capture.value)] = (capture.value, capture.records[0])
+            elif (
+                id(capture.trajectory) not in serials
+                or serials[id(capture.trajectory)] < capture.serial
+            ):
+                # The newest capture of a trajectory becomes its cursor.
+                serials[id(capture.trajectory)] = capture.serial
+                newest[id(capture.trajectory)] = capture
+        for key, capture in newest.items():
+            unspilled = list(capture.unspilled) if spilling else []
+            if spilling and capture.packed is not None:
+                # A content record is the last one of its trajectory's records.
+                holder = self._holder(capture.records[-1])
+                for span, packed in zip(capture.written, capture.packed, strict=True):
+                    _spill(span, packed, holder)
+                    unspilled.append((span, holder, _token_locations(packed)))
+            # Token ids leave memory once no turn resends them: in runs before
+            # a rewrite, or when the trajectory is complete.
+            keep = []
+            for span, holder, locations in unspilled:
+                if span.run < capture.run or capture.done:
+                    _spill_tokens(span, locations, holder)
+                elif any(
+                    isinstance(tokens := span._chunks[index]["tokens"], np.ndarray)
+                    and _spillable(tokens)
+                    for index, _ in locations
+                ):
+                    keep.append((span, holder, locations))
+            cursors[key] = _Cursor(
+                capture.trajectory,
+                capture.spans,
+                capture.span_count,
+                capture.messages,
+                capture.message_count,
+                tuple(capture.records),
+                capture.run,
+                tuple(keep),
+            )
+        spill_cursors = {}
+        for capture in self.spills if spilling else ():
+            if capture.packed is not None:
+                holder = self._holder(capture.ref)
+                for span, packed in zip(capture.written, capture.packed, strict=True):
+                    _spill(span, packed, holder)
+                    if span.run < capture.run:
+                        _spill_tokens(span, _token_locations(packed), holder)
+        for capture in self.spills:
+            spill_cursors[id(capture.trajectory)] = _Cursor(
+                capture.trajectory,
+                capture.spans,
+                capture.span_count,
+                None,
+                0,
+                (),
+                capture.run,
+            )
+        return cursors, records, spill_cursors
+
+    def _holder(self, ref):
+        holder = _Holder(self.store._spill, ref)
+        self.store._spill.holders.add(holder)
+        return holder
+
+
+def _spillable(value):
+    return isinstance(value, (np.ndarray, _Spilled)) and value.nbytes >= _SPILL_BYTES
+
+
+def _unspilled(span, tokens):
+    """Whether ``span`` holds arrays in memory that a spill would write."""
+    values = span.__dict__
+    return any(
+        isinstance(value, np.ndarray) and _spillable(value)
+        for value in (
+            *(values[name] for name in _SPAN_ARRAYS),
+            *(
+                c["tokens"]
+                for c in (span._chunks if tokens else ())
+                if c["type"] == "text"
+            ),
+        )
+    )
+
+
+def _spill_state(span, tokens):
+    """The in-memory arrays of ``span`` that a spill record holds."""
+
+    def keep(value):
+        return value if isinstance(value, np.ndarray) and _spillable(value) else None
+
+    return {
+        **{name: keep(span.__dict__[name]) for name in _SPAN_ARRAYS},
+        "chunks": [
+            {"tokens": keep(c["tokens"]) if tokens and c["type"] == "text" else None}
+            for c in span._chunks
+        ],
+    }
+
+
+def _stored(marker):
+    if isinstance(marker, dict) and set(marker) == {"__river_ndarray_storage__"}:
+        return marker["__river_ndarray_storage__"]
+    return None
+
+
+def _spill(span, packed, holder):
+    """Point ``span``'s logprob-like arrays at their copies in a record."""
+    values = span.__dict__
+    for name in _SPAN_ARRAYS:
+        location = _stored(packed.get(name))
+        if location is not None and _spillable(values[name]):
+            values[name] = _Spilled(holder, *location)
+
+
+def _token_locations(packed):
+    """Record locations of a packed span's token ids, by chunk index.
+
+    Pending cursors keep these rather than the packed chunks, which may hold
+    encoded image bytes.
+    """
+    return tuple(
+        (index, location)
+        for index, chunk in enumerate(packed["chunks"])
+        if (location := _stored(chunk.get("tokens"))) is not None
+    )
+
+
+def _spill_tokens(span, locations, holder):
+    """Point ``span``'s token ids at their copies in a record.
+
+    Token ids already spilled to an older record move to the new copy too, so
+    the older record need not stay live.
+    """
+    for index, location in locations:
+        chunk = span._chunks[index]
+        if chunk["type"] == "text" and _spillable(chunk["tokens"]):
+            chunk["tokens"] = _Spilled(holder, *location)
+
+
+def _expand(value, read, cache, lazy_records=False):
+    """Replace record references with their content."""
+    if isinstance(value, dict):
+        if _TRAJECTORY in value:
+            fields = {
+                k: _expand(v, read, cache, lazy_records)
+                for k, v in value.items()
+                if k != _TRAJECTORY
+            }
+            spans, messages = [], []
+            for ref in value[_TRAJECTORY]:
+                content = _read_record(ref, read, cache)
+                spans.extend(content["spans"])
+                messages = [
+                    *messages[: content["messages_start"]],
+                    *content["messages"],
+                ]
+            return {"version": 1, **fields, "spans": spans, "messages": messages}
+        if _RECORD in value:
+            if lazy_records:
+                # Writers use references as keys; JSON returns them as lists.
+                return _CommittedRecord(tuple(value[_RECORD][0]))
+            return _read_record(value[_RECORD][0], read, cache)
+        return {
+            key: _expand(item, read, cache, lazy_records) for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_expand(item, read, cache, lazy_records) for item in value]
+    return value
+
+
+def _read_record(ref, read, cache):
+    key = tuple(ref[:4])
+    if key not in cache:
+        name, offset, array_bytes, text_bytes = key
+        payload = read(name, offset, array_bytes + text_bytes)
+        cache[key] = _unpack_arrays(
+            decode_state(json.loads(payload[array_bytes:])), payload[:array_bytes]
+        )
+    return cache[key]
+
+
+def _read_all_spilled(value):
+    """Read every spilled array in ``value``, one coalesced read per record."""
+    wanted = {}
+
+    def collect(item):
+        if isinstance(item, _Spilled):
+            wanted.setdefault(item.holder, []).append(item)
+        elif isinstance(item, dict):
+            for child in item.values():
+                collect(child)
+        elif isinstance(item, (list, tuple)):
+            for child in item:
+                collect(child)
+
+    collect(value)
+    arrays = {}
+    for holder, values in wanted.items():
+        arrays.update(zip(map(id, values), holder.read(values), strict=True))
+    return arrays
+
+
+def _pack_arrays(value, stream, spilled=None):
+    if isinstance(value, _Spilled):
+        # A rewritten span copies its spilled bytes into the new segment.
+        value = spilled[id(value)] if spilled else value.read()
     if isinstance(value, np.ndarray):
         # Preserve array dtype and representation through recovery.
         if value.ndim not in (1, 2) or value.dtype.str not in {
@@ -247,7 +1177,7 @@ def _pack_arrays(value, stream):
     if isinstance(value, dict):
         if "__river_array__" in value or "__river_ndarray_storage__" in value:
             raise ValueError("checkpoint state contains reserved array metadata")
-        return {key: _pack_arrays(item, stream) for key, item in value.items()}
+        return {key: _pack_arrays(item, stream, spilled) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         shape = len(value)
         count, items = len(value), value
@@ -284,11 +1214,49 @@ def _pack_arrays(value, stream):
                 offset = stream.tell()
                 stream.write(array.tobytes())
                 return {"__river_array__": [offset, shape, dtype]}
-        return [_pack_arrays(item, stream) for item in value]
+        return [_pack_arrays(item, stream, spilled) for item in value]
     return value
 
 
-def _unpack_arrays(value, payload):
+# Bytes a version 2 load reads at once; arrays are stored in load order.
+_ARRAY_WINDOW = 16 << 20
+
+
+class _ArrayWindow:
+    """A file read with pread through one bounded window, as a payload.
+
+    Read errors raise exceptions, unlike faults in a memory map. Arrays
+    viewed from the window must be copied before the next ``view``.
+    """
+
+    def __init__(self, descriptor, size):
+        self.descriptor, self.size = descriptor, size
+        self.start, self.data = 0, b""
+
+    def __len__(self):
+        return self.size
+
+    def view(self, offset, dtype, count):
+        length = count * np.dtype(dtype).itemsize
+        if not (
+            self.start <= offset and offset + length <= self.start + len(self.data)
+        ):
+            self.data = b""  # release the old window before reading the next
+            self.start = offset
+            self.data = b"".join(
+                _read_chunks(
+                    self.descriptor,
+                    min(max(length, _ARRAY_WINDOW), self.size - offset),
+                    offset,
+                )
+            )
+        return np.frombuffer(
+            self.data, dtype=dtype, count=count, offset=offset - self.start
+        )
+
+
+def _unpack_arrays(value, payload, arrays=None):
+    """Restore packed arrays; ``arrays`` converts list-packed ones instead of tolist."""
     if isinstance(value, dict):
         if set(value) in ({"__river_array__"}, {"__river_ndarray_storage__"}):
             marker = next(iter(value))
@@ -306,16 +1274,153 @@ def _unpack_arrays(value, payload):
                 or offset + count * np.dtype(dtype).itemsize > len(payload)
             ):
                 raise ValueError("invalid checkpoint array bounds or dtype")
-            array = np.frombuffer(
-                payload, dtype=dtype, count=count, offset=offset
+            array = (
+                payload.view(offset, dtype, count)
+                if isinstance(payload, _ArrayWindow)
+                else np.frombuffer(payload, dtype=dtype, count=count, offset=offset)
             ).reshape(dimensions)
+            # Every branch copies: a leaf must not pin the payload or window.
             if marker == "__river_ndarray_storage__":
-                # A surviving small leaf must not pin the entire checkpoint blob.
                 array = array.copy()
                 array.flags.writeable = False
                 return array
-            return array.tolist()
-        return {key: _unpack_arrays(item, payload) for key, item in value.items()}
+            return array.tolist() if arrays is None else arrays(array)
+        return {
+            key: _unpack_arrays(item, payload, arrays) for key, item in value.items()
+        }
     if isinstance(value, list):
-        return [_unpack_arrays(item, payload) for item in value]
+        return [_unpack_arrays(item, payload, arrays) for item in value]
     return value
+
+
+def _owned(view):
+    # Span normalizes dtypes and keeps read-only arrays of its own dtype.
+    array = view.copy()
+    array.flags.writeable = False
+    return array
+
+
+def _wire(view):
+    # Version 2 journals held Python lists, which the client sent as int64
+    # and float32 arrays; keep those wire dtypes.
+    return view.astype(np.float32 if view.dtype.kind == "f" else np.int64)
+
+
+def _unpack_v2(state, payload):
+    """Restore version 2 state without listing token and logprob arrays.
+
+    Version 2 stored trajectory spans and journal datums as Python lists in
+    memory. They return as arrays; other packed lists, which may belong to
+    user rows or environment state, return as lists.
+    """
+
+    def trajectory(value):
+        if not isinstance(value, dict):
+            return _unpack_arrays(value, payload)
+        return {
+            key: _unpack_arrays(item, payload, _owned if key == "spans" else None)
+            for key, item in value.items()
+        }
+
+    def result(value):
+        if not isinstance(value, dict) or not isinstance(
+            value.get("trajectories"), list
+        ):
+            return _unpack_arrays(value, payload)
+        return {
+            key: [trajectory(t) for t in item]
+            if key == "trajectories"
+            else _unpack_arrays(item, payload)
+            for key, item in value.items()
+        }
+
+    def group(value):
+        if not isinstance(value, dict) or not isinstance(value.get("members"), list):
+            return _unpack_arrays(value, payload)
+        return {
+            key: [
+                {
+                    k: trajectory(v) if k == "traj" else _unpack_arrays(v, payload)
+                    for k, v in member.items()
+                }
+                if isinstance(member, dict)
+                else _unpack_arrays(member, payload)
+                for member in item
+            ]
+            if key == "members"
+            else _unpack_arrays(item, payload)
+            for key, item in value.items()
+        }
+
+    def update(value):
+        if not isinstance(value, dict):
+            return _unpack_arrays(value, payload)
+        return {
+            key: _unpack_arrays(
+                item, payload, _wire if key in ("data", "chunks") else None
+            )
+            for key, item in value.items()
+        }
+
+    def engine(value):
+        if not isinstance(value, dict):
+            return _unpack_arrays(value, payload)
+        return {
+            key: [group(g) for g in item]
+            if key == "groups" and isinstance(item, list)
+            else [result(r) for r in item]
+            if key == "outbox" and isinstance(item, list)
+            else _unpack_arrays(item, payload)
+            for key, item in value.items()
+        }
+
+    if not isinstance(state, dict):
+        return _unpack_arrays(state, payload)
+    restore = {
+        "journal": lambda item: [update(u) for u in item],
+        "pending": lambda item: [result(r) for r in item],
+        "engine": engine,
+    }
+    return {
+        key: restore[key](item)
+        if key in restore and isinstance(item, (list, dict))
+        else _unpack_arrays(item, payload)
+        for key, item in state.items()
+    }
+
+
+_NON_ASCII = re.compile(r"[^\x00-\x7f]+")
+# Read a manifest in pieces this large.
+_JSON_CHUNK = 16 << 20
+
+
+def _read_json(path):
+    """Parse a JSON file without one document-wide string of its widest character.
+
+    A str stores every character at the width of its widest one, so a single
+    emoji makes a decoded multi-GiB manifest four bytes per character.
+    Escaping non-ASCII characters, which JSON allows only inside strings,
+    keeps the document one byte per character; json still builds each string
+    value at its own width.
+    """
+    decoder = codecs.getincrementaldecoder("utf-8")()
+    parts = []
+
+    def ascii_text(text):
+        if text.isascii():
+            return text
+        return _NON_ASCII.sub(
+            lambda match: json.encoder.encode_basestring_ascii(match.group())[1:-1],
+            text,
+        )
+
+    with path.open("rb") as stream:
+        remaining = os.fstat(stream.fileno()).st_size
+        # read(n) allocates n bytes up front; never ask for more than remains.
+        while remaining and (chunk := stream.read(min(_JSON_CHUNK, remaining))):
+            remaining -= len(chunk)
+            parts.append(ascii_text(decoder.decode(chunk)))
+    parts.append(ascii_text(decoder.decode(b"", final=True)))
+    text = "".join(parts)
+    del parts
+    return json.loads(text)

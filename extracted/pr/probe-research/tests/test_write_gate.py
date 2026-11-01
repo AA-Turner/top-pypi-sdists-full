@@ -710,8 +710,8 @@ def test_daemon_lets_the_agent_read_what_is_recorded():
                  ["run", "upstream", "r1", "--depth", "3"], ["experiment", "lineage", "e1"],
                  ["project", "lineage", "p1"]):
         assert _refusal(argv) is None, argv
-    # The daemon's own shell files them as lookups, not writes (`daemon/tools.py`).
-    from probe.daemon import precheck
+    # The daemon's own shell files them as lookups, not writes (`daemon/agent/tools/tools.py`).
+    from probe.shared.command_rules import command_rules as precheck
 
     for argv in (["experiment", "lineage", "e1"], ["project", "lineage", "p1"]):
         assert precheck.parse(argv).owner == precheck.READ, argv

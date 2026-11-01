@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.mcp.server import NO_TOKEN_PLACEHOLDER
+from probe.mcp.server.http import NO_TOKEN_PLACEHOLDER
 
 _HELPER = (
     Path(__file__).resolve().parent.parent

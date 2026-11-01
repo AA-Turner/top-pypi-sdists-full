@@ -28,8 +28,12 @@ from pathlib import Path
 
 import httpx
 
-from probe._shared import handoff, installs, kimi_live
-from probe.cli import claude_cli, plugin_cli, service_calls
+from probe.shared.updates import handoff, installs
+from probe.shared.updates import step as update_step
+from probe.shared.harness.harnesses.kimi_code import live as kimi_live
+from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+from probe.shared.harness import plugins as plugin_cli
+from probe.cli import service_calls
 from probe.cli.capabilities import (
     DAEMON_PLUGIN_NAME,
     TAP_PLUGIN_ID,
@@ -37,16 +41,16 @@ from probe.cli.capabilities import (
     TRACKING_PLUGIN_NAME,
     tracking_plugin_name,
 )
-from probe.cli.versions import _LEGACY_TAP_PLUGINS
+from probe.shared.updates.updates import _LEGACY_TAP_PLUGINS
 from probe.core import adopt as _adopt
-from probe.harness import get_registry
+from probe.foundation.harness_registry import get_registry
 from probe.sdk import session_marker
 from probe.sdk.redaction import scrub_text
 # Loaded here, not when `service_calls.recorders` asks: the update report reads
 # the service's recorders AFTER the CLI upgrade replaced this tree (see above).
 from probe.service import client as _service_client  # noqa: F401
 from probe.service import protocol as _service_protocol  # noqa: F401
-from probe.sdk.tls import ssl_context
+from probe.foundation.tls.tls import ssl_context
 
 # H8: `scrub_text` imports this lazily, and it runs AFTER the CLI upgrade has
 # replaced the installed tree. Loaded here so that import finds it in memory.
@@ -184,10 +188,10 @@ def detect_install() -> Install:
     s = str(pkg).replace(os.sep, "/")
     # The marks the auto-update default reads too (`version_policy.managed_cli`):
     # these two kinds are the machine's managed CLI, on by default (plan C2).
-    from probe import version_policy
+    from probe.shared.updates import version_policy
 
     if version_policy.UV_TOOL_MARK in s or installs.running_from_versions(s):
-        # A side-by-side version env (`probe._shared.installs`, plan D6) is the
+        # A side-by-side version env (`probe.shared.updates.installs`, plan D6) is the
         # same uv tool install, one version of it.
         return Install(Method.UV_TOOL)
     if version_policy.LEGACY_UV_TOOL_MARK in s:
@@ -583,7 +587,7 @@ def kept_from_uv_receipt(prefix: str | Path | None = None) -> KeptInstall | None
     every later update on the in-place path for good (plan A4). None only
     for probe-research itself from a path or URL: a checkout or a build of
     someone's own, which no update from the index may replace."""
-    from probe._compat import tomllib
+    from probe.foundation.compat.compat import tomllib
 
     path = Path(prefix if prefix is not None else sys.prefix) / "uv-receipt.toml"
     dropped: list[str] = []
@@ -757,7 +761,7 @@ def upgrade_cli(install: Install, current: str | None, target: str | None) -> Cl
             current,
             "could not tell how probe was installed — update via your package manager",
         )
-    from probe._shared import uninstall_barrier
+    from probe.shared.updates import uninstall_barrier
 
     refused = uninstall_barrier.refusal()
     if refused:
@@ -919,7 +923,7 @@ def _upgrade_in_place(current: str | None, target: str | None) -> CliResult:
 IN_PLACE_ENV = "PROBE_UPDATE_IN_PLACE"
 #: Set by the Probe service (`probe.service.updater.SIDE_BY_SIDE_ENV`) when it did
 #: not wait for runs and daemon workers: the CLI is updated beside them or not at all.
-REQUIRE_SIDE_BY_SIDE_ENV = "PROBE_UPDATE_SIDE_BY_SIDE"
+REQUIRE_SIDE_BY_SIDE_ENV = update_step.SIDE_BY_SIDE_ENV
 
 
 def upgrade_side_by_side(current: str | None, target: str | None) -> CliResult | None:
@@ -1585,7 +1589,7 @@ def follows_without_restart(
     update line); an agent whose proof reads what is installed now
     (`loaded_records`, and pi's pins) then never follows. Never raises."""
     try:
-        from probe.harness.registry import (
+        from probe.foundation.harness_registry.harness_registry import (
             CAPABILITY_FOLLOWS_UPDATES,
             CAPABILITY_LOADED_RECORDS,
             CAPABILITY_SCOPED_INSTALLS,
@@ -1598,7 +1602,7 @@ def follows_without_restart(
         if harness_row is not None and harness_row.family == FAMILY_EXTENSION:
             # pi: its shim switches to the pinned version at a session's next
             # turn; proven per live pi process from its shim's record.
-            from probe.cli import pi_pins
+            from probe.shared.harness.harnesses.pi import pins as pi_pins
 
             if predicting or not pi_pins.sessions_follow((harness_row.binary,)):
                 return False
@@ -1912,7 +1916,7 @@ def _codex_plugin_versions(_codex: str | None = None) -> dict[str, str] | None:
 def _codex_versions_on_disk() -> dict[str, str] | None:
     """`codex_config.installed_plugin_versions` for Probe's marketplace; None
     when it cannot be read."""
-    from probe.cli import codex_config
+    from probe.shared.harness.harnesses.codex import config as codex_config
 
     try:
         return codex_config.installed_plugin_versions(MARKETPLACE)
@@ -2035,7 +2039,7 @@ def approve_codex_hooks_note() -> str:
     approved them has never had them approved. Empty where Codex holds no copy of
     Probe's plugins, when nothing waited, or when Codex could not be asked
     (status and doctor still say). Never raises."""
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 
     try:
         if not codex_hooks.installed_copies():
@@ -2056,7 +2060,7 @@ def update_kimi_plugins() -> PluginResult:
     """Re-copy every Probe plugin Kimi Code has installed (Kimi has no update
     command; `kimi_config.install_plugin` replaces the copy in place), then
     verify the versions from the copies themselves."""
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     if not kimi_config.binary_available():
         return PluginResult(
@@ -2105,7 +2109,7 @@ def update_kimi_plugins() -> PluginResult:
 
 
 def manual_kimi_plugin_commands() -> str:
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     return "\n".join(
         f"/plugins install {kimi_config.managed_dir(name)}   # inside Kimi Code"

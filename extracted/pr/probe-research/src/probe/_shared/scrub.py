@@ -1,8 +1,8 @@
 """Scrub this machine's own identity and every credential out of diagnostic text.
 
 One implementation for everything Probe sends ITS OWN TEAM about a machine:
-the update reports (`probe.cli.update_report`) and the diagnostic reports
-(`probe.core.report`). The server scrubs again; it does not trust this.
+the update reports (`probe.shared.updates.update_report`) and the diagnostic reports
+(`probe.shared.reports`). The server scrubs again; it does not trust this.
 
 Order matters: this machine's home folder and login name go FIRST, then every
 home-shaped path and credential (`probe.sdk.redaction.scrub_text`, plus the

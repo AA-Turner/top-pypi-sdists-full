@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from probe._compat import tomllib
+from probe.foundation.compat.compat import tomllib
 
 AGENT = Path(__file__).resolve().parents[1]
 HOOKS = AGENT / "plugins" / "probe-research" / "hooks"

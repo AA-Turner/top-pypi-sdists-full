@@ -82,7 +82,7 @@ version = { attr = "pytest_codspeed.__version__" }
 
 
 [tool.bumpver]
-current_version = "5.0.3"
+current_version = "5.0.4"
 version_pattern = "MAJOR.MINOR.PATCH[-TAG[NUM]]"
 commit_message = "Release v{new_version} 🚀"
 tag_message = "Release v{new_version} 🚀"
@@ -136,7 +136,7 @@ force_grid_wrap = 0
 float_to_top = true
 
 [tool.pytest.ini_options]
-addopts = "--ignore=tests/benchmarks --ignore=tests/examples --ignore=tests/benchmarks/TheAlgorithms"
+addopts = "--ignore=tests/benchmarks --ignore=tests/benchmarks/TheAlgorithms"
 filterwarnings = ["ignore::DeprecationWarning:pytest_benchmark.utils.*:"]
 pythonpath = ["tests/benchmarks/TheAlgorithms", "./scripts"]
 

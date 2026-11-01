@@ -58,7 +58,7 @@ def watcher_prefix(source: str) -> str:
     """The `/tmp` prefix this agent's watcher files share: the registry row's
     `capture.watcher_prefix`, which `tap.config.watcher_prefix` reads from the
     tap's own copy of the registry."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     capture = get_registry().get(source).capture
     if capture is None:
@@ -399,7 +399,7 @@ def _tracking_is_on(session_id: str, cwd: Path) -> bool:
 
 
 def _capture_installed(cwd: Path) -> bool:
-    from probe.cli import pi_config  # noqa: PLC0415
+    from probe.shared.harness.harnesses import pi as pi_config  # noqa: PLC0415
 
     # The session's cwd, so a PROJECT-scope `packages` entry counts as consent
     # exactly as a global one does. A broken explicit PROBE_PI_PACKAGE_ROOT
@@ -419,7 +419,7 @@ def _tap_runtime() -> tuple[str, str | None] | None:
     if override and (Path(override) / "tap" / "__init__.py").exists():
         return (sys.executable, override)
 
-    from probe.cli import pi_config  # noqa: PLC0415
+    from probe.shared.harness.harnesses import pi as pi_config  # noqa: PLC0415
 
     try:
         root = pi_config.local_package_root()

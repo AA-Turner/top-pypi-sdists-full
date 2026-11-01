@@ -21,9 +21,9 @@ import httpx
 import pytest
 
 from probe.sdk import errors, session_marker
-from probe.sdk import transport as transport_module
-from probe.sdk.config import Settings
-from probe.sdk.transport import Transport
+from probe.sdk.delivery import transport as transport_module
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.transport.transport import Transport
 
 SESSION = "0f0e29be-6a1a-4e6f-9f66-1c8f6f3f0001"
 SESSION_B = "0f0e29be-6a1a-4e6f-9f66-1c8f6f3f0002"

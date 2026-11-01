@@ -14,13 +14,13 @@ import sys
 
 import pytest
 
-from probe.daemon import cli_spec, precheck
+from probe.shared.command_rules import cli_spec, command_rules as precheck
 
 
 def test_the_spec_file_is_the_live_clis_tree():
     current = cli_spec.SPEC_PATH.read_text(encoding="utf-8")
     assert current == cli_spec.render(cli_spec.dump()), (
-        "agent/src/probe/daemon/cli_spec.json is stale: run `python -m probe.daemon.cli_spec --write`")
+        "agent/src/probe/shared/command_rules/cli_spec.json is stale: run `python -m probe.daemon.cli_spec --write`")
 
 
 def _leaves(cmd, path):
@@ -29,6 +29,24 @@ def _leaves(cmd, path):
             yield from _leaves(sub, path + [name])
     else:
         yield path, cmd
+
+
+def test_every_command_is_defined_where_the_fingerprint_looks():
+    """`source_sha` hashes COMMAND_FOLDERS; a command defined elsewhere could change its options
+    and leave the bundled spec's `cli_source` unchanged, so the daemon would keep a stale tree."""
+    import inspect
+    from pathlib import Path
+
+    package = Path(cli_spec.__file__).resolve().parents[2]
+    folders = [package / folder for folder in cli_spec.COMMAND_FOLDERS]
+    outside = []
+    for path, cmd in _leaves(cli_spec.live_root(), []):
+        if cmd.callback is None:
+            continue
+        source = Path(inspect.getsourcefile(inspect.unwrap(cmd.callback))).resolve()
+        if not any(source.is_relative_to(folder) for folder in folders):
+            outside.append(f"probe {' '.join(path)}: {source.relative_to(package)}")
+    assert not outside, "add their folder to cli_spec.COMMAND_FOLDERS:\n" + "\n".join(outside)
 
 
 def _sample(p) -> str:

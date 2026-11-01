@@ -111,7 +111,9 @@ class _Queue:
 @pytest.fixture
 def journal(monkeypatch):
     def install(queue):
-        monkeypatch.setattr("probe.sdk.journal.Journal", lambda *a, **k: queue)
+        monkeypatch.setattr("probe.sdk.delivery.journal.journal.Journal", lambda *a, **k: queue)
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.credentials.Journal", lambda *a, **k: queue)
+        monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.Journal", lambda *a, **k: queue)
 
     return install
 

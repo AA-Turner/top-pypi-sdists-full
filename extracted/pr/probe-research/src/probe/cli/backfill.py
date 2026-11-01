@@ -41,7 +41,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from functools import lru_cache
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -53,7 +53,7 @@ from ..sdk.errors import NotFoundError
 # For `which_agent`'s pi branch only. Module-level and cheap: `pi_config` is
 # stdlib plus `claude_cli` (itself stdlib), so this costs the lazy-import
 # discipline in the docstring above nothing.
-from . import pi_config
+from ..shared.harness.harnesses import pi as pi_config
 
 
 _BACKFILL_CLI_LOCK = threading.Lock()
@@ -754,7 +754,8 @@ def git_context(folder: Path) -> GitContext | None:
     and quick to give up: the same fail-fast env the snapshot capture uses, so
     a credential-prompting remote cannot hang the wizard.
     """
-    from probe.sdk.snapshot import _git, _remote_url
+    from probe.sdk.capture.code.git import _git
+    from probe.sdk.capture.code.git_remote import _remote_url
 
     toplevel = _git(str(folder), "rev-parse", "--show-toplevel", check=False)
     if not toplevel:
@@ -862,7 +863,7 @@ def write_git_history(context: GitContext, work_dir: Path) -> Path | None:
     """
     from collections import Counter, defaultdict
 
-    from probe.sdk.snapshot import _git
+    from probe.sdk.capture.code.git import _git
 
     cwd = str(context.toplevel)
     log = _git(
@@ -1246,7 +1247,7 @@ def agent_version(agent: Agent) -> str | None:
     old Claude Code installs produced no signal at all, and the one report that
     surfaced it was a screenshot in a meeting.
     """
-    from . import claude_cli
+    from ..shared.harness.harnesses.claude_code import binary as claude_cli
 
     binary = which_agent(agent)
     if binary is None or claude_cli.already_hung(binary):
@@ -1256,7 +1257,7 @@ def agent_version(agent: Agent) -> str | None:
 
 @lru_cache(maxsize=8)
 def _agent_version_cached(binary: str) -> str | None:
-    from . import claude_cli
+    from ..shared.harness.harnesses.claude_code import binary as claude_cli
 
     # `probe status --refresh` bounds every agent-CLI call (`claude_cli.bounded`).
     timeout = claude_cli.call_timeout(HELP_TIMEOUT_S)
@@ -2693,7 +2694,7 @@ def count_landed(client, project: str) -> tuple[int, bool]:
     """
     from concurrent.futures import ThreadPoolExecutor
 
-    from probe.sdk.client import Anchor
+    from probe.sdk.artifact.anchors import Anchor
 
     try:
         project_id = _project_id(client, project)

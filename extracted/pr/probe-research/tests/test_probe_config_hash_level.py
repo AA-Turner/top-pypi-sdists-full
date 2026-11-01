@@ -12,8 +12,11 @@ import pytest
 
 import probe
 from probe.cli import write_gate
-from probe.sdk import disabled, exclusions, fluent, inputs, outputs, probe_config as pc, snapshot
-from probe.sdk.run import Run
+from probe.sdk.run import disabled
+from probe.sdk import fluent, probe_config as pc
+from probe.sdk.capture import lineage as inputs, outputs, code as snapshot
+from probe.sdk.recording_rules import recording_rules as exclusions
+from probe.sdk.run.run import Run
 from tests.conftest import make_client
 
 
@@ -169,7 +172,10 @@ def wired(app, tmp_path, monkeypatch):
         built.append(client)
         return client
 
-    monkeypatch.setattr(fluent, "Client", factory)
+    monkeypatch.setattr(fluent.fluent, "Client", factory)
+    monkeypatch.setattr(fluent.attach, "Client", factory)
+    monkeypatch.setattr(fluent.bindings, "Client", factory)
+    monkeypatch.setattr(fluent.run_openers.online, "Client", factory)
     app.seed_experiment("e1")
     fluent._current.set(None)
     fluent._process_default = None

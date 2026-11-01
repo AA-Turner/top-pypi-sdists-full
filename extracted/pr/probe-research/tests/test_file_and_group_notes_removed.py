@@ -18,9 +18,10 @@ from pathlib import Path
 
 import pytest
 
-from probe.sdk import journal as journal_mod
-from probe.sdk.client import Anchor, Client
-from probe.sdk.journal import drain
+from probe.sdk.delivery import journal as journal_mod
+from probe.sdk.artifact.anchors import Anchor
+from probe.sdk.client.client import Client
+from probe.sdk.delivery.outbox.drain.drain import drain
 from tests.conftest import make_client, open_run
 
 AGENT = Path(__file__).resolve().parents[1]
@@ -199,7 +200,7 @@ _COPIES = (
 @pytest.mark.parametrize("root", _COPIES, ids=lambda p: str(p.relative_to(AGENT)))
 def test_every_skill_copy_says_files_and_groups_carry_no_notes(root):
     reference = (root / "track-work" / "reference.md").read_text(encoding="utf-8")
-    from probe import skill_versions
+    from probe.foundation.skills import skills as skill_versions
 
     # The main agent's render: the source tree's edit-notes has versions (the
     # plugins' copies are that render already, which `render` returns as is).
@@ -225,7 +226,8 @@ def test_a_correlated_upload_keeps_the_digest_older_clients_recorded(tmp_path, m
     correlation (`enqueue_artifact_upload` replays the frozen request) must still
     match that digest, so the slot stays in the DIGESTED request -- while the
     queued upload itself carries no `notes`."""
-    monkeypatch.setattr(journal_mod, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(journal_mod.headroom, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(journal_mod.journal, "MIN_FREE_BYTES", 0)
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config.json"))
     queue = journal_mod.Journal.for_receipts(
         tmp_path / "outbox", context={"name": None, "base_url": "http://test"}

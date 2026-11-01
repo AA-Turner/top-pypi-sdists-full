@@ -60,6 +60,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from probe.shared.updates import step as update_step
+
 from . import children, loginenv, paths, procid
 from .protocol import (
     ACTIONS,
@@ -84,9 +86,9 @@ KEEP_S = 7 * 24 * 3600
 MAX_JOURNALS = 200
 SERVICE_STOPPED = "service stopped"
 #: What asked for an `update` action, for the server's update report (the
-#: wizard reads it: `probe.cli.update_report.TRIGGER_ENV`).
-TRIGGER_ENV = "PROBE_AUTOUPDATE_TRIGGER"
-DESKTOP_HUMAN_ENV = "PROBE_DESKTOP_HUMAN"  # probe._shared.telemetry, kept stdlib-only here
+#: wizard reads it: `probe.shared.updates.update_report.TRIGGER_ENV`).
+TRIGGER_ENV = update_step.TRIGGER_ENV
+DESKTOP_HUMAN_ENV = "PROBE_DESKTOP_HUMAN"  # probe.analytics, kept stdlib-only here
 #: `probe.core.events.INTERRUPTED_EXIT_CODE`: a run stopped during its approval wait.
 INTERRUPTED_EXIT = 130
 #: An action child's wall time, at most (plan C1). Past it the child is stopped

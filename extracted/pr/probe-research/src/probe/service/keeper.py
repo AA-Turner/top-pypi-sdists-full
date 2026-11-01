@@ -176,7 +176,7 @@ def _python() -> str | None:
     moves it to each new version), else the one the service runs now.
     Elsewhere the lifeboat's wrapper finds it (env.json's `active_python`)."""
     with contextlib.suppress(Exception):
-        from probe._shared import installs
+        from probe.shared.updates import installs
 
         stable = installs.env_python(installs.tool_env())
         if stable.exists():

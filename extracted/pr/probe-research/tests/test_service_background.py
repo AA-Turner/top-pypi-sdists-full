@@ -37,8 +37,10 @@ from pathlib import Path
 import pytest
 
 from probe.box import spawn as box_spawn
-from probe.sdk import outbox_worker, service_handoff
-from probe.sdk.journal import CREDENTIAL_NAMESPACE, Journal
+from probe.sdk.delivery import outbox as outbox_worker
+from probe.sdk.delivery.outbox.drainers import service_handoff
+from probe.sdk.delivery.ops.ops import CREDENTIAL_NAMESPACE
+from probe.sdk.delivery.journal.journal import Journal
 from probe.service import background, client, paths, protocol
 from probe.service.protocol import BackgroundRefusal, BackgroundState, ErrorCode, Method
 from tests.service_harness import pid_running, service_home, wait_for  # noqa: F401 -- a fixture
@@ -225,7 +227,7 @@ class _FakeChild:
 @pytest.fixture
 def fake_fork(monkeypatch):
     _FakeChild.made = []
-    _no_fork_in(monkeypatch, outbox_worker, _FakeChild)
+    _no_fork_in(monkeypatch, outbox_worker.drainers.detached, _FakeChild)
     return _FakeChild.made
 
 
@@ -303,7 +305,7 @@ def test_telemetry_behind_a_proxy_is_sent_by_this_process(monkeypatch):
 
 
 def test_the_telemetry_sender_posts_itself_only_when_the_service_did_not_take_it(monkeypatch):
-    from probe._shared import telemetry
+    from probe import analytics as telemetry
 
     posted = []
     monkeypatch.setattr(telemetry.core, "post_batch", lambda entries, **kw: posted.append(entries))
@@ -930,7 +932,7 @@ def test_a_running_service_drains_the_outbox_for_a_training_process(service, sto
     journal = _journal(tmp_path, stored_login)
     for step in (1, 2, 3):
         journal.append_http("POST", "/v1/runs/r-q5/metrics", {"points": [{"step_index": step}]})
-    _no_fork_in(monkeypatch, outbox_worker, _NoFork)
+    _no_fork_in(monkeypatch, outbox_worker.drainers.detached, _NoFork)
     assert outbox_worker.maybe_spawn(str(journal.dir)) is True
     assert wait_for(lambda: not journal.pending(), 30), f"the service's drainer never emptied it:\n{service.log()}"
     assert _steps(api) == [1, 2, 3], "FIFO, across the hand-off"
@@ -985,7 +987,8 @@ def test_an_endpoint_the_config_does_not_name_is_refused(service, stored_login, 
 _CONFINED = """
 import ctypes, json, sys
 assert ctypes.CDLL(None, use_errno=True).prctl(38, 1, 0, 0, 0) == 0  # PR_SET_NO_NEW_PRIVS
-from probe.sdk import outbox_worker, service_handoff
+from probe.sdk.delivery import outbox as outbox_worker
+from probe.sdk.delivery.outbox.drainers import detached, service_handoff  # noqa: F401 -- loaded as before
 from probe.service import client
 client.HANDOFF_BUDGET_S = 10.0
 answer = client.drain_outbox(sys.argv[1], sys.executable, {}, budget=10.0)
@@ -996,7 +999,7 @@ class Fork:
     def poll(self):
         return None
 import types
-outbox_worker.subprocess = types.SimpleNamespace(Popen=Fork, DEVNULL=-3, PIPE=-1)
+detached.subprocess = types.SimpleNamespace(Popen=Fork, DEVNULL=-3, PIPE=-1)
 spawned = outbox_worker.maybe_spawn(sys.argv[1])
 print(json.dumps({"answer": answer, "spawned": spawned, "forks": len(forks)}))
 """
@@ -1173,7 +1176,7 @@ def test_a_service_that_stops_still_sends_the_telemetry_it_took(service, monkeyp
         for name in service_handoff.NETWORK_ENV:
             monkeypatch.delenv(name, raising=False)
         status = service.start()
-        from probe._shared import telemetry
+        from probe import analytics as telemetry
 
         telemetry._post_batch([{"event": "q5.first", "distinct_id": "machine:test", "properties": {}}])
         telemetry._post_batch([{"event": "q5.second", "distinct_id": "machine:test", "properties": {}}])
@@ -1191,7 +1194,7 @@ def test_a_service_stopped_mid_drain_loses_nothing(service, stored_login, api, t
     journal = _journal(tmp_path, stored_login)
     for step in range(10):
         journal.append_http("POST", "/v1/runs/r-q5/metrics", {"points": [{"step_index": step}]})
-    _no_fork_in(monkeypatch, outbox_worker, _NoFork)
+    _no_fork_in(monkeypatch, outbox_worker.drainers.detached, _NoFork)
     api.gate.clear()  # the drainer's first request is held at the API while the service stops
     assert outbox_worker.maybe_spawn(str(journal.dir)) is True
     assert wait_for(lambda: api.arrived >= 1, 30), service.log()
@@ -1214,8 +1217,8 @@ def test_a_service_stopped_mid_drain_loses_nothing(service, stored_login, api, t
 
 _WRITER = """
 import sys
-from probe.sdk import outbox_worker
-from probe.sdk.journal import Journal
+from probe.sdk.delivery import outbox as outbox_worker
+from probe.sdk.delivery.journal.journal import Journal
 from probe.service import client
 client.HANDOFF_BUDGET_S = 10.0
 directory, base_url, writer, count = sys.argv[1:5]
@@ -1327,7 +1330,7 @@ def test_a_telemetry_batch_is_posted_by_the_service(service, monkeypatch):
         for name in service_handoff.NETWORK_ENV:
             monkeypatch.delenv(name, raising=False)
         service.start()
-        from probe._shared import telemetry
+        from probe import analytics as telemetry
 
         entries = [{"event": "q5.test", "distinct_id": "machine:test", "properties": {"x": 1}}]
         telemetry._post_batch(entries)

@@ -12,6 +12,7 @@ Usage::
 
 import ast
 import os
+import re
 import shutil
 import zipfile
 import multiprocessing as mp
@@ -112,6 +113,30 @@ class AgmetGeo(base.BaseGeo):
         # to suppress them entirely (e.g. for partner-branded reports).
         self.show_logos = self.parser.getboolean(
             "AGMET", "show_logos", fallback=True
+        )
+        # Layout for county runs such as the USA. All off by default, so other
+        # projects keep their folders, file names, titles and locator map.
+        #   region_folder     folder for per-unit figures (default adm1/adm2)
+        #   group_by_admin_1  admin_2 figures go to <admin_1>/<id>_<name>.png,
+        #                     are titled "<Name>, <Admin_1> (<district>)", and
+        #                     the locator map shows the admin_1 unit
+        #   id_width          zero-pad numeric ids in those names (5 = US FIPS)
+        #   district_file     region -> district table (read_district_file);
+        #                     district figures are drawn per district instead
+        #                     of per calendar region
+        #   district_folder   folder for district figures (default district)
+        self.region_folder = self.parser.get("AGMET", "region_folder", fallback="").strip()
+        self.group_by_admin_1 = self.parser.getboolean(
+            "AGMET", "group_by_admin_1", fallback=False
+        )
+        self.id_width = self.parser.getint("AGMET", "id_width", fallback=0)
+        self.district_folder = (
+            self.parser.get("AGMET", "district_folder", fallback="").strip() or "district"
+        )
+        district_file = self.parser.get("AGMET", "district_file", fallback="").strip()
+        self.district_table = (
+            read_district_file(self.dir_boundary_files / district_file)
+            if district_file else None
         )
 
         # Honor [ML] show_production_share (default True): suppress the
@@ -516,9 +541,17 @@ def create_title_for_plot(obj):
         else region_name
     )
     country_name = obj.country.replace("_", " ").title()
-    long_crop_name = utils.get_crop_name(obj.crop)
+    crop_name = _crop_display_name(obj)
 
-    # Get name of crop based on metadata/crop_per_season.csv file
+    title_line_1 = f"{region_name} ({calendar_region_name}, {country_name})"
+    title_line_2 = f"{crop_name} {obj.plot_season}"
+
+    return f"{title_line_1}\n{title_line_2}"
+
+
+def _crop_display_name(obj):
+    """Crop name for figure titles: metadata/crop_per_season.csv, else the long crop name."""
+    long_crop_name = utils.get_crop_name(obj.crop)
     df_crop_per_season = pd.read_csv(obj.dir_metadata / "crop_per_season.csv")
     df_crop_per_season.columns = df_crop_per_season.columns.str.lower()
     # Match crop: CSV uses abbreviations (mz, sb, ww) but obj.crop may be full name
@@ -528,32 +561,24 @@ def create_title_for_plot(obj):
         & (df_crop_per_season["crop"] == crop_key)
         & (df_crop_per_season["season"] == int(obj.growing_season))
     ]["name"].values
-
-    crop_name = crop_name[0] if len(crop_name) > 0 else long_crop_name.replace("_", " ").title()
-
-    title_line_1 = f"{region_name} ({calendar_region_name}, {country_name})"
-    title_line_2 = f"{crop_name} {obj.plot_season}"
-
-    return f"{title_line_1}\n{title_line_2}"
+    return crop_name[0] if len(crop_name) > 0 else long_crop_name.replace("_", " ").title()
 
 
 def _create_district_title(obj, cal_region):
     """Build plot title for a district (calendar region) plot."""
     cal_region_name = cal_region.replace("_", " ").title()
     country_name = obj.country.replace("_", " ").title()
-    long_crop_name = utils.get_crop_name(obj.crop)
-
-    df_crop_per_season = pd.read_csv(obj.dir_metadata / "crop_per_season.csv")
-    df_crop_per_season.columns = df_crop_per_season.columns.str.lower()
-    crop_key = utils.get_crop_abbrev(obj.crop)
-    crop_name = df_crop_per_season[
-        (df_crop_per_season["country"] == obj.country)
-        & (df_crop_per_season["crop"] == crop_key)
-        & (df_crop_per_season["season"] == int(obj.growing_season))
-    ]["name"].values
-    crop_name = crop_name[0] if len(crop_name) > 0 else long_crop_name.replace("_", " ").title()
+    crop_name = _crop_display_name(obj)
 
     return f"{cal_region_name} ({country_name})\n{crop_name} {obj.plot_season}"
+
+
+def _title_within_admin_1(obj, name, admin_1, group):
+    """'<Name>, <Admin_1> (<group>)' over '<crop> <season>' (group_by_admin_1 titles)."""
+    line_1 = f"{name}, {admin_1}" if admin_1 else name
+    if group:
+        line_1 += f" ({group})"
+    return f"{line_1}\n{_crop_display_name(obj)} {obj.plot_season}"
 
 
 def _lookup_state_for_region(region, region_id, boundary_gdf):
@@ -626,6 +651,272 @@ def _district_columns(eo_model, available, with_forecast):
     return [c for c in dict.fromkeys(list(eo_model or []) + extra) if c in available]
 
 
+def read_district_file(path):
+    """Read a region -> district table for district figures ([AGMET] district_file).
+
+    CSV with one row per region: ``region_id`` (the boundary file's ADM_ID,
+    e.g. a US county FIPS code), ``admin_1``, ``district_id`` (kept as text,
+    so '0140' keeps its zero) and ``district_name``. Raises when a column is
+    missing or a region is listed twice.
+    """
+    df = pd.read_csv(path, dtype={"district_id": str})
+    missing = {"region_id", "admin_1", "district_id", "district_name"} - set(df.columns)
+    if missing:
+        raise ValueError(f"{path}: district file lacks columns {sorted(missing)}")
+    df["region_key"] = df["region_id"].map(_id_key)
+    dup = df.loc[df["region_key"].duplicated(), "region_key"].unique()
+    if len(dup):
+        raise ValueError(f"{path}: regions listed more than once: {list(dup)[:10]}")
+    return df
+
+
+def _id_key(value):
+    """Region id as comparable text: 1001, 1001.0 and '1001' all give '1001'."""
+    text = str(value).strip()
+    try:
+        number = float(text)
+    except ValueError:
+        return text.lower()
+    return str(int(number)) if number.is_integer() else text
+
+
+def _slug(text):
+    """File-name part: lower case, '.' and "'" dropped, other runs of characters
+    outside a-z, 0-9 and '-' turned into one '_' (st_clair, miami-dade)."""
+    text = str(text).strip().lower().replace(".", "").replace("'", "")
+    return re.sub(r"[^a-z0-9-]+", "_", text).strip("_")
+
+
+def _format_id(region_id, width):
+    """Region id for a file name; whole numbers are zero-padded to ``width``."""
+    text = str(region_id).strip()
+    try:
+        number = float(text)
+    except ValueError:
+        return text
+    if not number.is_integer():
+        return text
+    text = str(int(number))
+    return text.zfill(width) if width else text
+
+
+def _unit_name(region, region_id, admin_1, boundary_gdf):
+    """Name of an admin_2 unit without its admin_1 prefix.
+
+    Taken from the boundary file's ADM2_NAME (matched on ADM_ID), else from the
+    region name. usa_counties_fips stores 'minnesota kandiyohi', so the state
+    prefix is dropped.
+    """
+    name = None
+    if boundary_gdf is not None and region_id is not None and "ADM_ID" in boundary_gdf.columns:
+        adm2_col = next((c for c in ["ADM2_NAME", "ADMIN2"] if c in boundary_gdf.columns), None)
+        if adm2_col:
+            m = boundary_gdf[boundary_gdf["ADM_ID"].astype(str) == str(region_id)]
+            if not m.empty:
+                name = str(m[adm2_col].iloc[0])
+    name = (name or str(region)).replace("_", " ").strip()
+    if admin_1 and name.lower().startswith(admin_1.lower() + " "):
+        name = name[len(admin_1) + 1:]
+    return name
+
+
+def _group_name(obj, region_id):
+    """District of a region from district_file, else its calendar region, else None."""
+    if obj.district_table is not None:
+        row = obj.district_table[obj.district_table["region_key"] == _id_key(region_id)]
+        if not row.empty:
+            return str(row["district_name"].iloc[0])
+    if pd.notna(obj.calendar_region):
+        return str(obj.calendar_region).replace("_", " ").title()
+    return None
+
+
+def _admin1_gdf(boundary_gdf, admin_1, cache):
+    """Units of one admin_1 (e.g. a state's counties) for the locator map, or None."""
+    if boundary_gdf is None or not admin_1:
+        return None
+    key = str(admin_1).lower()
+    if key not in cache:
+        adm1_col = next(
+            (c for c in ["ADM1_NAME", "ADMIN1", "name1"] if c in boundary_gdf.columns), None
+        )
+        sub = (
+            boundary_gdf[boundary_gdf[adm1_col].astype(str).str.lower() == key]
+            if adm1_col else None
+        )
+        cache[key] = sub if sub is not None and not sub.empty else None
+    return cache[key]
+
+
+def _region_figure_spec(obj, boundary_gdf, admin1_cache):
+    """Folder, file name, title, locator boundary and outline flag of a region figure.
+
+    Default: <region_folder or adm<N>>/<region>.png (or _build_county_fname's
+    name), the legacy title and the whole country as locator. With
+    group_by_admin_1: <folder>/<admin_1>/<id>_<name>.png, titled
+    "<Name>, <Admin_1> (<district>)", with the admin_1 unit as locator.
+    """
+    folder = obj.dir_agmet / (obj.region_folder or obj.scale_short)
+    if not obj.group_by_admin_1:
+        fname = _build_county_fname(
+            obj.region, obj.region_id, obj.filename_with_state, boundary_gdf
+        )
+        return folder, fname, create_title_for_plot(obj), boundary_gdf, False
+
+    admin_1 = _lookup_state_for_region(obj.region, obj.region_id, boundary_gdf)
+    name = _unit_name(obj.region, obj.region_id, admin_1, boundary_gdf)
+    fname = f"{_format_id(obj.region_id, obj.id_width)}_{_slug(name)}.png"
+    sup_title = _title_within_admin_1(obj, name.title(), admin_1, _group_name(obj, obj.region_id))
+    locator = _admin1_gdf(boundary_gdf, admin_1, admin1_cache)
+    if locator is None:
+        return folder, fname, sup_title, boundary_gdf, False
+    return folder / _slug(admin_1), fname, sup_title, locator, True
+
+
+def _aggregate_district(obj, df_district, key):
+    """Daily mean over a district's regions, as the district figure plots it.
+
+    ``key`` is the column naming the district (calendar_region, district_id).
+    Returns None when the groupby fails, so the caller skips the district.
+    """
+    with_forecast = False
+    if "chirps" in df_district.columns:
+        try:
+            bool_year_check, bool_date_check = obj.check_date(
+                df_district, obj.plot_season
+            )
+        except Exception:
+            bool_year_check, bool_date_check = False, False
+        with_forecast = bool_date_check and bool_year_check
+    columns = _district_columns(obj.eo_model, df_district.columns, with_forecast)
+
+    try:
+        df_agg = (
+            df_district.groupby(
+                ["country", key, "harvest_season", "doy", "datetime"]
+            )[columns]
+            .mean()
+            .reset_index()
+        )
+    except Exception:
+        return None
+
+    if "chirts_era5_tmax" in df_agg.columns and "chirts_era5_tmin" in df_agg.columns:
+        df_agg.loc[:, "average_temperature"] = (
+            df_agg["chirts_era5_tmax"] + df_agg["chirts_era5_tmin"]
+        ) / 2.0
+    elif "daymet_tmax" in df_agg.columns and "daymet_tmin" in df_agg.columns:
+        df_agg.loc[:, "average_temperature"] = (
+            df_agg["daymet_tmax"] + df_agg["daymet_tmin"]
+        ) / 2.0
+    else:
+        df_agg.loc[:, "average_temperature"] = (
+            df_agg["cpc_tmax"] + df_agg["cpc_tmin"]
+        ) / 2.0
+    df_agg.set_index(
+        pd.DatetimeIndex(df_agg["datetime"]), inplace=True, drop=True
+    )
+    df_agg.index.name = None
+    df_agg.sort_values(by="datetime", inplace=True)
+    return df_agg
+
+
+def _district_share(df_district):
+    """Sum of the production shares of a district's regions, or None."""
+    if "production_share_pct" in df_district.columns:
+        region_shares = (
+            df_district.groupby("region")["production_share_pct"]
+            .first()
+            .dropna()
+        )
+        if not region_shares.empty:
+            return region_shares.sum()
+    return None
+
+
+def _district_figure_spec(obj, district_id, region_ids, boundary_gdf, admin1_cache):
+    """Folder, file name, title, locator, outline flag and highlight of a
+    district_file figure: <district_folder>[/<admin_1>]/<district_id>_<name>.png."""
+    info = obj.district_table[obj.district_table["district_id"] == district_id].iloc[0]
+    name, admin_1 = str(info["district_name"]), str(info["admin_1"])
+    folder = obj.dir_agmet / obj.district_folder
+    fname = f"{district_id}_{_slug(name)}.png"
+
+    highlight_gdf = None
+    if boundary_gdf is not None and "ADM_ID" in boundary_gdf.columns:
+        keys = {_id_key(r) for r in region_ids}
+        members = boundary_gdf[boundary_gdf["ADM_ID"].map(_id_key).isin(keys)]
+        if not members.empty:
+            highlight_gdf = members.dissolve()
+
+    if not obj.group_by_admin_1:
+        return (folder, fname, _create_district_title(obj, name), boundary_gdf, False,
+                highlight_gdf)
+    sup_title = _title_within_admin_1(obj, name, admin_1, None)
+    locator = _admin1_gdf(boundary_gdf, admin_1, admin1_cache)
+    if locator is None:
+        return folder, fname, sup_title, boundary_gdf, False, highlight_gdf
+    return folder / _slug(admin_1), fname, sup_title, locator, True, highlight_gdf
+
+
+def _plot_table_districts(obj, plot_season, boundary_gdf, admin1_cache):
+    """Loop 2 with a district_file: one figure per district with regions in this run."""
+    table = obj.district_table.set_index("region_key")
+    district_regions = {}
+    for region_id in obj.df_ccs["region_id"].dropna().unique():
+        key = _id_key(region_id)
+        if key in table.index:
+            district_regions.setdefault(table.at[key, "district_id"], []).append(region_id)
+
+    for district_id in sorted(district_regions):
+        region_ids = district_regions[district_id]
+        df_district = obj.df_ccs[obj.df_ccs["region_id"].isin(region_ids)].copy()
+        df_district.index = pd.to_datetime(df_district.index)
+
+        # All regions of a district share its crop calendar; take the first
+        obj.setup_region(df_district["region"].iloc[0], plot_season, "region")
+        if pd.isna(obj.date_planting):
+            obj.logger.warning(f"Skipping plot for district {district_id} — no crop calendar data")
+            continue
+
+        dates_calendar = [
+            obj.date_planting,
+            obj.date_greenup,
+            obj.date_senescence,
+            obj.date_harvesting,
+        ]
+        df_agg = _aggregate_district(
+            obj, df_district.assign(district_id=district_id), "district_id"
+        )
+        if df_agg is None or df_agg.empty:
+            continue
+
+        folder, fname, sup_title, locator, outlines, highlight_gdf = _district_figure_spec(
+            obj, district_id, region_ids, boundary_gdf, admin1_cache
+        )
+        plot.AgmetPlotter(
+            df_agg,
+            obj.eo_plot,
+            closest=obj.closest,
+            dates_cal=dates_calendar,
+            frcast_yr=obj.plot_season,
+            logos=obj.logos_for_country(obj.country),
+            dir_out=folder,
+            sup_title=sup_title,
+            fname=fname,
+            production_pct=_district_share(df_district),
+            country=obj.country,
+            region=str(district_id),
+            boundary_gdf=locator,
+            highlight_gdf=highlight_gdf,
+            admin_level=obj.scale,
+            show_logos=obj.show_logos,
+            logo_max_px=obj.logo_max_px,
+            yield_units=obj.yield_units,
+            inset_outlines=outlines,
+        ).plot()
+
+
 def _process_combination(obj, country, scale, crop, growing_season):
     """Process a single (country, scale, crop, growing_season) combination.
 
@@ -688,6 +979,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
     except Exception:
         pass
 
+    admin1_cache = {}  # admin_1 name -> its units, for group_by_admin_1 locator maps
     for plot_season in obj.plot_seasons:
         obj.get_closest_season(plot_season)
 
@@ -725,8 +1017,6 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 obj.date_harvesting,
             ]
 
-            sup_title = create_title_for_plot(obj)
-
             # Extract production share for this region
             region_pct = None
             if "production_share_pct" in obj.df_region.columns:
@@ -734,8 +1024,8 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 if not vals.empty:
                     region_pct = vals.iloc[0]
 
-            fname = _build_county_fname(
-                obj.region, obj.region_id, obj.filename_with_state, boundary_gdf
+            folder, fname, sup_title, locator, outlines = _region_figure_spec(
+                obj, boundary_gdf, admin1_cache
             )
 
             plot.AgmetPlotter(
@@ -745,23 +1035,29 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 dates_cal=dates_calendar,
                 frcast_yr=obj.plot_season,
                 logos=obj.logos_for_country(obj.country),
-                dir_out=obj.dir_agmet / obj.scale_short,
+                dir_out=folder,
                 sup_title=sup_title,
                 fname=fname,
                 production_pct=region_pct,
                 country=obj.country,
                 region=obj.region,
                 region_id=obj.region_id,
-                boundary_gdf=boundary_gdf,
+                boundary_gdf=locator,
                 admin_level=obj.scale,
                 show_logos=obj.show_logos,
                 logo_max_px=obj.logo_max_px,
                 yield_units=obj.yield_units,
+                inset_outlines=outlines,
             ).plot()
 
         ###############################################################
-        # Loop 2: District plots (one per calendar region, aggregated)
+        # Loop 2: District plots (one per calendar region, aggregated;
+        # one per district of [AGMET] district_file when it is set)
         ###############################################################
+        if obj.district_table is not None:
+            _plot_table_districts(obj, plot_season, boundary_gdf, admin1_cache)
+            continue
+
         for cal_region in obj.list_calendar_regions:
             if pd.isna(cal_region):
                 continue
@@ -786,59 +1082,14 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 obj.date_harvesting,
             ]
 
-            # Build column list for aggregation
-            with_forecast = False
-            if "chirps" in df_district.columns:
-                try:
-                    bool_year_check, bool_date_check = obj.check_date(
-                        df_district, obj.plot_season
-                    )
-                except Exception:
-                    bool_year_check, bool_date_check = False, False
-                with_forecast = bool_date_check and bool_year_check
-            columns = _district_columns(obj.eo_model, df_district.columns, with_forecast)
-
-            try:
-                df_agg = (
-                    df_district.groupby(
-                        ["country", "calendar_region", "harvest_season", "doy", "datetime"]
-                    )[columns]
-                    .mean()
-                    .reset_index()
-                )
-            except Exception:
+            df_agg = _aggregate_district(obj, df_district, "calendar_region")
+            if df_agg is None:
                 continue
-
-            if "chirts_era5_tmax" in df_agg.columns and "chirts_era5_tmin" in df_agg.columns:
-                df_agg.loc[:, "average_temperature"] = (
-                    df_agg["chirts_era5_tmax"] + df_agg["chirts_era5_tmin"]
-                ) / 2.0
-            elif "daymet_tmax" in df_agg.columns and "daymet_tmin" in df_agg.columns:
-                df_agg.loc[:, "average_temperature"] = (
-                    df_agg["daymet_tmax"] + df_agg["daymet_tmin"]
-                ) / 2.0
-            else:
-                df_agg.loc[:, "average_temperature"] = (
-                    df_agg["cpc_tmax"] + df_agg["cpc_tmin"]
-                ) / 2.0
-            df_agg.set_index(
-                pd.DatetimeIndex(df_agg["datetime"]), inplace=True, drop=True
-            )
-            df_agg.index.name = None
-            df_agg.sort_values(by="datetime", inplace=True)
 
             sup_title = _create_district_title(obj, cal_region)
 
             # Sum production shares of all regions in this district
-            district_pct = None
-            if "production_share_pct" in df_district.columns:
-                region_shares = (
-                    df_district.groupby("region")["production_share_pct"]
-                    .first()
-                    .dropna()
-                )
-                if not region_shares.empty:
-                    district_pct = region_shares.sum()
+            district_pct = _district_share(df_district)
 
             if not df_agg.empty:
                 # Extract calendar-region geometry for district highlighting
@@ -859,7 +1110,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
                     dates_cal=dates_calendar,
                     frcast_yr=obj.plot_season,
                     logos=obj.logos_for_country(obj.country),
-                    dir_out=obj.dir_agmet / "district",
+                    dir_out=obj.dir_agmet / obj.district_folder,
                     sup_title=sup_title,
                     fname=f"{cal_region}.png",
                     production_pct=district_pct,

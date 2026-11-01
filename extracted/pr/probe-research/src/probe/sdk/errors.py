@@ -47,7 +47,7 @@ class TransportError(RosError):
 class DeadlineExceeded(TransportError):
     """A caller's deadline ran out before this request could be (fully) sent.
 
-    Raised by the transport inside a :func:`probe.sdk.transport.deadline_scope`
+    Raised by the transport inside a :func:`probe.sdk.delivery.transport.deadlines.deadline_scope`
     -- today only `Run.finish()`'s close budget. It says nothing about the
     SERVER: the request was never attempted, or was cut short by our own clock.
     So the outbox drain stops its pass on it WITHOUT charging the op an
@@ -329,7 +329,7 @@ class WorkspaceRequired(ValidationError):
 
 #: The server marks a refused workspace limit (`X-Probe-Workspace-Limit`) with these
 #: in `detail.code`: a value that is not a uuid (400) or a uuid naming no workspace
-#: the caller can see (422). `probe.sdk.workspace_limit` raises them locally too.
+#: the caller can see (422). `probe.sdk.settings.workspace_limit` raises them locally too.
 INVALID_WORKSPACE_LIMIT = "invalid_workspace_limit"
 WORKSPACE_LIMIT_UNKNOWN = "workspace_limit_unknown"
 #: What every such refusal ends with: the limit is this computer's setting, so the

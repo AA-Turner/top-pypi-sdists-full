@@ -1,4 +1,12 @@
+#include <headers/XLStyle.hpp>
+#include <nanobind/stl/optional.h>
+
 #include "bindings.hpp"
+#include "internal_access.hpp"
+
+using namespace OpenXLSX;
+using namespace nanobind::literals;
+
 
 void init_styles(py::module_& m) {
     // Bind Style Enums
@@ -92,6 +100,49 @@ void init_styles(py::module_& m) {
         .def("blue", &XLColor::blue)
         .def("hex", &XLColor::hex);
 
+    // High-level XLStyle builder (requires XLColor / pattern / line / alignment enums above)
+    py::class_<XLStyle> xl_style(m, "XLStyle");
+    py::class_<XLStyle::Font>(xl_style, "Font")
+        .def(py::init<>())
+        .def_rw("name", &XLStyle::Font::name)
+        .def_rw("size", &XLStyle::Font::size)
+        .def_rw("color", &XLStyle::Font::color)
+        .def_rw("bold", &XLStyle::Font::bold)
+        .def_rw("italic", &XLStyle::Font::italic)
+        .def_rw("underline", &XLStyle::Font::underline)
+        .def_rw("strikethrough", &XLStyle::Font::strikethrough);
+    py::class_<XLStyle::Fill>(xl_style, "Fill")
+        .def(py::init<>())
+        .def_rw("pattern", &XLStyle::Fill::pattern)
+        .def_rw("fg_color", &XLStyle::Fill::fgColor)
+        .def_rw("bg_color", &XLStyle::Fill::bgColor);
+    py::class_<XLStyle::BorderElement>(xl_style, "BorderElement")
+        .def(py::init<>())
+        .def_rw("style", &XLStyle::BorderElement::style)
+        .def_rw("color", &XLStyle::BorderElement::color);
+    py::class_<XLStyle::Border>(xl_style, "Border")
+        .def(py::init<>())
+        .def_rw("left", &XLStyle::Border::left)
+        .def_rw("right", &XLStyle::Border::right)
+        .def_rw("top", &XLStyle::Border::top)
+        .def_rw("bottom", &XLStyle::Border::bottom)
+        .def_rw("diagonal", &XLStyle::Border::diagonal)
+        .def_rw("diagonal_up", &XLStyle::Border::diagonalUp)
+        .def_rw("diagonal_down", &XLStyle::Border::diagonalDown);
+    py::class_<XLStyle::Alignment>(xl_style, "Alignment")
+        .def(py::init<>())
+        .def_rw("horizontal", &XLStyle::Alignment::horizontal)
+        .def_rw("vertical", &XLStyle::Alignment::vertical)
+        .def_rw("wrap_text", &XLStyle::Alignment::wrapText)
+        .def_rw("text_rotation", &XLStyle::Alignment::textRotation)
+        .def_rw("indent", &XLStyle::Alignment::indent);
+    xl_style.def(py::init<>())
+        .def_rw("font", &XLStyle::font)
+        .def_rw("fill", &XLStyle::fill)
+        .def_rw("border", &XLStyle::border)
+        .def_rw("alignment", &XLStyle::alignment)
+        .def_rw("number_format", &XLStyle::numberFormat);
+
     // Bind XLFont
     py::class_<XLFont>(m, "XLFont")
         .def(py::init<>())
@@ -127,21 +178,63 @@ void init_styles(py::module_& m) {
         .def("background_color", &XLFill::backgroundColor)
         .def("set_background_color", &XLFill::setBackgroundColor);
 
+    // Bind XLDataBarColor
+    // Must be registered before XLLine, as XLLine::color() returns XLDataBarColor.
+    py::class_<XLDataBarColor>(m, "XLDataBarColor")
+        .def(py::init<>())
+        .def("rgb", &XLDataBarColor::rgb,
+             "Get the line color from the rgb attribute as an XLColor.")
+        .def("tint", &XLDataBarColor::tint,
+             "Get the color tint value (between -1.0 and +1.0).")
+        .def("automatic", &XLDataBarColor::automatic)
+        .def("indexed", &XLDataBarColor::indexed)
+        .def("theme", &XLDataBarColor::theme)
+        .def("set_rgb", &XLDataBarColor::setRgb, "color"_a,
+             "Set the color from an XLColor (rgb attribute).")
+        .def("set", &XLDataBarColor::set, "color"_a,
+             "Alias for set_rgb.")
+        .def("set_tint", &XLDataBarColor::setTint, "tint"_a,
+             "Set the color tint (value between -1.0 and +1.0).")
+        .def("set_automatic", &XLDataBarColor::setAutomatic, "set"_a = true)
+        .def("set_indexed", &XLDataBarColor::setIndexed, "index"_a)
+        .def("set_theme", &XLDataBarColor::setTheme, "theme"_a)
+        .def("summary", &XLDataBarColor::summary);
+
     // Bind XLLine
+    // NOTE: XLLine has no set_style(). Line style must be modified via
+    // XLBorder.set_left/right/top/bottom/diagonal (which guarantee correct XML structure).
+    // Color can be modified via the XLDataBarColor object returned by color().
     py::class_<XLLine>(m, "XLLine")
         .def(py::init<>())
-        .def("style", &XLLine::style)
-        .def("color", &XLLine::color)
-        .def("__bool__", &XLLine::operator bool);
+        .def("style", &XLLine::style,
+             "Get the line style as an XLLineStyle enum.")
+        .def("color", &XLLine::color,
+             "Get the line color as an XLDataBarColor object (supports in-place mutation).")
+        .def("summary", &XLLine::summary)
+        .def("__bool__", &XLLine::operator bool,
+             "True if the line is set (i.e. has a non-None style).");
 
     // Bind XLBorder
     py::class_<XLBorder>(m, "XLBorder")
         .def(py::init<>())
+        // --- Getters for line objects ---
         .def("left", &XLBorder::left)
         .def("right", &XLBorder::right)
         .def("top", &XLBorder::top)
         .def("bottom", &XLBorder::bottom)
         .def("diagonal", &XLBorder::diagonal)
+        .def("vertical", &XLBorder::vertical,
+             "Get the inner vertical line (used in merged cell borders).")
+        .def("horizontal", &XLBorder::horizontal,
+             "Get the inner horizontal line (used in merged cell borders).")
+        // --- Boolean flag getters ---
+        .def("diagonal_up", &XLBorder::diagonalUp,
+             "True if the diagonal runs from bottom-left to top-right.")
+        .def("diagonal_down", &XLBorder::diagonalDown,
+             "True if the diagonal runs from top-left to bottom-right.")
+        .def("outline", &XLBorder::outline,
+             "True if the border outline attribute is set.")
+        // --- Setters for line objects (return XLBorder& for chaining, exposed as None) ---
         .def("set_left", &XLBorder::setLeft, "lineStyle"_a, "lineColor"_a,
              "lineTint"_a = 0.0)
         .def("set_right", &XLBorder::setRight, "lineStyle"_a, "lineColor"_a,
@@ -151,7 +244,21 @@ void init_styles(py::module_& m) {
         .def("set_bottom", &XLBorder::setBottom, "lineStyle"_a, "lineColor"_a,
              "lineTint"_a = 0.0)
         .def("set_diagonal", &XLBorder::setDiagonal, "lineStyle"_a, "lineColor"_a,
-             "lineTint"_a = 0.0);
+             "lineTint"_a = 0.0)
+        .def("set_vertical", &XLBorder::setVertical, "lineStyle"_a, "lineColor"_a,
+             "lineTint"_a = 0.0,
+             "Set the inner vertical line style (used in merged cell borders).")
+        .def("set_horizontal", &XLBorder::setHorizontal, "lineStyle"_a, "lineColor"_a,
+             "lineTint"_a = 0.0,
+             "Set the inner horizontal line style (used in merged cell borders).")
+        // --- Boolean flag setters (return XLBorder& for chaining, exposed as None) ---
+        .def("set_diagonal_up", &XLBorder::setDiagonalUp, "set"_a = true,
+             "Enable/disable diagonal from bottom-left to top-right.")
+        .def("set_diagonal_down", &XLBorder::setDiagonalDown, "set"_a = true,
+             "Enable/disable diagonal from top-left to bottom-right.")
+        .def("set_outline", &XLBorder::setOutline, "set"_a = true,
+             "Enable/disable the border outline attribute.")
+        .def("summary", &XLBorder::summary);
 
     // Bind XLAlignment
     py::class_<XLAlignment>(m, "XLAlignment")
@@ -267,4 +374,12 @@ void init_styles(py::module_& m) {
         .def("border", &XLDxf::border)
         .def("has_font", &XLDxf::hasFont)
         .def("summary", &XLDxf::summary);
+
+    // Bind XLNumberFormatter
+    py::class_<XLNumberFormatter>(m, "XLNumberFormatter")
+        .def(py::init<const std::string&>(), "formatString"_a)
+        .def("format", [](const XLNumberFormatter& self, py::object val) {
+            CellData cd = CellData::from_python(val);
+            return self.format(cd.to_xlcellvalue());
+        }, "value"_a, "Formats the given Python value according to the format string");
 }

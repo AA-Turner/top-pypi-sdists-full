@@ -1,4 +1,4 @@
-"""The trace shipper (`probe/daemon/shipper.py`): the file is the queue, the
+"""The trace shipper (`probe/daemon/trace/shipper.py`): the file is the queue, the
 cursor moves only on 202, nothing blocks a bite, orphans drain, huge lines go."""
 
 from __future__ import annotations
@@ -12,9 +12,9 @@ from typing import Any
 
 import pytest
 
-from probe.daemon import shipper as ship
+from probe.daemon.trace import shipper as ship
 from probe.daemon import store as store_mod
-from probe.daemon import trace as trace_mod
+from probe.daemon.trace import trace as trace_mod
 
 SID = "11111111-2222-3333-4444-555555555555"
 OTHER = "99999999-2222-3333-4444-555555555555"

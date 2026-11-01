@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pytest-env
-Version: 1.8.3
+Version: 1.8.4
 Import-Name: pytest_env
 Summary: Set environment variables for pytest sessions.
 Project-URL: Changelog, https://github.com/pytest-dev/pytest-env/blob/main/CHANGELOG.md

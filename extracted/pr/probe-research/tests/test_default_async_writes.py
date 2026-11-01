@@ -18,11 +18,11 @@ import httpx
 import pytest
 
 from probe.sdk import errors
-from probe.sdk.client import Client
-from probe.sdk.journal import Journal
-from probe.sdk.run import Run
-from probe.sdk.transport import Transport
-from probe.sdk.config import Settings
+from probe.sdk.client.client import Client
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.run.run import Run
+from probe.sdk.delivery.transport.transport import Transport
+from probe.sdk.settings.settings import Settings
 
 from tests.conftest import make_client
 from tests.test_outbox import seeded_run
@@ -452,11 +452,11 @@ def test_flush_for_span_is_a_noop_without_a_queued_span(app, tmp_path, monkeypat
     run.log({"loss": 1.0}, step=1)
 
     called = {"n": 0}
-    import probe.sdk.journal as journal_mod
+    import probe.sdk.delivery.journal as journal_mod
 
     real_drain = journal_mod.drain
     monkeypatch.setattr(
-        journal_mod, "drain", lambda *a, **kw: (called.__setitem__("n", called["n"] + 1), real_drain(*a, **kw))[1]
+        "probe.sdk.delivery.outbox.drain.drain.drain", lambda *a, **kw: (called.__setitem__("n", called["n"] + 1), real_drain(*a, **kw))[1]
     )
     run._flush_for_span("some-span-id")
 

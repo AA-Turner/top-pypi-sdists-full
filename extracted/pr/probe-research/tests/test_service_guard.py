@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 import probe
-from probe._shared import installs
+from probe.shared.updates import installs
 from probe.service import guard
 from tests.service_fakes import FakeCore
 from tests.service_harness import service_home, wait_for  # noqa: F401 -- a fixture

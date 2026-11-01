@@ -32,7 +32,8 @@ import pytest
 import typer
 
 from probe import cli
-from probe.cli import mcp_bridge, write_gate
+from probe.shared.reads import mcp_bridge
+from probe.cli import write_gate
 from probe.sdk import session_marker
 
 cli_main = importlib.import_module("probe.cli.main")  # `probe.cli.main` the attribute is the entry function
@@ -117,9 +118,9 @@ def _open_security():
 def hosted(client, monkeypatch):
     """The hosted Probe MCP itself (`create_server`: its tools, instructions and
     argument checks), reading the fake backend."""
-    from probe.mcp.server import create_server
-    from probe.mcp.service import ResearchReadService
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.server.server import create_server
+    from probe.mcp.tools.tools import ResearchReadService
+    from probe.mcp.source.source import ResearchOSSource
 
     mcp = create_server(ResearchReadService(ResearchOSSource(client)), transport_security=_open_security())
     mcp.settings.streamable_http_path = "/mcp"
@@ -301,7 +302,7 @@ def test_the_daemon_profile_guard_refuses_it_until_inline(daemon_session, monkey
 
 
 def test_tools_prints_the_hosted_mcps_own_guide_and_tools(inline, hosted, capsys):
-    from probe.mcp.server import MCP_INSTRUCTIONS
+    from probe.mcp.server.tool_text import MCP_INSTRUCTIONS
 
     mcp, recorder = hosted
     served = asyncio.run(mcp.list_tools())
@@ -446,7 +447,7 @@ def test_no_token_or_no_known_mcp_is_one_line(inline, capsys, monkeypatch):
 
 def test_the_target_follows_the_context_like_the_daemon_reader(monkeypatch):
     """One address resolution (`sdk.config.mcp_url`), shared with the daemon's reader."""
-    from probe.sdk import config
+    from probe.sdk.settings import settings as config
 
     assert mcp_bridge.target().url == config.STOCK_MCP_URL
     monkeypatch.setenv("PROBE_MCP_URL", "https://mcp.staging.example/mcp")
@@ -456,7 +457,7 @@ def test_the_target_follows_the_context_like_the_daemon_reader(monkeypatch):
 def test_the_daemon_reader_resolves_the_same_address():
     pytest.importorskip("pydantic_ai")
     from probe.daemon import agent
-    from probe.sdk import config
+    from probe.sdk.settings import settings as config
 
     assert agent.mcp_url is config.mcp_url and agent.STOCK_MCP_URL == config.STOCK_MCP_URL
 

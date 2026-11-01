@@ -17,11 +17,11 @@ from contextlib import contextmanager
 
 import pytest
 
-from probe.mcp import accounting
-from probe.mcp.contract import MissingMarker
+from probe.mcp.delivery import accounting
+from probe.shared.reads.search_contract import MissingMarker
 from probe.sdk import errors
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk.agent_session import AGENT_HEADER, AGENT_SESSION_HEADER, HIDE_SESSION_WORK_HEADER
 from tests.conftest import search_response
 
@@ -91,7 +91,7 @@ def test_the_opt_in_is_request_state_not_telemetry() -> None:
 
 def test_the_edge_reads_the_header_into_the_request(monkeypatch: pytest.MonkeyPatch) -> None:
     """`with_auth_and_health` is where the header becomes request state."""
-    from probe.mcp.server import with_auth_and_health
+    from probe.mcp.server.http import with_auth_and_health
 
     monkeypatch.setenv("PROBE_MCP_OAUTH", "0")
     monkeypatch.setenv("PROBE_MCP_VERIFY_TOKEN", "0")

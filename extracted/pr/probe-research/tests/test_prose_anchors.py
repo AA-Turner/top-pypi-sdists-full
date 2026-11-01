@@ -8,7 +8,7 @@ docstring for the decision). What this file guards is the criterion phrases
 the pointer and the track-work skill description must keep carrying — neither
 can be held to the rule by construction, only by this census.
 
-The pointer was an f-string over `probe/doctrine.py` fragments until 2026-09-13;
+The pointer was an f-string over `probe/foundation/skills/doctrine.py` fragments until 2026-09-13;
 it is one literal now, so this file reads it directly instead of re-rendering
 placeholders.
 
@@ -110,7 +110,7 @@ def test_every_reader_names_what_is_not_ml_work_in_track_works_words() -> None:
     items = _not_ml_work()
     assert items, "track-work lost its not-ML list"
     line = "- work that is not ML work - " + "; ".join(items)
-    reader = (AGENT_ROOT / "src/probe/daemon/read_session.md").read_text(encoding="utf-8")
+    reader = (AGENT_ROOT / "src/probe/daemon/prompts/read_session.md").read_text(encoding="utf-8")
     assert line in reader.splitlines(), "read_session.md drifted from track-work"
     assert " ".join(line.split()) in _pointer(), "POINTER_BODY drifted from track-work"
 

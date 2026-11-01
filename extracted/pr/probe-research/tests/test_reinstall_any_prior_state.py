@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from probe._shared import handoff, installs, uninstall_barrier
+from probe.shared.updates import handoff, installs, uninstall_barrier
 from probe.cli import install_pipeline
 from tests.reinstall_harness import Machine, reinstall_wheels, uv_machine  # noqa: F401 -- fixtures
 
@@ -359,7 +359,8 @@ def test_prune_keeps_the_active_previous_and_in_use_generations(uv_machine, monk
             for path in (folder, folder / "probe-research" / "pyvenv.cfg"):
                 if path.exists():
                     os.utime(path, (old, old))
-    monkeypatch.setattr(installs, "_in_use", lambda folder, commands=None: folder.name == "1.0.0")
+    monkeypatch.setattr(installs.pruning, "_in_use", lambda folder, commands=None: folder.name == "1.0.0")
+    monkeypatch.setattr(installs.installs, "_in_use", lambda folder, commands=None: folder.name == "1.0.0")
     removed = {p.name for p in installs.prune(m.tools, keep=0)}
     kept = {p.name for p in m.versions.iterdir() if p.is_dir()}
     assert {"1.0.2+g2", "1.0.2", "1.0.0"} <= kept and removed == {"1.0.1"}
@@ -426,7 +427,8 @@ def test_prune_counts_a_generation_as_the_version_it_holds_and_junk_goes_first(u
     ranked = sorted((p for p in m.versions.iterdir() if p.is_dir()), key=installs._place, reverse=True)
     assert [p.name for p in ranked[:4]] == ["1.0.2+g2", "1.0.2", "1.0.1", "1.0.0+g2"]
     assert {p.name for p in ranked[-3:]} == {"0.9.9", "unknown-1730000000", "1.0.0-1730000000"}
-    monkeypatch.setattr(installs, "_in_use", lambda folder, commands=None: folder.name == "1.0.0+g2")
+    monkeypatch.setattr(installs.pruning, "_in_use", lambda folder, commands=None: folder.name == "1.0.0+g2")
+    monkeypatch.setattr(installs.installs, "_in_use", lambda folder, commands=None: folder.name == "1.0.0+g2")
     removed = {p.name for p in installs.prune(m.tools, keep=2)}
     kept = {p.name for p in m.versions.iterdir() if p.is_dir()}
     assert {"1.0.2+g2", "1.0.2", "1.0.1", "1.0.0+g2"} <= kept, "active, the newest two, previous, in use"

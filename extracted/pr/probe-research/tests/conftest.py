@@ -13,6 +13,7 @@ import json
 import math
 import os
 import re
+import shutil
 import sys
 import tempfile
 import unicodedata
@@ -24,7 +25,7 @@ import pytest
 
 from probe.client import Client
 from probe.config import Settings
-from probe.sdk.tags import canonical_tags as _canonical_tags
+from probe.sdk.values.tags import canonical_tags as _canonical_tags
 from probe.transport import Transport
 
 
@@ -48,7 +49,7 @@ def _outbox_linger(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture(autouse=True)
 def _daemon_tool_set(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The daemon's default tool set is `bash` (2026-10-18, `probe.daemon.toolset`);
+    """The daemon's default tool set is `bash` (2026-10-18, `probe.daemon.agent.toolset`);
     the suite's daemon tests were written for today's set (`shell`, `read`, `edit`,
     `session`, the native MCP), which stays as the kill switch, and pin it. A
     module that sets `DAEMON_TOOLS = "bash"` (test_daemon_bash_tools.py) runs on
@@ -138,10 +139,10 @@ def _scripted_calls_as_bash(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(autouse=True)
 def _no_command_check(monkeypatch: pytest.MonkeyPatch) -> None:
     """The daemon asks Probe about a shell command before it asks the
-    researcher (`probe.daemon.command_check.ask_probe`, a network call). In the
+    researcher (`probe.daemon.shell.command_check.ask_probe`, a network call). In the
     suite that answers nothing, so every held command is asked as before; a
     test of the check stands its own answer in."""
-    from probe.daemon import command_check
+    from probe.daemon.shell import command_check
 
     async def no_answer(**_kw):
         return None
@@ -197,7 +198,7 @@ def _fresh_log_stream_answer() -> None:
     """`logstream.server_accepts` keeps the server's answer for the PROCESS
     (plan item (h)); every test here builds its own fake server, so each one
     asks afresh -- otherwise one test's old server decides the next one's."""
-    from probe.sdk import logstream
+    from probe.sdk.capture.logs import stream as logstream
 
     logstream.reset_feature_cache()
 
@@ -210,7 +211,7 @@ def _no_recorded_cli_upgrade(monkeypatch: pytest.MonkeyPatch) -> None:
     recorded its manifest's 0.296.0, which matched `__version__` until the
     0.296.1 release, and from then on `probe update --check` in
     tests/test_updater.py answered "behind" whenever the two shared a worker."""
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     monkeypatch.setattr(versions, "_installed_cli", None)
 
@@ -248,7 +249,7 @@ def _no_real_takeover_wait(monkeypatch: pytest.MonkeyPatch) -> None:
     """A relaunch onto a `running` incumbent now WAITS (2.3), up to 300 s by
     default, for the fake server to call it silent. Every test that opens a
     live duplicate would sleep for real. Tests ABOUT the wait set the budget
-    themselves and replace `probe.sdk.client._takeover_sleep`."""
+    themselves and replace `probe.sdk.client.resources.runs.reopen.takeover._takeover_sleep`."""
     monkeypatch.setenv("PROBE_TAKEOVER_WAIT_SEC", "0")
 
 
@@ -279,7 +280,7 @@ def _no_real_cli_telemetry(monkeypatch: pytest.MonkeyPatch) -> None:
 
     sender = telemetry._Sender()
     sender.transport = _explode
-    monkeypatch.setattr(telemetry, "_ensure_sender", lambda: sender)
+    monkeypatch.setattr(telemetry.sender, "_ensure_sender", lambda: sender)
 
 
 @pytest.fixture(autouse=True)
@@ -292,7 +293,7 @@ def _no_real_update_reports(monkeypatch: pytest.MonkeyPatch) -> list:
     network door, with a recorder that answers "no answer" -- so a report stays
     queued and nothing leaves the process. Tests ABOUT the report replace it
     themselves."""
-    from probe.cli import update_report
+    from probe.shared.updates import update_report
 
     sent: list = []
 
@@ -401,7 +402,8 @@ def _no_real_codex_hook_approval(monkeypatch: pytest.MonkeyPatch) -> None:
     whether the wizard adds the step would depend on that Codex. Here Codex
     cannot be asked. Tests of `approve` call the real one through its own module.
     """
-    from probe.cli import codex_hooks, setup
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
+    from probe.cli import setup
 
     monkeypatch.setattr(codex_hooks, "approve", lambda *_a, **_k: None)
     monkeypatch.setattr(setup, "codex_hooks_waiting", lambda: False)
@@ -439,11 +441,11 @@ def _no_ambient_pi_binary(monkeypatch: pytest.MonkeyPatch) -> None:
     capture the true function at import time and clear its cache themselves,
     so they are unaffected either way.
     """
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
     from probe.cli import setup as wizard
 
     monkeypatch.setattr(wizard, "pi_binary_available", lambda: False)
-    monkeypatch.setattr(pi_config, "pi_binary_available", lambda: False)
+    monkeypatch.setattr(pi_config.pi, "pi_binary_available", lambda: False)
 
 
 @pytest.fixture(autouse=True)
@@ -467,7 +469,7 @@ def _no_ambient_marketplace_agent(monkeypatch: pytest.MonkeyPatch) -> None:
     test runs after this fixture. Tests that want detection to find something
     say so themselves.
     """
-    from probe.cli import plugin_cli
+    from probe.shared.harness import plugins as plugin_cli
 
     monkeypatch.setattr(plugin_cli, "available", lambda source: False)
 
@@ -587,7 +589,7 @@ def _no_real_mcp_accounting(monkeypatch: pytest.MonkeyPatch) -> None:
     not post from CI. Tests that assert on emissions replace `_ensure_sender`
     themselves; this only guarantees the floor.
     """
-    from probe.mcp import accounting
+    from probe.mcp.delivery import accounting
 
     def _explode(_batch: list) -> None:
         raise AssertionError("mcp accounting attempted a real PostHog post")
@@ -674,11 +676,11 @@ def _read_capture_off(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PROBE_CAPTURE_READS", "0")
     # Run handles an earlier test left open (never finished) must not count
     # as open runs here: they would keep every worker binding off.
-    open_runs = sys.modules.get("probe.sdk._open_runs")
+    open_runs = sys.modules.get("probe.sdk.run.launch.open_runs")
     if open_runs is not None:
         open_runs.clear()
     yield
-    recorder = sys.modules.get("probe.sdk.inputs")
+    recorder = sys.modules.get("probe.sdk.capture.lineage")
     if recorder is not None and getattr(recorder, "_bound", None) is not None:
         recorder._unbind()
     if recorder is not None and os.environ.get(recorder.OWNER_PID_ENV) == str(os.getpid()):
@@ -773,6 +775,12 @@ def _isolate_config_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> N
     # KIMI_CODE_HOME, likewise: the daemon's shell lets the agent's instruction
     # file there be read, and the Kimi adapter lists it.
     monkeypatch.delenv("KIMI_CODE_HOME", raising=False)
+    # A no-op browser (`webbrowser` runs $BROWSER first), inherited by the
+    # children too: the approval-signal tests' real device login opened
+    # https://app.test/device?code=WDJB-MJHT in the developer's browser. An
+    # absolute path: those children run on an empty PATH, where a bare `true`
+    # is not found and `webbrowser` falls back to the real browser.
+    monkeypatch.setenv("BROWSER", shutil.which("true") or "true")
     # The removed Capy capture's folders: `capy_retire` deletes what they name,
     # and an update test reaches it.
     monkeypatch.delenv("PROBE_CAPY_TAP_PLUGIN_DIR", raising=False)
@@ -808,8 +816,8 @@ def _isolate_config_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> N
     # relies on.
     monkeypatch.delenv("PROBE_READER_PROMPT_WAKE", raising=False)
     yield
-    from probe.cli.codex_config import config_path as codex_config_path
-    from probe.sdk.config import config_path
+    from probe.shared.harness.harnesses.codex.config import config_path as codex_config_path
+    from probe.sdk.settings.settings import config_path
 
     def _in_real_home(path: Path) -> bool:
         parents = path.resolve().parents
@@ -825,7 +833,7 @@ def _isolate_config_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> N
     # Its default home must be the redirected one; a test that points
     # CLAUDE_CONFIG_DIR somewhere chose that place itself.
     if not os.environ.get("CLAUDE_CONFIG_DIR"):
-        from probe.cli import statusline
+        from probe.shared.harness.harnesses.claude_code import statusline
 
         claude_settings = statusline.settings_path()
         assert not _in_real_home(claude_settings), (
@@ -1026,13 +1034,13 @@ def note_tokens(text: str | None) -> int:
     """The o200k_base tokens in a note, counted the way research-os counts one
     (`app/core/tokens.py`: ordinary text, `""` is 0).
 
-    With the vocabulary the package ships (`probe.mcp.budget`), which is the
+    With the vocabulary the package ships (`probe.foundation.token_budget.token_budget`), which is the
     checksummed o200k_base the server's tiktoken loads: the fake must count
     what the server counts, or a test of the client's pre-send refusal proves
     nothing about the real wall."""
     if not text:
         return 0
-    from probe.mcp.budget import count_tokens
+    from probe.foundation.token_budget.token_budget import count_tokens
 
     return count_tokens(text)
 
@@ -3767,7 +3775,7 @@ class FakeApp:
                 200, json={"url": body.get("url"), "state": "ok", "text": "", "truncated": False}
             )
         # -- tokens (mint is session-only, so it is NOT routed here: the CLI mints
-        # via the device flow, which tests/test_device_login.py covers) --
+        # via the device flow, which tests/sdk/settings/test_device_login.py covers) --
         if path == "/v1/tokens" and method == "GET":
             return httpx.Response(200, json=list(self.tokens.values()))
         m = re.match(r"^/v1/tokens/([^/]+)$", path)
@@ -6903,7 +6911,7 @@ def make_client(
     )
     httpx_client = httpx.Client(base_url="http://test", transport=httpx.MockTransport(app.handler))
     transport = Transport(settings, client=httpx_client)
-    from probe.sdk.journal import Journal
+    from probe.sdk.delivery.journal.journal import Journal
 
     # ALWAYS an isolated journal: the default would be the developer's real
     # ~/.local/state/probe/outbox, and Journal._ensure imports any real legacy
@@ -6945,10 +6953,10 @@ def _fresh_secret_gate_caches():
 def _no_copied_logins_from_other_tests(monkeypatch):
     """`outbox_worker._COPIED_LOGINS` is per process: a client of one test that
     ran with a copy of its login must not decide another test's worker env."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
-    monkeypatch.setattr(outbox_worker, "_COPIED_LOGINS", set())
-    monkeypatch.setattr(outbox_worker, "_ADOPTED_KICKED_AT", float("-inf"))
+    monkeypatch.setattr(outbox_worker.drainers.detached, "_COPIED_LOGINS", set())
+    monkeypatch.setattr(outbox_worker.drainers.detached, "_ADOPTED_KICKED_AT", float("-inf"))
 
 
 @pytest.fixture(autouse=True)
@@ -6957,7 +6965,7 @@ def _no_automatic_rescue(monkeypatch):
     from the CLI's every-command check (`cli.main._outbox_notice`) when writes
     are held back. Off for the suite; the rescue tests turn it on
     (test_outbox_credential_stamp.py)."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     monkeypatch.setenv(outbox_worker.RESCUE_ENV, "off")
 
@@ -6980,10 +6988,10 @@ def _short_finish_deadline(monkeypatch):
     """`Run.finish()` retries undelivered writes for up to 600 s by default
     (plan 0.2) before it defers the close. A test whose fake transport is down
     would spend all of that in real sleep, so the suite runs with a short
-    default. Tests ABOUT the default read `probe.sdk.run.FINISH_TIMEOUT_DEFAULT_SECONDS`
+    default. Tests ABOUT the default read `probe.sdk.run.closing.drain.FINISH_TIMEOUT_DEFAULT_SECONDS`
     through their own monkeypatch or pass `flush_timeout=` explicitly; this
     never touches `PROBE_FINISH_TIMEOUT_SEC`, which also bounds output capture."""
-    monkeypatch.setattr("probe.sdk.run.FINISH_TIMEOUT_DEFAULT_SECONDS", 2.0)
+    monkeypatch.setattr("probe.sdk.run.closing.drain.FINISH_TIMEOUT_DEFAULT_SECONDS", 2.0)
 
 
 @pytest.fixture(autouse=True)
@@ -6991,20 +6999,20 @@ def _no_exit_promotion(monkeypatch):
     """A queued upload arms an atexit promotion that can SPAWN a detached
     worker after pytest has exited and every monkeypatch is undone -- one that
     then reads the developer's real config. Tests that exercise the hook point
-    `probe.sdk.client._at_exit` at a list of their own."""
-    monkeypatch.setattr("probe.sdk.client._at_exit", lambda callback: None)
+    `probe.sdk.delivery.outbox.drainer._at_exit` at a list of their own."""
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drainer._at_exit", lambda callback: None)
 
 
 @pytest.fixture(autouse=True)
 def _sigterm_handler_restored():
-    """`probe.init()` puts the SIGTERM flush (`probe.sdk.preempt`) in front of
+    """`probe.init()` puts the SIGTERM flush (`probe.sdk.run.launch.preempt`) in front of
     SIGTERM for as long as a run is open. A test that leaves a run open would
     leave it installed in the pytest process -- and an xdist worker told to
     stop would then try to close that run. Put back what was there, and forget
     the handler's state, after every test."""
     import signal
 
-    from probe.sdk import preempt
+    from probe.sdk.run.launch import preempt
 
     before = signal.getsignal(signal.SIGTERM)
     yield
@@ -7080,7 +7088,7 @@ def code_storage(request, monkeypatch):
     """Run a storage-agnostic test under BOTH snapshot storages. Opt in with
     ``pytestmark = pytest.mark.usefixtures("code_storage")`` in a module whose
     assertions do not depend on the archive's shape."""
-    from probe.sdk.run import CODE_STORAGE_ENV
+    from probe.sdk.run.files.code_upload import CODE_STORAGE_ENV
 
     monkeypatch.setenv(CODE_STORAGE_ENV, request.param)
     return request.param
@@ -7093,7 +7101,7 @@ def _no_code_storage_leakage(monkeypatch):
     tests pin `archive` explicitly (the path stays supported), and the per-file
     tests set `artifacts` themselves. The default itself is pinned in
     test_snapshot_artifacts by deleting the variable."""
-    from probe.sdk.run import CODE_STORAGE_ARCHIVE, CODE_STORAGE_ENV
+    from probe.sdk.run.files.code_upload import CODE_STORAGE_ARCHIVE, CODE_STORAGE_ENV
 
     monkeypatch.setenv(CODE_STORAGE_ENV, CODE_STORAGE_ARCHIVE)
 

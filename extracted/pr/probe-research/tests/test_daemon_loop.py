@@ -30,12 +30,14 @@ from pydantic_ai.exceptions import ModelHTTPError  # noqa: E402
 from pydantic_ai.messages import ModelResponse, ToolCallPart  # noqa: E402
 from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
-from probe.daemon import approvals as appr  # noqa: E402
-from probe.daemon import bite as bite_mod  # noqa: E402
-from probe.daemon import folders, lease, tools  # noqa: E402
+from probe.shared.mailbox import approvals as appr  # noqa: E402
+from probe.daemon.worker.bite import bite as bite_mod  # noqa: E402
+from probe.daemon.session import session as folders  # noqa: E402
+from probe.daemon.host import lease
+from probe.daemon.agent import tools
 from probe.daemon import store as store_mod  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
-from probe.daemon.events import Event, Kind  # noqa: E402
+from probe.shared.harness.events import Event, Kind  # noqa: E402
 from probe.sdk import session_marker  # noqa: E402
 from probe.sdk.session_marker import WIZARD_HINT  # noqa: E402
 
@@ -166,7 +168,8 @@ def test_a_tool_call_never_takes_the_lease_from_another_daemon(tmp_path, monkeyp
         ran.append(argv)
         return tools.ProbeResult(0, "{}")
 
-    monkeypatch.setattr(tools, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", run_probe)
     model, _ = _scripted([f"probe run tag {RUN} svm"])
     w = _worker(tmp_path, model=model)
     w.read_new()
@@ -188,7 +191,8 @@ def test_a_released_lease_comes_back_when_the_model_answers_again(tmp_path, monk
         ran.append(argv)
         return tools.ProbeResult(0, "{}")
 
-    monkeypatch.setattr(tools, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", run_probe)
     model, _ = _scripted([f"probe run tag {RUN} svm"])
     w = _worker(tmp_path, model=model)
     w.read_new()
@@ -207,7 +211,7 @@ def test_a_key_probe_refused_comes_back_only_once_a_probe_auth_check_passes(tmp_
     key the MODEL refused comes back as before, when a model round answers."""
     import httpx
 
-    from probe.daemon import probe_api
+    from probe.daemon.session import probe_api
 
     async def refused(deps, argv, op_id):
         # What `tools.run_probe_process` does when the CLI reports a 401.
@@ -215,7 +219,8 @@ def test_a_key_probe_refused_comes_back_only_once_a_probe_auth_check_passes(tmp_
         deps.stopped = "Probe refused the daemon's key"
         return tools.ProbeResult(1, "", "error: 401 Unauthorized")
 
-    monkeypatch.setattr(tools, "run_probe_process", refused)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", refused)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", refused)
     asked = []
 
     async def whoami(env):
@@ -263,14 +268,33 @@ def test_a_bites_tools_get_an_op_seed_the_retry_of_the_same_events_repeats(tmp_p
     class SeededDeps(tools.Deps):
         op_seed: str | None = None
 
-    monkeypatch.setattr(tools, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.tools, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.bash.bash, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.bash.jev, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.bash.read_only, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.bash.steps, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.drafts, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.edit, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.probe_cli.config, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.probe_cli.deletes, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.probe_cli.owed, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.probe_cli.probe_cli, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.probe_cli.process, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.read, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.refusals, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.session_op, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.session_ops.open, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.session_ops.search, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.summaries, "Deps", SeededDeps)
+    monkeypatch.setattr(tools.team_note, "Deps", SeededDeps)
     seeds = []
 
     async def run_probe(deps, argv, op_id):
         seeds.append(deps.op_seed)
         return tools.ProbeResult(0, "{}")
 
-    monkeypatch.setattr(tools, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", run_probe)
     rounds = {"n": 0}
 
     def fn(messages, info: AgentInfo) -> ModelResponse:
@@ -313,7 +337,8 @@ def test_a_bite_of_only_a_runs_events_files_them_as_the_runs(tmp_path, monkeypat
             return ModelResponse(parts=[ToolCallPart("shell", {"command": f"probe run tag {RUN} svm", "why": "test"})])
         return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {"summary": "note"})])
 
-    monkeypatch.setattr(tools, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", run_probe)
     w = _worker(tmp_path, model=FunctionModel(one_command_a_bite))
     w.store.add([Event(kind=Kind.RUN_EVENT, stream="sdk", offset=1, text="run started"),
                  Event(kind=Kind.FILE_CHANGE, stream="folder", offset=1, text="new file out/a.json (10 bytes)")])
@@ -343,7 +368,8 @@ def test_a_bites_writes_are_dated_at_the_oldest_event_of_the_work_they_file(tmp_
         stamped.append(deps.probe_env.get(EVENT_AT_ENV))
         return tools.ProbeResult(0, "{}")
 
-    monkeypatch.setattr(tools, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", run_probe)
     model, _ = _scripted([f"probe run tag {RUN} svm"])
     w = _worker(tmp_path, model=model)
     now = datetime.now(timezone.utc).replace(microsecond=0)
@@ -441,7 +467,8 @@ def test_probe_refusing_the_daemons_key_releases_the_lease_and_waits(tmp_path, m
         deps.stopped = "Probe refused the daemon's key"
         return tools.ProbeResult(1, "", "error: 401 Unauthorized")
 
-    monkeypatch.setattr(tools, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", run_probe)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", run_probe)
     rounds = {"n": 0}
 
     def fn(messages, info: AgentInfo) -> ModelResponse:
@@ -578,8 +605,10 @@ def test_a_barrier_raised_while_a_worker_loads_is_seen_once_it_holds_its_lock(tm
             built.append(args)
             raise LookupError("a worker started under the update")
 
-    monkeypatch.setattr(worker_mod, "session_lock", lock_after_the_barrier)
-    monkeypatch.setattr(worker_mod, "Worker", NoWorker)
+    monkeypatch.setattr(worker_mod.files, "session_lock", lock_after_the_barrier)
+    monkeypatch.setattr(worker_mod.startup, "session_lock", lock_after_the_barrier)
+    monkeypatch.setattr(worker_mod.worker, "Worker", NoWorker)
+    monkeypatch.setattr(worker_mod.startup, "Worker", NoWorker)
     try:
         assert _run_main(_argv(tmp_path)) == worker_mod.EXIT_RESPAWN_LATER
     finally:
@@ -636,7 +665,9 @@ def test_a_worker_whose_supervisor_exited_unreaped_reads_it_as_gone(tmp_path, mo
     _set_state("daemon")
     zombie, start = _zombie_supervisor()
     real_lock = worker_mod.session_lock
-    monkeypatch.setattr(worker_mod, "session_lock",
+    monkeypatch.setattr(worker_mod.files, "session_lock",
+                        lambda *a, **kw: real_lock(*a, **{**kw, "poll_s": 0.02, "max_wait_s": 2.0}))
+    monkeypatch.setattr(worker_mod.startup, "session_lock",
                         lambda *a, **kw: real_lock(*a, **{**kw, "poll_s": 0.02, "max_wait_s": 2.0}))
     monkeypatch.setenv(worker_mod.SUPERVISOR_PID_ENV, SUPERVISOR_VALUE(zombie.pid, start, SID))
     held = _hold_lock()
@@ -657,7 +688,9 @@ def test_a_worker_without_its_supervisor_s_start_time_still_reads_a_zombie_as_go
     _set_state("daemon")
     zombie, _start = _zombie_supervisor()
     real_lock = worker_mod.session_lock
-    monkeypatch.setattr(worker_mod, "session_lock",
+    monkeypatch.setattr(worker_mod.files, "session_lock",
+                        lambda *a, **kw: real_lock(*a, **{**kw, "poll_s": 0.02, "max_wait_s": 2.0}))
+    monkeypatch.setattr(worker_mod.startup, "session_lock",
                         lambda *a, **kw: real_lock(*a, **{**kw, "poll_s": 0.02, "max_wait_s": 2.0}))
     monkeypatch.setenv(worker_mod.SUPERVISOR_PID_ENV, SUPERVISOR_VALUE(zombie.pid, None, SID))
     held = _hold_lock()
@@ -693,7 +726,8 @@ def test_a_worker_started_outside_its_session_folder_moves_into_it(tmp_path, mon
             seen.append(os.getcwd())
             raise LookupError("stop here")
 
-    monkeypatch.setattr(worker_mod, "Worker", NoWorker)
+    monkeypatch.setattr(worker_mod.worker, "Worker", NoWorker)
+    monkeypatch.setattr(worker_mod.startup, "Worker", NoWorker)
     from probe.service import procid
 
     # This test process stands in for the service that started it (both, as it sends them).
@@ -723,7 +757,8 @@ def test_a_worker_the_service_started_enters_its_folder_even_without_its_identit
             seen.append(os.getcwd())
             raise LookupError("stop here")
 
-    monkeypatch.setattr(worker_mod, "Worker", NoWorker)
+    monkeypatch.setattr(worker_mod.worker, "Worker", NoWorker)
+    monkeypatch.setattr(worker_mod.startup, "Worker", NoWorker)
     monkeypatch.delenv("PROBE_DAEMON_SUPERVISOR", raising=False)
     monkeypatch.setenv("PROBE_DAEMON_ENTER_CWD", "1")
     assert _run_main(argv) == worker_mod.EXIT_DO_NOT_RESPAWN
@@ -761,7 +796,7 @@ def test_an_answer_that_cannot_be_acted_on_waits_instead_of_crashing(tmp_path, m
         tries.append(1)
         raise OSError("Probe is unreachable")
 
-    monkeypatch.setattr(tools, "deletion_facts", unreachable)
+    monkeypatch.setattr(tools.probe_cli.deletes, "deletion_facts", unreachable)
     asyncio.run(w.settle_answers())
     assert w.board.get(req.id).state == appr.WAITING
     notices = [e for e in w.store.pending() if e.kind == Kind.META]
@@ -771,7 +806,7 @@ def test_an_answer_that_cannot_be_acted_on_waits_instead_of_crashing(tmp_path, m
     now[0] += worker_mod.SETTLE_RETRY_S + 1
     asyncio.run(w.settle_answers())
     assert len(tries) == 2 and len([e for e in w.store.pending() if e.kind == Kind.META]) == 1
-    monkeypatch.setattr(tools, "deletion_facts", lambda deps, parsed: _facts(facts))
+    monkeypatch.setattr(tools.probe_cli.deletes, "deletion_facts", lambda deps, parsed: _facts(facts))
     now[0] += 10 * worker_mod.SETTLE_RETRY_S
     asyncio.run(w.settle_answers())
     assert w.board.get(req.id).state == appr.APPROVED and w.replay.calls == [["run", "delete", "r9"]]
@@ -804,7 +839,7 @@ def test_a_yes_marked_running_is_never_run_twice_even_when_running_it_fails(tmp_
         seen.append(w.board.get(req.id).outcome)
         raise ConnectionResetError("the connection dropped after the write")
 
-    monkeypatch.setattr(tools, "_run_probe", run_probe)
+    monkeypatch.setattr(tools.probe_cli.process, "_run_probe", run_probe)
     asyncio.run(w.settle_answers())
     assert seen == ["yes: running"], "not marked before it ran"
     done = w.board.get(req.id)
@@ -828,7 +863,7 @@ def test_a_yes_probe_refuses_the_key_for_releases_the_lease(tmp_path, monkeypatc
         deps.stopped = "Probe refused the daemon's key"
         return 1, "error: 401 Unauthorized", "error: 401 Unauthorized"
 
-    monkeypatch.setattr(tools, "_run_probe", run_probe)
+    monkeypatch.setattr(tools.probe_cli.process, "_run_probe", run_probe)
     asyncio.run(w.settle_answers())
     assert w.board.get(req.id).outcome == "yes: Probe refused the daemon's key"
     assert _lease()["reason"] == lease.REASON_UNAUTHORIZED and w.released_reason == lease.REASON_UNAUTHORIZED
@@ -846,7 +881,7 @@ def test_a_yes_cancelled_mid_run_stays_marked_running_and_is_not_run_again(tmp_p
         seen.append(argv)
         raise asyncio.CancelledError()
 
-    monkeypatch.setattr(tools, "_run_probe", run_probe)
+    monkeypatch.setattr(tools.probe_cli.process, "_run_probe", run_probe)
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(w.settle_answers())
     assert w.board.get(req.id).outcome == "yes: running"
@@ -866,7 +901,7 @@ def test_a_yes_left_running_by_a_worker_that_stopped_is_reported_interrupted_nev
         ran.append(argv)
         return 0, "{}", ""
 
-    monkeypatch.setattr(tools, "_run_probe", run_probe)
+    monkeypatch.setattr(tools.probe_cli.process, "_run_probe", run_probe)
     w = _worker(tmp_path)
     req = _held_override(w, ["run", "tag", RUN, "svm"])
     w.board.resolve(req, state=appr.APPROVED, outcome=worker_mod.HELD_RUNNING, channel="test")  # then the crash
@@ -934,8 +969,8 @@ def test_a_yes_stopped_mid_run_is_resolved_stopped_not_ran(tmp_path, monkeypatch
         deps.stopped = moved
         return None, f"stopped while it ran ({moved}); it may have written part of its work", ""
 
-    monkeypatch.setattr(shell_mod, "run", run)
-    monkeypatch.setattr(tools, "_run_probe", run_probe)
+    monkeypatch.setattr(shell_mod.runner, "run", run)
+    monkeypatch.setattr(tools.probe_cli.process, "_run_probe", run_probe)
     w = _worker(tmp_path)
     assert w._renew()
     req = _held_override(w, ["run", "tag", RUN, "svm"]) if how == "probe stopped" else _held_shell(w)
@@ -957,7 +992,7 @@ def test_a_failure_reporting_a_yes_that_ran_never_says_nothing_ran(tmp_path, mon
         ran.append(argv)
         return 0, "{}", ""
 
-    monkeypatch.setattr(tools, "_run_probe", run_probe)
+    monkeypatch.setattr(tools.probe_cli.process, "_run_probe", run_probe)
     w = _worker(tmp_path)
     assert w._renew()
     req = _held_override(w, ["run", "tag", RUN, "svm"])
@@ -1003,7 +1038,7 @@ def test_a_counter_that_cannot_be_written_never_replays_a_finished_bite(tmp_path
     def broken(n):
         raise FileNotFoundError("device.tmp")
 
-    monkeypatch.setattr(worker_mod, "add_device_tokens", broken)
+    monkeypatch.setattr(worker_mod.env, "add_device_tokens", broken)
     model, _ = _scripted([])
     w = _worker(tmp_path, model=model, replay=Replay())
     w.read_new()
@@ -1041,8 +1076,9 @@ def _meta(w) -> list[str]:
 
 
 def test_a_line_longer_than_a_chunk_is_read_whole_and_one_over_the_cap_is_skipped_loudly(tmp_path, monkeypatch):
-    monkeypatch.setattr(worker_mod, "READ_CHUNK_BYTES", 1000)
-    monkeypatch.setattr(worker_mod, "MAX_LINE_BYTES", 5000)
+    monkeypatch.setattr(worker_mod.loop.reading, "READ_CHUNK_BYTES", 1000)
+    monkeypatch.setattr(worker_mod.loop.inbox, "READ_CHUNK_BYTES", 1000)
+    monkeypatch.setattr(worker_mod.loop.reading, "MAX_LINE_BYTES", 5000)
     w = _worker(tmp_path, replay=Replay())
     for _ in range(3):
         w.read_new()
@@ -1071,7 +1107,8 @@ def test_a_line_longer_than_a_chunk_is_read_whole_and_one_over_the_cap_is_skippe
 
 
 def test_shutdown_reads_what_is_on_disk_to_its_end_not_one_chunk(tmp_path, monkeypatch):
-    monkeypatch.setattr(worker_mod, "READ_CHUNK_BYTES", 300)
+    monkeypatch.setattr(worker_mod.loop.reading, "READ_CHUNK_BYTES", 300)
+    monkeypatch.setattr(worker_mod.loop.inbox, "READ_CHUNK_BYTES", 300)
     model, _ = _scripted([])
     w = _worker(tmp_path, model=model, replay=Replay())
     with w.session.transcript.open("a") as handle:
@@ -1109,8 +1146,8 @@ def _install(tmp_path: Path, monkeypatch) -> Path:
     root = tmp_path / "tools" / "probe-research" / "lib" / "python3.13" / "site-packages" / "probe"
     root.mkdir(parents=True)
     (root / "__init__.py").write_text("__version__ = '0.243.0'\n")
-    monkeypatch.setattr(worker_mod, "install_root", lambda: root)
-    monkeypatch.setattr(worker_mod, "_INSTALL_STAMP", worker_mod._install_stamp())
+    monkeypatch.setattr(worker_mod.install, "install_root", lambda: root)
+    monkeypatch.setattr(worker_mod.install, "_INSTALL_STAMP", worker_mod._install_stamp())
     return root
 
 
@@ -1210,13 +1247,13 @@ def test_what_counts_as_a_reinstall(tmp_path, monkeypatch):
     as it was (a renamed prompt file is enough to break a worker)."""
     root = _install(tmp_path, monkeypatch)
     assert worker_mod.install_replaced() is False
-    monkeypatch.setattr(worker_mod, "_INSTALL_STAMP", None)
+    monkeypatch.setattr(worker_mod.install, "_INSTALL_STAMP", None)
     shutil.rmtree(root)
     assert worker_mod.install_replaced() is False
     root = _install(tmp_path / "again", monkeypatch)
     dist = root.parent / "probe_research-0.243.0.dist-info"
     dist.mkdir()
-    monkeypatch.setattr(worker_mod, "_DIST_INFO", dist)
+    monkeypatch.setattr(worker_mod.install, "_DIST_INFO", dist)
     assert worker_mod.install_replaced() is False
     dist.rmdir()
     assert worker_mod.install_replaced() is True
@@ -1277,7 +1314,7 @@ def test_sigterm_starts_the_finish_budget_at_the_signal_and_cancels_a_live_run_a
     """The deadline counts from the signal, not from the next round boundary: a
     model call still going when it passes is cancelled."""
     monkeypatch.setenv("PROBE_DAEMON_KEY", "k-test")
-    monkeypatch.setattr(worker_mod, "FINISH_CAP_S", 0.5)
+    monkeypatch.setattr(worker_mod.lease_keeping, "FINISH_CAP_S", 0.5)
     seen: dict = {}
 
     async def slow(messages, info):
@@ -1630,7 +1667,8 @@ def test_an_inbox_rewritten_shorter_is_read_again_from_the_start(tmp_path):
 
 
 def test_the_inbox_is_read_a_chunk_at_a_time(tmp_path, monkeypatch):
-    monkeypatch.setattr(worker_mod, "READ_CHUNK_BYTES", 120)
+    monkeypatch.setattr(worker_mod.loop.reading, "READ_CHUNK_BYTES", 120)
+    monkeypatch.setattr(worker_mod.loop.inbox, "READ_CHUNK_BYTES", 120)
     w = _worker(tmp_path, replay=Replay())
     _inbox([{"event": "run_start", "run_id": f"run-{i}"} for i in range(10)])
     size = worker_mod.inbox_path(SID).stat().st_size
@@ -1814,7 +1852,7 @@ def test_the_model_client_outlasts_the_servers_deadline_and_names_its_lane():
     """A daemon model call may take 30 minutes: the client's timeout sits above the
     server's (1,830 s), so the layer that fails is the one that reports. Each lane
     sends its header and its own model name."""
-    from probe.daemon import model
+    from probe.daemon.agent.model import model
 
     ep = model.Endpoint("https://api.example.test", "k")
     built = model.build(ep)
@@ -1833,7 +1871,7 @@ def test_the_lease_is_renewed_while_a_model_call_runs():
     """The lease lives 240 s and a call may take 30 min: keep_lease renews a lease
     this process holds while the run is in progress (compaction's summary call
     included), and never one it released."""
-    from probe.daemon.agent import keep_lease
+    from probe.daemon.agent.agent import keep_lease
 
     deps = types.SimpleNamespace(session_id=SID, replay=None)
 
@@ -1897,7 +1935,7 @@ def test_the_model_connection_keeps_itself_alive_and_is_shared():
     serves both lanes and every turn (no client per turn left open)."""
     import socket
 
-    from probe.daemon import model
+    from probe.daemon.agent.model import model
 
     opts = model.keepalive_socket_options()
     assert (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1) in opts
@@ -2392,7 +2430,7 @@ def test_once_the_refusal_fallback_answered_the_session_keeps_asking_for_it(monk
     conversation never pays a refused attempt on the configured model again."""
     import httpx
 
-    from probe.daemon import model
+    from probe.daemon.agent.model import model
 
     monkeypatch.setattr(model, "_HTTP_CLIENT", None)
     monkeypatch.setattr(model, "_PREFERRED_MODEL", None)
@@ -2418,7 +2456,7 @@ def test_once_the_refusal_fallback_answered_the_session_keeps_asking_for_it(monk
 
 
 def test_a_dated_model_name_prices_as_its_own_model_not_a_shorter_one():
-    from probe.daemon import usage
+    from probe.daemon.agent.model import usage
 
     assert usage.price_key("claude-opus-5-5-20261001") == "claude-opus-5-5"
     assert usage.price_key("claude-opus-5-20261001") == "claude-opus-5"
@@ -2429,7 +2467,7 @@ def test_gpt_6_1_sol_is_priced_per_context_tier():
     """OpenAI bills a gpt-6.1-sol prompt over 272,000 tokens (cached and written
     included) at its long rates on every token; up to it, at half. The daemon's
     ledger prices locally (no proxy header), so it must tier like the proxy."""
-    from probe.daemon import usage
+    from probe.daemon.agent.model import usage
 
     # 100K fresh + 100K read + 72K written = 272,000: short ($2 / $0.10 / $2.50 / $10)
     assert usage.cost("gpt-6.1-sol", input_tokens=272_000, cache_read_tokens=100_000,
@@ -2442,7 +2480,7 @@ def test_gpt_6_1_sol_is_priced_per_context_tier():
 
 def test_claude_haiku_5_5_is_priced_per_context_tier():
     """Anthropic bills a Haiku 5.5 prompt over 100,000 tokens at 5x on every token."""
-    from probe.daemon import usage
+    from probe.daemon.agent.model import usage
 
     assert usage.cost("claude-haiku-5-5", input_tokens=100_000, output_tokens=1_000) == pytest.approx(
         (100_000 * 0.10 + 1_000 * 0.50) / 1e6)
@@ -2455,7 +2493,7 @@ def test_the_lock_taker_clears_an_ask_meant_for_the_previous_holder(tmp_path):
     hands over when it sees its parent gone). The worker that takes the lock
     next must clear it, or it would hand over itself when its own session
     ends instead of finishing its queue (critic R2)."""
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     marker = mailbox.handover_path(SID)
     marker.parent.mkdir(parents=True, exist_ok=True)
@@ -2476,7 +2514,7 @@ def test_a_failed_delete_of_the_ask_never_sends_the_lock_holder_back_for_its_own
     refuses a second lock even to its own holder: retrying would wait forever
     (and block every worker after it). As msvcrt does, a held lock is refused."""
     from probe._shared import oscompat
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     held: set = set()
 

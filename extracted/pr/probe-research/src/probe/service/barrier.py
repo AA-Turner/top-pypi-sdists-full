@@ -68,7 +68,7 @@ POLL_S = 0.1
 #: A `probe` command turned away by the barrier exits with this (EX_TEMPFAIL,
 #: as `wizard_lock.BUSY_EXIT_CODE`): nothing ran, try again.
 BUSY_EXIT_CODE = 75
-#: ... and `probe daemon worker` with this: `probe.daemon.worker.EXIT_RESPAWN_LATER`,
+#: ... and `probe daemon worker` with this: `probe.daemon.worker.supervisor.EXIT_RESPAWN_LATER`,
 #: which the tap's supervisor answers with a later respawn, not a crash count.
 #: (`tests/test_service_updater.py` keeps the two equal.)
 WORKER_BUSY_EXIT_CODE = 5
@@ -86,7 +86,7 @@ HOLD_NAME = "workers.hold"
 #: (`session_marker.daemon_status`), not after its own release.
 HOLD_RELEASED_NAME = "workers.released"
 #: In the prefix of an interpreter that runs from a version env
-#: (`probe._shared.installs.running_from_versions`, VERSIONS_DIRNAME): nothing
+#: (`probe.shared.updates.installs.layout.running_from_versions`, VERSIONS_DIRNAME): nothing
 #: an update does replaces its files (tests/test_service_updater.py holds the
 #: two equal).
 PINNED_DIR = "/probe-versions/"

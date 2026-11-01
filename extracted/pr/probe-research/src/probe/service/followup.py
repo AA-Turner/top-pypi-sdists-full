@@ -42,7 +42,7 @@ from pathlib import Path
 from .protocol import CONTEXT_ENV
 
 #: What a status-line install keeps in its folder, refreshed here
-#: (`probe.cli.statusline.RENDERER_FILES`; the hook's own twin is
+#: (`probe.shared.harness.harnesses.claude_code.statusline.RENDERER_FILES`; the hook's own twin is
 #: `hooks/statusline_refresh.py RENDERER_FILES`. tests/test_service_followup.py
 #: holds the three equal).
 RENDERER_FILES = ("statusline.py", "_session_marker.py")
@@ -178,7 +178,7 @@ def sync_renderer(env: dict) -> list[str]:
     return changed
 
 
-#: `probe.cli.statusline.REFRESH_INTERVAL_S`, `.MARKER` and the line its chain
+#: `probe.shared.harness.harnesses.claude_code.statusline.REFRESH_INTERVAL_S`, `.MARKER` and the line its chain
 #: opens a predecessor's block with (`_OPEN`): that module explains them;
 #: tests/test_service_followup.py holds them equal.
 REFRESH_INTERVAL_S = 10
@@ -192,7 +192,7 @@ REFRESH_INTERVAL_DIRNAME = "refresh-interval"
 
 def settings_path(env: dict) -> Path:
     """Claude Code's user settings for a context, a symlink followed to its
-    target (as `probe.cli.statusline.settings_path`: a dotfiles link stays one)."""
+    target (as `probe.shared.harness.harnesses.claude_code.statusline.settings_path`: a dotfiles link stays one)."""
     path = claude_dir(env) / "settings.json"
     try:
         return path.resolve() if path.is_symlink() else path

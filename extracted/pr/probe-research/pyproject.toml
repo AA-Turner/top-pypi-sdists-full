@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 # plugin, the `probe-research-mcp` binaries, and mcp.research.prbe.ai. The import
 # name (`probe`) and the CLI binary (`probe`) are unchanged.
 name = "probe-research"
-version = "0.352.2"
+version = "0.356.0"
 description = "CLI + SDK + read-only MCP client for Probe Research (experiment tracking)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -27,7 +27,7 @@ classifiers = [
 ]
 dependencies = [
     "httpx>=0.27",
-    # Direct import in mcp/server.py (_tool thread offload + CapacityLimiter
+    # Direct import in mcp/server/server.py (_tool thread offload + CapacityLimiter
     # load shedding). The floor is what the code SEMANTICALLY needs, not just
     # an import guard: tenant isolation relies on to_thread.run_sync running
     # the fn in the caller's contextvars copy, and admission shedding relies
@@ -57,7 +57,7 @@ dependencies = [
     "questionary>=2.0,<3",
     # Hardware-rail floor (opt-in via run(hw=True)/PROBE_HW=1;
     # docs/2026-08-05-hw-metrics-design.md).
-    # Both IMPORTED LAZILY inside probe/hw/resources/* behind availability
+    # Both IMPORTED LAZILY inside probe/sdk/hardware/resources/* behind availability
     # probes -- an absent import is a disabled source, never an error.
     # psutil: CPU/mem/disk/net sampling, universal wheels. nvidia-ml-py: the
     # official NVIDIA NVML binding, one pure-python module, zero transitive
@@ -66,9 +66,9 @@ dependencies = [
     "psutil>=5.9",
     "nvidia-ml-py>=12.535",
     # Python 3.10 (plan 2.11): 3.11's `tomllib`, as the backport it came from.
-    # Imported only through probe._compat.
+    # Imported only through probe.foundation.compat.compat.
     "tomli>=1.1; python_version < '3.11'",
-    # `.probeignore` (sdk/ignore.py): gitignore-syntax matching. Pure python, no
+    # `.probeignore` (sdk/recording_rules/ignore.py): gitignore-syntax matching. Pure python, no
     # dependencies of its own; IMPORTED LAZILY, only when a pattern exists.
     "pathspec>=1.0",
     # Codex's config.toml edited in place, comments and order kept, by the
@@ -90,7 +90,7 @@ dev = [
     "pytest-xdist>=3.2",
     # Build the real wheel/sdist in offline tokenizer packaging regression tests.
     "hatchling>=1.27",
-    # Regenerates src/probe/_generated/models.py from schema/openapi.json.
+    # Regenerates src/probe/generated/models.py from schema/openapi.json.
     # See `make gen-models` / scripts/gen_models.py.
     "datamodel-code-generator>=0.25",
     # `Run.log` flattens an OmegaConf DictConfig like a dict (plan (d)), and run
@@ -173,11 +173,18 @@ probe-research-mcp-http = "probe._entry:mcp_http_main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/probe"]
 
+# probe-contracts (../contracts) is vendored into the wheel at build: hatch_build.py.
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
 [tool.hatch.build.targets.wheel.shared-data]
 "skills" = "share/probe-research/skills"
 
 [tool.hatch.build.targets.sdist]
-include = ["src/probe", "skills", "tests", "README.md", "pyproject.toml"]
+include = ["src/probe", "skills", "tests", "README.md", "pyproject.toml", "hatch_build.py"]
+
+[tool.hatch.build.targets.sdist.hooks.custom]
+path = "hatch_build.py"
 
 # Pin the lint bar. There was no root config, so `ruff check` floated on whatever
 # rule set the invoking ruff version enables by default — and ruff 0.16's defaults

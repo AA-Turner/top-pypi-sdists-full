@@ -10,10 +10,10 @@ import pytest
 
 pytest.importorskip("pydantic_ai")
 
-from probe.daemon import exclusions as exclusions_mod  # noqa: E402
-from probe.daemon import folders  # noqa: E402
+from probe.shared.harness import session_filter as exclusions_mod  # noqa: E402
+from probe.daemon.session import session as folders  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
-from probe.daemon.events import Event, Kind  # noqa: E402
+from probe.shared.harness.events import Event, Kind  # noqa: E402
 from probe.sdk import probe_config as pc  # noqa: E402
 
 SID = "11111111-2222-3333-4444-555555555555"
@@ -227,8 +227,8 @@ def test_a_read_path_is_kept_and_tagged_with_its_output(tmp_path, levels):
     assert len(tagged) == 2 and all("to read: Probe may look, records nothing about it" in n for n in tagged)
     assert "notebooks/a.ipynb" in tagged[0]
     rows = w.store.db.execute("SELECT * FROM events WHERE note IS NOT NULL ORDER BY seq").fetchall()
-    from probe.daemon import bite as bite_mod
-    from probe.daemon.store import StoredEvent
+    from probe.daemon.worker.bite import bite as bite_mod
+    from probe.daemon.store.events import StoredEvent
 
     shown = bite_mod.render(StoredEvent.from_row(rows[0]))
     assert shown.endswith(f"({tagged[0]})")
@@ -292,7 +292,7 @@ def test_folder_check_skips_read_files_too(tmp_path, levels):
 def test_an_old_store_gains_the_note_column(tmp_path):
     import sqlite3
 
-    from probe.daemon.store import Store
+    from probe.daemon.store.store import Store
 
     path = tmp_path / "old.sqlite"
     db = sqlite3.connect(str(path))
@@ -315,7 +315,7 @@ def test_an_old_store_gains_the_note_column(tmp_path):
 
 
 def _config_check(argv, levels, document=None):
-    from probe.daemon import precheck
+    from probe.shared.command_rules import command_rules as precheck
 
     checker = pc.Checker(cwd=str(levels), legacy=True)
     return precheck.check_config(precheck.parse(argv), cwd=levels, checker=checker, document=document)

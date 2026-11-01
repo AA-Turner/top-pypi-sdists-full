@@ -322,6 +322,7 @@ _ORDER_OPERATORS = (
 _CELL_OPERATORS = (
     ComparisonOperator.EQ,
     ComparisonOperator.IS,
+    ComparisonOperator.IN,
     ComparisonOperator.NE,
     ComparisonOperator.IS_NOT,
     *_ORDER_OPERATORS,
@@ -397,6 +398,8 @@ def _atom_holds(op: ComparisonOperator, value: Any, cell: _Cell) -> bool | None:
         return None
     if cell == _NULL_CELL:
         return False
+    if op == ComparisonOperator.IN:
+        return cell[0] == "point" and cell[1] in value
     if cell[0] == "point":
         return _compare(op, cell[1], value)
     # An open gap holds no literal, so it lies wholly below or above `value`.
@@ -419,6 +422,22 @@ def _in_declared_ranges(ranges: tuple[ValueRange, ...], cell: _Cell) -> bool:
     )
 
 
+def _cell_literals(group_tuple: list[tuple[ComparisonOperator, Any]]) -> list[Any]:
+    out: list[Any] = []
+    for _, value in group_tuple:
+        if isinstance(value, frozenset):
+            out.extend(value)
+        elif value is not None:
+            out.append(value)
+    return out
+
+
+def _stringified(value: Any) -> Any:
+    if isinstance(value, frozenset):
+        return frozenset(str(v) for v in value)
+    return None if value is None else str(value)
+
+
 def domain_cover(
     datatype: Any,
     group_tuple: list[tuple[ComparisonOperator, Any]],
@@ -432,13 +451,13 @@ def domain_cover(
         if any(op in _ORDER_OPERATORS for op, _ in group_tuple):
             return None
         cells: list[_Cell] = [("point", str(v)) for v in datatype.values]
-        atoms = [(op, None if v is None else str(v)) for op, v in group_tuple]
+        atoms = [(op, _stringified(v)) for op, v in group_tuple]
     elif isinstance(datatype, DataType) and datatype == DataType.STRING:
         # Unbounded, and SQL collation is not python's string order: equality
         # only, each literal a point and every other string one cell.
         if any(op in _ORDER_OPERATORS for op, _ in group_tuple):
             return None
-        strings = {v for _, v in group_tuple if v is not None}
+        strings = set(_cell_literals(group_tuple))
         if not all(isinstance(v, str) for v in strings):
             return None
         cells = [("point", v) for v in sorted(strings)] + [("gap", None, None)]
@@ -450,7 +469,7 @@ def domain_cover(
             if datatype.pattern is not None or not datatype.ranges:
                 return None
             base, ranges = datatype.data_type, datatype.ranges
-        literals = [v for _, v in group_tuple if v is not None]
+        literals = _cell_literals(group_tuple)
         literals += [b for r in ranges for b in (r.min, r.max) if b is not None]
         domain = _domain_cells(base, literals)
         if domain is None:
@@ -622,7 +641,17 @@ def _grouped_atoms(
             return None
 
         comparison: Any
-        if raw_comparison is MagicConstants.NULL:
+        if operator == ComparisonOperator.IN:
+            if not isinstance(condition.left, BuildConcept):
+                return None
+            # `x in S` is a cell atom over S's points; a NULL member matches
+            # no row, so a list holding one is not reasoned over
+            # (`Cost.null_member_matches_nothing`).
+            values = _literal_values(raw_comparison)
+            if not values or not all(isinstance(v, TARGET_TYPES) for v in values):
+                return None
+            comparison = frozenset(values)
+        elif raw_comparison is MagicConstants.NULL:
             comparison = None
         elif isinstance(raw_comparison, BuildFunction):
             if raw_comparison.operator != FunctionType.CONSTANT:
@@ -630,7 +659,9 @@ def _grouped_atoms(
             comparison = raw_comparison.arguments[0]
         else:
             comparison = raw_comparison
-        if comparison is not None and not isinstance(comparison, TARGET_TYPES):
+        if comparison is not None and not isinstance(
+            comparison, (*TARGET_TYPES, frozenset)
+        ):
             return None
 
         gone = (excluded or {}).get(concept.address) or (excluded or {}).get(
@@ -740,7 +771,7 @@ def condition_implies_with_extras(
     Otherwise returns (False, [])."""
     query_atoms = decompose_condition(query)
     required_atoms = decompose_condition(required)
-    if not all(atom in query_atoms for atom in required_atoms):
+    if not all(_atom_implied(query_atoms, atom) for atom in required_atoms):
         return False, []
     return True, [atom for atom in query_atoms if atom not in required_atoms]
 
@@ -749,9 +780,56 @@ def condition_implies(
     query: BoolExpr,
     required: BoolExpr,
 ) -> bool:
-    """True if every AND-atom of required appears in query's AND-atoms (query is a superset)."""
+    """True if every AND-atom of required appears in query's AND-atoms, or is
+    a value pin some query atom pins within (`_pinned_values`)."""
     implied, _ = condition_implies_with_extras(query, required)
     return implied
+
+
+def _atom_implied(query_atoms: list[BoolExpr], required: BoolExpr) -> bool:
+    """`Cost.value_set_implies`: `x = 'a'` implies `x in ('a', 'b')`."""
+    if required in query_atoms:
+        return True
+    pinned = _pinned_values(required)
+    if pinned is None:
+        return False
+    address, allowed = pinned
+    return any(
+        (held := _pinned_values(atom)) is not None
+        and held[0] == address
+        and held[1] <= allowed
+        for atom in query_atoms
+    )
+
+
+def _pinned_values(atom: object) -> tuple[str, frozenset[object]] | None:
+    """The column an atom pins and the literals it allows: `x = a`,
+    `x in (...)`, or a disjunction of those over one column
+    (`Cost.disjunction_is_union`). A NULL literal matches no row, so a list
+    holding one is not reasoned over (`Cost.null_member_matches_nothing`)."""
+    if isinstance(atom, BuildParenthetical):
+        return _pinned_values(atom.content)
+    if isinstance(atom, BuildConditional) and atom.operator == BooleanOperator.OR:
+        left, right = _pinned_values(atom.left), _pinned_values(atom.right)
+        if left is None or right is None or left[0] != right[0]:
+            return None
+        return left[0], left[1] | right[1]
+    if not isinstance(atom, BuildComparison):
+        return None
+    if atom.operator == ComparisonOperator.IN and isinstance(atom.left, BuildConcept):
+        concept, literal = atom.left, atom.right
+    elif atom.operator != ComparisonOperator.EQ:
+        return None
+    elif isinstance(atom.left, BuildConcept):
+        concept, literal = atom.left, atom.right
+    elif isinstance(atom.right, BuildConcept):
+        concept, literal = atom.right, atom.left
+    else:
+        return None
+    values = _literal_values(literal)
+    if not values or any(is_null_literal(v) for v in values):
+        return None
+    return concept.address, frozenset(values)
 
 
 # Only genuine literals have an enumerable allowed-value set. Anything else
@@ -760,6 +838,9 @@ _LITERAL_TYPES = (str, bytes, bool, int, float, Decimal, date, timedelta, Enum)
 
 
 def _literal_values(value: object) -> set[object] | None:
+    # `x in ('A')` holds a parenthesized literal, not a one-element tuple.
+    while isinstance(value, BuildParenthetical):
+        value = value.content
     if isinstance(value, (TupleWrapper, ListWrapper, tuple, list, set)):
         if all(isinstance(v, _LITERAL_TYPES) for v in value):
             return set(value)

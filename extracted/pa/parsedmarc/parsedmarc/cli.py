@@ -19,6 +19,9 @@ from glob import escape as glob_escape, glob
 from ssl import CERT_NONE, create_default_context
 from typing import TYPE_CHECKING, Any
 
+import dns.exception
+import dns.resolver
+import dns.reversename
 import httpx
 import yaml
 from tqdm import tqdm
@@ -31,10 +34,12 @@ from parsedmarc import (
     ParserConfig,
     ParserError,
     __version__,
+    _aggregate_report_dedup_key,
     email_results,
     email_results_via_msgraph,
     get_dmarc_reports_from_mailbox,
     get_dmarc_reports_from_mbox,
+    loki,
     postgres,
     save_output,
     splunk,
@@ -109,6 +114,23 @@ else:
             """Never-raised placeholder for the absent msgraph extra."""
 
 
+# dnspython 2.9+ does DNS over HTTPS through httpx2 (installed by its
+# [doh] extra); 2.7 and 2.8 use httpx, so httpx2 may be absent. It may
+# also be present without dnspython having imported it: dnspython 2.9
+# needs Python 3.11, but httpx2 installs on 3.10 and other tools pull it
+# in. _RedactUrlCredentialsFilter must recognize httpx2.URL whenever
+# httpx2 can log one, so it is imported here rather than taken from
+# dns.query (unlike utils.py's _doh_client_class(), which has to match
+# the library dnspython itself imported).
+if TYPE_CHECKING:
+    import httpx2  # pyright: ignore[reportMissingImports]
+else:
+    try:
+        import httpx2
+    except ModuleNotFoundError:
+        httpx2 = None
+
+
 from parsedmarc.constants import DEFAULT_DNS_MAX_RETRIES, DEFAULT_DNS_TIMEOUT
 from parsedmarc.log import logger
 import parsedmarc.mail
@@ -125,14 +147,16 @@ import parsedmarc.utils
 from parsedmarc.utils import (
     InvalidIPinfoAPIKey,
     ReverseDNSMap,
+    _mask_nameserver_secrets,
     configure_ipinfo_api,
     get_base_domain,
-    get_reverse_dns,
     human_timestamp_to_datetime,
     is_mbox,
     load_ip_db,
     load_psl_overrides,
     load_reverse_dns_map,
+    query_dns,
+    redact_url_credentials,
     sanitize_for_log,
 )
 
@@ -525,6 +549,7 @@ _KNOWN_SECTIONS = frozenset(
         "log_analytics",
         "gelf",
         "webhook",
+        "loki",
     }
 )
 
@@ -671,7 +696,63 @@ _DEPENDENCY_LOGGERS = (
     "msgraph",
     "httpx",
     "httpcore",
+    # dnspython 2.9+ does DNS over HTTPS through httpx2 / httpcore2, which
+    # log under their own names rather than httpx / httpcore.
+    "httpx2",
+    "httpcore2",
 )
+
+
+# URL classes whose instances appear as log-record arguments. httpx2.URL
+# is not an httpx.URL, so each installed library contributes its own
+# class (see the httpx2 import guard above).
+_HTTP_URL_CLASSES: tuple[type, ...] = (httpx.URL,) + (
+    (httpx2.URL,) if httpx2 is not None else ()
+)
+
+
+class _RedactUrlCredentialsFilter(logging.Filter):
+    """Masks URL credentials and the IPinfo ``token`` query parameter in
+    the arguments of httpx and httpx2 log records.
+
+    httpx and httpx2 log ``HTTP Request: %s %s "%s %d %s"`` with
+    ``request.url``, whose string form includes the userinfo password and
+    the query string. httpx2 is what dnspython 2.9+ uses for DNS over HTTPS,
+    so a ``[general]`` ``nameservers`` URL with credentials reaches this
+    line on every lookup.
+    The filter never drops a record; the redaction itself is total (string
+    methods and URL parameter lookups only), so it cannot raise.
+
+    Logger-level filters apply only to records created on the logger the
+    filter is attached to, not to records from its child loggers. httpx
+    (0.28) logs only via ``logging.getLogger("httpx")`` itself and httpx2
+    only via ``logging.getLogger("httpx2")`` (``httpx2/_client.py``), so
+    attaching the filter to those two loggers covers them; a version that
+    logged on a child logger (``httpx.something``) would bypass it.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(self._redact(arg) for arg in record.args)
+        return True
+
+    @staticmethod
+    def _redact(arg: Any) -> Any:
+        if isinstance(arg, _HTTP_URL_CLASSES):
+            if arg.params.get("token") is not None:
+                # Drop the token and append the mask as typed: setting it
+                # with copy_set_param() would percent-encode the "*"s, and
+                # rewriting the encoded form afterwards would also touch a
+                # literal "%2A%2A%2A" elsewhere in the URL.
+                text = str(arg.copy_remove_param("token"))
+                text, fragment_sep, fragment = text.partition("#")
+                separator = "&" if "?" in text else "?"
+                text = f"{text}{separator}token=***{fragment_sep}{fragment}"
+                return redact_url_credentials(text)
+            return redact_url_credentials(str(arg))
+        if isinstance(arg, str):
+            return redact_url_credentials(arg)
+        return arg
 
 
 def _configure_dependency_logging(level: int) -> None:
@@ -687,6 +768,11 @@ def _configure_dependency_logging(level: int) -> None:
     duplicates output nor keeps writing to a closed handler. Propagation
     to the root logger is disabled so that a stray ``logging.basicConfig()``
     anywhere in the process cannot double-print every dependency record.
+    The ``httpx`` and ``httpx2`` loggers also get a
+    :class:`_RedactUrlCredentialsFilter`
+    (installed once, so reloads do not stack copies) that masks URL
+    credentials and the IPinfo ``token`` query parameter in its
+    ``HTTP Request:`` records.
     CLI-only: library consumers configure logging themselves.
     """
     dep_level = min(level, logging.WARNING)
@@ -700,6 +786,12 @@ def _configure_dependency_logging(level: int) -> None:
         for wanted in logger.handlers:
             if wanted not in dep_logger.handlers:
                 dep_logger.addHandler(wanted)
+    for name in ("httpx", "httpx2"):
+        http_logger = logging.getLogger(name)
+        if not any(
+            isinstance(f, _RedactUrlCredentialsFilter) for f in http_logger.filters
+        ):
+            http_logger.addFilter(_RedactUrlCredentialsFilter())
 
 
 def _load_config(config_file: str | None = None) -> ConfigParser:
@@ -816,22 +908,36 @@ def _parse_config(config: ConfigParser, opts):
             opts.dns_test_address = general_config["dns_test_address"]
         if "nameservers" in general_config:
             opts.nameservers = _str_to_list(general_config["nameservers"])
-            # nameservers pre-flight check
-            dummy_hostname = None
+            # nameservers pre-flight check. query_dns() is called directly
+            # rather than get_reverse_dns(), which swallows every DNS error
+            # and returns None, so a broken transport (e.g. every DoH query
+            # failing, https://github.com/domainaware/parsedmarc/issues/935)
+            # was reported as a missing PTR record.
             try:
-                dummy_hostname = get_reverse_dns(
-                    opts.dns_test_address,
+                reverse_name = str(dns.reversename.from_address(opts.dns_test_address))
+            except dns.exception.SyntaxError as addr_error:
+                raise ConfigurationError(
+                    f"DNS pre-flight check failed: dns_test_address "
+                    f"{opts.dns_test_address!r} is not a valid IP address"
+                ) from addr_error
+            try:
+                query_dns(
+                    reverse_name,
+                    "PTR",
                     nameservers=opts.nameservers,
                     timeout=opts.dns_timeout,
                 )
-            except Exception as ns_error:
+            except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer) as ns_error:
                 raise ConfigurationError(
-                    f"DNS pre-flight check failed: {ns_error}"
+                    f"DNS pre-flight check failed: no PTR record for {opts.dns_test_address} from {redact_url_credentials(opts.nameservers or [])}: {ns_error}"
                 ) from ns_error
-            if not dummy_hostname:
+            except Exception as ns_error:
+                # A DNS over HTTPS error can quote the request URL, which
+                # carries the configured nameserver's credentials.
                 raise ConfigurationError(
-                    f"DNS pre-flight check failed: no PTR record for {opts.dns_test_address} from {opts.nameservers}"
-                )
+                    f"DNS pre-flight check failed: {type(ns_error).__name__}: "
+                    f"{_mask_nameserver_secrets(str(ns_error), opts.nameservers)}"
+                ) from None
         if "save_aggregate" in general_config:
             opts.save_aggregate = bool(general_config.getboolean("save_aggregate"))
         if "save_failure" in general_config:
@@ -952,6 +1058,16 @@ def _parse_config(config: ConfigParser, opts):
         if "skip_certificate_verification" in imap_config:
             opts.imap_skip_certificate_verification = bool(
                 imap_config.getboolean("skip_certificate_verification")
+            )
+        if "starttls" in imap_config:
+            opts.imap_starttls = bool(imap_config.getboolean("starttls"))
+        if getattr(opts, "imap_starttls", None) is False and not getattr(
+            opts, "imap_ssl", True
+        ):
+            logger.warning(
+                "[imap] starttls = False and ssl = False: the IMAP connection "
+                "will not be encrypted, and the IMAP credentials will be sent "
+                "in plain text"
             )
         if "user" in imap_config:
             opts.imap_user = imap_config["user"]
@@ -1172,6 +1288,17 @@ def _parse_config(config: ConfigParser, opts):
             opts.elasticsearch_serverless = elasticsearch_config.getboolean(
                 "serverless"
             )
+        if "use_data_streams" in elasticsearch_config:
+            opts.elasticsearch_use_data_streams = bool(
+                elasticsearch_config.getboolean("use_data_streams")
+            )
+        if getattr(opts, "elasticsearch_use_data_streams", False) and getattr(
+            opts, "elasticsearch_monthly_indexes", False
+        ):
+            logger.warning(
+                "[elasticsearch] monthly_indexes is ignored because "
+                "use_data_streams is enabled"
+            )
 
     if "opensearch" in config:
         opensearch_config = config["opensearch"]
@@ -1225,6 +1352,17 @@ def _parse_config(config: ConfigParser, opts):
             opts.opensearch_aws_region = opensearch_config["aws_region"].strip()
         if "aws_service" in opensearch_config:
             opts.opensearch_aws_service = opensearch_config["aws_service"].strip()
+        if "use_data_streams" in opensearch_config:
+            opts.opensearch_use_data_streams = bool(
+                opensearch_config.getboolean("use_data_streams")
+            )
+        if getattr(opts, "opensearch_use_data_streams", False) and getattr(
+            opts, "opensearch_monthly_indexes", False
+        ):
+            logger.warning(
+                "[opensearch] monthly_indexes is ignored because "
+                "use_data_streams is enabled"
+            )
 
     if "splunk_hec" in config.sections():
         hec_config = config["splunk_hec"]
@@ -1327,6 +1465,18 @@ def _parse_config(config: ConfigParser, opts):
         if "skip_certificate_verification" in smtp_config:
             smtp_verify = bool(smtp_config.getboolean("skip_certificate_verification"))
             opts.smtp_skip_certificate_verification = smtp_verify
+        if "starttls" in smtp_config:
+            opts.smtp_starttls = bool(smtp_config.getboolean("starttls"))
+        if (
+            getattr(opts, "smtp_host", None)
+            and getattr(opts, "smtp_starttls", None) is False
+            and not getattr(opts, "smtp_ssl", False)
+        ):
+            logger.warning(
+                "[smtp] starttls = False and ssl = False: the SMTP connection "
+                "will not be encrypted, and the SMTP credentials and the "
+                "results email will be sent in plain text"
+            )
         if "to" in smtp_config:
             opts.smtp_to = _str_to_list(smtp_config["to"])
         else:
@@ -1514,6 +1664,51 @@ def _parse_config(config: ConfigParser, opts):
             opts.webhook_smtp_tls_url = webhook_config["smtp_tls_url"]
         if "timeout" in webhook_config:
             opts.webhook_timeout = webhook_config.getint("timeout")
+
+    if "loki" in config.sections():
+        loki_config = config["loki"]
+        if "url" in loki_config:
+            opts.loki_url = loki_config["url"]
+        else:
+            raise ConfigurationError("url setting missing from the loki config section")
+        if "labels" in loki_config:
+            opts.loki_labels = {}
+            for pair in _str_to_list(loki_config["labels"]):
+                name, sep, value = pair.partition("=")
+                if not sep or not name.strip():
+                    raise ConfigurationError(
+                        f"Invalid loki label '{pair}', expected name=value"
+                    )
+                opts.loki_labels[name.strip()] = value.strip()
+        if "label_fields" in loki_config:
+            opts.loki_label_fields = [
+                field.strip()
+                for field in _str_to_list(loki_config["label_fields"])
+                if field.strip()
+            ]
+        if "timestamp" in loki_config:
+            opts.loki_timestamp = loki_config["timestamp"]
+            if opts.loki_timestamp not in loki.TIMESTAMP_MODES:
+                raise ConfigurationError(
+                    f"Invalid loki timestamp '{opts.loki_timestamp}', must be one "
+                    f"of: {', '.join(loki.TIMESTAMP_MODES)}"
+                )
+        if "username" in loki_config:
+            opts.loki_username = loki_config["username"]
+        if "password" in loki_config:
+            opts.loki_password = loki_config["password"]
+        if "token" in loki_config:
+            opts.loki_token = loki_config["token"]
+        if "tenant_id" in loki_config:
+            opts.loki_tenant_id = loki_config["tenant_id"]
+        if "skip_certificate_verification" in loki_config:
+            opts.loki_skip_certificate_verification = loki_config.getboolean(
+                "skip_certificate_verification"
+            )
+        if "timeout" in loki_config:
+            opts.loki_timeout = loki_config.getfloat("timeout")
+        if "batch_size" in loki_config:
+            opts.loki_batch_size = loki_config.getint("batch_size")
 
     return index_prefix_domain_map
 
@@ -1747,9 +1942,12 @@ def _search_alias_snapshot() -> list[tuple[Any, Any, Any]]:
         # private is the same liberty this function already takes with
         # ``connections``; without it, a failed reload that flipped
         # ``[elasticsearch] serverless`` would pair the restored old client
-        # with the new config's flag. opensearch.py declares no module
-        # globals at all (no ``global`` statement in the file), so there is
-        # nothing to pair with it.
+        # with the new config's flag. opensearch.py has no equivalent flag,
+        # so there is nothing to pair with it. Both set_hosts() also clear
+        # their module's _READY_DATA_STREAMS memo, which is deliberately not
+        # snapshotted: an emptied memo only makes the next save re-put its
+        # data stream's index template, which is idempotent, so it is
+        # correct for the restored client too.
         serverless = elastic._SERVERLESS if module is elastic else None
         snapshot.append((module, connection, serverless))
     return snapshot
@@ -1979,7 +2177,10 @@ def _build_output_clients(opts, clients, index_prefix_domain_map=None):
                 "HEC token and HEC index are required when using HEC URL"
             )
         try:
-            logger.debug("Initializing Splunk HEC client: url=%s", opts.hec)
+            logger.debug(
+                "Initializing Splunk HEC client: url=%s",
+                redact_url_credentials(opts.hec),
+            )
             verify = True
             if opts.hec_skip_certificate_verification:
                 verify = False
@@ -2044,6 +2245,28 @@ def _build_output_clients(opts, clients, index_prefix_domain_map=None):
     except Exception as e:
         raise RuntimeError(f"Webhook: {e}") from e
 
+    try:
+        if opts.loki_url:
+            logger.debug(
+                "Initializing Loki client: url=%s",
+                redact_url_credentials(opts.loki_url),
+            )
+            clients["loki_client"] = loki.LokiClient(
+                opts.loki_url,
+                labels=opts.loki_labels,
+                label_fields=opts.loki_label_fields,
+                timestamp=opts.loki_timestamp,
+                username=opts.loki_username,
+                password=opts.loki_password,
+                token=opts.loki_token,
+                tenant_id=opts.loki_tenant_id,
+                verify=not opts.loki_skip_certificate_verification,
+                timeout=opts.loki_timeout,
+                batch_size=opts.loki_batch_size,
+            )
+    except Exception as e:
+        raise RuntimeError(f"Loki: {e}") from e
+
     # The Log Analytics client is built per batch in process_reports(),
     # under the same opts.la_dce guard. Checking it here means a missing
     # extra is reported at startup -- and again on a SIGHUP reload --
@@ -2055,8 +2278,10 @@ def _build_output_clients(opts, clients, index_prefix_domain_map=None):
     # places rather than one: connections.create_connection() registers the
     # new client under the ``default`` alias, and elastic.set_hosts() also
     # assigns elastic._SERVERLESS. _init_output_clients() rolls both back if
-    # a later step fails. They are still initialized last, so that a failure
-    # in any other output happens before either registry has been touched.
+    # a later step fails. (Both set_hosts() also clear their data stream
+    # memo, which needs no rollback; see _search_alias_snapshot().) They are
+    # still initialized last, so that a failure in any other output happens
+    # before either registry has been touched.
     if opts.save_aggregate or opts.save_failure or opts.save_smtp_tls:
         # Scoped to the same condition as the constructors below, which is
         # also the condition under which process_reports() dereferences
@@ -2070,7 +2295,7 @@ def _build_output_clients(opts, clients, index_prefix_domain_map=None):
             if opts.elasticsearch_hosts:
                 logger.debug(
                     "Initializing Elasticsearch client: hosts=%s, ssl=%s",
-                    opts.elasticsearch_hosts,
+                    redact_url_credentials(opts.elasticsearch_hosts),
                     opts.elasticsearch_ssl,
                 )
                 es_aggregate_indexes = _migration_index_names(
@@ -2141,7 +2366,7 @@ def _build_output_clients(opts, clients, index_prefix_domain_map=None):
             if opts.opensearch_hosts:
                 logger.debug(
                     "Initializing OpenSearch client: hosts=%s, ssl=%s",
-                    opts.opensearch_hosts,
+                    redact_url_credentials(opts.opensearch_hosts),
                     opts.opensearch_ssl,
                 )
                 os_aggregate_indexes = _migration_index_names(
@@ -2458,6 +2683,7 @@ def _main():
         hec_client = clients.get("hec_client")
         gelf_client = clients.get("gelf_client")
         webhook_client = clients.get("webhook_client")
+        loki_client = clients.get("loki_client")
         pg_client = clients.get("postgresql_client")
 
         kafka_aggregate_topic = opts.kafka_aggregate_topic
@@ -2476,6 +2702,7 @@ def _main():
                             index_prefix=opts.elasticsearch_index_prefix
                             or get_index_prefix(report),
                             monthly_indexes=opts.elasticsearch_monthly_indexes,
+                            use_data_streams=opts.elasticsearch_use_data_streams,
                             number_of_shards=shards,
                             number_of_replicas=replicas,
                         )
@@ -2496,6 +2723,7 @@ def _main():
                             index_prefix=opts.opensearch_index_prefix
                             or get_index_prefix(report),
                             monthly_indexes=opts.opensearch_monthly_indexes,
+                            use_data_streams=opts.opensearch_use_data_streams,
                             number_of_shards=shards,
                             number_of_replicas=replicas,
                         )
@@ -2549,6 +2777,12 @@ def _main():
                 except Exception as error_:
                     log_output_error("Webhook", error_.__str__())
 
+                try:
+                    if loki_client:
+                        loki_client.save_aggregate_report_to_loki(report)
+                except Exception as error_:
+                    log_output_error("Loki", error_.__str__())
+
             if hec_client:
                 try:
                     aggregate_reports_ = reports_["aggregate_reports"]
@@ -2569,6 +2803,7 @@ def _main():
                             index_prefix=opts.elasticsearch_index_prefix
                             or get_index_prefix(report),
                             monthly_indexes=opts.elasticsearch_monthly_indexes,
+                            use_data_streams=opts.elasticsearch_use_data_streams,
                             number_of_shards=shards,
                             number_of_replicas=replicas,
                         )
@@ -2589,6 +2824,7 @@ def _main():
                             index_prefix=opts.opensearch_index_prefix
                             or get_index_prefix(report),
                             monthly_indexes=opts.opensearch_monthly_indexes,
+                            use_data_streams=opts.opensearch_use_data_streams,
                             number_of_shards=shards,
                             number_of_replicas=replicas,
                         )
@@ -2642,6 +2878,12 @@ def _main():
                 except Exception as error_:
                     log_output_error("Webhook", error_.__str__())
 
+                try:
+                    if loki_client:
+                        loki_client.save_failure_report_to_loki(report)
+                except Exception as error_:
+                    log_output_error("Loki", error_.__str__())
+
             if hec_client:
                 try:
                     failure_reports_ = reports_["failure_reports"]
@@ -2662,6 +2904,7 @@ def _main():
                             index_prefix=opts.elasticsearch_index_prefix
                             or get_index_prefix(report),
                             monthly_indexes=opts.elasticsearch_monthly_indexes,
+                            use_data_streams=opts.elasticsearch_use_data_streams,
                             number_of_shards=shards,
                             number_of_replicas=replicas,
                         )
@@ -2682,6 +2925,7 @@ def _main():
                             index_prefix=opts.opensearch_index_prefix
                             or get_index_prefix(report),
                             monthly_indexes=opts.opensearch_monthly_indexes,
+                            use_data_streams=opts.opensearch_use_data_streams,
                             number_of_shards=shards,
                             number_of_replicas=replicas,
                         )
@@ -2734,6 +2978,12 @@ def _main():
                         )
                 except Exception as error_:
                     log_output_error("Webhook", error_.__str__())
+
+                try:
+                    if loki_client:
+                        loki_client.save_smtp_tls_report_to_loki(report)
+                except Exception as error_:
+                    log_output_error("Loki", error_.__str__())
 
             if hec_client:
                 try:
@@ -2932,6 +3182,7 @@ def _main():
         imap_host=None,
         imap_skip_certificate_verification=False,
         imap_ssl=True,
+        imap_starttls=None,
         imap_port=993,
         imap_timeout=30,
         imap_max_retries=4,
@@ -2967,6 +3218,7 @@ def _main():
         elasticsearch_password=None,
         elasticsearch_api_key=None,
         elasticsearch_serverless=False,
+        elasticsearch_use_data_streams=False,
         opensearch_hosts=None,
         opensearch_timeout=60,
         opensearch_number_of_shards=1,
@@ -2983,6 +3235,7 @@ def _main():
         opensearch_auth_type="basic",
         opensearch_aws_region=None,
         opensearch_aws_service="es",
+        opensearch_use_data_streams=False,
         kafka_hosts=None,
         kafka_username=None,
         kafka_password=None,
@@ -2994,6 +3247,7 @@ def _main():
         smtp_host=None,
         smtp_port=25,
         smtp_ssl=False,
+        smtp_starttls=None,
         smtp_skip_certificate_verification=False,
         smtp_user=None,
         smtp_password=None,
@@ -3053,6 +3307,17 @@ def _main():
         webhook_failure_url=None,
         webhook_smtp_tls_url=None,
         webhook_timeout=60,
+        loki_url=None,
+        loki_labels=None,
+        loki_label_fields=None,
+        loki_timestamp="ingest",
+        loki_username=None,
+        loki_password=None,
+        loki_token=None,
+        loki_tenant_id=None,
+        loki_skip_certificate_verification=False,
+        loki_timeout=60,
+        loki_batch_size=1000,
         normalize_timespan_threshold_hours=24.0,
         postgresql_host=None,
         postgresql_port=5432,
@@ -3249,9 +3514,10 @@ def _main():
             if result["report_type"] == "aggregate":
                 report_org = result["report"]["report_metadata"]["org_name"]
                 report_id = result["report"]["report_metadata"]["report_id"]
-                report_key = f"{report_org}_{report_id}"
-                if report_key not in SEEN_AGGREGATE_REPORT_IDS:
-                    SEEN_AGGREGATE_REPORT_IDS[report_key] = True
+                report_key = _aggregate_report_dedup_key(result["report"])
+                seen_ids = parser_config.seen_aggregate_report_ids
+                if report_key not in seen_ids:
+                    seen_ids[report_key] = True
                     aggregate_reports.append(result["report"])
                 else:
                     logger.debug(
@@ -3340,6 +3606,7 @@ def _main():
                 max_retries=imap_max_retries,
                 user=opts.imap_user,
                 password=opts.imap_password,
+                starttls=opts.imap_starttls,
             )
 
         except Exception:
@@ -3605,6 +3872,7 @@ def _main():
                 require_encryption=opts.smtp_ssl,
                 attachment_filename=opts.smtp_attachment,
                 message=opts.smtp_message,
+                starttls=opts.smtp_starttls,
             )
         except Exception:
             logger.exception("Failed to email results")

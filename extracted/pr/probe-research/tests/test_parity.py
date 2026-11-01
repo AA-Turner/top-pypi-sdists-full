@@ -1,8 +1,8 @@
 """Contract-parity guard: every backend operation is reachable from the client.
 
 This is the test that should have existed. `make regen` regenerates
-`_generated/models.py` from `schema/openapi.json`, so a new backend route silently
-grows a *model* while the hand-written `sdk/client.py` + `cli/main.py` stay blind to
+`generated/models.py` from `schema/openapi.json`, so a new backend route silently
+grows a *model* while the hand-written `sdk/client/client.py` + `cli/main.py` stay blind to
 it. Nothing failed, so nobody noticed the client couldn't call it. This test closes
 that loop: it diffs the schema against what the client actually calls.
 
@@ -58,7 +58,7 @@ _HTTP_METHODS = {"GET", "POST", "PATCH", "DELETE", "PUT"}
 # call and mark a route reachable that nothing calls — which would hide the exact gap
 # this file exists to find. Everything in this repo reaches the wire through a
 # `*transport` attribute; the exceptions are bare httpx clients named `http`
-# (sdk/device.py, before a Transport exists) and `client` (mcp/server.py).
+# (sdk/settings/device.py, before a Transport exists) and `client` (mcp/server/server.py).
 _HTTP_RECEIVER_NAMES = {"http", "client"}
 
 
@@ -457,6 +457,20 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
         "POST",
         "/v1/projects/{}/overview/regenerate",
     ): "async generation machinery; the button on the Overview tab",
+    # A folder import's claims draft called these four (`backfill_reconstruction.py`):
+    # publish the page by compare-and-swap, request an AI Summary, poll its progress.
+    # #3551 deleted that draft; an import's record pass writes summaries through the
+    # CLI's own `summary push`. Shipped CLIs before it still call them.
+    ("GET", "/v1/projects/{}/overview/status"): "dashboard spinner state; carries no data",
+    (
+        "PATCH",
+        "/v1/projects/{}/summary-markdown",
+    ): "rollout fence for the retired import claims draft's page publish; shipped CLIs before #3551",
+    (
+        "POST",
+        "/v1/projects/{}/summary/regenerate",
+    ): "async generation machinery, 202 retired under recorder; the dashboard's regenerate button",
+    ("GET", "/v1/projects/{}/summary/status"): "dashboard spinner state; carries no data",
     # Notes history is the dashboard document editor's recovery surface. The
     # agent's mutation contract stays deliberately smaller: append and edit are
     # concurrency-safe and now cover all six carriers, including Trial. Adding
@@ -537,7 +551,7 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
         "/v1/projects/{}/subtree",
     ): "dashboard project-directory expansion; the SDK exposes direct child listing",
     # The W&B connect/import flow, driven entirely by the dashboard
-    # (dashboard/src/lib/api/wandb.ts). NOT the same mechanism as `probe import
+    # (dashboard/src/shared/api/integrations/wandb.ts). NOT the same mechanism as `probe import
     # wandb`, which mirrors history into an existing run by talking to W&B
     # directly and never touches these routes.
     #
@@ -621,7 +635,7 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     ("PATCH", "/v1/directions/{}"): "browser-session-only direction write (dashboard/digest)",
     ("POST", "/v1/directions/{}/feedback"): "browser-session-only direction write (dashboard/digest)",
     ("POST", "/v1/directions/operations/{}/undo"): "browser-session-only direction write (dashboard/digest)",
-    # The founders page (app/ops/router.py): staff signed in through the dashboard.
+    # The founders page (app/ops/staff/router.py): staff signed in through the dashboard.
     ("GET", "/v1/staff/cluster-health"): "staff founders page; dashboard session only",
     ("GET", "/v1/staff/usage"): "staff founders page; dashboard session only",
     # Remote "update now" (app/client_version/update_requests.py): staff ask one
@@ -788,7 +802,7 @@ PENDING: dict[Op, str] = {
     # and this entry is deleted with it.
     ("POST", "/v1/companion/complete"): "companion daemon lane; its client ships separately",
     # The daemon's shell command check (shell approvals F8): the same lane and
-    # story as `complete` above; its client is `probe/daemon/command_check.py`.
+    # story as `complete` above; its client is `probe/daemon/shell/command_check.py`.
     ("POST", "/v1/companion/command-check"): "companion daemon shell command check; its client ships separately",
     # Surfaced 2026-09-21 by the `dump-openapi` that accompanied the
     # `summary_markdown` retirement (0220), second batch: main landed the
@@ -850,7 +864,7 @@ PENDING: dict[Op, str] = {
     # The five coordinate/telemetry read shapes (research-os#162 + #177:
     # metrics grouped/wide/export, the coordinate catalog, /v1/series/latest)
     # cleared this ledger in the coordinate read-surface pass (B7): they are
-    # now literal call sites in sdk/client.py, surfaced through the CLI's
+    # now literal call sites in sdk/client/client.py, surfaced through the CLI's
     # metrics/coordinates/series verbs and the read-only MCP tools.
     #
     # Surfaced 2026-07-21 by the first `make dump-openapi` in a while: these
@@ -1119,7 +1133,7 @@ PENDING: dict[Op, str] = {
     # dashboard turned out to be the WRONG authoring surface. An expression comes
     # from an agent session or a script, so `probe.expr` + `probe views` are the
     # door, and the dashboard only renders/renames/deletes. They are call sites in
-    # sdk/client.py now.
+    # sdk/client/client.py now.
     (
         "GET",
         "/public/v1/runs/{}/views",
@@ -1235,7 +1249,7 @@ def test_every_backend_operation_is_reachable_from_the_client():
     assert not unreachable, (
         f"{len(unreachable)} backend operation(s) are unreachable from the client.\n\n"
         f"{_fmt(unreachable)}\n\n"
-        "Wire each one up (sdk/client.py + cli/main.py), or add it to NOT_CLIENT_SURFACE "
+        "Wire each one up (sdk/client/client.py + cli/main.py), or add it to NOT_CLIENT_SURFACE "
         "(with a reason) / PENDING (with a tracking pointer) in this file."
     )
 
@@ -1313,9 +1327,9 @@ def test_client_ahead_entries_are_live_debt():
 
 def test_extractor_resolves_fstring_and_constant_paths():
     sites = client_call_sites()
-    # f-string interpolation -> `{}` (sdk/run.py builds this from presign['artifact_id'])
+    # f-string interpolation -> `{}` (sdk/run/run.py builds this from presign['artifact_id'])
     assert ("POST", "/v1/artifacts/{}/confirm") in sites
-    # module-level constant (sdk/device.py's _START_PATH)
+    # module-level constant (sdk/settings/device.py's _START_PATH)
     assert ("POST", "/auth/device/code") in sites
     assert ("POST", "/auth/device/install-token") in sites
     # plain literal
@@ -1440,7 +1454,7 @@ def calls(self, audit_log, buf):
 
 
 def test_verb_call_on_a_bare_http_client_is_seen(tmp_path):
-    """`client.get("/v1/me")` (mcp/server.py's httpx client) must register, so a route
+    """`client.get("/v1/me")` (mcp/server/server.py's httpx client) must register, so a route
     wired only through such a receiver still clears its PENDING entry."""
     found, _ = _scan_source(
         tmp_path,

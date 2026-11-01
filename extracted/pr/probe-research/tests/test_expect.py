@@ -17,7 +17,7 @@ import pytest
 
 import probe
 from probe.sdk import fluent
-from probe.sdk.expectations import MAX_PER_CALL, normalize
+from probe.sdk.run.context.expectations import MAX_PER_CALL, normalize
 from tests.conftest import make_client, open_run
 
 
@@ -145,7 +145,10 @@ def test_fluent_expect_without_a_run_warns_and_does_nothing(_clean_binding) -> N
 
 
 def test_fluent_expect_on_the_active_run(app, tmp_path, monkeypatch, _clean_binding) -> None:
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
     app.seed_experiment("e1")
     run = probe.init(experiment="e1", name="r1")
     with warnings.catch_warnings():

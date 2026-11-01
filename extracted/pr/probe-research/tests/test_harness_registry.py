@@ -1,4 +1,4 @@
-"""The harness registry (probe.harness): its rules, and that every consumer's
+"""The harness registry (probe.foundation.harness_registry): its rules, and that every consumer's
 copy is the same file and loads on its own.
 
 The hooks, the tap and the server cannot import `probe`, so `make
@@ -15,13 +15,13 @@ from pathlib import Path
 
 import pytest
 
-from probe.harness import registry as registry_mod
+from probe.foundation.harness_registry import harness_registry as registry_mod
 
 AGENT = Path(__file__).resolve().parents[1]
 REPO = AGENT.parent
-SOURCE_DIR = AGENT / "src" / "probe" / "harness"
+SOURCE_DIR = AGENT / "src" / "probe" / "foundation" / "harness_registry"
 SOURCE_JSON = SOURCE_DIR / "harnesses.json"
-SOURCE_LOADER = SOURCE_DIR / "registry.py"
+SOURCE_LOADER = SOURCE_DIR / "harness_registry.py"
 
 #: Every copy of the JSON, by the consumer that reads it.
 JSON_COPIES = {
@@ -29,8 +29,8 @@ JSON_COPIES = {
     "daemon plugin hooks": AGENT / "plugins/probe-research-daemon/hooks/harnesses.json",
     "tap": AGENT / "plugins/probe-research-tap/tap/harnesses.json",
     "tap_core": AGENT / "src/probe/tap_core/harnesses.json",
-    "server": REPO / "app/ingestion/harnesses.json",
-    "dashboard": REPO / "dashboard/src/lib/harnesses.json",
+    "server": REPO / "contracts/probe_contracts/harness/harnesses.json",
+    "dashboard": REPO / "packages/core/src/agents/generated/harnesses.json",
     "pi extension": AGENT / "plugins/probe-research-pi/src/harnesses.json",
 }
 #: Every copy of the loader (consumers that run Python but cannot import probe).
@@ -39,7 +39,7 @@ LOADER_COPIES = {
     "daemon plugin hooks": AGENT / "plugins/probe-research-daemon/hooks/_harness_registry.py",
     "tap": AGENT / "plugins/probe-research-tap/tap/harness_registry.py",
     "tap_core": AGENT / "src/probe/tap_core/harness_registry.py",
-    "server": REPO / "app/ingestion/harness_registry.py",
+    "server": REPO / "contracts/probe_contracts/harness/harness.py",
 }
 
 
@@ -201,7 +201,7 @@ def test_the_wheel_ships_the_json():
     """The CLI reads the JSON from its installed package; hatch must not drop it.
 
     The wheel target packages `src/probe` whole; a later `exclude` that matched
-    `*.json` would break every installed CLI at import of probe.harness.
+    `*.json` would break every installed CLI at import of probe.foundation.harness_registry.
     """
     pyproject = (AGENT / "pyproject.toml").read_text()
     wheel = pyproject.split("[tool.hatch.build.targets.wheel]", 1)[1].split("\n[", 1)[0]

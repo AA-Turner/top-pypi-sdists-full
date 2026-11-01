@@ -1,5 +1,7 @@
 #include "doppler/dp_complex.h"
 #include "doppler/psd/psd_core.h"
+#include "doppler/spectral/spectral_core.h"
+#include "dp_power_to_db_test.h"
 #include "dp_rng_test.h"
 #include "dp_state_test.h"
 #include "dp_test.h"
@@ -821,9 +823,9 @@ main (void)
    *   exp:     y1 = P1, then y += alpha (P - y)   (alpha = 0.25)
    *   maxhold: the per-bin maximum -- exact, a float copied and returned
    *   minhold: the per-bin minimum -- exact
-   * mean and exp are computed in double here and by Welford / the EMA step
-   * there; both then pass two float roundings (the trace value and the
-   * /cg^2), so they agree to 4 u relative.  The exp mode is deterministic:
+   * mean and exp are computed in double here and by the per-bin sum / the
+   * EMA step there; both then pass two float roundings (the trace value and
+   * the /cg^2), so they agree to 4 u relative.  The exp mode is deterministic:
    * its claim is the recursion, which noise would only re-derive. */
   {
     static const float scales[4] = { 1.0f, 3.0f, 0.5f, 2.0f };
@@ -1405,12 +1407,13 @@ main (void)
   /* ── dp_psd_frame_linear: the kernel against the reference, linear ──────
    * The Spectrogram's mode = power (#1894) averages frames itself, so it
    * needs a frame in full-scale^2 units; the raw dp_psd_frame_power() sits
-   * 20*log10(sum(w)) above that.  frame_linear and frame_db read one double
+   * 20*log10(sum(w)) above that.  frame_linear and frame_db read one float
    * quotient, so:
-   *  (i)   10*log10(linear) is frame_db wherever frame_db is above the floor.
-   *        Tolerance: the linear value's float rounding moves its log by
-   *        10/ln(10) * 2^-24 = 2.6e-7 dB, and the dB output's own float
-   *        spacing is <= 200 * 2^-24 = 1.2e-5 dB: 2e-5 dB covers both.
+   *  (i)   10*log10(linear) is frame_db wherever frame_db is above the floor,
+   *        to the dB conversion's own bound (#2094): dp_power_to_db_f32 is
+   *        within DP_P2DB_PIN_DB of 10*log10 (its sampled tier pins that, its
+   *        exhaustive sweep measured 3.25e-4), and frame_db IS that function
+   *        of frame_linear, bit for bit (pinned at the end of this file).
    *  (ii)  a full-scale tone on a bin reads 1.0 whatever the window, padded
    *        or not, against full_scale and bits alike.  Tolerance: the float
    *        FFT's relative power error ~2 c log2(nfft) 2^-24 (c = 5), 8e-6 at
@@ -1447,7 +1450,7 @@ main (void)
                          && isfinite (raw[i]);
               if (db[i] > -199.0f
                   && fabs (10.0 * log10 ((double)lin[i]) - (double)db[i])
-                         > 2e-5)
+                         > DP_P2DB_PIN_DB)
                 as_db = 0;
               if (fabs ((double)lin[i] * ref - (double)raw[i])
                   > 4.0 * ldexp (1.0, -24) * (double)raw[i])
@@ -1494,10 +1497,12 @@ main (void)
      * it with something that goes through the same reader (psd_db,
      * frame_linear), so a wrong reference moves both and they still agree.
      * This one takes only the raw |X|^2 from frame_power and applies the
-     * header's definition itself: 10*log10 of raw / (cg^2 * full_scale^2),
-     * formed in double, floored at 1e-20 (-200 dB), rounded once to float.
-     * full_scale 2048 is a power of two, so the product is exact in any
-     * order; zeros reach the floor. */
+     * header's definition itself: raw / (cg^2 * full_scale^2), formed in
+     * double and rounded once to float, then the library's one dB
+     * conversion (#2094), whose floor is -200 dB. full_scale 2048 is a
+     * power of two, so the product is exact in any order; zeros reach the
+     * floor. The conversion is pinned on its own (test_spectral_core.c);
+     * what this pins is the reference in front of it. */
     static const double fss[] = { 1.0, 2048.0 };
     for (int win = DP_PSD_WINDOW_HANN; win <= DP_PSD_WINDOW_RECT; win++)
       for (size_t pad = 1; pad <= 2; pad++)
@@ -1522,9 +1527,9 @@ main (void)
               int          bit = 1;
               for (size_t i = 0; i < nfft; i++)
                 {
-                  const float want
-                      = (float)(10.0
-                                * log10 (fmax ((double)raw[i] / ref, 1e-20)));
+                  const float q = (float)((double)raw[i] / ref);
+                  float       want;
+                  dp_power_to_db_f32 (&q, 1, &want);
                   if (memcmp (&want, &db[i], sizeof want) != 0)
                     bit = 0;
                 }
@@ -2269,6 +2274,89 @@ main (void)
     dp_psd_destroy (src);
     dp_psd_destroy (dst);
     free (x);
+  }
+
+  /* ── the averager's sum, read through PSD (#2094) ───────────────────────
+   * A mean trace holds the per-bin SUM now, and three readers see it:
+   *   - the averaged readings, through dp_acc_trace_value, which divides;
+   *   - occupied_bw, which reads avg->acc directly and is scale-invariant:
+   *     OBW is a ratio of power sums, so the count cancels, and it must
+   *     read the same as OBW over the mean, over many frames;
+   *   - the blob, whose nested AccTrace envelope is version 3, so a
+   *     version-2 one (which held the mean) is refused through PSD, and the
+   *     refusal changes nothing, judged against a PSD advanced past the
+   *     blob so that a partial restore would show. */
+  {
+    const size_t    nfft = 256;
+    dp_psd_state_t *p = dp_psd_create (nfft, 256.0, DP_PSD_WINDOW_HANN, 0.0f,
+                                       1, 1.0, 0, ACC_TRACE_MEAN, 0.1);
+    DP_REQUIRE (p != NULL);
+    float _Complex x[256];
+    uint32_t rng = 0x0B3u;
+    for (int f = 0; f < 3000; f++)
+      {
+        /* a tone over noise, so the band has edges inside the span */
+        for (size_t i = 0; i < nfft; i++)
+          x[i] = cexpf (I * 2.0f * (float)M_PI * 37.0f * (float)i / 256.0f)
+                 + 0.05f * dp_cgauss (&rng);
+        dp_psd_accumulate (p, x, nfft);
+      }
+    double *mean = (double *)malloc (nfft * sizeof *mean);
+    DP_REQUIRE (mean != NULL);
+    for (size_t i = 0; i < nfft; i++)
+      mean[i] = p->avg->acc[i] / (double)p->avg->count;
+    static const double frac[] = { 0.5, 0.9, 0.99, 0.999 };
+    for (size_t k = 0; k < sizeof frac / sizeof *frac; k++)
+      DP_CHECK (dp_psd_occupied_bw (p, frac[k])
+                == dp_obw_from_power (mean, nfft, 256.0, frac[k]));
+    free (mean);
+
+    /* an exact tie still resolves exactly over many frames: an impulse
+       puts the same power in every bin, and a sum of equal bins stays
+       equal, so f = 0.5 is 129 of 256 bins (one bin is 1 Hz) */
+    dp_psd_state_t *q = dp_psd_create (nfft, 256.0, DP_PSD_WINDOW_RECT, 0.0f,
+                                       1, 1.0, 0, ACC_TRACE_MEAN, 0.1);
+    DP_REQUIRE (q != NULL);
+    float _Complex imp[256] = { 1.0f };
+    for (int f = 0; f < 1000; f++)
+      dp_psd_accumulate (q, imp, nfft);
+    DP_CHECK (dp_psd_occupied_bw (q, 0.5) == 129.0);
+    dp_psd_destroy (q);
+
+    /* atomic: PSD's only child is the trace, so a refusal changes nothing */
+    DP_STATE_NESTED_VERSION_TEST (dp_psd, p, dp_psd_accumulate (p, x, nfft),
+                                  ACC_TRACE_STATE_MAGIC, 2u, 1, 1);
+    dp_psd_destroy (p);
+  }
+
+  /* ── a dB reading IS dp_power_to_db_f32 of the linear one (#2094) ──────
+   * PSD rounds the quotient to float once and converts it with the library's
+   * one dB conversion, so frame_db is that function of frame_linear, bit for
+   * bit: a caller converting linear values gets exactly PSD's dB. Every
+   * window, a power of two and not, padded and not. */
+  {
+    static const size_t ns[]   = { 64, 100 };
+    static const size_t pads[] = { 1, 2 };
+    uint32_t            rng    = 0xDB10u;
+    int                 same   = 1;
+    for (int w = DP_PSD_WINDOW_HANN; w <= DP_PSD_WINDOW_RECT; w++)
+      for (size_t a = 0; a < 2; a++)
+        for (size_t b = 0; b < 2; b++)
+          {
+            dp_psd_state_t *p = dp_psd_create (ns[a], 1.0, w, 7.5f, pads[b],
+                                               1.0, 0, ACC_TRACE_MEAN, 0.0);
+            DP_REQUIRE (p != NULL);
+            float _Complex x[100];
+            float lin[256], db[256], want[256];
+            for (size_t i = 0; i < ns[a]; i++)
+              x[i] = dp_cgauss (&rng);
+            dp_psd_frame_linear (&p->k, x, lin);
+            dp_psd_frame_db (&p->k, x, db);
+            dp_power_to_db_f32 (lin, p->k.nfft, want);
+            same &= memcmp (db, want, p->k.nfft * sizeof *db) == 0;
+            dp_psd_destroy (p);
+          }
+    DP_CHECK (same);
   }
 
   DP_TEST_END ("test_psd_core");

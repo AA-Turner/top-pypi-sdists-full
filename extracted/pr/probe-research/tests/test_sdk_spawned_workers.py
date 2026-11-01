@@ -24,7 +24,8 @@ from pathlib import Path
 import pytest
 
 import probe
-from probe.sdk import fluent, inputs
+from probe.sdk import fluent
+from probe.sdk.capture import lineage as inputs
 from tests.conftest import make_client
 
 
@@ -137,7 +138,7 @@ def test_an_offline_runs_spawned_worker_records_into_it(tmp_path) -> None:
         import json, multiprocessing, os, workers
         import probe
         from probe.sdk import inputs, offline
-        from probe.sdk.journal import Journal
+        from probe.sdk.delivery.journal.journal import Journal
 
         run = probe.init(mode="offline", project="p1", name="spawner")
         assert run.id.startswith("local:"), run.id
@@ -179,7 +180,10 @@ def test_init_binds_workers_and_finish_restores_the_environment(app, tmp_path, m
     `probe.finish()` unbinds and leaves the environment as it found it."""
     data = _data(tmp_path, "features.bin")
     monkeypatch.setenv("PYTHONPATH", "/somewhere/else")
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "spool"))
     app.seed_experiment("e1")
     run = probe.init(experiment="e1", name="spawner")
     assert os.environ[inputs.CHILD_DIR_ENV] == str(inputs.run_dir(run.id))

@@ -18,13 +18,15 @@ import json
 import httpx
 import pytest
 
-from probe.sdk import journal as jm
-from probe.sdk import transport as transport_mod
+from probe.sdk.delivery import journal as jm
+from probe.sdk.delivery import transport as transport_mod
 from probe.sdk.agent_session import AGENT_HEADER, AGENT_SESSION_HEADER, EVENT_AT_ENV, EVENT_AT_HEADER
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
-from probe.sdk.journal import Journal, drain
-from probe.sdk.transport import Transport, event_at_scope
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain.drain import drain
+from probe.sdk.delivery.transport.transport import Transport
+from probe.sdk.delivery.transport.headers import event_at_scope
 
 SESSION = {AGENT_HEADER: "claude_code", AGENT_SESSION_HEADER: "643ce138-4801-4409-b69c-ca30ab7605bc"}
 SETTINGS = Settings(base_url="http://test", token="test-token")
@@ -36,7 +38,7 @@ def isolated(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.delenv("PROBE_ATTRIBUTION", raising=False)
     monkeypatch.delenv(EVENT_AT_ENV, raising=False)
-    monkeypatch.setattr(transport_mod, "agent_session_headers", lambda: dict(SESSION))
+    monkeypatch.setattr(transport_mod.headers, "agent_session_headers", lambda: dict(SESSION))
 
 
 def _client(seen: list[httpx.Request], **kwargs) -> Client:
@@ -53,7 +55,7 @@ QUEUED_BY = "5f0c1d2e-bbbb-4a10-9f3e-00000000000b"
 
 def _queue_one(tmp_path, monkeypatch, *, session: str | None = f"claude_code:{QUEUED_BY}") -> tuple:
     """One write queued by a process whose agent session is `session`."""
-    monkeypatch.setattr(jm, "queued_session", lambda: session)
+    monkeypatch.setattr(jm.journal, "queued_session", lambda: session)
     spool = tmp_path / "outbox"
     producer = Client(settings=SETTINGS, spool_dir=spool, async_writes=True, auto_drain=False)
     producer.write("POST", "/v1/projects", {"name": "filed an hour late"})
@@ -115,10 +117,11 @@ def test_an_upload_request_carries_one_session_and_one_bucket(tmp_path, monkeypa
     uploads are two requests, each dated in its own bucket."""
     from test_outbox_run_upload_window import RUN, Server, upload
 
-    monkeypatch.setattr(jm, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
     monkeypatch.delenv("PROBE_UPLOAD_WORKERS", raising=False)
     monkeypatch.delenv("PROBE_UPLOAD_MANY", raising=False)
-    monkeypatch.setattr(jm, "queued_session", lambda: f"claude_code:{QUEUED_BY}")
+    monkeypatch.setattr(jm.journal, "queued_session", lambda: f"claude_code:{QUEUED_BY}")
     queue = Journal(tmp_path / "outbox")
     for i in range(4):
         upload(queue, tmp_path, f"out/file{i}.txt")
@@ -151,7 +154,7 @@ def test_a_daemon_command_dates_its_writes_and_a_scope_wins(tmp_path, monkeypatc
             client.transport.post("/v1/projects", {"name": "queued earlier"})
         with event_at_scope(None):
             client.transport.post("/v1/projects", {"name": "no scope"})
-        monkeypatch.setattr(transport_mod, "agent_session_headers", lambda: {})
+        monkeypatch.setattr(transport_mod.headers, "agent_session_headers", lambda: {})
         client.transport.post("/v1/projects", {"name": "no session"})
     assert [r.headers.get(EVENT_AT_HEADER) for r in seen] == [
         "2026-10-29T01:00:00+00:00",
@@ -164,7 +167,7 @@ def test_a_daemon_command_dates_its_writes_and_a_scope_wins(tmp_path, monkeypatc
 def test_an_outbox_worker_never_inherits_a_daemon_commands_event_time(monkeypatch):
     """A worker the command kicks drains every producer's ops: each is dated by
     its own queue time, never by the command's."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     monkeypatch.setenv(EVENT_AT_ENV, "2026-10-29T01:00:00+00:00")
     assert EVENT_AT_ENV not in outbox_worker._worker_env()

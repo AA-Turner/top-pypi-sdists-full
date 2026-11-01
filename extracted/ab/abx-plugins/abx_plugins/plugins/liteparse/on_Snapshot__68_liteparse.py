@@ -21,7 +21,7 @@ source documents. Feeding them back into LiteParse duplicates existing HTML
 text extraction and makes all-plugin crawls spend minutes parsing generated
 PDFs for ordinary webpages.
 
-Disposable batch outputs, OCR rasters, and embedded-image staging use local
+Disposable parser inputs/outputs, OCR rasters, and embedded-image staging use local
 ``TMP_DIR`` (or the host temporary directory). Only completed extracted outputs
 are written to the snapshot archive. Each invocation and batch is isolated.
 
@@ -170,7 +170,7 @@ def find_document_sources(
     LiteParse just to produce empty output slowly.
 
     Returns ``(path, content_digest)`` so callers can re-use the digest for
-    batch symlink naming without paying a second hash cost.
+    batch input naming without paying a second hash cost.
     """
     document_roots = (
         "responses",
@@ -288,6 +288,19 @@ def find_document_sources(
                     ):
                         continue
                     source_stat = resolved.stat()
+                    # Response URL aliases retain the requested suffix even
+                    # when the server returned a different type (e.g. an HTML
+                    # error page for an image URL). The saved target's suffix
+                    # describes that response: do not turn unsupported content
+                    # back into an OCR/document input through its URL alias.
+                    # Extensionless targets still use the alias's type hint.
+                    target_suffix = resolved.suffix.lower()
+                    if (
+                        target_suffix
+                        and target_suffix not in SUPPORTED_EXTENSIONS
+                        and target_suffix not in archive_extensions
+                    ):
+                        continue
                 if suffix in SUPPORTED_EXTENSIONS:
                     consider(match, source_stat, resolved)
                 # Office/HTML exports may contain images even when the
@@ -464,7 +477,7 @@ def build_lit_args(config) -> list[str]:
 
 
 def _safe_link_name(idx: int, src: Path, content_digest: str) -> str:
-    """Stable, collision-free symlink name for batch input dirs.
+    """Stable, collision-free name for staged batch inputs.
 
     ``idx`` keeps the original size-desc ordering visible in batch output
     filenames; ``content_digest`` (already computed during source discovery)
@@ -619,10 +632,23 @@ def _process_batch(
         link_names: list[str] = []
         for idx, src, digest in batch:
             link_name = _safe_link_name(idx, src, digest)
+            # The hook holds its output directory as CWD. Read validated archive
+            # inputs relative to it: absolute paths/resolve() can relist thousands
+            # of expired remote ancestor entries for every document. Native
+            # parsers also resolve symlink targets, so give them an exact local
+            # copy in the existing per-document scratch instead. At most one
+            # input per active worker is staged; archived originals stay intact.
+            source_path = (
+                Path(os.path.relpath(src, OUTPUT_DIR))
+                if src.is_relative_to(SNAP_DIR)
+                else src
+            )
+            staged = tmp / f"source_{idx}{src.suffix.lower()}"
+            shutil.copyfile(source_path, staged)
             # Servers return AVIF or JPEG XL bytes behind a .jpg URL. LiteParse's
             # native decoder rejects those bytes even with the correct suffix.
             # Normalize only the disposable OCR input, preserving the archive.
-            with src.open("rb") as source:
+            with staged.open("rb") as source:
                 header = source.read(32)
             is_jxl = header.startswith((b"\xff\x0a", b"\x00\x00\x00\x0cJXL \r\n\x87\n"))
             if is_jxl or (header[4:8] == b"ftyp" and b"avif" in header[8:]):
@@ -635,14 +661,14 @@ def _process_batch(
                     conversion = subprocess.run(
                         [
                             djxl_binary,
-                            str(src.resolve()),
+                            str(staged),
                             str(converted),
                             "--num_threads=1",
                         ]
                         if is_jxl
                         else [
                             imagemagick_binary,
-                            str(src.resolve()),
+                            str(staged),
                             # These lossless PNGs are disposable OCR inputs.
                             # Avoid spending the parsing deadline compressing them.
                             "-define",
@@ -695,7 +721,7 @@ def _process_batch(
                         f"{src.name}: {image_format} conversion failed: {exc}",
                     )
             else:
-                (input_dir / link_name).symlink_to(src.resolve())
+                staged.rename(input_dir / link_name)
             link_names.append(link_name)
 
         for fmt, out_dir in (("text", text_out), ("json", json_out)):
@@ -765,6 +791,15 @@ def _process_batch(
                     )
                 except (ValueError, KeyError, TypeError) as exc:
                     errors.append(f"{src.name}: Invalid LiteParse JSON: {exc}")
+            # cli-text.ts emits a header even for a page with no extracted text.
+            # Match only its complete empty-page serialization, not arbitrary
+            # page-marker lines inside real text. Keep nonempty native bytes and
+            # explicitly requested JSON metadata unchanged.
+            if re.fullmatch(
+                r"\n--- Page [0-9]+ ---\n(?:\n\n\n--- Page [0-9]+ ---\n)*",
+                text,
+            ):
+                text = ""
             results.append((idx, src, text, json_text))
 
     return results, errors
@@ -844,7 +879,8 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
         file=sys.stderr,
     )
 
-    output_dir = Path(OUTPUT_DIR)
+    # Retain the held directory inode when publishing each completed result.
+    output_dir = Path(".")
 
     def _wipe_batch_scratch() -> None:
         """Remove only this invocation's local batch scratch directories.

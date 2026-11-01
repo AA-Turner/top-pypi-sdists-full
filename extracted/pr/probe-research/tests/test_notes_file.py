@@ -10,8 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 
 
-from probe.cli import notes_file
-from probe.cli.note_sync import Paths, read_meta, read_text
+from probe.shared.notes import notes as notes_file
+from probe.shared.notes.sync import Paths, read_meta, read_text
 from probe.sdk import errors
 
 

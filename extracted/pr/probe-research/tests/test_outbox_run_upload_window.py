@@ -18,9 +18,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.sdk import errors, upload_many
-from probe.sdk import journal as jm
-from probe.sdk.journal import Journal, drain
+from probe.sdk import errors
+from probe.sdk.artifact.storage_handlers import r2 as upload_many
+from probe.sdk.delivery import journal as jm
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain.drain import drain
 
 RUN = str(uuid.UUID(int=7))
 
@@ -33,7 +35,8 @@ def isolated(monkeypatch, tmp_path):
     monkeypatch.delenv("PROBE_ATTRIBUTION", raising=False)
     monkeypatch.delenv("PROBE_UPLOAD_WORKERS", raising=False)
     monkeypatch.delenv("PROBE_UPLOAD_MANY", raising=False)
-    monkeypatch.setattr(jm, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
 
 
 @pytest.fixture
@@ -385,8 +388,8 @@ def test_a_refused_put_is_presigned_once_more_then_refused_for_good(tmp_path, mo
     the store no longer takes, gets one fresh presign; the second refusal stands."""
     import hashlib
 
-    from probe.sdk.client import Client
-    from probe.sdk.config import Settings
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import Settings
 
     src = tmp_path / "ckpt.bin"
     src.write_bytes(b"weights")
@@ -426,7 +429,7 @@ def test_a_drain_at_interpreter_exit_sends_every_upload_serially(queue, tmp_path
         def submit(self, *args, **kwargs):
             raise RuntimeError("cannot schedule new futures after interpreter shutdown")
 
-    monkeypatch.setattr(jm, "ThreadPoolExecutor", ShutDown)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.upload_windows.ThreadPoolExecutor", ShutDown)
     for i in range(5):
         upload(queue, tmp_path, f"f{i}.txt")
     server = Server()
@@ -483,8 +486,8 @@ def test_without_the_doors_the_window_sends_each_file_on_its_own_worker_asking_f
 def test_a_direct_link_this_machine_cannot_reach_is_sent_again_through_the_relay(tmp_path, monkeypatch):
     import hashlib
 
-    from probe.sdk.client import Client
-    from probe.sdk.config import Settings
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import Settings
 
     src = tmp_path / "ckpt.bin"
     src.write_bytes(b"weights")
@@ -535,7 +538,10 @@ def test_uploads_queued_behind_a_runs_first_write_still_go_up_together(queue, tm
         calls.append((op.get("kind"), _t.current_thread() is _t.main_thread()))
         return real(journal, client, path, op, *a, **k)
 
-    monkeypatch.setattr(jm, "_execute", execute)
+    monkeypatch.setattr("probe.sdk.delivery.ops.op_handler._execute", execute)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.coalesce._execute", execute)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain._execute", execute)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.upload_windows._execute", execute)
     assert run_drain(queue, server).delivered == 42
     serial_uploads = sum(1 for kind, main in calls if kind == "upload" and main)
     assert serial_uploads == 0, f"{serial_uploads} uploads went one by one on the drain's thread"

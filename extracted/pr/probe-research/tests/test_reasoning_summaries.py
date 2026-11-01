@@ -17,9 +17,9 @@ from pathlib import Path
 
 import pytest
 
-from probe._compat import tomllib
-from probe.cli import codex_config
-from probe.cli import reasoning_summaries as rs
+from probe.foundation.compat.compat import tomllib
+from probe.shared.harness.harnesses.codex import config as codex_config
+from probe.shared.harness import reasoning_summaries as rs
 from probe.cli import setup as wizard
 from probe.cli.capabilities import Capabilities
 from probe.sdk import session_marker
@@ -148,7 +148,7 @@ def test_a_symlinked_settings_file_is_written_through(isolate):
 
 
 def test_an_unwritable_settings_file_is_reported_not_raised(isolate, monkeypatch):
-    from probe.cli import statusline
+    from probe.shared.harness.harnesses.claude_code import statusline
 
     def boom(path, settings):
         raise PermissionError("read-only file system")
@@ -200,7 +200,7 @@ def test_an_unreadable_file_at_undo_keeps_the_claim(isolate):
 
 
 def test_a_failed_write_leaves_no_claim_and_no_setting(isolate, monkeypatch):
-    from probe.cli import statusline
+    from probe.shared.harness.harnesses.claude_code import statusline
 
     monkeypatch.setattr(statusline, "_save", lambda path, settings: (_ for _ in ()).throw(OSError("disk full")))
     assert rs.on_for_daemon(CC) == ["! could not turn on Claude Code's reasoning summaries: disk full"]

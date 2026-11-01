@@ -34,7 +34,7 @@ def _implementation():
 
 
 def _client():
-    from ..sdk.client import Client
+    from ..sdk.client.client import Client
 
     return Client
 

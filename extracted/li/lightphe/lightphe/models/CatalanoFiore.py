@@ -37,12 +37,16 @@ UNSUPPORTED_REASONS = {
     Algorithm.OkamotoUchiyama: "its plaintext modulus p is secret, so the encryptor cannot"
     " compute m - b mod p",
     Algorithm.Regev: "multiplying with uniformly random constants exceeds its noise budget",
+    Algorithm.LyubashevskyPeikertRegev: "multiplying with uniformly random constants exceeds"
+    " its noise budget",
+    Algorithm.MLKEM: "it is homomorphic with respect to xor only, without addition",
     Algorithm.GoldwasserMicali: "it encrypts integers bit by bit and supports xor only,"
     " without multiplication with a constant",
     Algorithm.BonehGohNissim: "it already supports one multiplication natively",
     Algorithm.BrakerskiVaikuntanathan: "it already supports one multiplication natively",
     Algorithm.FreemanBonehGohNissim: "it already supports one multiplication natively",
     Algorithm.GentryHaleviVaikuntanathan: "it already supports one multiplication natively",
+    Algorithm.GentrySahaiWaters: "it already supports multiplications of bits natively",
 }
 
 
@@ -173,6 +177,18 @@ class CatalanoFioreCiphertext:
         self.alpha = alpha
         self.pairs = pairs if pairs is not None else []
         self.is_multiplied = alpha is not None
+
+    def to_dict(self) -> dict:
+        """
+        Convert the ciphertext into a json serializable dict to send it to another party.
+            Keys are not included, receiver restores it with from_dict of its LightPHE.
+        Returns:
+            serialized ciphertext (dict)
+        """
+        # pylint: disable=import-outside-toplevel, cyclic-import
+        from lightphe.commons import serialization
+
+        return serialization.encode(self)
 
     def __repr__(self) -> str:
         if self.is_multiplied:

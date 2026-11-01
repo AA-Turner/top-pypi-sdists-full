@@ -37,7 +37,8 @@ import pytest
 
 from pathlib import Path
 
-from probe.cli import agent_rules, team_note_file as tnf
+from probe.cli import agent_rules
+from probe.shared.notes import team_note as tnf
 
 TODAY = dt.date(2026, 9, 3)
 STAMPED = "<!-- audited 2026-08-01 -->\n## note\nbody"

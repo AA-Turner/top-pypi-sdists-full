@@ -17,7 +17,7 @@ import time
 import pytest
 import typer
 
-from probe._shared import installs, uninstall_barrier
+from probe.shared.updates import installs, uninstall_barrier
 from probe.cli import repair
 from probe.core import events
 from tests.reinstall_harness import reinstall_wheels, uv_machine  # noqa: F401 -- fixtures

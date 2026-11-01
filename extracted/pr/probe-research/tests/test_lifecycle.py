@@ -73,7 +73,7 @@ def test_create_token_uses_the_device_flow_not_the_session_only_mint(client, app
         seen.update(base_url=base_url, **kw)
         return {"id": "t-9", "name": kw["token_name"], "token": "probe_pat_thesecret"}
 
-    monkeypatch.setattr("probe.sdk.device.device_authorize", fake_authorize)
+    monkeypatch.setattr("probe.sdk.settings.device.device_authorize", fake_authorize)
     created = client.create_token("ci-bot", scopes=["read"])
 
     assert created["token"] == "probe_pat_thesecret"
@@ -85,7 +85,7 @@ def test_create_token_uses_the_device_flow_not_the_session_only_mint(client, app
 
 def test_token_create_prints_the_secret_once(wired, capsys, monkeypatch):
     monkeypatch.setattr(
-        "probe.sdk.device.device_authorize",
+        "probe.sdk.settings.device.device_authorize",
         lambda base_url, **kw: {
             "id": "t-9",
             "name": kw["token_name"],
@@ -104,7 +104,7 @@ def test_token_create_shows_the_secret_even_if_name_and_id_are_missing(wired, ca
     exists exactly once. A drifted response missing name/id must NOT KeyError before
     the secret is printed — that would orphan an unrecoverable token."""
     monkeypatch.setattr(
-        "probe.sdk.device.device_authorize",
+        "probe.sdk.settings.device.device_authorize",
         lambda base_url, **kw: {"token": "probe_pat_survives"},  # no id, no name
     )
     rc = cli.main(["token", "create", "--name", "ci-bot"])
@@ -326,7 +326,7 @@ def test_delete_tolerates_a_non_json_2xx_body(client, app):
     not escape as a raw JSONDecodeError — the delete still succeeded."""
     import httpx
 
-    from probe.sdk.transport import Transport
+    from probe.sdk.delivery.transport.transport import Transport
 
     def handler(request):
         return httpx.Response(200, content=b"<html>rate limited</html>")
@@ -441,8 +441,8 @@ def test_no_trace_file_surface_survives_anywhere(client):
     bet; it never paid off. Tracing now goes through research_search, whose exact
     channel matches artifacts for real. This guards the whole surface (source,
     service, and tool) so it cannot creep back in one layer at a time."""
-    from probe.mcp.service import ResearchReadService
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.tools.tools import ResearchReadService
+    from probe.mcp.source.source import ResearchOSSource
 
     source = ResearchOSSource(client)
     assert not hasattr(source, "trace_file")

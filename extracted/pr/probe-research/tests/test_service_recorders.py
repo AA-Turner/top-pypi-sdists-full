@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from probe._shared import pins
+from probe.shared.updates import pins
 from probe.service import client, paths, recorders
 from probe.service.protocol import Method
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401
@@ -206,9 +206,12 @@ def test_a_newer_tap_restarts_the_service_onto_it(service_home, agent, tmp_path)
     assert service_home.wait_exit(first["pid"], 8), service_home.log()
     # A restart on purpose is no start to back off from (client.forget_start).
     assert first["pid"] not in [e.get("pid") for e in json.loads(paths.starts_path().read_text())["starts"]]
-    # The recorder paused (no end: the session goes on) ...
-    assert [e["event"] for e in _events(service_home.home, "s1")] == ["started", "paused"]
-    # ... and the next service, started by the tap's next ask, loads the newer tap first.
+    # The recorder paused (no end: the session goes on). The dying service
+    # starts its successor itself (`_start_successor`), which may already have
+    # resumed s1: what is fixed is the order so far, not that nothing follows.
+    assert [e["event"] for e in _events(service_home.home, "s1")][:2] == ["started", "paused"]
+    assert "ended" not in [e["event"] for e in _events(service_home.home, "s1")]
+    # ... and the next service loads the newer tap first.
     second = service_home.start()
     assert second["pid"] != first["pid"]
     answer = service_home.call(Method.SESSION_RECORD, _params("s2", owner, new, "0.10.1", tmp_path))

@@ -9,7 +9,7 @@ APPEND-ONLY, REPLAYED. Every record is one line appended under a lock and
 fsynced; state is the fold of the file, last write wins per unit. There is no
 in-place mutation to tear, so a process killed mid-append loses at most the line
 it was writing and the fold still parses. That is the same posture as
-:mod:`probe.sdk.journal`, and it uses that module's primitives rather than a
+:mod:`probe.sdk.delivery.journal`, and it uses that module's primitives rather than a
 second set.
 
 NOT A SECOND OUTBOX. The outbox journal owns *deliveries* -- which uploads have
@@ -36,10 +36,10 @@ import os
 import re
 import uuid
 from dataclasses import dataclass, field
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 from pathlib import Path
 
-from ..sdk.durable import file_lock, fsync_directory, now_iso
+from ..foundation.durable.durable import file_lock, fsync_directory, now_iso
 
 SCHEMA = "probe.backfill/1"
 

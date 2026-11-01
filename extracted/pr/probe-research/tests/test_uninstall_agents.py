@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from probe.cli import uninstall_agents
-from probe.harness import get_registry
+from probe.foundation.harness_registry import get_registry
 
 
 @pytest.fixture
@@ -67,7 +67,7 @@ name = "p"
 
 
 def test_codex_tables_are_found_by_key_and_only_probes_go(homes, monkeypatch):
-    from probe._compat import tomllib
+    from probe.foundation.compat.compat import tomllib
 
     _no_binaries(monkeypatch)
     config = homes / ".codex" / "config.toml"
@@ -112,7 +112,7 @@ def test_claude_records_go_by_file_edit_when_claude_is_not_installed(homes, monk
 
 
 def test_kimi_records_and_copies_go_and_nothing_is_made_for_an_agent_without_them(homes):
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     uninstall_agents.remove(_agent("kimi_code"))
     assert not (homes / ".kimi-code").exists()  # no plugins folder, no lock file made
@@ -132,7 +132,7 @@ def test_kimi_records_and_copies_go_and_nothing_is_made_for_an_agent_without_the
 
 
 def test_pi_entry_and_its_clone_go(homes, monkeypatch):
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     _no_binaries(monkeypatch)
     agent_dir = homes / ".pi" / "agent"
@@ -151,7 +151,8 @@ def test_pi_entry_and_its_clone_go(homes, monkeypatch):
 
 
 def test_rules_skills_and_status_line_go_and_what_they_wrapped_comes_back(homes):
-    from probe.cli import agent_rules, statusline
+    from probe.cli import agent_rules
+    from probe.shared.harness.harnesses.claude_code import statusline
 
     claude = homes / ".claude"
     (claude / "skills" / "mine").mkdir(parents=True)
@@ -186,7 +187,7 @@ def test_a_rules_file_goes_only_when_probes_block_was_all_it_held(homes):
 
 
 def test_a_status_line_that_cannot_be_restored_keeps_its_backup_and_renderer(homes, monkeypatch):
-    from probe.cli import statusline
+    from probe.shared.harness.harnesses.claude_code import statusline
 
     claude = homes / ".claude"
     (claude / statusline.INSTALL_DIRNAME).mkdir(parents=True)
@@ -206,7 +207,7 @@ def test_a_status_line_that_cannot_be_restored_keeps_its_backup_and_renderer(hom
 
 
 def test_a_settings_file_probe_made_alone_goes_with_it(homes):
-    from probe.cli import statusline
+    from probe.shared.harness.harnesses.claude_code import statusline
 
     claude = homes / ".claude"
     claude.mkdir()

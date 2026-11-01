@@ -11,13 +11,13 @@ STDLIB ONLY, AND COPIED BYTE FOR BYTE. The plugin hooks, the capture tap and
 the server cannot import ``probe`` (they ship apart from the CLI), so this file
 and the JSON are copied next to each consumer by ``make sync-harnesses``:
 
-    agent/src/probe/harness/{registry.py,harnesses.json}     (source)
+    agent/src/probe/foundation/harness_registry/{harness_registry.py,harnesses.json}     (source)
     agent/plugins/probe-research/hooks/{_harness_registry.py,harnesses.json}
     agent/plugins/probe-research-daemon/hooks/{_harness_registry.py,harnesses.json}
     agent/plugins/probe-research-tap/tap/{harness_registry.py,harnesses.json}
     agent/src/probe/tap_core/{harness_registry.py,harnesses.json}
     app/ingestion/{harness_registry.py,harnesses.json}
-    dashboard/src/lib/harnesses.json, agent/plugins/probe-research-pi/src/harnesses.json
+    packages/core/src/agents/generated/harnesses.json, agent/plugins/probe-research-pi/src/harnesses.json
 
 ``agent/tests/test_harness_registry.py`` fails when any copy drifts. Each copy
 reads the JSON that sits next to it, so no consumer needs another's path.

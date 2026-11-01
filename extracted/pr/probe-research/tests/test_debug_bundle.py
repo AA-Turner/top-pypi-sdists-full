@@ -24,9 +24,10 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import pi_config
-from probe.core import debug_bundle, report
-from probe.harness import get_registry
+from probe.shared.harness.harnesses import pi as pi_config
+from probe.core import debug_bundle
+from probe.shared import reports as report
+from probe.foundation.harness_registry import get_registry
 from tests.test_core_report import CLI_TOKEN, DAEMON_KEY, SID, Stub, _closed_port
 
 BUNDLE_ID = "0b5e2f6a-3c4d-4e5f-8a9b-0c1d2e3f4a5b"
@@ -51,7 +52,7 @@ def stub():
 @pytest.fixture
 def fake_machine(tmp_path, monkeypatch, stub):
     """Every source the bundle reads, each holding a planted credential."""
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     home = Path.home()
     monkeypatch.setenv("PROBE_BASE_URL", stub.url)
@@ -314,7 +315,7 @@ def _small_bundle(tmp_path) -> debug_bundle.Bundle:
 
 @pytest.fixture
 def signed_in(monkeypatch, stub):
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     monkeypatch.setenv("PROBE_BASE_URL", stub.url)
     save_context({"base_url": stub.url, "token": CLI_TOKEN, "companion_token": DAEMON_KEY})
@@ -493,7 +494,7 @@ def test_another_packages_pi_is_not_the_agent(fake_machine, monkeypatch, tmp_pat
     fake = tmp_path / "bin" / "pi"
     fake.write_text(f"#!/bin/sh\necho '{help_line}'\n")
     fake.chmod(0o755)
-    monkeypatch.setattr(pi_config, "pi_binary_available", _REAL_PI_BINARY_AVAILABLE)
+    monkeypatch.setattr(pi_config.pi, "pi_binary_available", _REAL_PI_BINARY_AVAILABLE)
     _REAL_PI_BINARY_AVAILABLE.cache_clear()
     _only(monkeypatch, "agent_pi")
     try:
@@ -639,7 +640,7 @@ def test_a_bundle_that_vanished_still_answers_the_contracts_object(signed_in, tm
 
 
 def test_a_broken_tls_setup_still_prints_the_last_line(signed_in, tmp_path, monkeypatch):
-    import probe.sdk.tls as tls
+    import probe.foundation.tls.tls as tls
 
     _quick(monkeypatch)
     _slot(signed_in)
@@ -792,7 +793,7 @@ def test_an_action_record_gone_after_its_date_is_read_gives_its_slot_up(fake_mac
             (actions / "gone.json").unlink()
         return listed
 
-    monkeypatch.setattr(report, "newest_first", newest_first)
+    monkeypatch.setattr(report.ledger, "newest_first", newest_first)
     _only(monkeypatch, "service_files")
     files = debug_bundle.collect().files
     assert "service/actions/kept.log" in files

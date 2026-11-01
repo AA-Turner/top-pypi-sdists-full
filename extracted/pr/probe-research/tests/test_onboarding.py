@@ -8,7 +8,7 @@ import re
 import pytest
 
 from probe import cli, errors
-from probe.sdk.run import Run
+from probe.sdk.run.run import Run
 from tests.conftest import make_client
 
 
@@ -220,7 +220,7 @@ def test_ensure_authenticated_mints_and_persists_token(app, tmp_path, monkeypatc
         calls["base_url"] = base_url
         return "ros_pat_minted"
 
-    import probe.sdk.device as device_mod
+    import probe.sdk.settings.device as device_mod
 
     monkeypatch.setattr(device_mod, "device_login", fake_device_login)
     client = _tokenless_client(app, tmp_path)
@@ -228,7 +228,7 @@ def test_ensure_authenticated_mints_and_persists_token(app, tmp_path, monkeypatc
     assert client.settings.token == "ros_pat_minted"
     assert calls["base_url"] == "http://test"
     # persisted for the next process, same file `probe login` writes
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     assert load_context()["token"] == "ros_pat_minted"
     # the shared Settings object authenticates the existing transport too
@@ -260,7 +260,7 @@ def test_run_triggers_lazy_auth(app, tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
     import sys
 
-    import probe.sdk.device as device_mod
+    import probe.sdk.settings.device as device_mod
 
     monkeypatch.setattr(device_mod, "device_login", lambda base_url, **kw: "ros_pat_minted")
     # force the interactive branch without a real TTY
@@ -456,14 +456,14 @@ def test_cli_bare_login_runs_device_flow(wired, tmp_path, monkeypatch, capsys):
     )
     rc = cli.main(["login"])
     assert rc == 0
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     saved = load_context()
     assert saved["token"] == "ros_pat_from_device"
     assert "logged in" in capsys.readouterr().out
     # #2041 review: which account this login is, bound to its token, so a
     # write queued under it follows a later login only of the same account.
-    from probe.sdk.journal import credential_fingerprint
+    from probe.sdk.delivery.outbox.drain.credentials import credential_fingerprint
 
     assert saved["identity"] == {
         "fingerprint": credential_fingerprint("ros_pat_from_device", None),
@@ -476,7 +476,7 @@ def test_cli_login_endpoint_only(wired, tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
     rc = cli.main(["login", "--endpoint-only", "--base-url", "http://elsewhere"])
     assert rc == 0
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     assert load_context()["base_url"] == "http://elsewhere"
     assert "no user token set" in capsys.readouterr().out
@@ -505,7 +505,7 @@ def test_wizard_login_with_a_token_signs_in_and_installs_nothing(wired, no_setup
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
     rc = cli.main(["wizard", "--action", "login", "--token", "ros_pat_pasted"])
     assert rc == 0
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     assert load_context()["token"] == "ros_pat_pasted"
     assert "logged in" in capsys.readouterr().out
@@ -522,7 +522,7 @@ def test_wizard_login_without_a_browser_prints_the_approval(wired, no_setup, tmp
     monkeypatch.setattr(no_setup, "device_login", _device_login)
     rc = cli.main(["wizard", "--action", "login", "--no-browser", "--context", "gpu-box"])
     assert rc == 0 and seen == {"open_browser": False}
-    from probe.sdk.config import current_context_name, load_context
+    from probe.sdk.settings.settings import current_context_name, load_context
 
     assert current_context_name() == "gpu-box"
     assert load_context("gpu-box")["token"] == "ros_pat_from_device"
@@ -532,7 +532,7 @@ def test_wizard_login_endpoint_only_saves_the_endpoint(wired, no_setup, tmp_path
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
     rc = cli.main(["wizard", "--action", "login", "--endpoint-only", "--base-url", "http://elsewhere"])
     assert rc == 0
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     assert load_context()["base_url"] == "http://elsewhere"
     assert "no user token set" in capsys.readouterr().out
@@ -551,7 +551,7 @@ def test_login_flags_refuse_any_other_action(wired, no_setup, tmp_path, monkeypa
     and nothing is saved."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
     assert cli.main(argv) != 0
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     assert not (load_context() or {}).get("token")
 

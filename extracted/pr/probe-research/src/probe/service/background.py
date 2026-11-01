@@ -1,13 +1,13 @@
 """A training process's background work, run by the service (plan Q5).
 
 The SDK forks detached processes of its own beside a training loop: the
-outbox's drainer (`probe.sdk.outbox_worker`), this box's watcher
+outbox's drainer (`probe.sdk.delivery.outbox`), this box's watcher
 (`probe.box`). When a service runs, the SDK hands each to it instead
-(`probe.sdk.service_handoff`), and keeps forking its own when it cannot: no
+(`probe.sdk.delivery.outbox.drainers.service_handoff`), and keeps forking its own when it cannot: no
 service, an older one, Windows, a refusal below. So does a batch of client
 telemetry, which the SDK would otherwise POST from its own thread.
 
-    outbox.drain    <caller's python> -m probe.sdk.outbox_worker <dir>   a child
+    outbox.drain    <caller's python> -m probe.sdk.delivery.outbox <dir>   a child
     box.watch       <caller's python> -m probe.box                       a child
     telemetry.send  one batch, POSTed to PostHog from ONE thread here
 
@@ -80,7 +80,7 @@ EARLY_EXIT_S = 5.0
 #: ... and the hand-offs for it are refused this long.
 FAILING_S = 300.0
 #: The worker's exit codes that are not a failure: drained (or stepped aside),
-#: auth-blocked, paused (`probe.sdk.outbox_worker.run`).
+#: auth-blocked, paused (`probe.sdk.delivery.outbox.outbox.run`).
 CLEAN_EXITS = frozenset({0, 3, 4})
 #: Live children of one key at once, at most: the one exiting after it let
 #: the lease go, and the one that took over.
@@ -97,7 +97,7 @@ MAX_TELEMETRY_BATCHES = 32
 #: The ids of this many batches taken lately are kept, so a resend is taken once.
 MAX_BATCH_IDS = 1024
 #: What a stopping service gives the telemetry it took, at most: the SDK
-#: sender's own exit flush (`probe._shared.telemetry.FLUSH_TIMEOUT_S`).
+#: sender's own exit flush (`probe.analytics.sender.FLUSH_TIMEOUT_S`).
 FLUSH_S = 3.5
 DRAIN_MODULE = "probe.sdk.outbox_worker"
 BOX_MODULE = "probe.box"
@@ -106,11 +106,11 @@ BOX_PREFIX = "box:"
 #: Box watchers running at once, at most (one per registry folder).
 MAX_BOX_WATCHERS = 4
 #: The leases the children hold for their whole life, which say whether one
-#: runs: `probe.sdk.outbox_worker._lease_path`, `probe.box.spawn.lock_path`
+#: runs: `probe.sdk.delivery.outbox.lease._lease_path`, `probe.box.spawn.lock_path`
 #: (tests/test_service_background.py holds them equal).
 DRAIN_LEASE = ".worker.lock"
 BOX_LEASE = "watcher.lock"
-#: `probe.sdk.outbox_worker._LOG_NAME`: the drainer's output, beside its queue.
+#: `probe.sdk.delivery.outbox.drainers.detached._LOG_NAME`: the drainer's output, beside its queue.
 DRAIN_LOG = "drainer.log"
 #: Set for every drainer child, as the SDK sets it (no delivery notices in drainer.log).
 WORKER_ENV = "PROBE_OUTBOX_WORKER"
@@ -512,10 +512,10 @@ class BackgroundHost:
 
 
 def _post(entries: list) -> None:
-    """One batch, over the SDK's TLS trust (`probe.sdk.tls`, the rule every
+    """One batch, over the SDK's TLS trust (`probe.foundation.tls.tls`, the rule every
     connection of the package follows), as the caller's sender would have."""
-    from probe.sdk import _telemetry_core as core
-    from probe.sdk.tls import ssl_context
+    from probe.analytics import core as core
+    from probe.foundation.tls.tls import ssl_context
 
     host = os.environ.get(TELEMETRY_HOST_ENV)
     if host:

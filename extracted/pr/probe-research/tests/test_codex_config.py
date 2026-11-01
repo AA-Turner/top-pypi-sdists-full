@@ -8,11 +8,11 @@ most are the ones about NOT writing.
 
 from __future__ import annotations
 
-from probe._compat import tomllib
+from probe.foundation.compat.compat import tomllib
 
 import pytest
 
-from probe.cli import codex_config
+from probe.shared.harness.harnesses.codex import config as codex_config
 
 
 def _config(tmp_path):

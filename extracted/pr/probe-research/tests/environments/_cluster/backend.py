@@ -198,7 +198,7 @@ def _wall_clock_stamp():
     (the fixed-clock stamp's guarantee), in the same `...Z` form."""
     from datetime import datetime, timedelta
 
-    from probe._compat import UTC
+    from probe.foundation.compat.compat import UTC
 
     last = [datetime.min.replace(tzinfo=UTC)]
     guard = threading.Lock()
@@ -274,9 +274,9 @@ class FakeBackend(Backend):
             import httpx
 
             from probe.sdk import Client
-            from probe.sdk.config import Settings
-            from probe.sdk.journal import Journal
-            from probe.sdk.transport import Transport
+            from probe.sdk.settings.settings import Settings
+            from probe.sdk.delivery.journal.journal import Journal
+            from probe.sdk.delivery.transport.transport import Transport
             import tempfile
 
             settings = Settings(base_url="http://test", token=FAKE_TOKEN)
@@ -385,8 +385,8 @@ class RealBackend(Backend):
     def client(self):
         if self._client is None:
             from probe.sdk import Client
-            from probe.sdk.config import Settings
-            from probe.sdk.transport import Transport
+            from probe.sdk.settings.settings import Settings
+            from probe.sdk.delivery.transport.transport import Transport
 
             settings = Settings(base_url=REAL_BASE_URL, token=REAL_TOKEN)
             self._client = Client(settings=settings, transport=Transport(settings))

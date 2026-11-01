@@ -27,7 +27,7 @@ Why an index row plus members, and never ``checkpoint`` members:
   ``last.ckpt/``) never mixes files from two saves under one name.
 
 The index never claims the bytes are stored: each member's own row says that
-(``probe.sdk.checkpoints.is_stored``). Members go through ``run.log_artifact``,
+(``probe.sdk.run.readback.readback.is_stored``). Members go through ``run.log_artifact``,
 so a file under 64 MiB is one upload and a bigger one multipart (hardlink
 staged); one the upload refuses or cannot stage becomes a reference row with a
 warning, as for any ``log_artifact`` call. Members are never uploaded
@@ -70,9 +70,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from probe.sdk import ephemeral, exclusions
-from probe.sdk.filetype import file_extension
-from probe.sdk.checkpoints import EXCLUDED_KEY, MEMBER_OF_KEY, MEMBERS_KEY, UPLOAD_KEY, UPLOAD_REQUESTED
+from probe.sdk.run.launch import ephemeral
+from probe.sdk.recording_rules import recording_rules as exclusions
+from probe.sdk.artifact.filetype import file_extension
+from probe.sdk.run.readback.readback import EXCLUDED_KEY, MEMBER_OF_KEY, MEMBERS_KEY, UPLOAD_KEY, UPLOAD_REQUESTED
 
 #: The two ways a kept checkpoint is recorded.
 REFERENCE = "reference"
@@ -245,7 +246,7 @@ def _foreground_bytes(run: Any, files: list[tuple[str, str]]) -> int:
     the multipart threshold (copied into the outbox) and a bigger one kept on
     another filesystem than the outbox (copied to stage). A bigger one on the
     outbox's filesystem stages by hard link, at no cost."""
-    from probe.sdk import multipart
+    from probe.sdk.artifact.storage_handlers import multipart
 
     client = getattr(run, "_client", None)
     queued = bool(getattr(client, "async_writes", False)) and (

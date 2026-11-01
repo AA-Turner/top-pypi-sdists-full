@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import webbrowser
 
-from probe.sdk.links import dashboard_base_url
+from probe.sdk.reads.links import dashboard_base_url
 
 from . import import_jobs, import_jobs_ui, import_progress, tui
 

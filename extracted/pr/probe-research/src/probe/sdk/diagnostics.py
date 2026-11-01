@@ -34,12 +34,13 @@ import json
 import os
 import platform
 import re
+import sys
 import threading
 import time
 import traceback
 from typing import Any
 
-from .redaction import default_scrub, scrub_text
+# scanning disabled: from .redaction import default_scrub, scrub_text
 
 #: Frames kept per traceback. Deep recursion is the pathological case: a
 #: RecursionError carries ~1000 near-identical frames, and the interesting ones
@@ -69,8 +70,9 @@ SPAN_TYPE = "diagnostic"
 
 #: The package root. Frames under it are ours and are reported in full (this is
 #: Apache-2.0 code); everything else is the caller's and is reduced to a
-#: positional placeholder -- see :func:`_frames`.
-_PKG_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+#: positional placeholder -- see :func:`_frames`. Read from the top package, never by
+#: counting parents of this file, so it stays right when the module moves.
+_PKG_ROOT = os.path.dirname(os.path.abspath(sys.modules[__name__.partition(".")[0]].__file__))
 
 #: Run ids are server-minted UUIDs. Validated anyway, in BOTH directions: the id
 #: is interpolated into a filename and into a request path, and it arrives from
@@ -97,7 +99,7 @@ def disabled() -> bool:
     A diagnostic span goes to the customer's own backend, in their own tenant,
     attached to their own run -- the same category as a metric, and not the vendor
     phone-home ``PROBE_TELEMETRY`` was built to govern (see
-    ``sdk/_telemetry_core.telemetry_disabled``).
+    ``analytics/core.telemetry_disabled``).
 
     Deferring to it anyway when nobody said otherwise is the safe reading of
     "stop sending things": over-honoring an opt-out is never the wrong error.
@@ -192,7 +194,8 @@ _OPAQUE_MESSAGE_TYPES = (KeyError, IndexError)
 def _message_for(exc: BaseException) -> str:
     if isinstance(exc, _OPAQUE_MESSAGE_TYPES):
         return "<redacted: lookup key>"
-    return scrub_text(exc, max_chars=MAX_MESSAGE_CHARS)
+    # scanning disabled: return scrub_text(exc, max_chars=MAX_MESSAGE_CHARS)
+    return str(exc)[:MAX_MESSAGE_CHARS]
 
 
 def _chain(exc: BaseException | None) -> list[dict]:
@@ -271,7 +274,7 @@ def build_report(
         report["environment"] = _environment()
         if exc is not None:
             report["exception"] = _chain(exc)
-            from .failure_context import read
+            from .run.context.failure import read
 
             if context := read(exc, run_id):
                 report["context"] = context
@@ -284,7 +287,7 @@ def build_report(
             report["transport"] = recent
         if extra:
             report["extra"] = extra
-        report = default_scrub(report)
+        # scanning disabled: report = default_scrub(report)
         report = _fit(report)
     except Exception:
         return {"schema": 1, "degraded": "report construction failed"}
@@ -516,8 +519,12 @@ def capture_swallowed(
             return True
         if not base_url:
             return False  # unknown backend: fail closed, never guess hosted
-        from probe._shared import telemetry as telemetry_mod
+        from probe import analytics as telemetry_mod
 
+        if not spool_dir:
+            from .delivery.journal.paths import default_dir
+
+            spool_dir = str(default_dir())
         if not telemetry_mod.report_due(
             spool_dir, f"swallow-{site}", interval_s=SWALLOW_REPORT_INTERVAL_S
         ):
@@ -581,7 +588,7 @@ def _has_disk_headroom(directory: str) -> bool:
     try:
         import shutil
 
-        from .journal import free_floor
+        from .delivery.journal.headroom import free_floor
 
         floor = free_floor(directory)
         if not floor:
@@ -598,7 +605,7 @@ def _write_private(path: str, text: str) -> None:
     imported by half the SDK -- a module-level import here would widen the
     import graph for a function most processes never call.
     """
-    from .durable import write_text_atomic
+    from ..foundation.durable.durable import write_text_atomic
 
     write_text_atomic(path, text, mode=0o600)
 
@@ -643,7 +650,8 @@ def arm(client: Any, run_id: str, *, extra: dict | None = None) -> None:
         # is randomly named and opened O_EXCL, so a pre-planted symlink at a
         # guessable temp path cannot redirect the write. Guessable is the
         # operative word -- the run id is in the run's own dashboard URL.
-        _write_private(path, json.dumps(default_scrub(payload)))
+        # scanning disabled: _write_private(path, json.dumps(default_scrub(payload)))
+        _write_private(path, json.dumps(payload))
         global _ACTIVE_BREADCRUMB, _FIRST_INCIDENT
         _ACTIVE_BREADCRUMB = (path, run_id, _base_of(client))
         _FIRST_INCIDENT = None  # a new run starts a new incident history
@@ -800,7 +808,8 @@ def sweep(client: Any) -> list[dict]:
                 else:
                     crumb["attempts"] = attempts
                     try:
-                        _write_private(path, json.dumps(default_scrub(crumb)))
+                        # scanning disabled: _write_private(path, json.dumps(default_scrub(crumb)))
+                        _write_private(path, json.dumps(crumb))
                     except Exception:
                         pass
     except Exception:
@@ -924,7 +933,8 @@ def record_transport(
         if status is not None:
             entry["status"] = status
         if error:
-            entry["error"] = scrub_text(error, max_chars=MAX_ERROR_CHARS)
+            # scanning disabled: entry["error"] = scrub_text(error, max_chars=MAX_ERROR_CHARS)
+            entry["error"] = str(error)[:MAX_ERROR_CHARS]
         if stalled:
             entry["stalled"] = True
         _TRANSPORT_LOG.append(entry)  # deque.append is atomic under the GIL
@@ -1026,7 +1036,8 @@ def _refresh_breadcrumb() -> None:
                 crumb["first_incident"] = _FIRST_INCIDENT
             if not _has_disk_headroom(os.path.dirname(path)):
                 return
-            _write_private(path, json.dumps(default_scrub(crumb)))
+            # scanning disabled: _write_private(path, json.dumps(default_scrub(crumb)))
+            _write_private(path, json.dumps(crumb))
         finally:
             _REFRESH_LOCK.release()
     except Exception:

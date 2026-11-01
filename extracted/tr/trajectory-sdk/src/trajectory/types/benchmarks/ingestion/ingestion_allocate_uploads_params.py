@@ -12,6 +12,18 @@ class BenchmarkIngestionUploadObjectParam(TypedDict, total=False):
   size_bytes: Required[int]
   md5: Required[str]
   kind: Literal["artifact", "part"]
+  same_as: str | None
+  """
+  Path of an artifact declared earlier in this submission, or in this request, with the same
+  `md5` and `size_bytes`. Its object is read in place of this path, so this path is not
+  uploaded. A runtime's Dockerfile cannot be a `same_as` path.
+  """
+  reuse: bool
+  """
+  Let the API reuse an identical artifact this organization uploaded in an earlier submission.
+  Reused paths are returned in `reused` and must not be uploaded. This flag is not part of the
+  declaration or the upload digest. A runtime's Dockerfile cannot be reused.
+  """
 
 
 class IngestionAllocateUploadsParams(TypedDict, total=False):

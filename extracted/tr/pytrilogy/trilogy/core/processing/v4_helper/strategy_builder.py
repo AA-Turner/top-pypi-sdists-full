@@ -15,7 +15,7 @@ import logging
 from collections import Counter, defaultdict
 from collections.abc import Callable, Collection, Iterable, Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dataclasses import replace as dc_replace
 from datetime import date, datetime
 from functools import partial
@@ -656,6 +656,19 @@ def node_nulls_grouping_keys(node: StrategyNode) -> bool:
     question or they drift apart."""
     return any(
         nonstandard_grouping_lineage(o) is not None for o in node.output_concepts
+    )
+
+
+def _groups_null_grouping_keys(
+    attrs: dict[str, GroupAttrs], gids: Iterable[str], environment: BuildEnvironment
+) -> bool:
+    """`node_nulls_grouping_keys` of these groups' nodes, read off what each
+    outputs at stage 2."""
+    return any(
+        nonstandard_grouping_lineage(concept) is not None
+        for gid in gids
+        for address in attrs[gid].output_concepts
+        if (concept := _concept_at(environment, address)) is not None
     )
 
 
@@ -4409,12 +4422,12 @@ def _join_elected_bridges(
 def _bridge_candidates(
     group_graph: nx.DiGraph,
     order: Sequence[str],
-    unbuilt: Collection[str],
+    unbuilt: Collection[str] = (),
     consumer: str = FINAL_NODE_ID,
 ) -> list[str]:
     """The groups the build order decides before `consumer` (every group, for
     the FINAL: one feeding no output may sort after it) that are still in the
-    plan and built a node, most derived first. A group folded into its readers
+    plan and not `unbuilt`, most derived first. A group folded into its readers
     left the plan at its turn."""
     decided = order if consumer == FINAL_NODE_ID else order[: order.index(consumer)]
     groups = {
@@ -4441,30 +4454,44 @@ def _gate_grain_keys(concepts: list[BuildConcept]) -> frozenset[str]:
     )
 
 
-def _filter_arg_parents(
+def _filter_arg_producers(
     group_graph: nx.DiGraph,
     attrs: dict[str, GroupAttrs],
-    built: dict[str, StrategyNode],
-    missing_addrs: set[str],
+    candidates: Collection[str],
+    missing_addrs: Collection[str],
     spans: frozenset[str] = frozenset(),
-) -> tuple[list[StrategyNode], list[BuildConcept]]:
-    """Built groups (most-downstream) producing each `missing_addr`: a
-    FINAL-deferred filter's row-arg that isn't a user output (a global
-    aggregate compared against a per-key aggregate). Returned as cross-join
-    parents plus the concepts they supply, so the FINAL filter node can pull
-    them in as hidden inputs.
+) -> dict[str, str]:
+    """The group producing each `missing_addr`: a FINAL-deferred filter's
+    row-arg that isn't a user output (a global aggregate compared against a
+    per-key aggregate)."""
+    return {
+        addr: gid
+        for addr in sorted(missing_addrs)
+        if (gid := _filter_arg_producer(group_graph, attrs, candidates, addr, spans))
+    }
 
-    Beside a region's rows (`spans`), a producer carrying every span comes
-    first: a row value (`status`) pairs on the span, where an aggregate by it
-    (`sum(amount) by status`) holds only its groups and cross-joins."""
+
+def _planned_side(built: dict[str, StrategyNode], gid: str) -> StrategyNode:
+    """The node of a side the FINAL plan elected. A FINAL-only group whose
+    outputs another group delivers may build nothing; electing it is a plan
+    that cannot be assembled."""
+    if (node := built.get(gid)) is None:
+        raise UnbuiltGroupException(
+            f"[v4] FINAL join plan elected group {gid}, which built nothing. "
+            "This is a planner bug."
+        )
+    return node
+
+
+def _filter_arg_parents(
+    built: dict[str, StrategyNode], producers: dict[str, str]
+) -> tuple[list[StrategyNode], list[BuildConcept]]:
+    """The `producers`' nodes as cross-join parents, plus the concepts they
+    supply, so the FINAL filter node can pull them in as hidden inputs."""
     nodes: list[StrategyNode] = []
     concepts: list[BuildConcept] = []
-    seen: set[str] = set()
-    for addr in missing_addrs:
-        gid = _filter_arg_producer(group_graph, attrs, built, addr, spans)
-        if gid is None:
-            continue
-        supplier = built[gid]
+    for addr, gid in producers.items():
+        supplier = _planned_side(built, gid)
         concept = next(o for o in supplier.output_concepts if o.address == addr)
         # The group is being pulled in PRECISELY to supply this column, so a
         # projection that hides it defeats the purpose: the FINAL merge reads
@@ -4474,9 +4501,8 @@ def _filter_arg_parents(
         if addr in supplier.hidden_concepts:
             supplier.unhide_output_concepts([concept])
         concepts.append(concept)
-        if gid not in seen:
-            seen.add(gid)
-            nodes.append(built[gid])
+        if supplier not in nodes:
+            nodes.append(supplier)
     return nodes, concepts
 
 
@@ -4499,36 +4525,91 @@ def _filter_arg_producer(
     )
 
 
+@dataclass
+class _FinalExtras:
+    """The groups the FINAL merge joins beside its sides to evaluate its
+    WHERE, by the address each is joined for, and the arguments a ROOT side
+    carries through its wrap instead."""
+
+    arg_producers: dict[str, str]
+    gate_hosts: dict[str, str]
+    carried: dict[str, str] = field(default_factory=dict)
+
+    def carried_by(self, gid: str) -> list[str]:
+        return [addr for addr, side in self.carried.items() if side == gid]
+
+    @property
+    def groups(self) -> list[str]:
+        return list(
+            dict.fromkeys([*self.arg_producers.values(), *self.gate_hosts.values()])
+        )
+
+
 def _final_extra_sides(
     group_graph: nx.DiGraph,
     attrs: dict[str, GroupAttrs],
     candidates: Sequence[str],
-    sides: Sequence[str],
+    per_group: dict[str, list[BuildConcept]],
+    bridges: Sequence[str],
     filter_only_addrs: set[str],
     environment: BuildEnvironment,
-) -> list[str]:
-    """The groups the FINAL merge joins beside `sides` to evaluate its WHERE:
+) -> _FinalExtras:
+    """The groups the FINAL merge joins beside its sides to evaluate its WHERE:
     each filter-only argument's producer, and the row stream computing a gate
-    key none of them renders (`count(id) by genus`, genus derived)."""
-    available = set().union(*(attrs[gid].output_concepts for gid in sides))
+    key none of them renders (`count(id) by genus`, genus derived). A ROOT
+    contributor holds its cover, plus each argument it outputs that no other
+    side does: it carries that through its wrap rather than joining again."""
+    sides = [*per_group, *bridges]
+    roots = [g for g in per_group if attrs[g].derivation == Derivation.ROOT]
+    available = set().union(
+        *(
+            (
+                {c.address for c in per_group[gid]}
+                if gid in per_group and attrs[gid].derivation == Derivation.ROOT
+                else attrs[gid].output_concepts
+            )
+            for gid in sides
+        )
+    )
     spans = frozenset().union(
         *(_group_region_reads(group_graph, attrs, gid) for gid in sides)
     )
-    extras: list[str] = []
-    args: list[BuildConcept] = []
-    for addr in sorted(
-        _region_paired_args(filter_only_addrs, available, spans, environment)
-    ):
-        gid = _filter_arg_producer(group_graph, attrs, candidates, addr, spans)
-        if gid is None:
-            continue
-        extras.append(gid)
-        if (concept := _concept_at(environment, addr)) is not None:
-            args.append(concept)
+    carried = _filter_arg_producers(
+        group_graph, attrs, roots, filter_only_addrs - available, spans
+    )
+    available |= set(carried)
+    extras = _FinalExtras(
+        _filter_arg_producers(
+            group_graph,
+            attrs,
+            candidates,
+            _region_paired_args(filter_only_addrs, available, spans, environment),
+            spans,
+        ),
+        {},
+        carried,
+    )
+    args = [c for addr in extras.arg_producers if (c := _concept_at(environment, addr))]
     for address in sorted(_gate_grain_keys(args) - available):
         if host := _gate_key_row_stream(address, attrs, candidates):
-            extras.append(host)
-    return list(dict.fromkeys(extras))
+            extras.gate_hosts[address] = host
+    return extras
+
+
+def _join_gate_hosts(
+    parents: list[StrategyNode],
+    gate_keys: frozenset[str],
+    extras: _FinalExtras,
+    built: dict[str, StrategyNode],
+) -> list[StrategyNode]:
+    """`parents` plus the row stream the plan elected for each gate key none
+    of them carries (a key pinned to columns their rows lack)."""
+    carried = {o.address for p in parents for o in p.output_concepts}
+    for address in sorted(gate_keys - carried):
+        host = extras.gate_hosts.get(address)
+        if host and (node := _planned_side(built, host)) not in parents:
+            parents = parents + [node]
+    return parents
 
 
 def _group_region_reads(
@@ -4951,6 +5032,7 @@ def _assemble_sole_contributor(
     group_graph: nx.DiGraph,
     attrs: dict[str, GroupAttrs],
     built: dict[str, StrategyNode],
+    candidates: Sequence[str],
     environment: BuildEnvironment,
 ) -> StrategyNode:
     """FINAL when one group covers every output: that group's node, deduped
@@ -4996,7 +5078,10 @@ def _assemble_sole_contributor(
     if final_conditions is not None and not final_already_applied:
         sole_avail = {o.address for o in sole_node.output_concepts}
         feeder_nodes, _ = _filter_arg_parents(
-            group_graph, attrs, built, filter_only_addrs - sole_avail
+            built,
+            _filter_arg_producers(
+                group_graph, attrs, candidates, filter_only_addrs - sole_avail
+            ),
         )
         feeder_outs = [{o.address for o in f.output_concepts} for f in feeder_nodes]
         scoped_addrs = environment.all_scoped_join_group_members()
@@ -5089,6 +5174,7 @@ def _apply_final_conditions(
     group_graph: nx.DiGraph,
     attrs: dict[str, GroupAttrs],
     built: dict[str, StrategyNode],
+    candidates: Sequence[str],
     environment: BuildEnvironment,
     feeder_cache: "_CleanFeederCache | None",
 ) -> StrategyNode:
@@ -5104,11 +5190,14 @@ def _apply_final_conditions(
     avail = {o.address for o in node.output_concepts}
     spans = region_reads(node)
     arg_nodes, arg_concepts = _filter_arg_parents(
-        group_graph,
-        attrs,
         built,
-        _region_paired_args(filter_only_addrs, avail, spans, environment),
-        spans,
+        _filter_arg_producers(
+            group_graph,
+            attrs,
+            candidates,
+            _region_paired_args(filter_only_addrs, avail, spans, environment),
+            spans,
+        ),
     )
     row_arg_addrs = {c.address for c in condition_row_args(final_conditions)}
     row_concepts = [
@@ -5193,11 +5282,12 @@ def _gate_key_row_stream(
 
 @dataclass
 class _FinalCover:
-    """The FINAL election, decided before the build loop: the concepts each
-    contributor provides, and the columns owed on a contributor beyond its
-    build: hosted over it (`projections`) or passed through it from an
-    ancestor contributor (`passthroughs`)."""
+    """The FINAL election, decided before the build loop over the planned
+    `groups`: the concepts each contributor provides, and the columns owed on
+    a contributor beyond its build: hosted over it (`projections`) or passed
+    through it from an ancestor contributor (`passthroughs`)."""
 
+    groups: list[str]
     per_group: dict[str, list[BuildConcept]]
     projections: dict[str, list[BuildConcept]]
     passthroughs: dict[str, list[BuildConcept]]
@@ -5213,6 +5303,7 @@ def _elect_final_cover(
 ) -> _FinalCover:
     """Elect the FINAL's contributors from `groups`, off what each renders."""
     cover = _FinalCover(
+        list(groups),
         elect_cover(
             group_graph,
             group_edges,
@@ -5269,7 +5360,6 @@ def _assemble_final_node(
     history: V4History,
     root_requests: dict[str, RootRequest],
     cover: "_FinalCover",
-    candidates: Sequence[str] = (),
     feeder_cache: "_CleanFeederCache | None" = None,
     arms_delivered: bool = False,
 ) -> StrategyNode | None:
@@ -5307,6 +5397,7 @@ def _assemble_final_node(
         group_graph=group_graph,
         attrs=attrs,
         built=built,
+        candidates=cover.groups,
         environment=environment,
         feeder_cache=feeder_cache,
     )
@@ -5347,6 +5438,7 @@ def _assemble_final_node(
             group_graph,
             attrs,
             built,
+            cover.groups,
             environment,
         )
 
@@ -5360,11 +5452,20 @@ def _assemble_final_node(
         group_graph,
         attrs,
         per_group,
-        candidates,
+        _bridge_candidates(group_graph, cover.groups),
         mandatory_list,
         environment,
         final_contract.authored_axes,
     ).extras
+    extras = _final_extra_sides(
+        group_graph,
+        attrs,
+        cover.groups,
+        per_group,
+        bridges,
+        filter_only_addrs,
+        environment,
+    )
     plan = plan_final_join(
         group_graph,
         attrs,
@@ -5372,15 +5473,7 @@ def _assemble_final_node(
         mandatory_list,
         environment,
         final_contract.authored_axes,
-        extras=bridges
-        + _final_extra_sides(
-            group_graph,
-            attrs,
-            list(built),
-            [*per_group, *bridges],
-            filter_only_addrs,
-            environment,
-        ),
+        extras=bridges + extras.groups,
     )
     final_merge_grain = plan.merge_grain
     origin = {id(node): gid for gid, node in built.items()}
@@ -5388,7 +5481,7 @@ def _assemble_final_node(
     # A grouping-sets sibling suppresses the FINAL dedup (`_group_to_grain_if_
     # required` passes a subtotal-bearing merge through), so a row-grain leaf
     # contributor must dedup itself before the merge instead.
-    grouping_sibling = any(node_nulls_grouping_keys(built[g]) for g in contributing)
+    grouping_sibling = _groups_null_grouping_keys(attrs, contributing, environment)
 
     parents: list[StrategyNode] = []
     for gid in contributing:
@@ -5405,7 +5498,7 @@ def _assemble_final_node(
         seen_group_concepts = {concept.address for concept in group_concepts}
         group_concepts.extend(
             c
-            for address in sorted(carry)
+            for address in sorted(carry | set(extras.carried_by(gid)))
             if (c := _concept_at(environment, address)) is not None
             and address not in seen_group_concepts
         )
@@ -5465,7 +5558,9 @@ def _assemble_final_node(
         {id(built[gid]) for gid in ownership.owner_by_span.values() if gid in built},
     )
     parents = _join_elected_bridges(
-        parents, [(built[gid], plan.keys_for(gid)) for gid in bridges], environment
+        parents,
+        [(_planned_side(built, gid), plan.keys_for(gid)) for gid in bridges],
+        environment,
     )
     parents = _pair_inside_padding_streams(parents, environment)
     _raise_if_rowset_islanded(parents, mandatory_list, environment, graph)
@@ -5497,16 +5592,11 @@ def _assemble_final_node(
         for c in mandatory_list
         if c.address in available or c.address in pseudonym_only
     ]
-    # Pull in any filter-only condition arg (e.g. the global aggregate) not
-    # already supplied by a contributor, as a hidden cross-join input.
+    # Each filter-only arg no side holds (e.g. the global aggregate) joins
+    # from the producer the plan elected, as a hidden cross-join input; a ROOT
+    # side carried its own through its wrap.
     spans = frozenset().union(*(region_reads(p) for p in parents))
-    arg_nodes, arg_concepts = _filter_arg_parents(
-        group_graph,
-        attrs,
-        built,
-        _region_paired_args(filter_only_addrs, available, spans, environment),
-        spans,
-    )
+    arg_nodes, arg_concepts = _filter_arg_parents(built, extras.arg_producers)
     # A filter-only arg a contributor ALREADY supplies (`rs.sa is not null`
     # beside a boundary outputting rs.sa) must ride the merge as a hidden
     # input; otherwise the merge's WHERE references a column it never
@@ -5552,13 +5642,7 @@ def _assemble_final_node(
     # `_apply_final_conditions`: carried hidden, or the merge joins on nothing.
     if arg_nodes and (gate_keys := _gate_grain_keys(arg_concepts) - available):
         _widen_merge_join_keys([*parents, *arg_nodes], environment, gate_keys)
-        # one no contributor can render (a key pinned to columns its rows
-        # lack) is joined in from the row stream computing it
-        carried = {o.address for p in parents for o in p.output_concepts}
-        for address in sorted(gate_keys - carried):
-            host = _gate_key_row_stream(address, attrs, built)
-            if host and built[host] not in parents:
-                parents = parents + [built[host]]
+        parents = _join_gate_hosts(parents, gate_keys, extras, built)
     parents = parents + arg_nodes
     sides = side_groups(parents, origin)
     if unplanned := set(sides) - set(plan.contributors):
@@ -6614,7 +6698,6 @@ def build_strategy_node(
             history,
             ctx.root_requests,
             cover,
-            candidates=_bridge_candidates(group_graph, order, unbuilt),
             feeder_cache=ctx.feeder_cache,
             arms_delivered=arms_delivered,
         )

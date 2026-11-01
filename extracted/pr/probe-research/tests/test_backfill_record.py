@@ -38,10 +38,10 @@ from probe.cli import backfill_record_tool as tool
 from probe.cli import backfill_structure as structure
 from probe.cli.backfill_ledger import is_import_agent_cwd
 from probe.cli.import_agent_settings import Lane
-from probe.cli.summary_cli import SERIES_ATTR, compose_draft
+from probe.shared.notes.summary.summary import SERIES_ATTR, compose_draft
 from probe.sdk import errors
-from probe.sdk.client import Client
-from probe.sdk.transport import Page
+from probe.sdk.client.client import Client
+from probe.sdk.delivery.transport.transport import Page
 
 P = "11111111-1111-4111-8111-111111111111"
 E = "22222222-2222-4222-8222-222222222222"
@@ -256,8 +256,8 @@ def _fake_agent(commands, calls, *, ok=True):
 
 def test_the_session_reads_the_skills_verbatim_and_runs_on_the_record_lane(
         listing, tmp_path, monkeypatch):
-    from probe import skill_versions
-    from probe.daemon.bite import SHARED_SKILLS, skills_text
+    from probe.foundation.skills import skills as skill_versions
+    from probe.daemon.worker.bite.bite import SHARED_SKILLS, skills_text
 
     calls: list = []
     monkeypatch.setattr(bf, "launch_agent", _fake_agent(lambda kw: [], calls))

@@ -12,7 +12,9 @@ from pathlib import Path
 import pytest
 
 from probe import cli
-from probe.sdk import exclusions, inputs, probe_config as pc
+from probe.sdk.recording_rules import recording_rules as exclusions
+from probe.sdk.capture import lineage as inputs
+from probe.sdk import probe_config as pc
 from tests.conftest import make_client, run_outputs_problems
 
 

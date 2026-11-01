@@ -11,7 +11,8 @@ from __future__ import annotations
 import importlib
 import threading
 
-from probe.cli import claude_cli, tui, upgrading
+from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+from probe.cli import tui, upgrading
 from probe.cli import setup as wizard
 from probe.cli.capabilities import Capability
 

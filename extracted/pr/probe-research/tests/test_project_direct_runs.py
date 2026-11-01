@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from probe import errors
-from probe.mcp.service import _collapse_experiments
+from probe.mcp.tools.corpora.team import _collapse_experiments
 from tests.conftest import open_run
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mjviser
-Version: 0.0.14
+Version: 0.0.16
 Summary: Web-based MuJoCo viewer powered by viser.
 Keywords: mujoco,viser,visualization,robotics,simulation
 Author: The MjLab Developers
@@ -9,9 +9,7 @@ License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -22,13 +20,13 @@ Classifier: Topic :: Scientific/Engineering :: Visualization
 Requires-Dist: mujoco>=3.6.0
 Requires-Dist: numpy
 Requires-Dist: trimesh>=4.8.3
-Requires-Dist: viser>=1.0.27
-Requires-Dist: pillow>=12.2.0
+Requires-Dist: viser>=1.1.1
+Requires-Dist: pillow>=12.3.0
 Requires-Dist: pytest ; extra == 'dev'
-Requires-Dist: ruff ; extra == 'dev'
-Requires-Python: >=3.10, <3.15
-Project-URL: Bug Reports, https://github.com/mujocolab/mjviser/issues
+Requires-Dist: ruff==0.16.1 ; extra == 'dev'
+Requires-Python: >=3.11, <3.15
 Project-URL: Source, https://github.com/mujocolab/mjviser
+Project-URL: Bug Reports, https://github.com/mujocolab/mjviser/issues
 Provides-Extra: dev
 Description-Content-Type: text/markdown
 
@@ -101,12 +99,21 @@ scene = ViserMujocoScene(server, model, num_envs=1)
 scene.create_visualization_gui()
 
 with server.gui.add_folder("My Controls"):
-    slider = server.gui.add_slider("Force", min=0, max=100, initial_value=0)
+  slider = server.gui.add_slider("Force", min=0, max=100, initial_value=0)
 
 while True:
-    mujoco.mj_step(model, data)
-    scene.update_from_mjdata(data)
+  mujoco.mj_step(model, data)
+  scene.update_from_mjdata(data)
 ```
+
+## Mouse and keyboard
+
+`Viewer` follows MuJoCo's simulate:
+
+- Click a body to select it, and click empty space to deselect. Cmd/Ctrl+click is more reliable, since it keeps the camera still.
+- Cmd/Ctrl + right-drag moves the selected body and Cmd/Ctrl + left-drag rotates it. Hold Shift for the horizontal plane; it can be toggled mid-drag.
+- While running, the body is pulled by a spring. While paused, it is posed directly.
+- Keyboard shortcuts match simulate where viser allows (Space, Backspace, C, F, J, 0-5, and more). Every command is listed in viser's command palette.
 
 ## Examples
 
@@ -120,7 +127,3 @@ while True:
 ## Acknowledgments
 
 Thanks to [Matija Kecman](https://github.com/okmatija) for early feedback and suggestions.
-
-## Limitations
-
-- **No mouse interaction**: clicking/dragging bodies and keyboard callbacks require upstream Viser support.

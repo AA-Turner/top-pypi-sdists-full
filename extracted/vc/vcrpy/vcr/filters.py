@@ -1,5 +1,6 @@
 import copy
 import json
+import re
 import zlib
 from io import BytesIO
 from urllib.parse import unquote_plus, urlencode, urlparse, urlunparse
@@ -200,7 +201,66 @@ def _replace_urlencoded_parameters(body, replacements, request):
     return b"&".join(k if not sep else b"".join([k, sep, v]) for k, sep, v in new_splits)
 
 
-def replace_body_parameters(request, replacements):
+def _replace_nested_parameters(data, replacements, request):
+    """Return a copy of data with replacements applied to the keys of dicts at any depth, in lists too."""
+    if isinstance(data, dict):
+        new_data = {}
+        for k, ov in data.items():
+            if k not in replacements:
+                new_data[k] = _replace_nested_parameters(ov, replacements, request)
+                continue
+            rv = replacements[k]
+            if callable(rv):
+                rv = rv(key=k, value=ov, request=request)
+            if rv is not None:
+                new_data[k] = rv
+        return new_data
+    if isinstance(data, list):
+        return [_replace_nested_parameters(item, replacements, request) for item in data]
+    return data
+
+
+def _multipart_boundary(content_type):
+    """The boundary of a multipart/form-data Content-Type, or None."""
+    if not content_type or not content_type.lower().startswith("multipart/form-data"):
+        return None
+    match = re.search(r'boundary="?([^";]+)"?', content_type, re.IGNORECASE)
+    return match.group(1).encode("utf-8") if match else None
+
+
+def _replace_multipart_parameters(body, boundary, replacements, request):
+    """Replace the content of form fields in a multipart/form-data body (#521).
+
+    A field that's removed is left out of the body.
+    """
+    delimiter = b"--" + boundary
+    preamble, *parts = body.split(delimiter)
+    new_parts = []
+    for part in parts:
+        headers, separator, content = part.partition(b"\r\n\r\n")
+        name = re.search(rb';\s*name="([^"]*)"', headers)
+        key = name and name.group(1).decode("utf-8", "replace")
+        if not separator or key not in replacements:
+            new_parts.append(part)
+            continue
+        # The content ends before the CRLF that precedes the next delimiter.
+        value, ending = (content[:-2], content[-2:]) if content.endswith(b"\r\n") else (content, b"")
+        rv = replacements[key]
+        if callable(rv):
+            try:
+                ov = value.decode("utf-8")
+            except UnicodeDecodeError:
+                ov = value
+            rv = rv(key=key, value=ov, request=request)
+        if rv is None:
+            continue
+        if isinstance(rv, str):
+            rv = rv.encode("utf-8")
+        new_parts.append(headers + separator + rv + ending)
+    return delimiter.join([preamble, *new_parts])
+
+
+def replace_body_parameters(request, replacements, recursive=False):
     """Replace body parameters in request--either form data or json--according to replacements.
 
     The replacements should be a list of (key, value) pairs where the value can be any of:
@@ -208,16 +268,25 @@ def replace_body_parameters(request, replacements):
       2. None to remove the given header.
       3. A callable which accepts (key, value, request) and returns a string
          value or None.
+
+    If recursive is true, keys are also replaced in objects nested in JSON
+    and dict bodies, including objects in lists.
     """
     if not request.body:
         # Nothing to replace
         return request
 
-    if isinstance(request.body, BytesIO):
+    if not isinstance(request.body, (bytes, bytearray, str, dict)):
+        # A file or iterator body, e.g. a streaming upload, isn't filtered (#814).
         return request
 
     replacements = dict(replacements)
-    if isinstance(request.body, dict):
+    if recursive and isinstance(request.body, dict):
+        request.body = _replace_nested_parameters(request.body, replacements, request)
+    elif recursive and request.headers.get("Content-Type") == "application/json":
+        json_data = _replace_nested_parameters(json.loads(request.body), replacements, request)
+        request.body = json.dumps(json_data).encode("utf-8")
+    elif isinstance(request.body, dict):
         new_body = request.body.copy()
         for k, rv in replacements.items():
             if k in new_body:
@@ -237,6 +306,9 @@ def replace_body_parameters(request, replacements):
                 if rv is not None:
                     json_data[k] = rv
         request.body = json.dumps(json_data).encode("utf-8")
+    elif boundary := _multipart_boundary(request.headers.get("Content-Type")):
+        body = request.body.encode("utf-8") if isinstance(request.body, str) else bytes(request.body)
+        request.body = _replace_multipart_parameters(body, boundary, replacements, request)
     else:
         try:
             body = request.body.encode("utf-8") if isinstance(request.body, str) else request.body
@@ -250,14 +322,14 @@ def replace_body_parameters(request, replacements):
     return request
 
 
-def replace_post_data_parameters(request, replacements):
+def replace_post_data_parameters(request, replacements, recursive=False):
     """
     Wrap replace_body_parameters() for API backward compatibility: only filters POST requests.
     """
     if request.method != "POST":
         return request
 
-    return replace_body_parameters(request, replacements)
+    return replace_body_parameters(request, replacements, recursive=recursive)
 
 
 def remove_post_data_parameters(request, post_data_parameters_to_remove):

@@ -1,5 +1,5 @@
-"""Compatibility imports for ``probe.sdk.spool``."""
+"""Compatibility imports for ``probe.sdk.delivery.spool``."""
 
-from .sdk.spool import Spool, SpoolRecord, default_dir
+from .sdk.delivery.spool import Spool, SpoolRecord, default_dir
 
 __all__ = ["Spool", "SpoolRecord", "default_dir"]

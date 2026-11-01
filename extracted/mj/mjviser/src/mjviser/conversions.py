@@ -22,22 +22,64 @@ def _get_texture_id(mj_model: mujoco.MjModel, matid: int) -> int:
   return texid
 
 
-def _extract_texture_image(mj_model: mujoco.MjModel, texid: int) -> Image.Image | None:
-  """Extract a 2D texture as a PIL Image, or None for unsupported types."""
+def _get_texture_normalmap_id(mj_model: mujoco.MjModel, matid: int) -> int:
+  """Returns the normalmap texture ID for a material, or -1."""
+  return int(mj_model.mat_texid[matid, int(mujoco.mjtTextureRole.mjTEXROLE_NORMAL)])
+
+
+def _has_alpha(image: Image.Image) -> bool:
+  """Return True if the image has an alpha channel with any transparent pixel."""
+  if image.mode != "RGBA":
+    return False
+  return bool(np.asarray(image.getchannel("A")).min() < 255)
+
+
+def _is_cubemap_texture(mj_model: mujoco.MjModel, texid: int) -> bool:
+  """Return True if texid is a cube map stored as 6 stacked square faces."""
+  if int(mj_model.tex_type[texid]) != int(mujoco.mjtTexture.mjTEXTURE_CUBE):
+    return False
+  w = int(mj_model.tex_width[texid])
+  h = int(mj_model.tex_height[texid])
+  nc = int(mj_model.tex_nchannel[texid])
+  return h == w * 6 and nc in (1, 3, 4)
+
+
+# Cube map face order with the outward scene axis each face sits on:
+# +X (right), -X (left), +Y (up), -Y (down), +Z (front), -Z (back).
+_CUBEMAP_AXES: np.ndarray = np.array(
+  [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]],
+  dtype=np.float64,
+)
+
+
+def _extract_texture_image(
+  mj_model: mujoco.MjModel, texid: int, flip: bool = True
+) -> Image.Image | None:
+  """Extract a 2D texture as a PIL Image, or None for unsupported types.
+
+  Color textures use MuJoCo's bottom-left origin while GLTF expects top-left,
+  so they are flipped vertically by default. Normal maps are stored without
+  that flip (they are typically authored with `vflip="false"` while color maps
+  use `vflip="true"`), so pass flip=False to keep them aligned with the albedo
+  texture and the shared UVs.
+  """
   w = mj_model.tex_width[texid]
   h = mj_model.tex_height[texid]
   nc = mj_model.tex_nchannel[texid]
   adr = mj_model.tex_adr[texid]
   data = mj_model.tex_data[adr : adr + w * h * nc]
 
-  # MuJoCo uses bottom-left origin; GLTF expects top-left.
   if nc == 1:
-    arr = np.flipud(data.reshape(h, w))
-    return Image.fromarray(arr.astype(np.uint8), mode="L")
+    arr = data.reshape(h, w)
   elif nc in (3, 4):
-    arr = np.flipud(data.reshape(h, w, nc))
-    return Image.fromarray(arr.astype(np.uint8))
-  return None
+    arr = data.reshape(h, w, nc)
+  else:
+    return None
+
+  if flip:
+    arr = np.flipud(arr)
+  mode = "L" if nc == 1 else None
+  return Image.fromarray(arr.astype(np.uint8), mode=mode)
 
 
 def _resolve_flat_rgba(mj_model: mujoco.MjModel, geom_idx: int) -> np.ndarray:
@@ -78,15 +120,12 @@ def _cubemap_vertex_colors(
   material has no cube map texture.
   """
   texid = _get_texture_id(mj_model, matid)
-  if texid < 0:
+  if texid < 0 or not _is_cubemap_texture(mj_model, texid):
     return None
 
   w = mj_model.tex_width[texid]
   h = mj_model.tex_height[texid]
   nc = mj_model.tex_nchannel[texid]
-  if int(mj_model.tex_type[texid]) != 1 or h != w * 6:
-    return None
-
   adr = mj_model.tex_adr[texid]
   data = mj_model.tex_data[adr : adr + w * h * nc].reshape(6, w, w, nc)
 
@@ -105,19 +144,13 @@ def _cubemap_vertex_colors(
   if not has_color.any():
     return None
 
-  # Cube map axes: +X, -X, +Y, -Y, +Z, -Z.
-  axes = np.array(
-    [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]],
-    dtype=np.float64,
-  )
-
   # Per-triangle normals.
   v0, v1, v2 = vertices[faces[:, 0]], vertices[faces[:, 1]], vertices[faces[:, 2]]
   normals = np.cross(v1 - v0, v2 - v0)
   normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-10)
 
   # For each triangle, pick the best aligned face that has color.
-  dots = normals @ axes.T
+  dots = normals @ _CUBEMAP_AXES.T
   ranked = np.argsort(-dots, axis=1)
   nf = len(faces)
   valid = has_color[ranked]  # (nf, 6) bool
@@ -190,19 +223,32 @@ def mujoco_mesh_to_trimesh(mj_model: mujoco.MjModel, geom_idx: int) -> trimesh.T
 
   # Path 1: mesh has UVs and material has a 2D texture.
   if uvs is not None and matid >= 0:
-    texid = _get_texture_id(mj_model, matid)
-    if texid >= 0:
-      image = _extract_texture_image(mj_model, texid)
-      if image is not None:
-        rgba = mj_model.mat_rgba[matid]
-        material = trimesh.visual.material.PBRMaterial(
-          baseColorFactor=rgba,
-          baseColorTexture=image,
-          metallicFactor=0.0,
-          roughnessFactor=1.0,
-        )
-        mesh.visual = trimesh.visual.TextureVisuals(uv=uvs, material=material)
-        return mesh
+    texid_albedo = _get_texture_id(mj_model, matid)
+    texid_normalmap = _get_texture_normalmap_id(mj_model, matid)
+
+    image_albedo: Image.Image | None = None
+    image_normalmap: Image.Image | None = None
+    if texid_albedo >= 0:
+      image_albedo = _extract_texture_image(mj_model, texid_albedo)
+    if texid_normalmap >= 0:
+      image_normalmap = _extract_texture_image(mj_model, texid_normalmap, flip=False)
+
+    if image_albedo is not None:
+      rgba = mj_model.mat_rgba[matid]
+      geom_rgba = mj_model.geom_rgba[geom_idx]
+      # Blend when the geom/material is translucent or the texture itself has
+      # transparent pixels (e.g. cut-out decals stored in the alpha channel).
+      use_blending = rgba[-1] < 0.99 or geom_rgba[-1] < 0.99 or _has_alpha(image_albedo)
+      material = trimesh.visual.material.PBRMaterial(
+        baseColorFactor=rgba,
+        baseColorTexture=image_albedo,
+        metallicFactor=0.0,
+        roughnessFactor=1.0,
+        normalTexture=image_normalmap,
+        alphaMode="BLEND" if use_blending else "OPAQUE",
+      )
+      mesh.visual = trimesh.visual.TextureVisuals(uv=uvs, material=material)
+      return mesh
 
   # Path 2: no UVs, try cube map projection.
   if uvs is None and matid >= 0:
@@ -246,6 +292,12 @@ def create_primitive_mesh(mj_model: mujoco.MjModel, geom_id: int) -> trimesh.Tri
   if geom_type == mjtGeom.mjGEOM_HFIELD:
     return _create_heightfield_mesh(mj_model, geom_id)
 
+  # Box primitives with a cube map texture get per-face textured rendering.
+  if geom_type == mjtGeom.mjGEOM_BOX:
+    textured = _create_cubemap_box_mesh(mj_model, geom_id)
+    if textured is not None:
+      return textured
+
   if geom_type == mjtGeom.mjGEOM_PLANE:
     size = mj_model.geom_size[geom_id]
     plane_x = 2.0 * size[0] if size[0] > 0 else 20.0
@@ -255,6 +307,114 @@ def create_primitive_mesh(mj_model: mujoco.MjModel, geom_id: int) -> trimesh.Tri
     mesh = _create_shape_mesh(geom_type, mj_model.geom_size[geom_id])
 
   _apply_flat_color(mesh, _resolve_flat_rgba(mj_model, geom_id))
+  return mesh
+
+
+# Per cube face, the (image-right, image-up) directions in scene coordinates as
+# seen by a viewer looking at the face from outside the cube. Indexed by the
+# face order in _CUBEMAP_AXES. Matches MuJoCo's cube map convention.
+_CUBEMAP_FACE_BASIS: tuple[tuple[np.ndarray, np.ndarray], ...] = (
+  (np.array([0.0, -1.0, 0.0]), np.array([0.0, 0.0, 1.0])),  # +X
+  (np.array([0.0, 1.0, 0.0]), np.array([0.0, 0.0, 1.0])),  # -X
+  (np.array([1.0, 0.0, 0.0]), np.array([0.0, 0.0, -1.0])),  # +Y
+  (np.array([1.0, 0.0, 0.0]), np.array([0.0, 0.0, 1.0])),  # -Y
+  (np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])),  # +Z
+  (np.array([-1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])),  # -Z
+)
+
+
+def _extract_cubemap_atlas(mj_model: mujoco.MjModel, texid: int) -> Image.Image | None:
+  """Build a vertical-strip PIL atlas from a cube map texture.
+
+  Returns an image of size (w, 6*w) with face i pasted at rows
+  [i*w, (i+1)*w) in PIL top-down coordinates, or None if the texture isn't a
+  supported cube map.
+  """
+  if not _is_cubemap_texture(mj_model, texid):
+    return None
+  w = int(mj_model.tex_width[texid])
+  h = int(mj_model.tex_height[texid])
+  nc = int(mj_model.tex_nchannel[texid])
+  adr = int(mj_model.tex_adr[texid])
+  data = mj_model.tex_data[adr : adr + w * h * nc].reshape(6, w, w, nc)
+  mode = {1: "L", 3: "RGB", 4: "RGBA"}[nc]
+
+  atlas = Image.new(mode, (w, 6 * w))
+  for i in range(6):
+    # MuJoCo stores rows bottom-up; flip to PIL top-down so the face
+    # image appears right-side-up in the atlas.
+    arr = np.flipud(data[i]).astype(np.uint8)
+    if nc == 1:
+      arr = arr.reshape(w, w)
+    atlas.paste(Image.fromarray(arr, mode=mode), (0, i * w))
+  return atlas
+
+
+def _create_cubemap_box_mesh(
+  mj_model: mujoco.MjModel, geom_id: int
+) -> trimesh.Trimesh | None:
+  """Build a 6-quad textured box mesh from the geom's cube map material.
+
+  Returns None when the geom has no material, no cube map texture, or
+  the texture has an unsupported format. Each cube face gets its own
+  slice of a vertical-strip atlas so the per-face images render with
+  correct orientation.
+  """
+  matid = int(mj_model.geom_matid[geom_id])
+  if matid < 0 or matid >= mj_model.nmat:
+    return None
+  texid = _get_texture_id(mj_model, matid)
+  if texid < 0:
+    return None
+  atlas = _extract_cubemap_atlas(mj_model, texid)
+  if atlas is None:
+    return None
+
+  sx, sy, sz = mj_model.geom_size[geom_id]
+  centers = _CUBEMAP_AXES * np.array([sx, sx, sy, sy, sz, sz])[:, None]
+  half_extents = [(sy, sz), (sy, sz), (sx, sz), (sx, sz), (sx, sy), (sx, sy)]
+
+  verts = np.zeros((24, 3), dtype=np.float64)
+  uvs = np.zeros((24, 2), dtype=np.float64)
+  faces = np.zeros((12, 3), dtype=np.int64)
+  for fi in range(6):
+    c = centers[fi]
+    r, u = _CUBEMAP_FACE_BASIS[fi]
+    hr, hu = half_extents[fi]
+    # Corners in image-relative order: bottom-left, bottom-right, top-right,
+    # top-left.
+    base = fi * 4
+    verts[base + 0] = c - hr * r - hu * u
+    verts[base + 1] = c + hr * r - hu * u
+    verts[base + 2] = c + hr * r + hu * u
+    verts[base + 3] = c - hr * r + hu * u
+    # Atlas UVs (OpenGL convention: v=0 at bottom of atlas image).
+    v_top = 1.0 - fi / 6.0
+    v_bot = 1.0 - (fi + 1) / 6.0
+    uvs[base + 0] = (0.0, v_bot)
+    uvs[base + 1] = (1.0, v_bot)
+    uvs[base + 2] = (1.0, v_top)
+    uvs[base + 3] = (0.0, v_top)
+    # Pick triangle winding so the face normal points outward. The image
+    # basis (r, u) is chosen so the texture reads correctly when viewed
+    # from outside, which means r × u may point either way relative to
+    # the outward axis depending on the face.
+    if np.dot(np.cross(r, u), _CUBEMAP_AXES[fi]) >= 0:
+      faces[fi * 2 + 0] = (base + 0, base + 1, base + 2)
+      faces[fi * 2 + 1] = (base + 0, base + 2, base + 3)
+    else:
+      faces[fi * 2 + 0] = (base + 0, base + 2, base + 1)
+      faces[fi * 2 + 1] = (base + 0, base + 3, base + 2)
+
+  mesh = trimesh.Trimesh(vertices=verts, faces=faces, process=False)
+  rgba = mj_model.mat_rgba[matid]
+  material = trimesh.visual.material.PBRMaterial(
+    baseColorFactor=rgba,
+    baseColorTexture=atlas,
+    metallicFactor=0.0,
+    roughnessFactor=1.0,
+  )
+  mesh.visual = trimesh.visual.TextureVisuals(uv=uvs, material=material)
   return mesh
 
 
@@ -340,7 +500,11 @@ def get_geom_texture_id(mj_model: mujoco.MjModel, geom_idx: int) -> int:
   if geom_type == mjtGeom.mjGEOM_HFIELD:
     return texid
 
-  if geom_type != mjtGeom.mjGEOM_MESH:
+  # Box primitives use the cube map texture via per-face UV mapping.
+  if geom_type == mjtGeom.mjGEOM_BOX:
+    return texid if _is_cubemap_texture(mj_model, texid) else -1
+
+  if int(geom_type) not in (int(mjtGeom.mjGEOM_MESH), int(mjtGeom.mjGEOM_SDF)):
     return -1
 
   mesh_id = mj_model.geom_dataid[geom_idx]
@@ -418,7 +582,12 @@ def merge_geoms(mj_model: mujoco.MjModel, geom_ids: list[int]) -> trimesh.Trimes
   """Merge multiple geoms into a single trimesh in local body space."""
   meshes = []
   for geom_id in geom_ids:
-    if mj_model.geom_type[geom_id] == mjtGeom.mjGEOM_MESH:
+    # int() cast: geom_type is a numpy scalar, and `np_scalar in (enum, ...)`
+    # evaluates `enum == np_scalar`, which is False for pybind11 enums.
+    if int(mj_model.geom_type[geom_id]) in (
+      int(mjtGeom.mjGEOM_MESH),
+      int(mjtGeom.mjGEOM_SDF),
+    ):
       meshes.append(mujoco_mesh_to_trimesh(mj_model, geom_id))
     else:
       meshes.append(create_primitive_mesh(mj_model, geom_id))
@@ -477,7 +646,10 @@ def merge_geoms_hull(
   quats: list[np.ndarray] = []
 
   for geom_id in geom_ids:
-    if int(mj_model.geom_type[geom_id]) != int(mjtGeom.mjGEOM_MESH):
+    if int(mj_model.geom_type[geom_id]) not in (
+      int(mjtGeom.mjGEOM_MESH),
+      int(mjtGeom.mjGEOM_SDF),
+    ):
       continue
 
     mesh_id = int(mj_model.geom_dataid[geom_id])

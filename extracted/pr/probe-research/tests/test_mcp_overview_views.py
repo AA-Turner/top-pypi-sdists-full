@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
 from test_mcp_delivery import _bounded, _wire
 

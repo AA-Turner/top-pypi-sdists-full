@@ -449,8 +449,8 @@ class SubmissionUpload:
     if count > MAX_RUNTIME_CONTEXT_FILES:
       problems.append(
         f"{count:,} files exceeds the {MAX_RUNTIME_CONTEXT_FILES:,}-file limit. "
-        "Keep only this runtime's required files in its Dockerfile directory; "
-        "archive them if the context still has too many files"
+        "Keep only this runtime's required files in its Dockerfile directory. If it still has "
+        "too many, archive them, COPY the archive, and unpack it in a RUN step"
       )
     if size > MAX_FILE_SIZE_BYTES:
       problems.append(

@@ -22,13 +22,13 @@ import httpx
 import pytest
 
 from probe import cli
-from probe.mcp.server import create_server
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
-from probe.sdk.config import Settings
-from probe.sdk.nonfinite import to_float, to_wire
-from probe.sdk.reader import Reader
-from probe.sdk.transport import Transport
+from probe.mcp.server.server import create_server
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
+from probe.sdk.settings.settings import Settings
+from probe.sdk.reads.nonfinite import to_float, to_wire
+from probe.sdk.reads.reads import Reader
+from probe.sdk.delivery.transport.transport import Transport
 from tests.conftest import make_client, open_run
 
 _MARKERS = [None, "nan", "inf", "-inf"]

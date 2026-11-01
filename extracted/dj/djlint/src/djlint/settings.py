@@ -1195,6 +1195,7 @@ class Config:
         "format_js",
         "github_output",
         "gitignore",
+        "has_profile",
         "ignore",
         "ignore_blocks",
         "ignore_case",
@@ -1255,6 +1256,7 @@ class Config:
         "sarif",
         "single_attribute_per_line",
         "single_line_template_tags",
+        "skipped_rules",
         "sort_attributes",
         "sort_load_tags",
         "start_template_tags",
@@ -1343,10 +1345,15 @@ class Config:
         sarif: bool = False,
         stdin: bool | None = None,
         stdin_filename: str | None = None,
+        python_rules: bool = True,
     ) -> None:
-        self.project_root = find_project_root(
-            Path.cwd() if src == "-" else Path(src).resolve()
-        )
+        if src != "-":
+            start = Path(src).resolve()
+        elif stdin_filename is None:
+            start = Path.cwd()
+        else:
+            start = Path(stdin_filename).resolve().parent
+        self.project_root = find_project_root(start)
         djlint_settings = load_project_settings(
             self.project_root,
             configuration,
@@ -1531,10 +1538,12 @@ class Config:
         )
 
         self.files = djlint_settings.get("files", None)
-        self.stdin = (src == "-" if stdin is None else stdin) and not self.files
+        self.stdin = (src == "-" if stdin is None else stdin) and (
+            not self.files or stdin_filename is not None
+        )
         self.use_gitignore = (
             use_gitignore or bool(djlint_settings.get("use_gitignore", False))
-        ) and not self.stdin
+        ) and (not self.stdin or stdin_filename is not None)
         self.gitignore = (
             load_gitignore(self.project_root)
             if self.use_gitignore
@@ -1544,6 +1553,7 @@ class Config:
             djlint_settings.get("allow_empty_input", False)
         )
 
+        self.has_profile = bool(selected_profile)
         self.profile = selected_profile or "all"
         if self.profile not in _PROFILES:
             msg = (
@@ -1562,16 +1572,20 @@ class Config:
         )
         with (Path(__file__).parent / "rules.yaml").open("rb") as f:
             default_rules = yaml.safe_load(f)
-        rule_set = tuple(
-            validate_rules(
-                chain(
-                    default_rules,
-                    load_custom_rules(
-                        rules or find_djlint_rules(self.project_root)
-                    ),
-                )
-            )
+        custom_rules = load_custom_rules(
+            rules or find_djlint_rules(self.project_root)
         )
+        self.skipped_rules: tuple[str, ...] = ()
+        if not python_rules:
+            self.skipped_rules = tuple(
+                str(x["rule"].get("name", "undefined"))
+                for x in custom_rules
+                if "python_module" in x["rule"]
+            )
+            custom_rules = tuple(
+                x for x in custom_rules if "python_module" not in x["rule"]
+            )
+        rule_set = tuple(validate_rules(chain(default_rules, custom_rules)))
         ignored_codes = set(split_option_list(self.ignore))
         included_codes = set(split_option_list(self.include))
         if self.ignore_case:

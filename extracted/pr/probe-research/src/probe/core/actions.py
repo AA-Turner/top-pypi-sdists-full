@@ -160,7 +160,7 @@ def _update_trigger() -> str:
     `PROBE_AUTOUPDATE_TRIGGER`, else a session start."""
     import os
 
-    from probe._shared import autoupdate
+    from probe.shared.updates import autoupdate
 
     named = os.environ.get(autoupdate.TRIGGER_ENV, "")
     return named if named in {trigger.value for trigger in autoupdate.Trigger} else autoupdate.Trigger.SESSION_START.value

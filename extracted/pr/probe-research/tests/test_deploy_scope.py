@@ -5,7 +5,7 @@ change, so a change to `cli/` or `connectors/` — which the server never loads 
 costs nothing. That narrowing is only safe if the path list keeps matching the
 server's real import graph.
 
-The failure it prevents is silent and expensive: make `mcp/server.py` import a new
+The failure it prevents is silent and expensive: make `mcp/server/server.py` import a new
 module, forget to widen the filter, and every later change to that module deploys
 NOTHING. mcp.research.prbe.ai then serves stale code while main looks green — the
 exact drift this pipeline was built to end (the manifest used to pin a mutable
@@ -110,6 +110,21 @@ def _covered(file: str, globs: list[str]) -> bool:
         elif fnmatch.fnmatch(file, glob) or file == glob:
             return True
     return False
+
+
+def _deploy_paths() -> list[str]:
+    """The freshness guard's DEPLOY_PATHS: a newer main commit touching one supersedes a rollout."""
+    text = _WORKFLOW.read_text()
+    start = text.index('DEPLOY_PATHS="') + len('DEPLOY_PATHS="')
+    return text[start:text.index('"', start)].split()
+
+
+def test_the_superseding_paths_are_the_trigger_paths():
+    """A rollout skips itself when a newer commit touched DEPLOY_PATHS, trusting that commit's
+    own run to deploy. A path there but not in on.push.paths starts no run, so the MCP would stay
+    stale; a trigger path missing there costs a redundant rollout. Keep both lists one set."""
+    trigger = {path.removesuffix("/**") for path in _workflow_paths()}
+    assert set(_deploy_paths()) == trigger
 
 
 def test_workflow_declares_paths():

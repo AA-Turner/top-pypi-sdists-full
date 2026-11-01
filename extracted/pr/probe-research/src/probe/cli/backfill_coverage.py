@@ -23,9 +23,9 @@ import unicodedata
 from urllib.parse import urlsplit, urlunsplit
 import uuid
 
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 
-from ..sdk.durable import file_lock, now_iso, read_json, write_text_atomic
+from ..foundation.durable.durable import file_lock, now_iso, read_json, write_text_atomic
 from .backfill_ledger import default_dir, fingerprint
 
 SCHEMA = "probe.backfill.coverage/3"
@@ -119,7 +119,7 @@ def delivers_approved_bytes(intent: dict, receipt: dict) -> bool:
     (CLI 0.281.0 and before); its request was held to the same check, so it is
     accepted as the approved file redacted.
     """
-    from ..sdk.journal import DELIVERY_SCHEMA
+    from ..sdk.delivery.ops.ops import DELIVERY_SCHEMA
 
     if (receipt.get("content_hash") == intent["content_hash"]
             and receipt.get("size_bytes") == intent["size_bytes"]):
@@ -358,7 +358,7 @@ class Coverage:
                     raise CoverageError("Multiple sources claim this folder; select a source ID.")
                 source_id = matches[0] if matches else str(uuid.uuid4())
             if source_id not in registry:
-                from ..sdk.device_identity import device_instance_id
+                from ..sdk.settings.device_identity import device_instance_id
                 registry[source_id] = {"paths": [], "fingerprint": fingerprint(root),
                                        "import_device_id": device_instance_id(), "created_at": now_iso()}
             entry = registry[source_id]

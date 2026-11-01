@@ -38,7 +38,7 @@ def _env_fake_app():
 
     import httpx
 
-    from probe.sdk.nonfinite import to_wire
+    from probe.sdk.reads.nonfinite import to_wire
     from tests.conftest import FakeApp
 
     export = re.compile(r"^/v1/runs/([^/]+)/metrics/export$")

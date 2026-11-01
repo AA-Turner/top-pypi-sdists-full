@@ -2551,6 +2551,35 @@ def parse_report_file(
     return results
 
 
+_ASCII_UPPER_TO_LOWER = str.maketrans(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"
+)
+
+
+def _aggregate_report_dedup_key(report: AggregateReport) -> str:
+    """Return the ``seen_aggregate_report_ids`` cache key for ``report``.
+
+    RFC 9990 §3.5.1 defines a Report-ID as unique only "among reports to the
+    same domain", so the key is the reporter, the Report-ID, and the policy
+    domain. ASCII domain letters are compared without case per RFC 4343 §3,
+    without changing the domain in the report itself. A JSON array encodes
+    the three fields without the ambiguity of a delimiter that a field could
+    contain.
+
+    Every writer of the shared cache must build its key here -- the mbox and
+    mailbox classifier and the CLI's direct-file path -- or a report read
+    through one path is not recognized as a duplicate of the same report
+    read through another.
+    """
+    report_org = report["report_metadata"]["org_name"]
+    report_id = report["report_metadata"]["report_id"]
+    report_domain = report["policy_published"]["domain"]
+    # The existing XML parser returns None for an empty <domain/>.
+    if isinstance(report_domain, str):
+        report_domain = report_domain.translate(_ASCII_UPPER_TO_LOWER)
+    return json.dumps((report_org, report_id, report_domain))
+
+
 def _classify_parsed_email(
     parsed_email: ParsedReport,
     aggregate_reports: list[AggregateReport],
@@ -2564,12 +2593,15 @@ def _classify_parsed_email(
 
     Owns the seen-aggregate-report-ID dedup check against
     ``seen_aggregate_report_ids``: an aggregate report already seen (keyed
-    on ``{org_name}_{report_id}``) is logged and dropped instead of
-    appended. Shared, unmodified, by the sequential and parallel branches
-    of ``get_dmarc_reports_from_mbox`` and ``get_dmarc_reports_from_mailbox``
-    so both dedup identically -- callers pass the config's
-    ``seen_aggregate_report_ids`` cache so dedup state stays scoped to
-    whichever ``ParserConfig`` (explicit or module-default) is in effect.
+    on the reporter, the Report-ID, and the reported policy domain) is
+    logged and dropped instead of appended. Shared, unmodified, by the
+    sequential and parallel branches of ``get_dmarc_reports_from_mbox`` and
+    ``get_dmarc_reports_from_mailbox`` so both dedup identically -- callers
+    pass the config's ``seen_aggregate_report_ids`` cache so dedup state
+    stays scoped to whichever ``ParserConfig`` (explicit or module-default)
+    is in effect. The key comes from :func:`_aggregate_report_dedup_key`,
+    which the CLI's direct-file path also uses, so a report seen in a file
+    and again in an mbox in the same run is recognized as a duplicate.
 
     ``pending_aggregate_keys`` lets a caller *defer* the dedup-cache write:
     when a set is supplied, a newly seen key is staged in that set instead
@@ -2590,7 +2622,7 @@ def _classify_parsed_email(
     if parsed_email["report_type"] == "aggregate":
         report_org = parsed_email["report"]["report_metadata"]["org_name"]
         report_id = parsed_email["report"]["report_metadata"]["report_id"]
-        report_key = f"{report_org}_{report_id}"
+        report_key = _aggregate_report_dedup_key(parsed_email["report"])
         already_seen = report_key in seen_aggregate_report_ids or (
             pending_aggregate_keys is not None and report_key in pending_aggregate_keys
         )
@@ -2625,9 +2657,10 @@ def _fetch_mailbox_message(
     Returns ``(message_id, msg_content)``; ``message_id`` is the
     backend-appropriate id to use for later move/delete calls.
 
-    Some backends re-serialize the stored message while fetching it (the
-    Maildir backend calls ``Message.as_string()``), so the message's own
-    content can make the fetch fail: ``email.errors.HeaderWriteError`` on a
+    A backend that re-serializes the stored message while fetching it (the
+    Maildir backend of mailsuite before 2.3.3 called ``Message.as_string()``;
+    2.3.3 returns the stored bytes) can fail on the message's own content:
+    ``email.errors.HeaderWriteError`` on a
     control character in a header, ``RecursionError`` on deeply nested
     multiparts. Those content errors are returned, not raised, as
     ``msg_content`` -- a ``ParserError`` the caller treats like a parse
@@ -2675,14 +2708,14 @@ def _dispose_invalid_message(
     A delete or move the backend rejects is logged and the message is left
     in place, as the archival disposal of parsed reports does, rather than
     aborting the rest of the batch. Besides transient backend errors, this
-    covers messages the backend cannot rewrite: the Maildir backend moves a
-    message by storing it again with ``mailbox.Maildir.add()``, which
-    re-serializes it through ``email.generator.BytesGenerator``. That raises
-    ``RecursionError`` for deeply nested multiparts on every Python, and
+    covers messages the backend cannot rewrite: the Maildir backend of
+    mailsuite before 2.3.3 moved a message by storing it again with
+    ``mailbox.Maildir.add()``, which re-serializes it and raises
+    ``RecursionError`` for deeply nested multiparts (and
     ``email.errors.HeaderWriteError`` for a control character in a header
-    only where ``BytesGenerator`` also verifies generated headers (some
-    distribution builds; upstream CPython checks only the text generator
-    used by ``as_string()``) (GHSA-qxwv-2vwj-v828).
+    where ``BytesGenerator`` verifies headers), so such a message stayed in
+    the inbox. mailsuite 2.3.3 renames the file instead
+    (GHSA-qxwv-2vwj-v828, GHSA-9jx3-p8wm-g8vw).
     """
     try:
         if delete:
@@ -3854,6 +3887,7 @@ def email_results(
     subject: str | None = None,
     attachment_filename: str | None = None,
     message: str | None = None,
+    starttls: bool | None = None,
 ):
     """
     Emails parsing results as a zip file
@@ -3866,13 +3900,28 @@ def email_results(
         mail_cc (list): A list of addresses to CC
         mail_bcc (list): A list of addresses to BCC
         port (int): Port to use
-        require_encryption (bool): Require a secure connection from the start
+        require_encryption (bool): Connect with implicit SSL/TLS from the
+            start (usually port 465). When ``False``, the connection starts
+            in plain text and ``starttls`` decides whether it is upgraded.
         verify (bool): verify the SSL/TLS certificate
         username (str): An optional username
         password (str): An optional password
         subject (str): Overrides the default message subject
         attachment_filename (str): Override the default attachment filename
         message (str): Override the default plain text body
+        starttls (bool | None): Whether to upgrade a plain-text
+            (``require_encryption=False``) connection with STARTTLS.
+            ``None`` (the default) upgrades when the server advertises
+            STARTTLS; when it does not, ``mailsuite.smtp.SMTPError`` is
+            raised before authenticating if ``username`` and ``password``
+            are given, so credentials are never sent in plain text, and
+            without credentials the message is sent in plain text and a
+            warning is logged. ``True`` requires the upgrade and raises
+            ``mailsuite.smtp.SMTPError`` if the server does not advertise
+            STARTTLS. ``False`` never upgrades, even when the server
+            advertises STARTTLS, so any credentials and the message are
+            sent in plain text (a warning is logged when credentials are
+            sent). Ignored when ``require_encryption=True``.
     """
     logger.debug("Emailing report")
     assert isinstance(mail_to, list)
@@ -3898,6 +3947,7 @@ def email_results(
         subject=subject,
         attachments=attachments,
         plain_message=message,
+        starttls=starttls,
     )
 
 

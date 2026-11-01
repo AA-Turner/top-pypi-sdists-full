@@ -596,21 +596,29 @@ def _context(text: str) -> str:
 
 
 def test_several_routes_run_in_parallel_and_merge_in_order(tmp_path):
+    """Parallel is proved by a rendezvous, not a clock: each slow route waits
+    until the other has started, so run one after the other they never finish
+    (the hook timeout kills the first, and its context is missing below)."""
+    def rendezvous(mine: str, other: str, text: str) -> dict:
+        return _shell(
+            f"cat >/dev/null; touch {tmp_path}/{mine}; "
+            f"while [ ! -e {tmp_path}/{other} ]; do sleep 0.02; done; "
+            f'echo "{_context(text)}"',
+            timeout=20,
+        )
+
     routes = _routes(
         "UserPromptSubmit", "prompt",
-        _shell(f'cat >/dev/null; sleep 1; echo "{_context("one")}"'),
-        _shell(f'cat >/dev/null; sleep 1; echo "{_context("two")}"'),
+        rendezvous("one.up", "two.up", "one"),
+        rendezvous("two.up", "one.up", "two"),
         _shell('cat >/dev/null; echo "{\\"systemMessage\\": \\"hi\\"}"'),
     )
     root = _plugin(tmp_path, routes)
-    started = time.monotonic()
     result = _dispatch(root, "prompt", {"session_id": SID}, _env(tmp_path, root, False))
-    elapsed = time.monotonic() - started
     assert result.returncode == 0, result.stderr
     out = json.loads(result.stdout)
     assert out["hookSpecificOutput"]["additionalContext"] == "one\n\ntwo"
     assert out["systemMessage"] == "hi"
-    assert elapsed < 1.9, f"{elapsed:.2f}s: the two 1s routes did not run in parallel"
 
 
 def test_every_parallel_route_reads_the_whole_payload(tmp_path):

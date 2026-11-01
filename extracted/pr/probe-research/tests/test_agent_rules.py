@@ -352,8 +352,8 @@ def test_the_wizard_writes_under_the_syncs_file_lock(memory: Path, monkeypatch) 
     import contextlib
 
     from probe.cli import setup as wizard
-    from probe.cli import team_note_file
-    from probe.sdk import durable
+    from probe.shared.notes import team_note as team_note_file
+    from probe.foundation.durable import durable
 
     held: list = []
 
@@ -686,7 +686,7 @@ def test_runs_are_named_and_described_when_they_start() -> None:
     went untitled again (2026-10-15). The writer reads its render, so check that
     too.
     """
-    from probe import skill_versions
+    from probe.foundation.skills import skills as skill_versions
 
     root = _AGENT_TREE / "skills" / "track-work"
     for version in (skill_versions.MAIN_AGENT, skill_versions.WRITER):
@@ -711,7 +711,7 @@ def test_notes_hold_only_what_helps_the_next_agent() -> None:
     said "record what it states".
     """
     tree = _AGENT_TREE / "skills"
-    from probe import skill_versions
+    from probe.foundation.skills import skills as skill_versions
 
     # The text every reader gets: the main agent's render (edit-notes has versions).
     notes = " ".join(skill_versions.render(tree / "edit-notes", skill_versions.MAIN_AGENT).split())
@@ -838,7 +838,7 @@ def test_the_minimum_cli_is_not_ahead_of_the_shipped_one() -> None:
     """A floor above the released CLI would tell every machine to upgrade to a
     version that does not exist yet, which is worse than the silence it fixes."""
     import sys
-    from probe._compat import tomllib
+    from probe.foundation.compat.compat import tomllib
     from pathlib import Path
 
     sys.path.insert(0, "plugins/probe-research/hooks")
@@ -873,7 +873,7 @@ def test_team_note_brief_names_the_real_path(monkeypatch) -> None:
     sys.path.insert(0, "plugins/probe-research/hooks")
     import version_check
 
-    from probe.cli import team_note_file
+    from probe.shared.notes import team_note as team_note_file
 
     for env, _source in (
         ({}, None),  # nothing exported: the default branch both sides fall into
@@ -1100,7 +1100,7 @@ def test_the_document_path_fixture_is_what_the_cli_produces(monkeypatch, tmp_pat
     import os
     from pathlib import Path
 
-    from probe.cli import team_note_file
+    from probe.shared.notes import team_note as team_note_file
 
     cases = json.loads(Path("tests/fixtures/team-note-document-path.json").read_text())["cases"]
     assert cases, "an empty fixture pins nothing"

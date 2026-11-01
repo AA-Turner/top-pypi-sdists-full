@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import adapters
-from probe.daemon.adapters.base import MODE_BYPASS, MODE_DEFAULT, Capabilities
-from probe.daemon.events import Kind
+from probe.shared.harness import lookup as adapters
+from probe.shared.harness.session_log import MODE_BYPASS, MODE_DEFAULT, Capabilities
+from probe.shared.harness.events import Kind
 
 FIXTURES = Path(__file__).parent / "fixtures" / "daemon_adapters"
 HARNESSES = adapters.known()

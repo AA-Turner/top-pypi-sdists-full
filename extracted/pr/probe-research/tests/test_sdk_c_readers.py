@@ -1,7 +1,7 @@
 """Readers that open files from C, told to the read recorder (lineage plan 3, F4).
 
 Python's ``open`` audit event never fires for a library that opens its files
-from C or Rust. `probe.sdk._readers` wraps the Python entry points of the ones
+from C or Rust. `probe.sdk.capture.lineage.c_readers` wraps the Python entry points of the ones
 that matter -- pyarrow.parquet, pyarrow.memory_map, h5py, safetensors -- and
 ``torch.save`` and safetensors' ``save_file`` (writes), lazily, and hands each path to the recorder. These
 tests pin that each wrapped reader records the files it OPENED (a dataset's
@@ -29,7 +29,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.sdk import _readers, fluent, inputs
+from probe.sdk.capture.lineage import c_readers as _readers
+from probe.sdk import fluent
+from probe.sdk.capture import lineage as inputs
 
 
 def _lib(name: str):

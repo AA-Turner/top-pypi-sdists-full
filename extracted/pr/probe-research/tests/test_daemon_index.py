@@ -15,10 +15,10 @@ pytest.importorskip("pydantic_ai_harness")
 from pydantic_ai.messages import ModelResponse, TextPart  # noqa: E402
 from pydantic_ai.models.function import FunctionModel  # noqa: E402
 
-from probe.daemon import bite as bite_mod  # noqa: E402
-from probe.daemon import index as index_mod  # noqa: E402
-from probe.daemon import model as model_mod  # noqa: E402
-from probe.daemon.events import READER_SOURCE, REQUEST_SOURCE, Event, Kind  # noqa: E402
+from probe.daemon.worker.bite import bite as bite_mod  # noqa: E402
+from probe.daemon.lanes import index as index_mod  # noqa: E402
+from probe.daemon.agent.model import model as model_mod  # noqa: E402
+from probe.shared.harness.events import READER_SOURCE, REQUEST_SOURCE, Event, Kind  # noqa: E402
 from tests.test_daemon_conversation import (  # noqa: E402,F401 -- `_isolated` is an autouse fixture
     RUN,
     Replay,

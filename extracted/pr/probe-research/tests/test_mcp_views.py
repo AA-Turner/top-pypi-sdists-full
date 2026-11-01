@@ -17,9 +17,10 @@ import uuid
 
 import pytest
 
-from probe.mcp import service as service_module
-from probe.mcp.service import _VIEWS, ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.mcp import tools as service_module
+from probe.mcp.tools.view import _VIEWS
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
 from tests.conftest import make_client
 from tests.mcp_catalog_fake import McpCatalogApp, seed_catalog
@@ -745,7 +746,9 @@ def test_at_the_backend_ceiling_a_view_never_claims_complete(
     Both _bounded consumers are parametrized here so a third one cannot be added
     without this test demanding its marker."""
     monkeypatch.setattr(service_module, ceiling_const, 10)
-    monkeypatch.setattr(service_module, "_PAGE_FETCH", 10)
+    monkeypatch.setattr(service_module.views.files, "_PAGE_FETCH", 10)
+    monkeypatch.setattr(service_module.entity, "_PAGE_FETCH", 10)
+    monkeypatch.setattr(service_module.views.runs, "_PAGE_FETCH", 10)
     rid, _, _, _ = _populated(client, app, spans=12)
     app.metric_points[rid] = [
         {
@@ -933,7 +936,7 @@ def test_card_advertises_exactly_the_views_that_kind_supports(client, app):
     would reject -- and both the get_entity description and the track-work
     skill promise this, so it has to be true.
     """
-    from probe.mcp.service import _supported_views
+    from probe.mcp.tools.view import _supported_views
 
     rid, experiment_id, group_id, _ = _populated(client, app)
     service = _service(client)
@@ -1673,7 +1676,7 @@ def test_the_links_option_names_the_lists_this_view_has(client, app):
 def test_a_link_to_the_readers_own_session_work_is_hidden_and_not_counted(client, app, monkeypatch):
     """The daemon reader (`X-Probe-Hide-Session-Work`) never sees what its own
     session made: a link whose far end is that work leaves the list AND its total."""
-    from probe.mcp import accounting
+    from probe.mcp.delivery import accounting
 
     service, experiment_id = _swarm_service(client, app, monkeypatch, users=3)
     mine = str(uuid.UUID(int=1_001))  # intervention 1
@@ -1748,7 +1751,7 @@ def test_a_full_pick_history_says_older_events_are_out_of_reach(client, app):
 
 def _hide(monkeypatch, *, projects=(), runs=(), calls: list | None = None):
     """Turn on `X-Probe-Hide-Session-Work` with this created set."""
-    from probe.mcp import accounting
+    from probe.mcp.delivery import accounting
 
     monkeypatch.setattr(accounting, "session_work_to_hide", lambda: "11111111-2222-3333-4444-555555555555")
 

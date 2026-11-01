@@ -8,7 +8,7 @@ import pytest
 from probe.cli import backfill as bf, backfill_import as imp, backfill_run as runner
 from probe.cli import import_jobs as jobs, tui
 from probe.cli.backfill_coverage import CoverageError
-from probe.sdk import journal
+from probe.sdk.delivery import journal
 from tests.backfill_plan_agent import patch_own_sleep
 from tests.test_backfill_scoped_orchestration import make_harness
 from tests import test_import_jobs

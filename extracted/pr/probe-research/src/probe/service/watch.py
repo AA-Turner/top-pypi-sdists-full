@@ -51,7 +51,7 @@
                      a once-ever one (a rejected version, a tap that would not
                      load, a failing update streak) is then never noted again
 
-Consent is `probe._shared.report_policy`'s rule: a session family asks that
+Consent is `probe.analytics.report_policy`'s rule: a session family asks that
 session -- the environment its recorder or worker runs with, else what its
 registrant said (`session.register`'s `report_env`, a bool the registrant
 computed, taken as said), else no; a machine family asks every session whose
@@ -152,7 +152,7 @@ LEASE_GRACE_S = 60.0
 #: Lease reasons that are failures (`tap/companion_lease.py`); `stopped`,
 #: `budget` and `handover` are on purpose, `disk_full` is the machine's. A
 #: `gateway` release the worker marked `offline` (no network at all,
-#: `probe._shared.offline`) is the laptop's, not a failure.
+#: `probe.foundation.tls.network_down`) is the laptop's, not a failure.
 LEASE_FAILURES = frozenset({"error", "gateway", "unauthorized"})
 #: A hosted recorder's beat (`tap.hosted.Controls.beat`, every pass and every
 #: second between) this old while its agent runs: `stalled`.
@@ -353,7 +353,7 @@ def config_base_url() -> str | None:
     """The CLI config's backend (its active context), or None. Blocking (a file
     read, and `probe.sdk`'s telemetry core: ~70 ms the first time): a thread."""
     try:
-        from probe.sdk._telemetry_core import read_cli_config
+        from probe.analytics.core import read_cli_config
 
         value = read_cli_config().get("base_url")
     except Exception:  # noqa: BLE001 -- no config: the hosted default
@@ -365,7 +365,7 @@ def env_allows(env: Mapping | None, base_url: str | None) -> bool:
     """`report_policy.allowed` for `env`'s consent variables; False when it
     cannot be asked (fail closed). Blocking the first time (its lazy import)."""
     try:
-        from probe._shared import report_policy
+        from probe.analytics import report_policy
 
         return report_policy.allowed(consent_env(env or {}), base_url)
     except Exception:  # noqa: BLE001
@@ -678,7 +678,8 @@ def outbox_condition(now: float, root: Path | None = None) -> tuple[str, dict] |
     A paused outbox is someone's switch. Counts only, never a fingerprint.
     Blocking (status files and one listing, never the op files): a thread."""
     try:
-        from probe.sdk.journal import Journal, default_root
+        from probe.sdk.delivery.journal.journal import Journal
+        from probe.sdk.delivery.journal.paths import default_root
 
         status = Journal.read_status(default_root() if root is None else root)
     except Exception:  # noqa: BLE001 -- no outbox, or one this release cannot read: nothing to say
@@ -719,7 +720,7 @@ def _ask_me(base_url: str, token: str, timeout: float) -> str:
             return None
 
     try:
-        from probe.sdk.tls import ssl_context
+        from probe.foundation.tls.tls import ssl_context
 
         context = ssl_context()
     except Exception:  # noqa: BLE001 -- urllib's default trust
@@ -751,13 +752,13 @@ def _ask_capture(base_url: str, token: str, timeout: float) -> str:
             return None
 
     try:
-        from probe.sdk.tls import ssl_context
+        from probe.foundation.tls.tls import ssl_context
 
         context = ssl_context()
     except Exception:  # noqa: BLE001 -- urllib's default trust
         context = None
     try:
-        from probe.harness.registry import get_registry
+        from probe.foundation.harness_registry.harness_registry import get_registry
 
         # Any agent's source id: the door judges a capture key the same for each.
         source = get_registry().captured()[0].id
@@ -809,7 +810,7 @@ def configured_key_ids() -> dict[str, str]:
     context holds (CREDENTIAL_KEYS), the backend's as `credential_verdicts`
     names them; {} without a config. Blocking: a thread."""
     try:
-        from probe.sdk._telemetry_core import DEFAULT_BASE, read_cli_config
+        from probe.analytics.core import DEFAULT_BASE, read_cli_config
 
         config = read_cli_config()
         base_url = str(config.get("base_url") or DEFAULT_BASE).rstrip("/")
@@ -834,7 +835,7 @@ def credential_verdicts(
     `PROBE_BASE_URL`: `alertpoll.endpoint`'s rule), and only over HTTPS
     (`_may_carry_keys`). Blocking: a thread."""
     try:
-        from probe.sdk._telemetry_core import DEFAULT_BASE, read_cli_config
+        from probe.analytics.core import DEFAULT_BASE, read_cli_config
 
         config = read_cli_config()
         base_url = str(config.get("base_url") or DEFAULT_BASE).rstrip("/")

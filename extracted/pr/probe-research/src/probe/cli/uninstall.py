@@ -14,7 +14,7 @@ finished by running it again (C8):
                   before anything is touched, unless --offline
     planned       install lock taken (held to the very end, through the
                   finisher), plan and barrier written: from here nothing of
-                  Probe's starts (`probe._shared.uninstall_barrier`)
+                  Probe's starts (`probe.shared.updates.uninstall_barrier`)
     stopping      the keeper's units and the lifeboat FIRST (a deployed v2
                   lifeboat must not fire), then every Probe process
                   (`uninstall_procs`), verified gone
@@ -64,7 +64,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 
 EXIT_DONE = 0
 EXIT_PARTIAL = 1
@@ -201,7 +201,7 @@ def _lines(lines: list[str]) -> None:
         _say(f"  {line}" if not line.startswith("  ") else line)
 
 
-# -- the barrier (the WRITER; `probe._shared.uninstall_barrier` is the one reader) ----------
+# -- the barrier (the WRITER; `probe.shared.updates.uninstall_barrier` is the one reader) ----------
 
 
 def _write_barrier(run: Run, phase: str) -> None:
@@ -258,7 +258,7 @@ def _hostname() -> str:
 
 def _is_self(record: dict) -> bool:
     """Did THIS process write `record` (this machine, this pid)?"""
-    from probe._shared import uninstall_barrier as reader
+    from probe.shared.updates import uninstall_barrier as reader
 
     return record.get("pid") == os.getpid() and not reader._other_machine(record)  # noqa: SLF001
 
@@ -266,7 +266,7 @@ def _is_self(record: dict) -> bool:
 def _owner_runs(record: dict) -> bool:
     """Does the process that wrote this barrier still run (pid and start)? One
     on another machine sharing this home does, as far as this one can tell."""
-    from probe._shared import uninstall_barrier as reader
+    from probe.shared.updates import uninstall_barrier as reader
     from probe.service import procid
 
     if reader._other_machine(record):  # noqa: SLF001 -- the reader's one rule for a shared home
@@ -364,7 +364,7 @@ def _server_ids(run: Run) -> dict | None:
 
 
 def _take_lock(run: Run) -> None:
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
     from probe.cli import uninstall_plan
 
     root = uninstall_plan.primary_versions_root()
@@ -440,7 +440,7 @@ def _set_killswitches(lines: list[str]) -> None:
 def _finish_recorders(lines: list[str]) -> None:
     """Ask the service to finish what it records (its last pass ships the
     transcripts it holds) before it is stopped."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
     from probe.service import client
 
     if client.connect(0.5) is None:
@@ -519,7 +519,7 @@ class Unsent:
 
 
 def _journal_dirs() -> list[Path]:
-    from probe.sdk.journal import Journal
+    from probe.sdk.delivery.journal.journal import Journal
 
     try:
         return list(Journal.discover())
@@ -530,9 +530,9 @@ def _journal_dirs() -> list[Path]:
 def drain(deadline: float, lines: list[str]) -> None:
     """Send every outbox (the default root, its `rank-*` queues, the $TMPDIR
     fallback; each per-credential queue), within `deadline`."""
-    from probe.sdk.journal import Journal
-    from probe.sdk.journal import drain as drain_journal
-    from probe.sdk.transport import deadline_scope
+    from probe.sdk.delivery.journal.journal import Journal
+    from probe.sdk.delivery.outbox.drain.drain import drain as drain_journal
+    from probe.sdk.delivery.transport.deadlines import deadline_scope
 
     delivered = 0
     for directory in _journal_dirs():
@@ -565,7 +565,7 @@ def _deleted_here(path: Path) -> bool:
     """Is `path` in what the uninstall deletes: Probe's state folders, or a
     `$TMPDIR` fallback outbox? (An outbox PROBE_OUTBOX_DIR names elsewhere is kept.)"""
     from probe.cli import uninstall_plan
-    from probe.sdk.journal import _fallback_roots
+    from probe.sdk.delivery.journal.paths import _fallback_roots
 
     path = Path(path)
     roots = [*uninstall_plan.state_roots(), *_fallback_roots()]
@@ -576,8 +576,9 @@ def count_unsent() -> Unsent:
     """What is still on this computer, never reached the server, and would be
     deleted (`kept`: what an outbox outside Probe's folders keeps)."""
     from probe.cli import uninstall_agents
-    from probe.sdk import offline
-    from probe.sdk.journal import Journal, _fallback_roots, default_root
+    from probe.sdk.delivery import offline
+    from probe.sdk.delivery.journal.journal import Journal
+    from probe.sdk.delivery.journal.paths import _fallback_roots, default_root
 
     found = Unsent()
     for directory in _journal_dirs():
@@ -799,9 +800,9 @@ class Released(StrEnum):
 
 
 def _client(base_url: str, token: str):
-    from probe.sdk.client import Client
-    from probe.sdk.config import Settings
-    from probe.sdk.surface import Surface
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import Settings
+    from probe.foundation.request_identity.surface import Surface
 
     return Client(settings=Settings(base_url=base_url, token=token), async_writes=False, surface=Surface.CLI.value)
 
@@ -906,7 +907,7 @@ def _capture_tokens(run: Run) -> list[tuple[str, str, str]]:
 
 
 def _dashboard_hint(base_url: str | None = None) -> str:
-    from probe.sdk.links import dashboard_base_url
+    from probe.sdk.reads.links import dashboard_base_url
 
     try:
         base = dashboard_base_url(base_url)
@@ -1012,7 +1013,7 @@ def _phase_server(run: Run) -> list[str]:
 def _phase_integrations(run: Run) -> list[str]:
     from probe.cli import uninstall_agents
     from probe.core import events
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     lines = run.out
     _set_killswitches(lines)  # past the point of no return: no session starts an uploader of its own
@@ -1084,7 +1085,7 @@ def standard_folders() -> set:
         if os.environ.get(name):
             found.add(Path(os.environ[name]))
     with contextlib.suppress(Exception):
-        from probe.harness import get_registry
+        from probe.foundation.harness_registry import get_registry
 
         found.update(h.home_dir() for h in get_registry().all() if h.home_dir() is not None)
     return found
@@ -1111,7 +1112,7 @@ def prune_empty_parents(path: Path, stop: Path | None = None) -> None:
 def _clear_config(lines: list[str]) -> None:
     """Every saved account goes; the file too when it holds nothing else of
     the researcher's (and is not a dotfile manager's symlink)."""
-    from probe.sdk import config as config_mod
+    from probe.sdk.settings import settings as config_mod
 
     path = config_mod.config_path()
     try:
@@ -1172,7 +1173,7 @@ def _phase_state(run: Run) -> list[str]:
     by_path = {p["path"]: p for p in planned}
     for item in fresh["paths"]:
         by_path.setdefault(item["path"], item)
-    from probe._shared import finisher
+    from probe.shared.updates import finisher
 
     left = []
     for item in finisher.ordered(list(by_path.values())):
@@ -1193,7 +1194,7 @@ def _phase_state(run: Run) -> list[str]:
                      "with what installed it (`pipx uninstall probe-research`, or `pip uninstall probe-research`).")
     for path in left:
         lines.append(f"! could not remove {path}")
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     try:
         signed_in = bool((load_context() or {}).get("token"))
@@ -1223,7 +1224,7 @@ def _telemetry_start(run: Run) -> None:
         from probe.cli import telemetry as telemetry_mod
         from probe.cli import uninstall_plan
         from probe.cli.capabilities import TAP_PLUGIN_NAME
-        from probe.sdk.config import resolve
+        from probe.sdk.settings.settings import resolve
 
         run.telemetry = telemetry_mod.TelemetryContext.start(
             via=telemetry_mod.Via.WIZARD, interactive=run.options.interactive, base_url=resolve().base_url)
@@ -1270,7 +1271,7 @@ def _telemetry_done(run: Run) -> None:
     if run.telemetry is None:
         return
     try:
-        from probe._shared import telemetry as shared
+        from probe import analytics as shared
         from probe.cli import telemetry as telemetry_mod
 
         run.telemetry.emit(telemetry_mod.EVENT_WIZARD_UNINSTALL_COMPLETED,
@@ -1332,7 +1333,7 @@ def base_python(plan: dict) -> str | None:
 def _phase_finishing(run: Run) -> int:
     """Become the finisher. Returns only when that could not happen (then it
     runs in this process instead, and its exit status is returned)."""
-    from probe._shared import finisher, handoff
+    from probe.shared.updates import finisher, handoff
     from probe.core import events
     from probe.service import paths
 
@@ -1378,7 +1379,7 @@ def _finish_here(run: Run) -> int:
     """The finisher in THIS process, for an installer that goes on after it:
     every planned path but the env this process runs from (the installer's
     own `prune` takes it once nothing runs from it)."""
-    from probe._shared import finisher, handoff
+    from probe.shared.updates import finisher, handoff
     from probe.cli import uninstall_plan
     from probe.service import paths
 
@@ -1413,7 +1414,7 @@ def halfway_notice() -> str | None:
     gone): nothing of Probe starts or updates until it is finished. None
     otherwise (no barrier, or an uninstall running right now). Never raises."""
     try:
-        from probe._shared import uninstall_barrier as reader
+        from probe.shared.updates import uninstall_barrier as reader
 
         record = reader.read()
         if reader.state(record) != reader.State.LIVE or reader._owner_runs(record or {}):  # noqa: SLF001
@@ -1446,7 +1447,7 @@ def finish_interrupted() -> tuple[Interrupted, str]:
     reinstalling wants Probe back. One line says so. An uninstall running right
     now (its owner alive) is never touched: RUNNING, with the reader's refusal.
     Returns (what, the line to print when the installer refuses)."""
-    from probe._shared import uninstall_barrier as reader
+    from probe.shared.updates import uninstall_barrier as reader
 
     record = reader.read()
     if reader.state(record) != reader.State.LIVE:
@@ -1494,7 +1495,7 @@ _PHASE_STEPS = {
 def _resume_point(run: Run) -> Phase | None:
     """Where an earlier run stopped, when it must be finished; None to start
     afresh (none, or a stale one before the point of no return, cleared)."""
-    from probe._shared import uninstall_barrier as reader
+    from probe.shared.updates import uninstall_barrier as reader
     from probe.cli import uninstall_plan
 
     record = reader.read()
@@ -1615,13 +1616,13 @@ def run(options: Options) -> int:
                 return _interrupted(state, exc)
     finally:
         if state.lock_fd is not None:
-            from probe._shared import handoff
+            from probe.shared.updates import handoff
 
             handoff.release_lock(state.lock_fd)
 
 
 def _stopped(state: Run, stop: Stop) -> int:
-    from probe._shared import uninstall_barrier as reader
+    from probe.shared.updates import uninstall_barrier as reader
     from probe.core import events
 
     message = stop.message
@@ -1660,7 +1661,7 @@ def _interrupted(state: Run, exc: BaseException) -> int:
     """Ctrl-C, SIGTERM or SIGHUP: before "server" called off, as if it never
     began; after it, the barrier stays for `probe uninstall` to finish. Only
     this run's own barrier is called off; a resumed run's never is."""
-    from probe._shared import uninstall_barrier as reader
+    from probe.shared.updates import uninstall_barrier as reader
 
     record = reader.read()
     if state.resumed:
@@ -1695,7 +1696,7 @@ def _clear_stale_locked(run: Run) -> None:
     barrier): a STALE barrier left by an earlier run is cleared, and one that
     turned LIVE while this run was asking (another uninstall began, or one
     died past the point of no return) stops this one."""
-    from probe._shared import uninstall_barrier as reader
+    from probe.shared.updates import uninstall_barrier as reader
 
     said = reader.clear_stale()
     if said:

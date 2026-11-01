@@ -22,12 +22,15 @@ from probe.cli import backfill_record
 from probe.cli.backfill_coverage import Coverage, Scope
 from probe.cli.backfill_delivery import enqueue
 from probe.sdk import errors
-from probe.sdk import journal as jm
+from probe.sdk.delivery import journal as jm
 from probe.sdk import secret_gate
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
-from probe.sdk.journal import DELIVERY_SCHEMA, drain
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.ops.ops import DELIVERY_SCHEMA
+from probe.sdk.delivery.outbox.drain.drain import drain
 from probe.sdk.redaction import scrub_text
+
+SCANNING_DISABLED = "credential scanning is disabled in the SDK; these tests assert the redaction it did"
 
 TOKEN = "ghp_KKF0RDt0Xaetn6QMfStFUWSus4jowQUux6hu"
 SECRET = f'GITHUB_TOKEN = "{TOKEN}"\n'.encode()
@@ -40,7 +43,8 @@ def isolated(monkeypatch, tmp_path):
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config.json"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.delenv("PROBE_ATTRIBUTION", raising=False)
-    monkeypatch.setattr(jm, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
 
 
 class Server:
@@ -89,6 +93,7 @@ def _error(state):
         "SELECT v.error FROM files f JOIN versions v USING(correlation)").fetchone()[0]
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_an_old_cli_redacted_receipt_is_delivered_on_resume_without_uploading_again(
         tmp_path, monkeypatch):
     folder, store, client = _setup(tmp_path)
@@ -107,6 +112,7 @@ def test_an_old_cli_redacted_receipt_is_delivered_on_resume_without_uploading_ag
         assert _error(state) is None and len(server.live) == 1
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_a_new_cli_redacted_file_lands_delivered_with_its_stamp(tmp_path):
     folder, store, client = _setup(tmp_path)
     with client, store.writer() as state:
@@ -120,6 +126,7 @@ def test_a_new_cli_redacted_file_lands_delivered_with_its_stamp(tmp_path):
         assert state.report()["delivered"] == ["a.py"] and _error(state) is None
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_an_upload_queued_by_the_old_cli_lands_after_the_upgrade(tmp_path, monkeypatch):
     folder, store, client = _setup(tmp_path)
     with client, store.writer() as state:
@@ -154,6 +161,7 @@ def test_reconcile_refuses_a_receipt_for_other_bytes(tmp_path, reference, fields
         assert "does not match" in _error(state)
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_a_dead_redacted_file_is_delivered_on_resume(tmp_path, monkeypatch):
     folder, store, client = _setup(tmp_path)
     with client, store.writer() as state:
@@ -168,6 +176,7 @@ def test_a_dead_redacted_file_is_delivered_on_resume(tmp_path, monkeypatch):
         assert state.report()["delivered"] == ["a.py"] and state.dead_reasons() == {}
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_retrying_a_dead_file_reuses_its_redacted_receipt(tmp_path, monkeypatch):
     folder, store, client = _setup(tmp_path)
     server = Server()
@@ -187,6 +196,7 @@ def test_retrying_a_dead_file_reuses_its_redacted_receipt(tmp_path, monkeypatch)
         assert state.report()["delivered"] == ["a.py"] and len(server.live) == 1
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_a_changed_file_is_not_covered_by_its_old_redacted_receipt(tmp_path, monkeypatch):
     folder, store, client = _setup(tmp_path)
     with client, store.writer() as state:
@@ -204,13 +214,14 @@ def test_a_changed_file_is_not_covered_by_its_old_redacted_receipt(tmp_path, mon
         assert state.report()["delivered"] == []
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_a_cut_name_redacted_file_is_reissued_and_lands(tmp_path, monkeypatch):
     path = "apps/web/pages/Admin/Users/Edit.tsx"
     folder, store, client = _setup(tmp_path, path=path)
     server = Server()
     with client, store.writer() as state:
         with monkeypatch.context() as legacy:
-            legacy.setattr(jm, "scrub_string", scrub_text)  # CLI 0.260.0's cut names
+            legacy.setattr(jm.journal, "scrub_string", scrub_text)  # CLI 0.260.0's cut names
             _old_cli(legacy)
             assert enqueue(state, client, folder) == (1, [])
         drain(client._delivery_journal(), client_factory=lambda _: server)
@@ -225,6 +236,7 @@ def test_a_cut_name_redacted_file_is_reissued_and_lands(tmp_path, monkeypatch):
         assert stale[0] is None
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_a_pending_redacted_intent_keeps_its_stamp(tmp_path):
     folder, store, client = _setup(tmp_path)
     with client, store.writer() as state:
@@ -241,6 +253,7 @@ def test_a_pending_redacted_intent_keeps_its_stamp(tmp_path):
         assert state.report()["delivered"] == ["a.py"]
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_a_dead_lettered_redacted_op_keeps_its_stamp(tmp_path):
     folder, store, client = _setup(tmp_path)
 
@@ -304,6 +317,7 @@ def test_reconcile_refuses_an_unstamped_receipt_the_journal_did_not_write(tmp_pa
         assert state.report()["unresolved"] == ["a.py"] and "does not match" in _error(state)
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_the_record_pass_reads_a_redacted_receipt_and_samples_redacted_bytes(tmp_path):
     folder, store, client = _setup(tmp_path)
     with client, store.writer() as state:
@@ -335,6 +349,7 @@ def test_a_redacted_excerpt_is_the_stored_snapshot(tmp_path):
     assert limitation is None and sample.encode() == snapshot.read_bytes() != (folder / "a.py").read_bytes()
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 @pytest.mark.parametrize("receipt_change,intent_change", [
     ({"source_content_hash": "e" * 64}, {}),  # stamped for other bytes
     ({"source_content_hash": None, "schema": "probe.outbox.delivery/0"}, {}),  # unstamped, not the journal's

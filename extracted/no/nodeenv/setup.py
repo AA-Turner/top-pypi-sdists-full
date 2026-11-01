@@ -37,10 +37,8 @@ setup(
     author='Eugene Kalinin',
     author_email='e.v.kalinin@gmail.com',
     install_requires=[],
-    extras_require={'certifi': ['certifi']},
-    python_requires=(
-        ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*"
-    ),
+    extras_require={'certifi': ['certifi'], 'completion': ['shtab>=1.11']},
+    python_requires='>=3.10',
     description="Node.js virtual environment builder",
     long_description=ldesc,
     py_modules=['nodeenv'],
@@ -54,16 +52,13 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Programming Language :: Python :: Implementation :: CPython',
-        'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Software Development :: Libraries :: Python Modules'
     ],
-    options={'bdist_wheel': {'universal': True}},
 )

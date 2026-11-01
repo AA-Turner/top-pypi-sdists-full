@@ -2,7 +2,7 @@
 
 One implementation for every surface that changes it: the CLI command, the Probe
 service's `workspace_limit` action (`probe.core.actions`) and so the desktop app's
-Settings row. What the limit is and how it travels: `probe.sdk.workspace_limit`.
+Settings row. What the limit is and how it travels: `probe.sdk.settings.workspace_limit`.
 
     probe workspace limit <id|slug|name> [--team-items show|hide] [--yes] [--json]
     probe workspace limit --team [--json]
@@ -28,8 +28,8 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from probe._compat import StrEnum
-from probe.sdk import workspace_limit as wl
+from probe.foundation.compat.compat import StrEnum
+from probe.sdk.settings import workspace_limit as wl
 
 
 class Code(StrEnum):
@@ -70,7 +70,7 @@ class Outcome:
 def effective(environ: Mapping[str, str] | None = None) -> wl.WorkspaceLimit | None:
     """The limit this computer's processes run under: the active context's, unless
     `PROBE_WORKSPACE_LIMIT` overrides it. Local only, no network."""
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     return wl.resolve_limit(load_context(), os.environ if environ is None else environ)
 
@@ -78,7 +78,7 @@ def effective(environ: Mapping[str, str] | None = None) -> wl.WorkspaceLimit | N
 def stored_limit(context: str | None = None) -> wl.WorkspaceLimit | None:
     """The limit the active context's file stores (environment ignored): what the pin
     commands must not move out from under."""
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     return wl.stored(load_context(context))
 
@@ -114,7 +114,7 @@ def keep_limit_keys(new_anchor: dict | None) -> dict | None:
     """`new_anchor` (a pin about to be saved) with the stored limit carried over, when
     it still names the limited workspace. `probe workspace use W` and `probe project
     use` rebuild the whole object; this keeps them from dropping the limit."""
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     anchor = load_context().get("workspace")
     if not isinstance(new_anchor, dict) or not isinstance(anchor, dict) or anchor.get(wl.LIMIT_KEY) is not True:
@@ -166,7 +166,7 @@ def list_workspaces(client) -> list:
 
 
 def _save_anchor(anchor: dict | None) -> None:
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     save_context({"workspace": anchor or None})
 
@@ -190,7 +190,7 @@ def _after_change(limit: wl.WorkspaceLimit | None) -> list[str]:
     lines = resync_copies()
     if limit is not None and limit.hides_team_items:
         try:
-            from probe.cli import team_note_file
+            from probe.shared.notes import team_note as team_note_file
 
             removed = team_note_file.remove_blocks()
             if removed:
@@ -236,7 +236,7 @@ def apply(
     """Show (nothing passed), set (`ref`), change team items only (`team_items`
     alone, while limited) or clear (`team`). Raises LimitRefused; saves nothing then."""
     from probe.sdk import errors
-    from probe.sdk.config import ConfigUnreadable, load_context, load_file
+    from probe.sdk.settings.settings import ConfigUnreadable, load_context, load_file
 
     items = None
     if team_items is not None:
@@ -290,7 +290,7 @@ def apply(
         now = effective()
         return Outcome(limit=now, lines=[*describe(now), *_after_change(now), *_env_note(now)], changed=True)
 
-    from probe.sdk.config import resolve
+    from probe.sdk.settings.settings import resolve
 
     settings = resolve()
     if not settings.token:

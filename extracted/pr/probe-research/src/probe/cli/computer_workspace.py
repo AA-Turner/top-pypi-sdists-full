@@ -48,7 +48,7 @@ def _legacy(rows: Sequence[dict]) -> dict | None:
 def _saved_pin() -> str | None:
     """This context's saved workspace id -- the FILE, never PROBE_WORKSPACE: the
     wizard sets the computer's choice, which an env var only overrides per shell."""
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     saved = load_context().get("workspace")
     ref = saved.get("id") if isinstance(saved, dict) else None
@@ -142,7 +142,7 @@ def _create(client, *, default_name: str) -> dict | None:
 
 
 def _pin(row: dict, *, pinned: str | None, reset_project: bool = False) -> None:
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
     from probe.cli import workspace_limit_cmd
 
     refused = workspace_limit_cmd.refusal_for_pin_move(str(row["id"]), what="this computer's workspace")
@@ -176,13 +176,13 @@ def choose(*, asking: bool) -> list[str]:
     the member's legacy saved one, else stays unset with a line saying how.
     """
     from probe.cli import tui
-    from probe.sdk.client import Client
-    from probe.sdk.config import resolve
-    from probe.sdk.surface import Surface
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import resolve
+    from probe.foundation.request_identity.surface import Surface
 
-    from probe.sdk.config import WORKSPACE_HANDOVER, load_context, save_context
+    from probe.sdk.settings.settings import WORKSPACE_HANDOVER, load_context, save_context
 
-    from probe.sdk import workspace_limit as wl
+    from probe.sdk.settings import workspace_limit as wl
 
     later = "`probe workspace use <slug>` sets it later"
     settings = resolve()

@@ -24,7 +24,7 @@ import pytest
 
 from probe import cli
 from probe.sdk import errors
-from probe.sdk.client import Client
+from probe.sdk.client.client import Client
 
 # `probe.cli.main` the SUBMODULE is shadowed by `probe.cli.main` the function, so
 # the private resolvers have to be reached through the import system directly.
@@ -464,7 +464,7 @@ def test_an_explicit_uuid_shaped_slug_is_not_rewritten_as_an_id(app, client, mon
 def test_the_stored_anchor_is_still_read_as_an_id(app, client, monkeypatch):
     """The other half: a bare UUID that came from the CONTEXT is machine-written
     and is still read as an id."""
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     monkeypatch.setattr(cli, "Client", lambda **kw: client)
     _project(app, pid=A_ID, slug=A_SLUG)
@@ -540,7 +540,7 @@ def test_a_bare_workspace_uuid_is_refused(client, monkeypatch, capsys):
 
 
 def test_workspace_use_takes_a_slug(client, monkeypatch):
-    from probe.sdk.config import load_context
+    from probe.sdk.settings.settings import load_context
 
     monkeypatch.setattr(cli, "Client", lambda **kw: client)
 
@@ -561,7 +561,7 @@ def test_a_missing_workspace_slug_points_at_the_listing(client, monkeypatch, cap
 
 def test_the_ambient_workspace_is_still_read_as_an_id(client, monkeypatch):
     """`workspace use` stores the id -- machine-written, so it keeps working."""
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     monkeypatch.setattr(cli, "Client", lambda **kw: client)
     save_context({"workspace": {"id": _WS_MINE, "project": None}})

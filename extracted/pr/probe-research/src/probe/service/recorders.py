@@ -122,7 +122,7 @@ MAX_ENV = 200
 _VERSION = re.compile(r"^\d+(\.\d+)*$")
 #: A plugin cache's version folder name (the hooks' `[0-9]*.[0-9]*`, stricter).
 _SIBLING = re.compile(r"^\d+(\.\d+)+$")
-#: Kimi Code's folder of one tap version (`probe.cli.kimi_config`): `managed/<id>@<version>`.
+#: Kimi Code's folder of one tap version (`probe.shared.harness.harnesses.kimi_code.config`): `managed/<id>@<version>`.
 _KIMI_TAP = re.compile(r"^probe-research-tap@(\d+(\.\d+)+)$")
 KIMI_MANAGED = "managed"
 KIMI_LIST = "installed.json"
@@ -285,8 +285,8 @@ def _pin(root: str, version: str) -> Path:
     update, Probe prunes Kimi's. Under a tap imported from such a folder, the
     first lazy import after the update failed. A copy is made once per tap
     version and files (a later load of the same files reuses it); old copies are
-    removed at a later load, never the one in use (`probe._shared.pins`)."""
-    from probe._shared import pins  # noqa: PLC0415 -- only when a tap loads: the start path stays the service's
+    removed at a later load, never the one in use (`probe.shared.updates.pins`)."""
+    from probe.shared.updates import pins  # noqa: PLC0415 -- only when a tap loads: the start path stays the service's
 
     store = paths.service_dir() / TAPS_NAME
     target = pins.make(store, version if _VERSION.match(version or "") else None, {"tap": Path(root) / "tap"},

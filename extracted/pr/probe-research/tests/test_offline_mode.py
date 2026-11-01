@@ -21,8 +21,10 @@ import pytest
 
 import probe
 from probe import errors
-from probe.sdk import fluent, offline
-from probe.sdk.journal import Journal, drain
+from probe.sdk import fluent
+from probe.sdk.delivery import offline
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain.drain import drain
 from tests.conftest import make_client
 
 
@@ -71,7 +73,10 @@ class NoNetwork:
         def connect(*_a, **_kw):
             raise AssertionError("offline mode opened a socket")
 
-        self._patch.setattr(fluent, "Client", refuse_client)
+        self._patch.setattr(fluent.fluent, "Client", refuse_client)
+        self._patch.setattr(fluent.attach, "Client", refuse_client)
+        self._patch.setattr(fluent.bindings, "Client", refuse_client)
+        self._patch.setattr(fluent.run_openers.online, "Client", refuse_client)
         self._patch.setattr(httpx.Client, "send", send)
         self._patch.setattr(socket.socket, "connect", connect)
         return self
@@ -250,7 +255,8 @@ def test_a_crash_between_create_and_mapping_replays_the_create(outbox, no_networ
             raise OSError("killed before the mapping reached disk")
         return real(*a, **kw)
 
-    monkeypatch.setattr(offline, "_write_mapping", crash_once)
+    monkeypatch.setattr(offline.queue, "_write_mapping", crash_once)
+    monkeypatch.setattr("probe.sdk.delivery.ops.op_handlers.create_run._write_mapping", crash_once)
     (first,) = _sync(lab)
     assert not first["clean"]
     assert len(lab.runs) == 1, "the create landed; its mapping did not"
@@ -370,10 +376,12 @@ def test_init_falls_back_offline_and_replays_the_exact_lost_create(
     """The create LANDED and its answer was lost; then the API stayed down.
     The offline queue replays that exact request, so the sync finds the run the
     server already has instead of making a second one."""
-    from probe.sdk import transport
+    from probe.sdk.delivery import transport
 
     app.seed_experiment("e1")
-    monkeypatch.setattr(transport, "time", _Clock())
+    clock = _Clock()  # one clock for every transport piece that reads `time`
+    for piece in (transport.transport, transport.deadlines, transport.blobs):
+        monkeypatch.setattr(piece, "time", clock)
     monkeypatch.setenv("PROBE_INIT_TIMEOUT_SEC", "5")
     monkeypatch.setenv("PROBE_INIT_FALLBACK", "offline")
     real = app.handler
@@ -389,7 +397,10 @@ def test_init_falls_back_offline_and_replays_the_exact_lost_create(
         return real(request)
 
     app.handler = flaky
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
     run = probe.init(experiment="e1", name="r1")
     assert run.id.startswith("local:")
     probe.log({"loss": 0.5}, step=0)
@@ -406,16 +417,21 @@ def test_init_falls_back_offline_and_replays_the_exact_lost_create(
 
 
 def test_without_the_fallback_init_still_raises(outbox, app, monkeypatch):
-    from probe.sdk import transport
+    from probe.sdk.delivery import transport
 
-    monkeypatch.setattr(transport, "time", _Clock())
+    clock = _Clock()  # one clock for every transport piece that reads `time`
+    for piece in (transport.transport, transport.deadlines, transport.blobs):
+        monkeypatch.setattr(piece, "time", clock)
     monkeypatch.setenv("PROBE_INIT_TIMEOUT_SEC", "2")
 
     def down(request):
         raise httpx.ConnectError("refused", request=request)
 
     app.handler = down
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(app))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(app))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(app))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(app))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(app))
     with pytest.raises(errors.TransportError):
         probe.init(experiment="e1")
     assert offline.find_offline_dirs() == []
@@ -423,7 +439,10 @@ def test_without_the_fallback_init_still_raises(outbox, app, monkeypatch):
 
 def test_a_refusal_never_falls_back(outbox, app, monkeypatch):
     monkeypatch.setenv("PROBE_INIT_FALLBACK", "offline")
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(app))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(app))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(app))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(app))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(app))
     with pytest.raises(errors.NotFoundError):
         probe.init(project="no-such-project")
     assert offline.find_offline_dirs() == []
@@ -505,9 +524,10 @@ def test_a_long_offline_run_is_not_cut_off_by_the_op_ceiling(outbox, no_network,
     """Nothing drains an offline queue until `probe sync`, so the ceiling meant
     for a stalled drainer (PROBE_OUTBOX_MAX_PENDING, 500k) used to drop every
     point past it -- and the close with them."""
-    from probe.sdk import journal as journal_module
+    from probe.sdk.delivery import journal as journal_module
 
-    monkeypatch.setattr(journal_module, "MAX_PENDING_OPS", 10)
+    monkeypatch.setattr(journal_module.headroom, "MAX_PENDING_OPS", 10)
+    monkeypatch.setattr(journal_module.journal, "MAX_PENDING_OPS", 10)
     _record(n=50)
     (directory,) = offline.find_offline_dirs()
     ops = [op for _, op in Journal(directory).pending()]
@@ -529,9 +549,10 @@ def test_a_long_offline_run_is_not_cut_off_by_the_op_ceiling(outbox, no_network,
 def test_an_offline_run_on_a_full_disk_still_queues_its_close(outbox, no_network, monkeypatch):
     """The free-space floor still protects the disk (points are refused there,
     with a recorded gap), but the close is the one op it never refuses."""
-    from probe.sdk import journal as journal_module
+    from probe.sdk.delivery import journal as journal_module
 
-    monkeypatch.setattr(journal_module, "MIN_FREE_BYTES", 10**18)
+    monkeypatch.setattr(journal_module.headroom, "MIN_FREE_BYTES", 10**18)
+    monkeypatch.setattr(journal_module.journal, "MIN_FREE_BYTES", 10**18)
     _record(n=5)
     (directory,) = offline.find_offline_dirs()
     ops = [op for _, op in Journal(directory).pending()]
@@ -546,9 +567,11 @@ def _offline_create(directory) -> dict:
 
 
 def _fallback_env(monkeypatch):
-    from probe.sdk import transport
+    from probe.sdk.delivery import transport
 
-    monkeypatch.setattr(transport, "time", _Clock())
+    clock = _Clock()  # one clock for every transport piece that reads `time`
+    for piece in (transport.transport, transport.deadlines, transport.blobs):
+        monkeypatch.setattr(piece, "time", clock)
     monkeypatch.setenv("PROBE_INIT_TIMEOUT_SEC", "5")
     monkeypatch.setenv("PROBE_INIT_FALLBACK", "offline")
 
@@ -573,7 +596,10 @@ def test_a_fallback_whose_create_never_left_records_a_real_offline_create(
         return real(request)
 
     app.handler = refuse_creates
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
     run = probe.init(experiment="e1", name="r1")
     probe.log({"loss": 0.5}, step=0)
     probe.finish()
@@ -625,7 +651,10 @@ def test_a_fallback_after_a_refused_create_does_not_replay_the_refusal(
         return response
 
     lab.handler = refuse_then_go_down
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
     run = probe.init(project="p1", name="second", external_id="job-1", on_conflict="supersede")
     probe.log({"loss": 0.5}, step=0)
     probe.finish()
@@ -667,7 +696,10 @@ def test_a_create_lost_then_refused_is_found_by_its_key_at_sync(outbox, app, tmp
         return client
 
     app.handler = land_then_go_down
-    monkeypatch.setattr(fluent, "Client", knows_creation_keys)
+    monkeypatch.setattr(fluent.fluent, "Client", knows_creation_keys)
+    monkeypatch.setattr(fluent.attach, "Client", knows_creation_keys)
+    monkeypatch.setattr(fluent.bindings, "Client", knows_creation_keys)
+    monkeypatch.setattr(fluent.run_openers.online, "Client", knows_creation_keys)
     probe.init(experiment="e1", name="r1")
     probe.finish()
     assert len(app.runs) == 1
@@ -734,7 +766,7 @@ def test_opening_an_offline_run_leaves_the_process_warning_filters_alone(
     """`warnings.catch_warnings()` swaps the PROCESS-WIDE filter list (and is not
     thread-safe): while an offline client was built, every other thread's
     warnings were silenced. The client says it drains by hand instead."""
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     seen: list = []
     real_init = Client.__init__
@@ -819,7 +851,10 @@ def test_the_fallback_refuses_an_external_id_left_on_the_default_conflict_policy
     _crashed_incumbent(lab)
     _fallback_env(monkeypatch)
     lab.handler = _down
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
     with pytest.warns(UserWarning, match=r"on_conflict \('auto'\).*supersede"):
         with pytest.raises(errors.TransportError):
             probe.init(project="p1", name="second", external_id="job-1")
@@ -834,7 +869,10 @@ def test_the_fallback_records_an_external_id_with_an_explicit_policy(outbox, lab
     _fallback_env(monkeypatch)
     real = lab.handler
     lab.handler = _down
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
     run = probe.init(project="p1", name="second", external_id="job-1", on_conflict="supersede")
     probe.log({"loss": 0.5}, step=0)
     probe.finish()
@@ -887,9 +925,11 @@ def test_a_create_refused_on_a_retry_is_not_dropped_as_delivered(outbox, lab, mo
     finally:
         guard.restore()
     (directory,) = offline.find_offline_dirs()
-    from probe.sdk import transport
+    from probe.sdk.delivery import transport
 
-    monkeypatch.setattr(transport, "time", _Clock())
+    clock = _Clock()  # one clock for every transport piece that reads `time`
+    for piece in (transport.transport, transport.deadlines, transport.blobs):
+        monkeypatch.setattr(piece, "time", clock)
     real = lab.handler
 
     def busy(request):
@@ -920,7 +960,10 @@ def test_a_gateway_503_outage_records_a_real_offline_run(outbox, lab, tmp_path, 
     _fallback_env(monkeypatch)
     real = lab.handler
     lab.handler = lambda request: httpx.Response(503, text="no healthy upstream", request=request)
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
     run = probe.init(name="lb")
     probe.log({"loss": 0.5}, step=0)
     probe.finish()
@@ -962,7 +1005,10 @@ def test_a_create_committed_behind_a_gateway_503_is_found_not_duplicated(
         return real(request)
 
     lab.handler = commit_then_503
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
     probe.init(project="p1", name="lb")
     probe.log({"loss": 0.5}, step=0)
     probe.finish()
@@ -979,7 +1025,7 @@ def test_a_create_committed_behind_a_gateway_503_is_found_not_duplicated(
 def test_the_fallback_does_not_engage_after_a_create_that_landed(outbox, app, tmp_path, monkeypatch, capsys):
     """init failed AFTER its create came back: the run is on the server, and an
     offline copy under a fresh key would be a second run."""
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     app.seed_experiment("e1")
     _fallback_env(monkeypatch)
@@ -988,7 +1034,10 @@ def test_the_fallback_does_not_engage_after_a_create_that_landed(outbox, app, tm
         raise errors.TransportError("the API went away after the create")
 
     monkeypatch.setattr(Client, "_opened", staticmethod(announce_fails))
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(app, tmp_spool=tmp_path / "s"))
     with pytest.warns(UserWarning, match="second run"):
         with pytest.raises(errors.TransportError):
             probe.init(experiment="e1", name="r1")
@@ -1000,10 +1049,11 @@ def test_the_fallback_does_not_engage_after_a_create_that_landed(outbox, app, tm
 def test_writes_the_disk_floor_dropped_are_on_the_close_and_in_the_sync_report(
     outbox, no_network, lab, monkeypatch, capsys
 ):
-    from probe.sdk import journal as journal_module
+    from probe.sdk.delivery import journal as journal_module
 
     run = probe.init(mode="offline", project="p1", name="floor")
-    monkeypatch.setattr(journal_module, "MIN_FREE_BYTES", 10**18)
+    monkeypatch.setattr(journal_module.headroom, "MIN_FREE_BYTES", 10**18)
+    monkeypatch.setattr(journal_module.journal, "MIN_FREE_BYTES", 10**18)
     for step in range(5):
         probe.log({"loss": 1.0}, step=step)
     with pytest.warns(UserWarning, match=r"probe_finish\.dropped_writes=5"):
@@ -1012,7 +1062,8 @@ def test_writes_the_disk_floor_dropped_are_on_the_close_and_in_the_sync_report(
     (directory,) = offline.find_offline_dirs()
     close = [op for _, op in Journal(directory).pending()][-1]["body"]
     assert close["summary_metrics"]["probe_finish"]["dropped_writes"] == 5
-    monkeypatch.setattr(journal_module, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(journal_module.headroom, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(journal_module.journal, "MIN_FREE_BYTES", 0)
     no_network.restore()
     (synced,) = _sync(lab)
     assert synced["state"] == "synced" and not synced["clean"]
@@ -1039,7 +1090,8 @@ def test_sync_refuses_another_login_context_when_the_team_is_unknown(outbox, no_
     _record()
     no_network.restore()
     (directory,) = offline.find_offline_dirs()
-    monkeypatch.setattr(offline, "_context_name", lambda: "another-team-login")
+    monkeypatch.setattr(offline.offline, "_context_name", lambda: "another-team-login")
+    monkeypatch.setattr(offline.sync, "_context_name", lambda: "another-team-login")
     client = make_client(lab)
     with pytest.raises(errors.ScopeError, match=re.escape("`probe wizard --action account`")):
         offline.sync_dir(directory, client)
@@ -1108,7 +1160,10 @@ def test_a_fallback_create_whose_project_is_gone_names_the_fix(outbox, lab, tmp_
         return real(request)
 
     lab.handler = refuse_creates
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
     run = probe.init(project="doomed", name="r1")
     probe.log({"loss": 0.5}, step=0)
     probe.finish()
@@ -1168,9 +1223,11 @@ def test_a_relaunch_cannot_take_over_an_offline_run_mid_sync(outbox, lab, tmp_pa
                 return httpx.Response(503, json={"detail": "busy"})
         return real(request)
 
-    from probe.sdk import transport
+    from probe.sdk.delivery import transport
 
-    monkeypatch.setattr(transport, "time", _Clock())
+    clock = _Clock()  # one clock for every transport piece that reads `time`
+    for piece in (transport.transport, transport.deadlines, transport.blobs):
+        monkeypatch.setattr(piece, "time", clock)
     lab.handler = stall_after_the_first_write
     (partial,) = _sync(lab)
     assert not partial["clean"]
@@ -1179,7 +1236,10 @@ def test_a_relaunch_cannot_take_over_an_offline_run_mid_sync(outbox, lab, tmp_pa
     lab.run_silence[row["id"]] = 10_000.0  # long past any takeover threshold
     lab.handler = real
 
-    monkeypatch.setattr(fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **k: make_client(lab, tmp_spool=tmp_path / "s"))
     with pytest.raises(errors.ConflictError, match="supersede"):
         probe.init(project="p1", name="job", external_id="job-1")
     assert lab.runs[row["id"]]["status"] == "running"
@@ -1225,7 +1285,7 @@ def test_an_offline_create_new_run_is_left_unbound(outbox, no_network):
 @pytest.fixture
 def recorder(monkeypatch, tmp_path):
     """Read (and write) capture ON for an offline run, its spools under tmp."""
-    from probe.sdk import inputs
+    from probe.sdk.capture import lineage as inputs
 
     monkeypatch.setenv(inputs.READS_ENV, "1")
     # The suite turns output capture off; writes follow that switch.
@@ -1347,7 +1407,8 @@ def test_a_lineage_list_queued_after_the_sync_check_is_still_gated(
                             run_ref=run.id, blocking=False)
         return dropped
 
-    monkeypatch.setattr(offline, "_drop_untaken_lineage", check_then_race)
+    monkeypatch.setattr(offline.lineage, "_drop_untaken_lineage", check_then_race)
+    monkeypatch.setattr(offline.sync, "_drop_untaken_lineage", check_then_race)
     (result,) = _sync(lab)
     assert not [r for r in lab.requests if r.url.path.endswith("/outputs")]
     assert result["clean"] and result["dead_lettered"] == 0, result
@@ -1433,7 +1494,7 @@ def test_the_offline_close_keeps_to_its_time(outbox, no_network, recorder, monke
     run.finish(flush_timeout=10)
     assert waits == [5.0]
     # The default close (600 s): the recorder's own cap, 30 s.
-    monkeypatch.setattr("probe.sdk.run.FINISH_TIMEOUT_DEFAULT_SECONDS", 600.0)
+    monkeypatch.setattr("probe.sdk.run.closing.drain.FINISH_TIMEOUT_DEFAULT_SECONDS", 600.0)
     probe.init(mode="offline", project="p1", name="default")
     probe.finish()
     assert waits[-1] == recorder.FINISH_WAIT_S

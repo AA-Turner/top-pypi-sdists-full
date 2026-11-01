@@ -34,7 +34,7 @@ from pathlib import Path
 AGENT_ROOT = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(AGENT_ROOT / "src"))
-from probe import doctrine  # noqa: E402
+from probe.foundation.skills import doctrine  # noqa: E402
 
 
 #: 0151 narrowed the offered vocabulary to four; Track E (2026-10-04) renamed
@@ -50,7 +50,7 @@ def _skill_text(name: str) -> str:
     import importlib.util
 
     root = AGENT_ROOT / "skills" / name
-    spec = importlib.util.spec_from_file_location("_skill_versions", AGENT_ROOT / "src" / "probe" / "skill_versions.py")
+    spec = importlib.util.spec_from_file_location("_skill_versions", AGENT_ROOT / "src" / "probe" / "foundation" / "skills" / "skills.py")
     versions = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(versions)
     return "\n".join(
@@ -359,7 +359,7 @@ def test_kind_vocabulary_is_identical_across_the_agent_tree() -> None:
     vocabulary in the 2026-09-15 rewrite (a project's `kind` arrives as DATA on
     every browse node), so the always-loaded copy is the pointer block.
     """
-    from probe._generated.models import ProjectKind as GeneratedProjectKind
+    from probe.generated.models import ProjectKind as GeneratedProjectKind
     from probe.cli.main import ProjectKind as CliProjectKind
 
     assert {k.value for k in CliProjectKind} == _KIND_VOCABULARY

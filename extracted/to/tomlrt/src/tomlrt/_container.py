@@ -10,7 +10,6 @@ from __future__ import annotations
 import contextlib
 import copy
 import sys
-import warnings
 from collections.abc import Mapping
 from datetime import date, datetime, time
 from typing import (
@@ -25,7 +24,7 @@ from typing import (
 )
 
 if sys.version_info >= (3, 12):
-    from typing import Self, override
+    from typing import Self, override  # pragma: no cover -- Python >= 3.12
 else:  # pragma: no cover -- backport for Python < 3.12
     from typing_extensions import override
 
@@ -103,6 +102,7 @@ if TYPE_CHECKING:
     from _typeshed import SupportsKeysAndGetItem, SupportsRichComparison
 
     from tomlrt._format import FormatOptions
+    from tomlrt._layout_ops import _SourceCapture
     from tomlrt._scalar import Scalar
     from tomlrt._slots import AoTEntry, Slot
     from tomlrt._values import Value
@@ -502,7 +502,9 @@ class Container(_View, dict[str, Any]):
         assert isinstance(out, dict)
         return out
 
-    def _synth_local_value(self, key: str, value: TomlInput) -> tuple[Value, object]:
+    def _synth_local_value(
+        self, key: str, value: TomlInput
+    ) -> tuple[Value, DecodedValue]:
         """Synthesise ``value`` for direct storage under ``key`` on ``self``."""
         return _synth_value(
             value,
@@ -565,7 +567,9 @@ class Container(_View, dict[str, Any]):
         _validate_input(value, inline_only=self._inline, key=key)
         self._setitem_validated(key, value)
 
-    def _setitem_validated(self, key: str, value: TomlInput) -> None:
+    def _setitem_validated(
+        self, key: str, value: TomlInput, capture: _SourceCapture | None = None
+    ) -> None:
         """Bind ``key`` to a ``value`` already checked for this container.
 
         The body of `__setitem__` below the validation boundary.
@@ -583,11 +587,13 @@ class Container(_View, dict[str, Any]):
             self._inline_setitem(key, value)
             return
         if key in self:
-            self._overwrite_existing(key, value)
+            self._overwrite_existing(key, value, capture)
             return
-        self._insert_new(key, value)
+        self._insert_new(key, value, capture)
 
-    def _overwrite_existing(self, key: str, value: TomlInput) -> None:
+    def _overwrite_existing(
+        self, key: str, value: TomlInput, capture: _SourceCapture | None = None
+    ) -> None:
         """Replace the value at an already-bound key.
 
         Uses in-place swaps when the existing binding is a single KV.
@@ -608,10 +614,10 @@ class Container(_View, dict[str, Any]):
         assert isinstance(value, (Container, AoT))
         value = _snapshot_for_overlapping_install(self, key, value)
         with _layout_ops.reposition_install(self, key) as replacement:
-            replacement.promotion = self._insert_new(key, value)
+            replacement.promotion = self._insert_new(key, value, capture)
 
     def _insert_new(
-        self, key: str, value: TomlInput
+        self, key: str, value: TomlInput, capture: _SourceCapture | None = None
     ) -> _layout_ops.PromotedHeader | None:
         """Bind ``key`` for the first time at the document tail."""
         if is_scalar(value):
@@ -625,13 +631,15 @@ class Container(_View, dict[str, Any]):
         if _is_inline_input(value):
             return _layout_ops.append_synth_kv(self, key, value)
         if isinstance(value, AoT):
-            return self._attach_aot(key, value)
+            return self._attach_aot(key, value, capture)
         # `_validate_input` leaves only a section table for this branch.
         assert isinstance(value, Container)
-        self._attach_section(key, value)
+        self._attach_section(key, value, capture)
         return None
 
-    def _attach_aot(self, key: str, value: AoT) -> _layout_ops.PromotedHeader | None:
+    def _attach_aot(
+        self, key: str, value: AoT, capture: _SourceCapture | None = None
+    ) -> _layout_ops.PromotedHeader | None:
         """Install ``value`` (an AoT) under ``key``.
 
         Public sources are copied. Private layout moves with its live
@@ -653,7 +661,9 @@ class Container(_View, dict[str, Any]):
         for entry_table in existing_entries:
             source_doc = entry_table._layout_root  # noqa: SLF001
             if source_doc is None:
-                _layout_ops.add_aot_entry(value, None, rehome=entry_table)
+                _layout_ops.add_aot_entry(
+                    value, None, rehome=entry_table, capture=capture
+                )
             elif _can_adopt_from(source_doc, self._attached_doc):
                 source_parent = (
                     emptied if src_root is not None else entry_table._parent  # noqa: SLF001
@@ -665,11 +675,13 @@ class Container(_View, dict[str, Any]):
                 )
                 _layout_ops.synthesise_header_for_emptied(source_parent)
             else:
-                _layout_ops.add_aot_entry(value, entry_table)
+                _layout_ops.add_aot_entry(value, entry_table, capture=capture)
         _layout_ops.synthesise_header_for_emptied(emptied)
         return promotion
 
-    def _attach_section(self, key: str, source: Container) -> None:
+    def _attach_section(
+        self, key: str, source: Container, capture: _SourceCapture | None = None
+    ) -> None:
         """Install ``source`` (a section-flavoured Table) under ``key``.
 
         As with AoTs, synthesize factories, adopt private layout, and clone
@@ -681,7 +693,7 @@ class Container(_View, dict[str, Any]):
         src_root = value._layout_root
         if src_root is None:
             assert isinstance(value, Table), "a section factory must be a Table"
-            _layout_ops.attach_section_at(self, (key,), value)
+            _layout_ops.attach_section_at(self, (key,), value, capture=capture)
         elif _can_adopt_from(src_root, self._attached_doc):
             assert value._refs, "a private section owns slots"
             emptied = value._parent
@@ -749,8 +761,11 @@ class Container(_View, dict[str, Any]):
 
     @override
     def clear(self) -> None:
-        for k in list(dict.keys(self)):
-            del self[k]
+        if self._needs_layout or self._inline:
+            for k in list(dict.keys(self)):
+                del self[k]
+            return
+        _layout_ops.delete_keys(self, tuple(dict.keys(self)), materialise_empty=True)
 
     @override
     def pop(self, key: object, default: Any = _MISSING) -> Any:
@@ -850,14 +865,13 @@ class Container(_View, dict[str, Any]):
             for group in (pure_leaves, mixed, pure_sections):
                 group.sort(key=key, reverse=reverse)
             new_order = pure_leaves + mixed + pure_sections
-        if new_order == current:
-            return
         if not self._needs_layout:
             if self._inline:
                 _inline_ops.reorder_inline(self, new_order)
             else:
                 _layout_ops.reorder_container(self, new_order)
-        _reorder_dict_storage(self, new_order)
+        if new_order != current:
+            _reorder_dict_storage(self, new_order)
 
     def has_header(self, key: str) -> bool:
         """Whether ``key`` or its children contain a ``[table]`` or ``[[table]]``.
@@ -945,10 +959,12 @@ class Container(_View, dict[str, Any]):
             inline_only=cur._inline and not promote,  # noqa: SLF001
             key=parts[-1],
         )
+        capture = None
         if promote:
             prefix = parts[:i]
             _check_table_promotions(self, prefix)
-            value = _layout_ops._capture_input(value, [cur], {})  # noqa: SLF001
+            capture = _layout_ops._SourceCapture((cur,))  # noqa: SLF001
+            value = capture.capture(value)
             cur = _promote_tables(self, prefix)
         if i == len(parts) - 1:
             host = cur
@@ -966,7 +982,7 @@ class Container(_View, dict[str, Any]):
             host = _layout_ops.ensure_implicit_chain(cur, tuple(parts[i:-1]))
         else:
             host = cur._create_section_chain(parts[i:-1])  # noqa: SLF001
-        host._setitem_validated(parts[-1], value)  # noqa: SLF001
+        host._setitem_validated(parts[-1], value, capture)  # noqa: SLF001
         return host[parts[-1]]
 
     def ensure_table(
@@ -984,6 +1000,8 @@ class Container(_View, dict[str, Any]):
         """
         parts = validate_path(key)
         if promote_inline is not None:
+            import warnings  # noqa: PLC0415
+
             warnings.warn(
                 "ensure_table(promote_inline=...) is deprecated and ignored; "
                 "use promote_inline() for explicit conversion",
@@ -1652,6 +1670,9 @@ def _has_extractable_layout(data: Mapping[str, object]) -> TypeGuard[Table]:
 # re-exported for convenience.
 from tomlrt._array import AoT, Array  # noqa: E402
 
+if TYPE_CHECKING:
+    DecodedValue: TypeAlias = Scalar | Container | Array | AoT
+
 TomlInput: TypeAlias = (
     str
     | int
@@ -1810,7 +1831,7 @@ def _synth_value(
     name: str | None,
     owner: AoTEntry | None,
     array_host: Array | None = None,
-) -> tuple[Value, object]:
+) -> tuple[Value, DecodedValue]:
     """Synthesise a validated (CST value, decoded view) pair from ``v``.
 
     Plain ``dict`` / ``Mapping`` → ``InlineTableValue`` + inline ``Table``.

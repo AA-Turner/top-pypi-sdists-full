@@ -1,7 +1,7 @@
 """The daemon host the Probe service starts: every session's daemon worker in ONE
 child process (plan `~/plans/daemon-in-service/PLAN.md`, S1-S6, H11-H14).
 
-    WorkerHost's Supervisor --start(spec)--> DaemonHost --host.sock--> `probe.daemon.host`
+    WorkerHost's Supervisor --start(spec)--> DaemonHost --host.sock--> `probe.daemon.host.host`
       a HostedRun (poll / pid / send_signal: what the Supervisor used of a Popen)
     the same policy, backoff and status rows as a worker process; only the child differs
 
@@ -51,10 +51,10 @@ from . import paths, procid
 DIRNAME = "daemon-host"
 KILL_ENV = "PROBE_DAEMON_HOST"
 OFF_FILE = "off"
-#: `probe.daemon.host.ENTRY` and `ARGV_MARK` (tests keep them equal).
+#: `probe.daemon.host.host.ENTRY` and `ARGV_MARK` (tests keep them equal).
 HOST_ENTRY = "import sys; from probe.daemon.host import main; sys.exit(main())"
 ARGV_MARK = "daemon-host"
-#: `probe.daemon.worker.EXIT_CRASHED` / `FINISH_CAP_S` (tests keep them equal).
+#: `probe.daemon.worker.supervisor.EXIT_CRASHED` / `FINISH_CAP_S` (tests keep them equal).
 EXIT_CRASHED = 4
 FINISH_CAP_S = 35 * 60.0
 #: `recorders.HANDOVER_AHEAD_S`: a replaced host's live runs see their ask fresh this long.

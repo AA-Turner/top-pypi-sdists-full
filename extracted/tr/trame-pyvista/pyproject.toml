@@ -11,10 +11,10 @@ classifiers = [
   'Operating System :: Microsoft :: Windows',
   'Operating System :: POSIX :: Linux',
   'Programming Language :: Python :: 3',
-  'Programming Language :: Python :: 3.10',
   'Programming Language :: Python :: 3.11',
   'Programming Language :: Python :: 3.12',
   'Programming Language :: Python :: 3.13',
+  'Programming Language :: Python :: 3.14',
   'Topic :: Scientific/Engineering :: Visualization',
 ]
 dependencies = [ # trame bounds: trame-floor and test CI jobs pass
@@ -36,16 +36,21 @@ keywords = ['jupyter', 'pyvista', 'trame', 'visualization', 'vtk']
 license = 'MIT'
 name = 'trame-pyvista'
 readme = 'README.md'
-requires-python = '>=3.10'
+requires-python = '>=3.11'
 
 [project.optional-dependencies]
-jupyter = ['ipywidgets', 'jupyter-server-proxy', 'nest-asyncio2']
+jupyter = [
+  'anywidget>=0.9',
+  'ipywidgets',
+  'jupyter-server-proxy',
+  'nest-asyncio2',
+]
+marimo = ['anywidget>=0.9', 'marimo>=0.23.14', 'nest-asyncio2']
 sphinx = ['docutils', 'sphinx']
 
 dev = [
   'mypy>=1.10',
   'pre-commit',
-  'ruff==0.17.1',
   'trame-pyvista[jupyter,sphinx,test,playwright]',
 ]
 playwright = [
@@ -58,8 +63,10 @@ playwright = [
   'sphinx-gallery',
 ]
 test = [
+  'anywidget>=0.9',
   'ipython',
   'ipywidgets',
+  'marimo>=0.23.14',
   'nest-asyncio2',
   'numpy<2.5', # noisy shape deprecations until VTK 9.7
   'pytest-cov>=7.0',
@@ -167,7 +174,9 @@ required-imports = ['from __future__ import annotations']
 [tool.ruff.lint.per-file-ignores]
 '__init__.py' = ['E402', 'F401', 'PLC0414']
 'examples/**' = ['D', 'E501', 'INP001', 'T20']
+'examples/marimo/*.py' = ['I002']
 'tests/**' = ['B018', 'D', 'INP001', 'S101', 'T20']
+'tests/_marimo_plots.py' = ['I002']
 'trame/widgets/__init__.py' = ['D104', 'I002', 'Q000']
 'trame_pyvista/jupyter.py' = ['B904']
 'trame_pyvista/ui/**' = ['D101', 'D102', 'D103', 'E501']
@@ -188,7 +197,7 @@ testpaths = ['tests']
 
 [tool.coverage.run]
 branch = true
-omit = ['trame_pyvista/_version.py']
+omit = ['*/trame_pyvista/_version.py']
 patch = ['subprocess']
 relative_files = true
 sigterm = true
@@ -205,7 +214,7 @@ exclude_lines = [
 disable_error_code = ['import-untyped']
 files = ['trame_pyvista']
 ignore_missing_imports = true
-python_version = '3.10'
+python_version = '3.11'
 
 [[tool.mypy.overrides]]
 follow_imports = 'skip'

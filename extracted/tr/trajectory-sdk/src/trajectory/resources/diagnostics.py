@@ -20,6 +20,7 @@ from trajectory.types.diagnostics.start_benchmark_diagnostics_params import (
   StartBenchmarkDiagnosticsParams,
 )
 from trajectory.types.ingest_benchmark_response import IngestBenchmarkResponse
+from trajectory.types.run_options_param import RunOptionsParam
 from trajectory.types.start_benchmark_diagnostics_response import StartBenchmarkDiagnosticsResponse
 
 
@@ -80,7 +81,6 @@ class Diagnostics(APIResource):
       "Qwen/Qwen3.5-397B-A17B",
       "Qwen/Qwen3.6-35B-A3B",
       "Qwen/Qwen3.8-27B",
-      "qwen/qwen3-235b-a22b",
       "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
       "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
       "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
@@ -102,6 +102,7 @@ class Diagnostics(APIResource):
       "moonshotai/kimi-k3",
     ]
     | Omit = omit,
+    options: RunOptionsParam | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -111,6 +112,9 @@ class Diagnostics(APIResource):
     ready.
 
     Args:
+      options: Evaluation settings, as for createEvalRun, such as reasoning_effort and
+        max_output_tokens_per_step; the diagnostic sets its own sample counts.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request
@@ -126,6 +130,7 @@ class Diagnostics(APIResource):
         {
           "bench_id": bench_id,
           "base_model_slug": base_model_slug,
+          "options": options,
         },
         StartBenchmarkDiagnosticsParams,
       ),
@@ -147,7 +152,6 @@ class Diagnostics(APIResource):
       "Qwen/Qwen3.5-397B-A17B",
       "Qwen/Qwen3.6-35B-A3B",
       "Qwen/Qwen3.8-27B",
-      "qwen/qwen3-235b-a22b",
       "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
       "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
       "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
@@ -169,6 +173,7 @@ class Diagnostics(APIResource):
       "moonshotai/kimi-k3",
     ]
     | Omit = omit,
+    options: RunOptionsParam | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -178,6 +183,9 @@ class Diagnostics(APIResource):
     Nemotron 3.5 Lightning.
 
     Args:
+      options: Evaluation settings, as for createEvalRun, such as reasoning_effort and
+        max_output_tokens_per_step; the diagnostic sets its own sample counts.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request
@@ -193,6 +201,7 @@ class Diagnostics(APIResource):
         {
           "bench_id": bench_id,
           "base_model_slug": base_model_slug,
+          "options": options,
         },
         StartBenchmarkDiagnosticsParams,
       ),

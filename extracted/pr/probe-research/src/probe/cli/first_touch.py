@@ -34,7 +34,7 @@ def target(args: list[str]) -> tuple[str, str, bool] | None:
     """`(kind, ref, new)` of the entity a `probe` write lands on, from the CLI's
     own parse: the run it names, else the experiment, else the project (a
     create's own slug, `new`). None for a read or an unscoped write."""
-    from probe.daemon import precheck
+    from probe.shared.command_rules import command_rules as precheck
 
     from ..sdk import session_marker
 
@@ -121,8 +121,8 @@ def _read(kind: str, ref: str) -> str | None:
     left behind (it holds nothing the process needs to exit)."""
     import threading
 
-    from ..sdk.transport import deadline_scope
-    from .summary_cli import _main
+    from ..sdk.delivery.transport.deadlines import deadline_scope
+    from ..shared.notes.summary.summary import _main
 
     main = _main()  # the module: the package re-exports its `main()` under the same name
     got: dict[str, str | None] = {}
@@ -150,7 +150,7 @@ def show(args: list[str]) -> None:
     """After a `probe` write exited 0: the first one this session makes to an
     entity prints its note (`render`) on stderr. Never raises."""
     try:
-        from . import owed, summary_cli
+        from ..shared.notes import owed, summary as summary_cli
 
         sid = summary_cli.session_id()
         if sid is None or os.environ.get(summary_cli.RUN_ID_ENV):

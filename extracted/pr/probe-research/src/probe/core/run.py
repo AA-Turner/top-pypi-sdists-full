@@ -24,7 +24,7 @@ desktop app can too. The contract is `probe wizard --json`'s:
             answer at all, else the cached manifest; `{"refresh": true}`:
             the cached manifest refreshed first, as the CLI's own refresher
             does, adding `"ok"` and `"fetched_at"`). `report` is a read too:
-            one diagnostic report to the Probe team (`probe.core.report`;
+            one diagnostic report to the Probe team (`probe.shared.reports`;
             params `{"auto", "family", "reason", "sid", "env", "facts"}`),
             writing `{"sent", "id", "skipped", "path"}`. `desktop` reads one
             desktop management request (`probe desktop request --json`'s
@@ -32,7 +32,7 @@ desktop app can too. The contract is `probe wizard --json`'s:
             (the Probe service's `desktop.request`).
             `codex_trust` approves Probe's own hooks in Codex as an update
             does and writes `{"outcome", "approved", "error"}`
-            (`probe.cli.codex_hooks.heal`; the Probe service's healer,
+            (`probe.shared.harness.harnesses.codex.hooks.heal`; the Probe service's healer,
             `probe.service.codextrust`).
     stderr  everything else: the run's own text and its child processes'.
     exit    0 done, 1 failed, 2 usage (an unknown action or a request it
@@ -121,7 +121,7 @@ def main(argv: list[str] | None = None, stdin: TextIO | None = None) -> int:
     except Exception as exc:
         # A bug: its `error` and `done` are written. Report it, then re-raise for
         # the traceback, exactly as `probe` does (`probe.cli.main.main`).
-        from probe._shared import telemetry as telemetry_mod
+        from probe import analytics as telemetry_mod
 
         telemetry_mod.report_crash(exc, surface="cli")
         raise
@@ -165,7 +165,8 @@ def _report(request) -> int:
     stdout. Whatever the collectors print goes to stderr meanwhile."""
     import json
 
-    from probe.core import events, report
+    from probe.core import events
+    from probe.shared import reports as report
 
     with events.redirect_stdout() as out:
         answer = report.run(request)
@@ -178,7 +179,7 @@ def _codex_trust() -> int:
     answer as ONE object on the real stdout. What Codex prints goes to stderr."""
     import json
 
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
     from probe.core import events
 
     with events.redirect_stdout() as out:
@@ -273,14 +274,14 @@ def _cli_latest(*, fetch: bool) -> tuple[str | None, bool | None]:
     and NOT written to the cache: a failed fetch here must never push the
     CLI's own refresh into its back-off (`version_policy.write_cache`). An
     error that is no network at all (a name that did not resolve, no route:
-    `probe._shared.offline`) is no answer; a refused connection, a timeout,
+    `probe.foundation.tls.network_down`) is no answer; a refused connection, a timeout,
     TLS, an HTTP error or a body that is not a manifest is one."""
     reachable = None
     try:
-        from probe import version_policy
+        from probe.shared.updates import version_policy
 
         if fetch:
-            from probe.sdk.tls import ssl_context
+            from probe.foundation.tls.tls import ssl_context
 
             url, context = version_policy.base_url() + version_policy.MANIFEST_PATH, ssl_context()
             try:
@@ -288,7 +289,7 @@ def _cli_latest(*, fetch: bool) -> tuple[str | None, bool | None]:
             except Exception as exc:
                 # No network at all (a name that did not resolve, no route); a
                 # refused connection, a timeout or TLS is an answer of a kind.
-                from probe._shared import offline
+                from probe.foundation.tls import network_down as offline
 
                 reachable = not offline.no_network(exc)
                 raise
@@ -312,7 +313,7 @@ def _refresh_manifest() -> dict:
 
     with events.redirect_stdout():
         try:
-            from probe import version_policy
+            from probe.shared.updates import version_policy
             from probe.cli import version_refresh
 
             version_refresh.refresh_cache()

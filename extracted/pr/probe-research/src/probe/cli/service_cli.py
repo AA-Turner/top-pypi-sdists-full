@@ -106,7 +106,7 @@ def update_line(update: object) -> str:
 @service_app.command("start")
 def start_cmd() -> None:
     """Start the Probe service if it is not running, and wait for it to answer."""
-    from probe._shared import uninstall_barrier
+    from probe.shared.updates import uninstall_barrier
     from probe.cli import uninstall
     from probe.service import client, paths
 
@@ -201,7 +201,7 @@ def record_runtime(*, force: bool = False) -> None:
     """
     try:
         prefix = sys.prefix.replace(os.sep, "/")
-        from probe._shared import installs
+        from probe.shared.updates import installs
 
         versioned = installs.running_from_versions(prefix)
         from_tool_env = "/uv/tools/probe-research" in prefix or versioned

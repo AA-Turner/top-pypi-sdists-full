@@ -13,7 +13,7 @@ import os
 import pytest
 from typer.testing import CliRunner
 
-from probe.sdk.config import save_context
+from probe.sdk.settings.settings import save_context
 from tests import test_wizard_json_events as events
 
 device = events.device

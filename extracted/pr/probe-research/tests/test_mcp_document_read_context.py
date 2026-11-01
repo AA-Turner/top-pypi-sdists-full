@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from probe.mcp.service import ResearchReadService
+from probe.mcp.tools.tools import ResearchReadService
 from tests.test_mcp_delivery import _bounded, _wire
 from tests.test_mcp_delivery_sources import _walk
 from tests.test_mcp_entity_projection import EntitySource

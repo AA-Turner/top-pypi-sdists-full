@@ -382,7 +382,7 @@ def test_scope_is_captured_once_and_old_cursor_cannot_cross_accounts(reviewed, m
 
 
 def test_client_pins_settings_and_context_instead_of_ambient_refresh(tmp_path, monkeypatch):
-    from probe.sdk import config
+    from probe.sdk.settings import settings as config
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config.json"))
     monkeypatch.setattr(config, "current_context_name", lambda: "initial")
@@ -467,7 +467,7 @@ def test_desktop_admission_stamps_origin_without_passing_marker_to_worker(review
     records = []
     class Sender:
         def put(self, record): records.append(record)
-    monkeypatch.setattr(telemetry, "_ensure_sender", lambda: Sender())
+    monkeypatch.setattr(telemetry.sender, "_ensure_sender", lambda: Sender())
     p = d.preview_backfill({"sessionIds":[f"claude_code:{row.session_id}"]})
     result = d.dispatch({"op":"start_backfill","previewId":p["id"]})
     origin = import_jobs.get_job(result[0]["id"])["origin"]
@@ -498,7 +498,7 @@ def test_last_received_and_pending_are_the_live_sessions_journal(monkeypatch, tm
     never the protocol-1 `state.db`, whose outbox stopped moving at #1415."""
     import sqlite3
 
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
     from probe.service import client
 
     sid, journal = _journal_session(tmp_path, monkeypatch)

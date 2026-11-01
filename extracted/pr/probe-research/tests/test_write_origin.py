@@ -24,20 +24,22 @@ import httpx
 import pytest
 
 from probe.sdk import agent_session
-from probe.sdk import journal as jm
-from probe.sdk import outbox_worker, service_handoff
-from probe.sdk import transport as transport_mod
+from probe.sdk.delivery import journal as jm
+from probe.sdk.delivery import outbox as outbox_worker
+from probe.sdk.delivery.outbox.drainers import service_handoff
+from probe.sdk.delivery import transport as transport_mod
 from probe.sdk.agent_session import (
     AGENT_SESSION_HEADER,
     EVENT_AT_ENV,
     RUN_PROCESS_ENV,
     WRITE_ORIGIN_HEADER,
 )
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
-from probe.sdk.journal import Journal, drain
-from probe.sdk.surface import Surface
-from probe.sdk.transport import Transport
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain.drain import drain
+from probe.foundation.request_identity.surface import Surface
+from probe.sdk.delivery.transport.transport import Transport
 from tests.conftest import make_client, open_run
 from tests.served_fake_app import child_env, serve
 
@@ -161,7 +163,8 @@ def test_init_marks_the_process_in_every_mode_that_writes(monkeypatch):
     disabled run writes nothing and marks nothing."""
     from probe.sdk import fluent
 
-    monkeypatch.setattr(fluent, "_replace_previous", _stop)
+    monkeypatch.setattr(fluent.reinit, "_replace_previous", _stop)
+    monkeypatch.setattr(fluent.fluent, "_replace_previous", _stop)
     with pytest.raises(Stop):
         fluent.init(mode="disabled")
     assert agent_session.run_write_origin(AS_SESSION) is None
@@ -235,10 +238,11 @@ def test_an_upload_request_carries_one_origin(monkeypatch, tmp_path):
     and the agent's own go apart."""
     from test_outbox_run_upload_window import Server, upload
 
-    monkeypatch.setattr(jm, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
     monkeypatch.delenv("PROBE_UPLOAD_WORKERS", raising=False)
     monkeypatch.delenv("PROBE_UPLOAD_MANY", raising=False)
-    monkeypatch.setattr(jm, "queued_session", lambda: AS_SESSION)
+    monkeypatch.setattr(jm.journal, "queued_session", lambda: AS_SESSION)
     queue = Journal(tmp_path / "outbox")
     for i in range(4):
         upload(queue, tmp_path, f"out/file{i}.txt")

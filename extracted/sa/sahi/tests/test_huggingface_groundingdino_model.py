@@ -1,18 +1,11 @@
 """Tests for HuggingFace GroundingDINO zero-shot detection integration."""
 
-from __future__ import annotations
-
-import sys
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
 from sahi.models.huggingface import HuggingfaceDetectionModel
-
-pytestmark = pytest.mark.skipif(
-    sys.version_info[:2] < (3, 9), reason="transformers>=4.49.0 requires Python 3.9 or higher"
-)
 
 
 class GroundingDinoForObjectDetection:
@@ -21,7 +14,7 @@ class GroundingDinoForObjectDetection:
     def __init__(self) -> None:
         self.config = SimpleNamespace(id2label={0: "LABEL_0"}, num_labels=1)
 
-    def to(self, device: str) -> GroundingDinoForObjectDetection:
+    def to(self, device: str) -> "GroundingDinoForObjectDetection":
         return self
 
     def __call__(self, **inputs: object) -> SimpleNamespace:

@@ -1,10 +1,10 @@
 /**
- * Name         : Martor v1.8.1
+ * Name         : Martor v1.8.5
  * Created by   : Agus Makmun (Summon Agus)
- * Release date : 18-Apr-2026
+ * Release date : 31-Oct-2026
  * License      : GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
  * Repository   : https://github.com/agusmakmun/django-markdown-editor
- * JS Minifier  : https://jscompress.com
+ * JS Minifier  : terser (https://terser.org)
 **/
 
 (function ($) {
@@ -184,7 +184,7 @@
                                 url: textareaId.data('search-users-url'),
                                 data: {
                                     'username': username,
-                                    'csrfmiddlewaretoken': getCookie('csrftoken')
+                                    'csrfmiddlewaretoken': getCookie(textareaId.data('csrf-cookie-name') || 'csrftoken')
                                 },
                                 success: function (data) {
                                     if (data['status'] == 200) {
@@ -273,7 +273,7 @@
                 var value = textareaId.val();
                 var form = new FormData();
                 form.append('content', value);
-                form.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+                form.append('csrfmiddlewaretoken', getCookie(textareaId.data('csrf-cookie-name') || 'csrftoken'));
                 currentTab.addClass('martor-preview-stale');
 
                 $.ajax({
@@ -374,12 +374,7 @@
             // Modal Popup for Help Guide & Emoji Cheat Sheet
             $('.markdown-help[data-field-name=' + field_name + ']').click(function (e) {
                 e.preventDefault();
-                console.log('Help button clicked for field:', field_name);
-                var modalSelector = '.modal-help-guide[data-field-name=' + field_name + ']';
-                console.log('Modal selector:', modalSelector);
-                var modal = $(modalSelector);
-                console.log('Modal found:', modal.length);
-                TailwindUtils.showModal(modalSelector);
+                TailwindUtils.showModal('.modal-help-guide[data-field-name=' + field_name + ']');
             });
 
             // Close modal functionality
@@ -388,9 +383,9 @@
                 TailwindUtils.hideModal('.modal-help-guide[data-field-name=' + field_name + ']');
             });
 
-            // Also handle click on modal backdrop to close
+            // Close when clicking anywhere outside the modal panel
             $('.modal-help-guide[data-field-name=' + field_name + ']').click(function (e) {
-                if (e.target === this || $(e.target).hasClass('bg-gray-500')) {
+                if (!$(e.target).closest('.modal-panel').length) {
                     TailwindUtils.hideModal('.modal-help-guide[data-field-name=' + field_name + ']');
                 }
             });
@@ -440,6 +435,10 @@
 
             // Exit full screen when `ESC` is pressed.
             $(document).keyup(function (e) {
+                // `ESC` also closes this editor's modals
+                if (e.keyCode == 27) {
+                    TailwindUtils.hideModal('.modal-help-guide[data-field-name=' + field_name + '], .modal-emoji[data-field-name=' + field_name + ']');
+                }
                 if (e.keyCode == 27 && mainMartor.hasClass('main-martor-fullscreen')) {
                     btnToggleMaximize.trigger('click');
                 }
@@ -503,9 +502,9 @@
                 TailwindUtils.hideModal('.modal-emoji[data-field-name=' + field_name + ']');
             });
 
-            // Close emoji modal when clicking on backdrop
+            // Close emoji modal when clicking anywhere outside the modal panel
             $('.modal-emoji[data-field-name=' + field_name + ']').click(function (e) {
-                if (e.target === this || $(e.target).hasClass('bg-gray-500')) {
+                if (!$(e.target).closest('.modal-panel').length) {
                     TailwindUtils.hideModal('.modal-emoji[data-field-name=' + field_name + ']');
                 }
             });
@@ -776,7 +775,7 @@
                 } else {
                     var range = editor.getSelectionRange();
                     var text = editor.session.getTextRange(range);
-                    editor.session.replace(range, '[' + text + '](https://) ');
+                    editor.session.replace(range, '[' + text + '](https://)');
                     editor.focus();
                     editor.selection.moveTo(
                         originalRange.end.row,
@@ -797,7 +796,7 @@
                     } else {
                         var range = editor.getSelectionRange();
                         var text = editor.session.getTextRange(range);
-                        editor.session.replace(range, '![' + text + '](https://) ');
+                        editor.session.replace(range, '![' + text + '](https://)');
                         editor.focus();
                         editor.selection.moveTo(
                             originalRange.end.row,
@@ -842,11 +841,13 @@
             };
             // Markdown Image Uploader auto insert to editor.
             // with special insert, eg: ![avatar.png](i.imgur.com/DytfpTz.png)
-            var markdownToUploadImage = function (editor) {
+            var markdownToUploadImage = function (editor, file) {
                 var firstForm = $('#' + editorId).closest('form').get(0);
                 var field_name = editor.container.id.replace('martor-', '');
-                var form = new FormData(firstForm);
-                form.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+                // `file` is set when uploading a pasted image, otherwise send the form with the file input.
+                var form = file ? new FormData() : new FormData(firstForm);
+                if (file) form.append('markdown-image-upload', file);
+                form.append('csrfmiddlewaretoken', getCookie(textareaId.data('csrf-cookie-name') || 'csrftoken'));
 
                 $.ajax({
                     url: textareaId.data('upload-url'),
@@ -941,6 +942,15 @@
                     evt.preventDefault();
                     markdownToUploadImage(editor);
                 });
+                // Upload images pasted from the clipboard (issue #240).
+                editor.container.addEventListener('paste', function (evt) {
+                    var files = evt.clipboardData ? evt.clipboardData.files : [];
+                    if (files.length && files[0].type.indexOf('image/') === 0) {
+                        evt.preventDefault();
+                        evt.stopPropagation();
+                        markdownToUploadImage(editor, files[0]);
+                    }
+                }, true);
             } else {
                 btnUpload.remove();
             }

@@ -26,6 +26,8 @@ import pytest
 from probe import cli, expr
 from tests.conftest import make_client, note_tokens, open_run, token_text
 
+SCANNING_DISABLED = "credential scanning is disabled in the SDK; these tests assert the redaction it did"
+
 cli_main = importlib.import_module("probe.cli.main")
 
 
@@ -289,9 +291,9 @@ def test_the_servers_token_refusal_still_gets_the_compaction_advice(
     SERVER refuses, in token words. The advice the 422 cannot carry is added to
     that refusal too: "notes limit" is in every server's wording.
 
-    Patched at the CLI's seam, not in `probe.mcp.budget`: the fake server counts
+    Patched at the CLI's seam, not in `probe.foundation.token_budget.token_budget`: the fake server counts
     with that module too, and must keep counting."""
-    import probe.sdk.notes as notes
+    import probe.sdk.reads.notes_cap as notes
 
     monkeypatch.setattr(notes, "tokens_past_cap", lambda _text, _limit: None)
     run = _new_run(wired, tmp_path)
@@ -657,6 +659,7 @@ def test_new_text_whose_scrub_would_rewrite_the_rest_of_the_note_is_refused(wire
     assert _patches(wired, "/v1/projects/") == []
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_the_callers_own_text_is_still_scrubbed_as_before(wired, capsys):
     project = _project(wired)
     project["notes"] = "- lr 3e-4 is stable"

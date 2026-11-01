@@ -34,7 +34,7 @@ import time
 from dataclasses import dataclass, field
 
 #: The SDK's and the daemon's own credential variables (`sdk/config.resolve`,
-#: `daemon/model.py`).
+#: `daemon/agent/model/model.py`).
 TOKEN_VARIABLES = ("PROBE_TOKEN", "PROBE_MCP_TOKEN", "PROBE_INGEST_TOKEN",
                    "PROBE_DAEMON_KEY")
 BASE_URL_VARIABLE = "PROBE_BASE_URL"
@@ -60,7 +60,7 @@ def override_variables() -> tuple[str, ...]:
 def capture_variables() -> tuple[str, ...]:
     """Every coding agent's capture-token variable (the harness registry)."""
     try:
-        from probe.harness.registry import get_registry
+        from probe.foundation.harness_registry.harness_registry import get_registry
 
         return tuple(dict.fromkeys(h.capture.token_env for h in get_registry().all() if h.capture is not None))
     except Exception:  # noqa: BLE001
@@ -70,9 +70,9 @@ def capture_variables() -> tuple[str, ...]:
 def whoami(token: str, base_url: str) -> tuple[str, dict | None]:
     """`(state, /v1/me)` for `token`: `ok`, `rejected` (401/403) or `unreachable`."""
     from probe.sdk import errors
-    from probe.sdk.client import Client
-    from probe.sdk.config import Settings
-    from probe.sdk.surface import Surface
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import Settings
+    from probe.foundation.request_identity.surface import Surface
 
     try:
         with Client(settings=Settings(base_url=base_url, token=token), async_writes=False,
@@ -125,7 +125,7 @@ def _credentials_now() -> tuple:
     """What `reconcile` holds to the sign-in, as it is now: the saved
     credentials and the variables that outrank them."""
     try:
-        from probe.sdk.config import load_context
+        from probe.sdk.settings.settings import load_context
 
         stored = load_context() or {}
     except Exception:  # noqa: BLE001
@@ -155,7 +155,7 @@ def reconcile(*, base_url: str | None = None, mint=None, network: bool = True,
     `only_when_needed`: no server call when no daemon key is saved and no
     credential variable is set (the sign-in itself is the wizard's to check).
     Never raises."""
-    from probe.sdk.config import load_context, save_context
+    from probe.sdk.settings.settings import load_context, save_context
 
     report = IdentityReport()
     try:
@@ -252,8 +252,9 @@ def drain_before_switch(*, seconds: float = DRAIN_BUDGET_S) -> list[str]:
     the exchange that releases it (R8). Bounded by `seconds`; what is left is
     said, never dropped. Lines to show (none when nothing was queued)."""
     try:
-        from probe.sdk import transport
-        from probe.sdk.journal import Journal, drain
+        from probe.sdk.delivery import transport
+        from probe.sdk.delivery.journal.journal import Journal
+        from probe.sdk.delivery.outbox.drain.drain import drain
 
         journal = Journal()
         queued = sum(1 for queue in journal.namespaces() for _ in queue.pending())

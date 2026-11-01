@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from probe.mcp.server import with_auth_and_health
+from probe.mcp.server.http import with_auth_and_health
 
 
 async def _inner(scope: dict, receive, send) -> None:
@@ -128,7 +128,7 @@ def test_the_helpers_no_token_placeholder_is_refused_without_asking_the_api(
     a 15-minute skip in Claude Code). It is refused like a bad token, with the
     wizard named, the API is never asked about it, and it never reaches a tool --
     with OAuth discovery on or off (self-host)."""
-    from probe.mcp.server import NO_TOKEN_PLACEHOLDER
+    from probe.mcp.server.http import NO_TOKEN_PLACEHOLDER
     from probe.sdk.session_marker import WIZARD_HINT
 
     monkeypatch.setenv("PROBE_MCP_OAUTH", oauth)

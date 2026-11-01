@@ -7,9 +7,9 @@ import pytest
 
 from probe.cli import desktop
 from probe.sdk import errors
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
-from probe.sdk.transport import Transport
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.transport.transport import Transport
 
 SCOPE = {"userId": "signed-in-user", "customerId": "approved-team"}
 

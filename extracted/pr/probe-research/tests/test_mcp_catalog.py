@@ -25,11 +25,12 @@ from pathlib import Path
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
-from probe.mcp import accounting, contract
-from probe.mcp.contract import EnvelopeState, MissingMarker, View
-from probe.mcp.server import create_server
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.mcp.delivery import accounting
+from probe.shared.reads import search_contract as contract
+from probe.shared.reads.search_contract import EnvelopeState, MissingMarker, View
+from probe.mcp.server.server import create_server
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
 from tests.conftest import make_client
 from tests.mcp_catalog_fake import (
@@ -977,11 +978,11 @@ def _server_enum(relpath: str, name: str) -> dict[str, str]:
 @pytest.mark.parametrize(
     ("client", "relpath", "server"),
     [
-        (contract.ProvenanceDirection, "app/catalog/provenance.py", "Direction"),
-        (contract.DatasetRegistered, "app/catalog/router.py", "Registered"),
-        (contract.CheckpointStored, "app/catalog/router.py", "StoredState"),
-        (contract.SourceKind, "app/core/catalog_vocab.py", "SourceKind"),
-        (contract.SourceProvider, "app/core/catalog_vocab.py", "SourceProvider"),
+        (contract.ProvenanceDirection, "app/files/catalog/sources/provenance.py", "Direction"),
+        (contract.DatasetRegistered, "app/files/catalog/router.py", "Registered"),
+        (contract.CheckpointStored, "app/files/catalog/router.py", "StoredState"),
+        (contract.SourceKind, "app/files/catalog/vocab.py", "SourceKind"),
+        (contract.SourceProvider, "app/files/catalog/vocab.py", "SourceProvider"),
     ],
 )
 def test_the_catalog_vocabulary_matches_the_servers_value_for_value(client, relpath, server):

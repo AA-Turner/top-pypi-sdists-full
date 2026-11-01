@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from probe.cli.backfill_coverage import Coverage, CoverageError, Scope, hash_current
-from probe.sdk.journal import DELIVERY_SCHEMA
+from probe.sdk.delivery.ops.ops import DELIVERY_SCHEMA
 
 
 SCOPE = Scope("https://example.test", "tenant-a", "workspace-a", "project-a")

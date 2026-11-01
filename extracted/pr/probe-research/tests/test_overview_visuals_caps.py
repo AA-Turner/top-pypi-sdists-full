@@ -4,7 +4,7 @@
 (plan writer-owns-summary §3.8): read before `probe visuals set`, shipped in the
 CLI wheel. The lane fills its copy's caps at serve time; this copy carries them
 as plain numbers, written by `make sync-visuals-caps`
-(scripts/sync_visuals_caps.py) from `app/blocks/schemas.py`. A cap the skill
+(scripts/sync_visuals_caps.py) from `app/shared/blocks/visuals.py`. A cap the skill
 states and the checker does not enforce refuses the writer's tables, so the two
 must be equal. Read from the server's source when this is the monorepo (the
 public agent mirror has no server).

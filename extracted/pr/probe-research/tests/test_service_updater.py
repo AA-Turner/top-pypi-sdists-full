@@ -32,7 +32,7 @@ from pathlib import Path
 import pytest
 
 import probe
-from probe._shared import installs as installs_mod
+from probe.shared.updates import installs as installs_mod
 from probe.service import appupdate, barrier, client, paths
 from probe.service import updater
 from probe.service.protocol import Client, Method, Mode, StopReason
@@ -1433,7 +1433,7 @@ def test_the_service_reads_an_off_saved_in_a_live_session_s_state_folder(tmp_pat
     folder. A person who runs with XDG_STATE_HOME may have turned automatic
     updates off there (before `save` wrote both folders): a live session's
     folder (D13) is read too, and that off stands."""
-    from probe import version_policy
+    from probe.shared.updates import version_policy
 
     monkeypatch.delenv("XDG_STATE_HOME", raising=False)
     monkeypatch.setattr(version_policy, "managed_cli", lambda path=None: True)
@@ -2039,7 +2039,7 @@ def test_this_service_s_child_whose_identity_could_not_be_read_is_never_signalle
 
 
 def test_the_stopped_update_keeps_what_its_child_recorded_since_it_started(service_home, monkeypatch):
-    from probe._shared import autoupdate
+    from probe.shared.updates import autoupdate
 
     monkeypatch.setenv("XDG_STATE_HOME", str(service_home.home / ".local" / "state"))
     autoupdate.record_attempt(autoupdate.Attempt(at=int(time.time()) - 3600, ok=True, from_version="0.1.0"))
@@ -2524,12 +2524,12 @@ def test_a_plugins_only_update_is_a_success_not_a_failed_cli_step():
 
 def test_the_first_switch_waits_for_a_quiet_machine(monkeypatch):
     """It moves the folder every running process reads through (Codex R2 #1)."""
-    from probe._shared import installs
+    from probe.shared.updates import installs
 
-    monkeypatch.setattr(installs, "usable", lambda tools=None: True)
-    monkeypatch.setattr(installs, "needs_migration", lambda tools=None: True)
+    monkeypatch.setattr(installs.layout, "usable", lambda tools=None: True)
+    monkeypatch.setattr(installs.repair, "needs_migration", lambda tools=None: True)
     assert updater.side_by_side() is False
-    monkeypatch.setattr(installs, "needs_migration", lambda tools=None: False)
+    monkeypatch.setattr(installs.repair, "needs_migration", lambda tools=None: False)
     assert updater.side_by_side() is True
 
 
@@ -2731,8 +2731,13 @@ def test_a_stale_runtime_json_follows_the_switch_before_the_restart(service_home
     the tool path, and the version the restart and guard expect is that env's."""
     old, new = _version_env(service_home.home, "0.1.0"), _version_env(service_home.home, "0.2.0")
     client.write_runtime(str(installs_mod.env_python(old)), "0.1.0")
-    monkeypatch.setattr(installs_mod, "active", lambda tools=None: new)
-    monkeypatch.setattr(installs_mod, "env_version", lambda env, **kw: {new: "0.2.0", old: "0.1.0"}.get(env))
+    monkeypatch.setattr(installs_mod.active_record, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod.installs, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod.pruning, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod.repair, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod.env_checks, "env_version", lambda env, **kw: {new: "0.2.0", old: "0.1.0"}.get(env))
+    monkeypatch.setattr(installs_mod.installs, "env_version", lambda env, **kw: {new: "0.2.0", old: "0.1.0"}.get(env))
+    monkeypatch.setattr(installs_mod.repair, "env_version", lambda env, **kw: {new: "0.2.0", old: "0.1.0"}.get(env))
 
     assert updater.runtime_follows_switch("0.1.0") == "0.2.0"
     assert json.loads(paths.runtime_path().read_text()) == {
@@ -2744,8 +2749,13 @@ def test_runtime_json_naming_the_switched_env_is_left_alone(service_home, monkey
     new = _version_env(service_home.home, "0.2.0")
     client.write_runtime(str(installs_mod.env_python(new)), "0.2.0")
     before = paths.runtime_path().read_text()
-    monkeypatch.setattr(installs_mod, "active", lambda tools=None: new)
-    monkeypatch.setattr(installs_mod, "env_version", lambda env, **kw: pytest.fail("no version read needed"))
+    monkeypatch.setattr(installs_mod.active_record, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod.installs, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod.pruning, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod.repair, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod.env_checks, "env_version", lambda env, **kw: pytest.fail("no version read needed"))
+    monkeypatch.setattr(installs_mod.installs, "env_version", lambda env, **kw: pytest.fail("no version read needed"))
+    monkeypatch.setattr(installs_mod.repair, "env_version", lambda env, **kw: pytest.fail("no version read needed"))
     assert updater.runtime_follows_switch("0.2.0") == "0.2.0"
     assert paths.runtime_path().read_text() == before
 
@@ -2762,7 +2772,10 @@ def test_no_switch_layout_leaves_runtime_json_and_the_version_alone(service_home
             raise RuntimeError("no uv")
         return None
 
-    monkeypatch.setattr(installs_mod, "active", active)
+    monkeypatch.setattr(installs_mod.active_record, "active", active)
+    monkeypatch.setattr(installs_mod.installs, "active", active)
+    monkeypatch.setattr(installs_mod.pruning, "active", active)
+    monkeypatch.setattr(installs_mod.repair, "active", active)
     assert updater.runtime_follows_switch("0.1.0") == "0.1.0"
 
 
@@ -2774,14 +2787,19 @@ def test_a_disagreement_that_cannot_be_put_right_restarts_nothing(service_home, 
     old, new = _version_env(service_home.home, "0.1.0"), _version_env(service_home.home, "0.2.0")
     client.write_runtime(str(installs_mod.env_python(old)), "0.1.0")
     before = paths.runtime_path().read_text()
-    monkeypatch.setattr(installs_mod, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod.active_record, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod.installs, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod.pruning, "active", lambda tools=None: new)
+    monkeypatch.setattr(installs_mod.repair, "active", lambda tools=None: new)
 
     def version(env, **kw):
         if case == "raises":
             raise OSError("no uv")
         return "0.2.0" if case == "uninstalling" else None
 
-    monkeypatch.setattr(installs_mod, "env_version", version)
+    monkeypatch.setattr(installs_mod.env_checks, "env_version", version)
+    monkeypatch.setattr(installs_mod.installs, "env_version", version)
+    monkeypatch.setattr(installs_mod.repair, "env_version", version)
     if case == "uninstalling":
         monkeypatch.setattr(client, "uninstall_barrier", lambda: {"at": 1.0})
     assert updater.runtime_follows_switch("0.1.0") is None
@@ -2802,7 +2820,10 @@ def test_the_self_step_and_the_update_action_expect_the_switched_version(service
     monkeypatch.setattr(children, "run_read", read)
     monkeypatch.setattr(updater, "runtime_follows_switch", lambda installed: "0.2.0")
     monkeypatch.setattr(updater, "_env_moved", lambda started=None: False)
-    monkeypatch.setattr(installs_mod, "active", lambda tools=None: Path("/v/0.2.0"))
+    monkeypatch.setattr(installs_mod.active_record, "active", lambda tools=None: Path("/v/0.2.0"))
+    monkeypatch.setattr(installs_mod.installs, "active", lambda tools=None: Path("/v/0.2.0"))
+    monkeypatch.setattr(installs_mod.pruning, "active", lambda tools=None: Path("/v/0.2.0"))
+    monkeypatch.setattr(installs_mod.repair, "active", lambda tools=None: Path("/v/0.2.0"))
     stops = []
     u = updater.Updater(version="0.1.0", emit=lambda *a: None, changed=lambda: None, stop=stops.append,
                         action_running=lambda: False, discovering=lambda: False)

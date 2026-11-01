@@ -14,7 +14,7 @@ import pytest
 
 from probe.cli import identity_check
 from probe.cli import setup as wizard
-from probe.sdk.config import load_context, save_context
+from probe.sdk.settings.settings import load_context, save_context
 
 URL = "https://api.example"
 TEAM_A = {"customer_id": "team-a", "user_id": "u1", "email": "me@a.example"}
@@ -144,7 +144,7 @@ def test_sign_in_clears_keeper_off(monkeypatch):
 
 
 def test_the_drain_sends_what_is_queued_and_says_what_is_left(monkeypatch):
-    from probe.sdk import journal
+    from probe.sdk.delivery import journal
 
     class Queue:
         def pending(self):
@@ -157,8 +157,11 @@ def test_the_drain_sends_what_is_queued_and_says_what_is_left(monkeypatch):
     class Report:
         delivered, remaining = 1, 1
 
-    monkeypatch.setattr(journal, "Journal", Fake)
-    monkeypatch.setattr(journal, "drain", lambda j, **kw: Report())
+    monkeypatch.setattr(journal.journal, "Journal", Fake)
+    monkeypatch.setattr(journal.run_ops, "Journal", Fake)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.credentials.Journal", Fake)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.Journal", Fake)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", lambda j, **kw: Report())
     lines = identity_check.drain_before_switch(seconds=1)
     assert lines[0].startswith("sent 1 queued write") and "1 queued write(s) could not be sent" in lines[1]
 

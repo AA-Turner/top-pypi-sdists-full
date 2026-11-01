@@ -4,7 +4,7 @@ requires = ["uv-build>=0.8"]
 
 [project]
 name = "extra-platforms"
-version = "13.13.0"
+version = "14.0.1"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
@@ -179,7 +179,7 @@ keywords = [
 ]
 license = "Apache-2.0"
 license-files = ["license"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
@@ -234,7 +234,6 @@ classifiers = [
     "Operating System :: RISC OS",
     "Operating System :: Unix",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -257,12 +256,12 @@ name = "Kevin Deldycke"
 email = "kevin@deldycke.com"
 
 [project.optional-dependencies]
-pytest = ["pytest>=8.2.1"]
+pytest = ["pytest>=8.4"]
 
 [project.urls]
 Changelog = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 Documentation = "https://kdeldycke.github.io/extra-platforms"
-Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.13.0"
+Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v14.0.1"
 Funding = "https://github.com/sponsors/kdeldycke"
 Homepage = "https://github.com/kdeldycke/extra-platforms"
 Issues = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -277,35 +276,31 @@ extra-platforms = "extra_platforms.pytest"
 [dependency-groups]
 test = [
     "coverage[toml]>=7.13",
-    "pytest",
+    "pytest>=9",
     "pytest-github-actions-annotate-failures>=0.3",
     "pytest-randomly>=4",
     "pytest-xdist[psutil]>=3.7",
     "requests>=2.34",
-    "tomli>=2.3; python_version<'3.11'",
 ]
 docs = [
     "click-extra[sphinx]>=9.4",
-    "furo>=2025.9.25",
+    "furo>=2025.12.19",
     "myst-parser>=5.1",
-    "pytest>=8.2.1",
+    "pytest>=8.4",
     "sphinx>=9.1",
-    "sphinx-autodoc-typehints>=2.4",
-    "sphinx-copybutton>=0.5.2",
-    "sphinx-design>=0.6",
+    "sphinx-autodoc-typehints>=2",
+    "sphinx-copybutton>=0.5",
+    "sphinx-design>=0.7",
     "sphinxcontrib-mermaid>=1.2.3",
-    "sphinxext-opengraph>=0.13",
+    "sphinxext-opengraph>=0.11",
 ]
 
 [tool.uv]
-required-version = ">=0.11.15"
+required-version = ">=0.12.22"
 exclude-newer = "1 week"
 
 [tool.uv.dependency-groups.docs]
 requires-python = ">= 3.12"
-
-[tool.uv.exclude-newer-package]
-certifi = "2026-10-25T00:00:00Z"
 
 [tool.uv.build-backend]
 module-root = ""
@@ -319,6 +314,8 @@ source-exclude = [
     "tests/.coverage",
 ]
 source-include = [
+    ".github/code-of-conduct.md",
+    "AGENTS.md",
     "changelog.md",
     "docs/**",
     "tests/**",
@@ -336,7 +333,17 @@ output-prefer-rule-codes = true
 docstring-code-format = true
 
 [tool.ruff.lint]
-extend-select = ["PLW1514"]
+extend-select = [
+    "D205",
+    "D209",
+    "E501",
+    "PLW1514",
+    "RUF100",
+    "RUF102",
+    "RUF103",
+    "RUF104",
+    "TC",
+]
 ignore = [
     "D301",
     "D400",
@@ -411,6 +418,8 @@ markers = [
     "network: Tests that require network access (excluded with -m 'not network').",
     "xdist_group: Tests sharing one pytest-xdist worker (declared for runs without pytest-xdist).",
 ]
+strict_config = true
+strict_markers = true
 testpaths = ["tests"]
 xfail_strict = true
 
@@ -422,11 +431,11 @@ parallel = true
 patch = ["subprocess"]
 
 [tool.coverage.report]
-fail_under = 85
+fail_under = 86.5
 precision = 2
 
 [tool.bumpversion]
-current_version = "13.13.0"
+current_version = "14.0.1"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",
@@ -493,7 +502,6 @@ exclude = [
     '^https://www\.virustotal\.com/gui/.*$',
     'bitdefender\.com',
     '^https://www\.npmjs\.com/package/.*$',
-    '^https://star-history\.com/.*$',
     'githubstatus\.com',
     '^https://claude\.ai/.*$',
 ]
@@ -506,10 +514,14 @@ update-script = ""
 
 [tool.repomatic.lint-repo.declined.pytest.addopts]
 "--cov-report=term" = "The tests workflow runs pytest under coverage run, which also counts the lines the pytest11 plugin imports before pytest-cov could start."
-"--numprocesses=auto" = "The tests workflow passes all xdist flags, so a from-source build runs plain pytest without pytest-xdist."
+"--numprocesses=logical" = "The tests workflow passes all xdist flags, so a from-source build runs plain pytest without pytest-xdist."
+"--dist=loadgroup" = "The tests workflow passes all xdist flags, so a from-source build runs plain pytest without pytest-xdist."
 
 [tool.repomatic.lint-repo.declined.pytest.markers]
 "once: Tests that only need to run once, not across the full CI matrix." = "No test here is matrix-insensitive yet: nearly every test checks platform-specific behavior on each cell."
+
+[tool.repomatic.lint-repo.declined.ruff.lint.extend-select]
+PLC0415 = "Function-level imports are deliberate here: they break the import cycle around the data registries and keep rare modules off the import path of the package. See Imports in AGENTS.md."
 
 [tool.repomatic.nuitka]
 enabled = false
@@ -527,6 +539,7 @@ os = [
 
 [tool.repomatic.workflow]
 extra-paths = [
+    "AGENTS.md",
     "docs/**",
     "readme.md",
 ]

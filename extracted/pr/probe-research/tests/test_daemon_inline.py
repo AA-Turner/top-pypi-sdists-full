@@ -136,7 +136,7 @@ def _notice(out: str) -> str:
 @pytest.mark.parametrize("start,target", [(session_marker.STATE_DAEMON, session_marker.STATE_FULL),
                                           (session_marker.STATE_READ_ONLY, session_marker.STATE_READ_ONLY)])
 def test_quota_handoff_opens_agent_reads_and_preserves_write_choice(guard, daemon_session, monkeypatch, capsys, start, target):
-    from probe.cli import mcp_bridge
+    from probe.shared.reads import mcp_bridge
     session_marker.set_session_state(SID, start)
     assert session_marker.inline_on_budget(SID, start, now=100.0)
     assert session_marker.session_state(SID) == target and session_marker.is_inline(SID)

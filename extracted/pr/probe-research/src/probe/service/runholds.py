@@ -14,7 +14,7 @@
                  picks up, released ones still running included (marked
                  `released`); one whose process is gone is dropped as it loads
 
-The run's flock (`probe._shared.run_lock`) stays: it is what a service from
+The run's flock (`probe.foundation.durable.run_lock`) stays: it is what a service from
 before this, the CLI's own updater and the update child read, so a hold only
 adds to it. A hold never keeps the service alive: with no service there is no
 updater to protect the run from, and the next service loads it.

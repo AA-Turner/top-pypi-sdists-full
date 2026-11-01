@@ -467,17 +467,18 @@ def test_edited_approval_is_rejected_before_dispatch(queued, monkeypatch):
 def _fake_worker_package(tmp_path, monkeypatch, hook):
     """Use real worker code with a harmless lane and no customer configuration."""
     source = tmp_path / "worker-source"
-    for package in ("probe", "probe/cli", "probe/sdk", "probe/_shared"):
+    for package in ("probe", "probe/cli", "probe/sdk", "probe/_shared", "probe/foundation",
+                    "probe/foundation/compat", "probe/foundation/durable"):
         folder = source / package
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "__init__.py").write_text("")
     (source / "probe/cli/import_jobs.py").write_text(Path(jobs.__file__).read_text())
     # Its 3.11-only names come from here (plan 2.11), on every Python.
-    (source / "probe/_compat.py").write_text(
-        Path(jobs.__file__).parents[1].joinpath("_compat.py").read_text()
+    (source / "probe/foundation/compat/compat.py").write_text(
+        Path(jobs.__file__).parents[1].joinpath("foundation/compat/compat.py").read_text()
     )
-    (source / "probe/sdk/durable.py").write_text(
-        Path(jobs.__file__).parents[1].joinpath("sdk/durable.py").read_text()
+    (source / "probe/foundation/durable/durable.py").write_text(
+        Path(jobs.__file__).parents[1].joinpath("foundation/durable/durable.py").read_text()
     )
     # durable's file lock and atomic replace (fcntl on POSIX, msvcrt on Windows).
     (source / "probe/_shared/oscompat.py").write_text(

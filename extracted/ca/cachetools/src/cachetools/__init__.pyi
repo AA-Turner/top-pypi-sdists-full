@@ -36,8 +36,6 @@ _T = TypeVar("_T")
 _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
 _TT = TypeVar("_TT", default=float)
-_KT2 = TypeVar("_KT2")
-_VT2 = TypeVar("_VT2")
 
 class Cache(MutableMapping[_KT, _VT]):
     def __init__(
@@ -94,13 +92,13 @@ class _TimedCache(Cache[_KT, _VT], Generic[_KT, _VT, _TT]):
     def timer(self) -> _Timer[_TT]: ...
 
 class TTLCache(_TimedCache[_KT, _VT, _TT]):
-    @overload
+    @overload  # without timer, _TT takes its default
     def __init__(
-        self: TTLCache[_KT2, _VT2, float],
+        self,
         maxsize: float,
         ttl: float,
         *,
-        getsizeof: Callable[[_VT2], float] | None = None,
+        getsizeof: Callable[[_VT], float] | None = None,
     ) -> None: ...
     @overload
     def __init__(
@@ -115,13 +113,13 @@ class TTLCache(_TimedCache[_KT, _VT, _TT]):
     def expire(self, time: _TT | None = None) -> list[tuple[_KT, _VT]]: ...
 
 class TLRUCache(_TimedCache[_KT, _VT, _TT]):
-    @overload
+    @overload  # without timer, _TT takes its default
     def __init__(
-        self: TLRUCache[_KT2, _VT2, float],
+        self,
         maxsize: float,
-        ttu: Callable[[_KT2, _VT2, float], float],
+        ttu: Callable[[_KT, _VT, float], float],
         *,
-        getsizeof: Callable[[_VT2], float] | None = None,
+        getsizeof: Callable[[_VT], float] | None = None,
     ) -> None: ...
     @overload
     def __init__(

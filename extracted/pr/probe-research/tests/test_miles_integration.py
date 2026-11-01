@@ -153,7 +153,7 @@ def test_default_run_name_keeps_timestamp_and_external_identity(monkeypatch):
         @classmethod
         def now(cls, _tz):
             from datetime import datetime
-            from probe._compat import UTC
+            from probe.foundation.compat.compat import UTC
 
             return datetime(2026, 7, 30, 12, 34, 56, tzinfo=UTC)
 

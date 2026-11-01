@@ -5,7 +5,7 @@ from typer.testing import CliRunner
 
 from probe.cli import backfill, backfill_transcripts, import_jobs_ui, setup, tui
 from probe.cli.actions import Action
-from probe.sdk.config import resolve
+from probe.sdk.settings.settings import resolve
 from tests import test_wizard_auth_entry as auth_fixtures
 
 entry = auth_fixtures.entry

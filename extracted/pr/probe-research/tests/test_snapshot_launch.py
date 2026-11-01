@@ -274,7 +274,7 @@ def _notice_count(err: str) -> int:
 def test_old_refs_are_reported_once_and_never_deleted(client, tmp_path, capfd):
     import warnings
 
-    from probe.sdk import snapshot as snap_mod
+    from probe.sdk.capture import code as snap_mod
 
     repo = _repo_with_commit(tmp_path / "repo")
     _git(repo, "update-ref", "refs/probe/snapshots/old-run", "HEAD")
@@ -304,7 +304,7 @@ def test_old_refs_are_reported_once_and_never_deleted(client, tmp_path, capfd):
 
 
 def test_the_notice_marker_is_written_only_after_the_notice(client, tmp_path, monkeypatch, capfd):
-    from probe.sdk import snapshot as snap_mod
+    from probe.sdk.capture import code as snap_mod
 
     repo = _repo_with_commit(tmp_path / "repo")
     _git(repo, "update-ref", "refs/probe/snapshots/old-run", "HEAD")
@@ -459,7 +459,7 @@ def test_prune_bundle_backs_every_ref_up_then_deletes_it(tmp_path, capsys):
 
 
 def test_prune_refuses_a_ref_that_moved_after_it_was_listed(tmp_path):
-    from probe.sdk import snapshot as snap_mod
+    from probe.sdk.capture import code as snap_mod
 
     repo = _repo_with_commit(tmp_path / "repo")
     _git(repo, "update-ref", "refs/probe/snapshots/a", "HEAD")
@@ -475,7 +475,7 @@ def test_prune_refuses_a_ref_that_moved_after_it_was_listed(tmp_path):
 
 def test_prune_resets_the_notice(client, tmp_path, capfd):
     from probe import cli
-    from probe.sdk import snapshot as snap_mod
+    from probe.sdk.capture import code as snap_mod
 
     repo = _repo_with_commit(tmp_path / "repo")
     for name in ("a", "b", "c"):

@@ -135,6 +135,140 @@ class TargetReadiness:
 
 
 @dataclass
+class EventPrediction:
+    """
+    One answer from EventGroup.predict(), with what it is based on.
+
+    Every answer is either a trained model's prediction (source
+    "trained_model") or, while the target has no model, a naive statistic
+    computed from the events collected so far ("naive_average_fallback" /
+    "naive_unknown_fallback") -- never a bare error. `readiness` says which,
+    and why.
+
+    Attributes:
+        target_column: The predicted column.
+        prediction: The predicted class or value (the naive statistic, or
+            "unknown", when no model serves).
+        source: "trained_model", "naive_average_fallback" or
+            "naive_unknown_fallback".
+        explanation: Plain-language account of what answered and why.
+        readiness: The target's TargetReadiness when this answer was made --
+            for an `early` model, its rare_class_evidence (how its few rare
+            examples ranked when each was held out).
+        trained_at: When the model that answered finished training; None for
+            a naive answer.
+        events_trained_on: Events that model trained on.
+        events_since_training: Trainable events posted after the newest one
+            it trained on (at most 30 seconds old).
+        confidence, probability, probabilities, threshold, pos_label:
+            Classification output (see PredictionResult for their meaning).
+        sigma, interval_low, interval_high, coverage_level: Regression
+            uncertainty (see PredictionResult).
+        prediction_uuid, org, model_name: The reference send_feedback()
+            grades. Present on a trained model's answer.
+        served_by: Which backend answered.
+        data_cutover: Present when the serving model was trained on data the
+            group has since cut off (EventGroup.reset / set_floors).
+        raw: The full response as the server sent it.
+
+    Usage:
+        answer = group.predict("oom_crash", {"rows": 120000, "cols": 476})
+        if answer.is_model_prediction:
+            print(answer.prediction, answer.confidence, answer.readiness.state)
+        else:
+            print("no model yet:", answer.explanation)
+    """
+
+    target_column: str
+    prediction: Any
+    source: str
+    explanation: Optional[str] = None
+    readiness: Optional[TargetReadiness] = None
+    trained_at: Optional[datetime] = None
+    events_trained_on: Optional[int] = None
+    events_since_training: Optional[int] = None
+    confidence: Optional[float] = None
+    probability: Optional[float] = None
+    probabilities: Optional[Dict[str, float]] = None
+    threshold: Optional[float] = None
+    pos_label: Optional[str] = None
+    sigma: Optional[float] = None
+    interval_low: Optional[float] = None
+    interval_high: Optional[float] = None
+    coverage_level: Optional[float] = None
+    prediction_uuid: Optional[str] = None
+    org: Optional[str] = None
+    model_name: Optional[str] = None
+    served_by: Optional[str] = None
+    data_cutover: Optional[Dict[str, Any]] = None
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+    # Internal
+    _ctx: Optional['ClientContext'] = field(default=None, repr=False)
+
+    @classmethod
+    def from_response(cls, response: Dict[str, Any], target_column: str,
+                      ctx: Optional['ClientContext'] = None) -> 'EventPrediction':
+        readiness = response.get('readiness')
+        column = response.get('target_column') or target_column
+        return cls(
+            target_column=column,
+            prediction=response.get('prediction'),
+            source=response.get('source', ''),
+            explanation=response.get('explanation'),
+            readiness=TargetReadiness.from_response(column, readiness) if isinstance(readiness, dict) else None,
+            trained_at=_parse_datetime(response.get('trained_at')),
+            events_trained_on=response.get('events_trained_on'),
+            events_since_training=response.get('events_since_training'),
+            confidence=response.get('confidence'),
+            probability=response.get('probability'),
+            probabilities=response.get('probabilities'),
+            threshold=response.get('threshold'),
+            pos_label=response.get('pos_label'),
+            sigma=response.get('sigma'),
+            interval_low=response.get('interval_low'),
+            interval_high=response.get('interval_high'),
+            coverage_level=response.get('coverage_level'),
+            prediction_uuid=response.get('prediction_uuid'),
+            org=response.get('org'),
+            model_name=response.get('model_name'),
+            served_by=response.get('served_by'),
+            data_cutover=response.get('data_cutover'),
+            raw=dict(response),
+            _ctx=ctx,
+        )
+
+    @property
+    def is_model_prediction(self) -> bool:
+        """True when a trained model answered (not a naive statistic)."""
+        return self.source == 'trained_model'
+
+    def send_feedback(self, ground_truth: Any, meta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Report what actually happened for this prediction, so the model's live
+        accuracy is measured (and retraining can react to it).
+
+        Args:
+            ground_truth: The real label/value.
+            meta: Optional metadata (source, annotator, notes, ...).
+
+        Returns:
+            The server's response.
+        """
+        if not self._ctx:
+            raise ValueError("EventPrediction not connected to client")
+        if not (self.prediction_uuid and self.org and self.model_name):
+            raise ValueError(
+                "Cannot send feedback: this answer has no prediction_uuid/org/model_name "
+                f"(source={self.source!r}) -- only a trained model's answer can be graded"
+            )
+        body: Dict[str, Any] = {'prediction_uuid': self.prediction_uuid, 'ground_truth': str(ground_truth)}
+        if meta is not None:
+            body['meta'] = meta
+        return self._ctx.post_json(f"/predict/{self.org}/{self.model_name}/feedback", data=body)
+
+
+@dataclass
 class EventGroup:
     """
     Represents an event group -- events posted via featrixevents, grouped by
@@ -340,6 +474,40 @@ class EventGroup:
         result = self._ctx.post_json(f"/events/groups/{self.event_group_id}/floors", data=body)
         self.refresh()
         return result
+
+    def predict(self, target_column: str, query_record: Optional[Dict[str, Any]] = None, *,
+                entity_id: Optional[str] = None,
+                customer_metadata: Optional[Dict[str, Any]] = None) -> EventPrediction:
+        """
+        Predict target_column from this group's model. Always answers: with no
+        model yet, the answer is a naive statistic and says why
+        (answer.readiness, answer.explanation).
+
+        Args:
+            target_column: One of the group's auto_predictor_targets.
+            query_record: The known feature values to predict from.
+            entity_id: Instead of query_record, for a state-graph group: predict
+                for this entity's current state (the server builds the query
+                the way training rows were built). Pass exactly one of the two.
+            customer_metadata: Optional ids/labels stored with the prediction
+                record -- never sent to the model.
+
+        Returns:
+            EventPrediction.
+        """
+        if not self._ctx:
+            raise ValueError("EventGroup not connected to client")
+        if (query_record is None) == (entity_id is None):
+            raise ValueError("predict: pass exactly one of query_record or entity_id")
+        body: Dict[str, Any] = {'event_group_id': self.event_group_id, 'target_column': target_column}
+        if query_record is not None:
+            body['query_record'] = query_record
+        else:
+            body['entity_id'] = entity_id
+        if customer_metadata is not None:
+            body['customer_metadata'] = customer_metadata
+        response = self._ctx.post_json("/events/predict", data=body)
+        return EventPrediction.from_response(response, target_column, ctx=self._ctx)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary representation."""

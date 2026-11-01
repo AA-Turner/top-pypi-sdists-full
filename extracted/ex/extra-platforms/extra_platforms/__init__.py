@@ -13,19 +13,30 @@
 # limitations under the License.
 """Expose package-wide elements.
 
+```{important}
+Exposing everything at package level here motivates platforms and groups to have a
+unique and unambiguous ID. This constraint is enforced at the data-level and
+checked in unittests.
+```
+
+```{hint}
+The content of `pytest.py` file is not imported here to make dependency on
+Pytest optional.
+```
+
 ```{todo}
-Remove the deprecated aliases that `extra_platforms/_deprecated.py` registers,
-and their tests, in `14.0.0`.
+In `14.1.0`, stop [Click Extra](https://github.com/kdeldycke/click-extra) from
+importing private names of this package: `_utils._remove_blanks()`,
+`_utils._recursive_update()` and `_types._TNestedReferences`. Click Extra requires
+`extra-platforms>=13.4` with no upper bound, so a release that drops these names
+breaks every published Click Extra. Publish the type alias under a public name,
+and let Click Extra vendor the two dict helpers. Keep the private names, with a
+`DeprecationWarning`, until a major release removes them.
 ```
 """
 
 from __future__ import annotations
 
-import platform as stdlib_platform
-import sys
-from functools import cache
-
-from . import detection
 from .agent_data import (
     CLAUDE_CODE,
     CLINE,
@@ -89,6 +100,7 @@ from .detection import (
     current_shell_path,
     current_terminal,
     current_traits,
+    invalidate_caches,
     is_aarch64,
     is_aix,
     is_alacritty,
@@ -97,8 +109,21 @@ from .detection import (
     is_altlinux,
     is_amzn,
     is_android,
+    is_any_agent,
+    is_any_architecture,
+    is_any_arm,
+    is_any_ci,
+    is_any_mips,
+    is_any_platform,
+    is_any_shell,
+    is_any_sparc,
+    is_any_terminal,
+    is_any_trait,
+    is_any_windows,
     is_apple_terminal,
     is_arch,
+    is_arch_32_bit,
+    is_arch_64_bit,
     is_arm,
     is_armv5tel,
     is_armv6l,
@@ -109,8 +134,13 @@ from .detection import (
     is_azure_pipelines,
     is_bamboo,
     is_bash,
+    is_big_endian,
+    is_bourne_shells,
+    is_bsd,
+    is_bsd_not_macos,
     is_buildkite,
     is_buildroot,
+    is_c_shells,
     is_cachyos,
     is_centos,
     is_chromeos,
@@ -147,6 +177,7 @@ from .detection import (
     is_gitlab_ci,
     is_gnome_terminal,
     is_gnu_screen,
+    is_gpu_terminals,
     is_guix,
     is_haiku,
     is_hermetic_build,
@@ -156,6 +187,7 @@ from .detection import (
     is_i386,
     is_i586,
     is_i686,
+    is_ibm_mainframe,
     is_ibm_powerkvm,
     is_illumos,
     is_iterm2,
@@ -164,7 +196,12 @@ from .detection import (
     is_konsole,
     is_ksh,
     is_kvmibm,
+    is_linux,
+    is_linux_layers,
+    is_linux_like,
     is_linuxmint,
+    is_little_endian,
+    is_loongarch,
     is_loongarch64,
     is_macos,
     is_mageia,
@@ -175,6 +212,8 @@ from .detection import (
     is_mips64,
     is_mips64el,
     is_mipsel,
+    is_multiplexers,
+    is_native_terminals,
     is_netbsd,
     is_nixos,
     is_nobara,
@@ -185,10 +224,13 @@ from .detection import (
     is_openwrt,
     is_oracle,
     is_os400,
+    is_other_posix,
+    is_other_shells,
     is_parallels,
     is_pi,
     is_pidora,
     is_pikaos,
+    is_powerpc,
     is_powershell,
     is_ppc,
     is_ppc64,
@@ -196,6 +238,7 @@ from .detection import (
     is_raspbian,
     is_rhel,
     is_rio,
+    is_riscv,
     is_riscv32,
     is_riscv64,
     is_rocky,
@@ -211,6 +254,7 @@ from .detection import (
     is_sparc,
     is_sparc64,
     is_sunos,
+    is_system_v,
     is_tabby,
     is_tcsh,
     is_teamcity,
@@ -220,6 +264,10 @@ from .detection import (
     is_tuxedo,
     is_ubuntu,
     is_ultramarine,
+    is_unix,
+    is_unix_layers,
+    is_unix_not_macos,
+    is_unknown,
     is_unknown_agent,
     is_unknown_architecture,
     is_unknown_ci,
@@ -230,11 +278,15 @@ from .detection import (
     is_vscode_terminal,
     is_wasm32,
     is_wasm64,
+    is_web_terminals,
+    is_webassembly,
     is_wezterm,
     is_windows,
+    is_windows_shells,
     is_windows_terminal,
     is_wsl1,
     is_wsl2,
+    is_x86,
     is_x86_64,
     is_xenserver,
     is_xonsh,
@@ -424,144 +476,7 @@ from .trait import (
     Trait,
 )
 
-"""
-```{important}
-Exposing everything at package level here motivates platforms and groups to have a
-unique and unambiguous ID. This constraint is enforced at the data-level and
-checked in unittests.
-```
-
-```{hint}
-The content of `pytest.py` file is not imported here to make dependency on
-Pytest optional.
-```
-"""
-
-
-__version__ = "13.13.0"
-
-
-def _initialize_group_detection_functions() -> None:
-    """Initialize and register all group detection functions.
-
-    Generates the appropriate test function for each group and registers it globally.
-    Since traits and groups have unique, non-overlapping IDs, we can create a
-    `is_<group>()` function for each group.
-
-    These are the equivalent for groups of the `is_<trait>()` functions defined
-    in `detection.py`, and are registered in the same detection registry.
-    """
-    for group in ALL_GROUPS:
-        func_id = group.detection_func_id
-
-        # Create the group membership test function.
-        # Use default argument to capture the current group value (not the
-        # variable reference).
-        def group_membership_check(_group: Group = group) -> bool:
-            """Compares all the current traits to the `group`."""
-            return any(t in _group for t in current_traits())
-
-        group_membership_check.__doc__ = (
-            "Return `True` if at least one {func}`~current_traits` is "
-            f"found in the {{data}}`~{group.symbol_id}` group."
-        )
-
-        assert func_id not in globals(), (
-            f"Function ID {func_id} already registered at the package root."
-        )
-        cached_func = cache(group_membership_check)
-        globals()[func_id] = cached_func
-        detection._detection_registry[func_id] = cached_func
-
-
-_initialize_group_detection_functions()
-
-# Declare type stubs for dynamically generated group detection functions so that
-# mypy and other static type checkers can see them. At runtime, the actual
-# implementations are the cached closures registered by
-# `_initialize_group_detection_functions()` above.
-TYPE_CHECKING = False
-if TYPE_CHECKING:
-    from typing import Any
-
-    def is_any_agent() -> bool: ...
-    def is_any_architecture() -> bool: ...
-    def is_any_arm() -> bool: ...
-    def is_any_ci() -> bool: ...
-    def is_any_mips() -> bool: ...
-    def is_any_platform() -> bool: ...
-    def is_any_shell() -> bool: ...
-    def is_any_sparc() -> bool: ...
-    def is_any_terminal() -> bool: ...
-    def is_any_trait() -> bool: ...
-    def is_any_windows() -> bool: ...
-    def is_arch_32_bit() -> bool: ...
-    def is_arch_64_bit() -> bool: ...
-    def is_big_endian() -> bool: ...
-    def is_bourne_shells() -> bool: ...
-    def is_bsd() -> bool: ...
-    def is_bsd_not_macos() -> bool: ...
-    def is_c_shells() -> bool: ...
-    def is_gpu_terminals() -> bool: ...
-    def is_ibm_mainframe() -> bool: ...
-    def is_linux() -> bool: ...
-    def is_linux_layers() -> bool: ...
-    def is_linux_like() -> bool: ...
-    def is_little_endian() -> bool: ...
-    def is_loongarch() -> bool: ...
-    def is_multiplexers() -> bool: ...
-    def is_native_terminals() -> bool: ...
-    def is_other_posix() -> bool: ...
-    def is_other_shells() -> bool: ...
-    def is_powerpc() -> bool: ...
-    def is_riscv() -> bool: ...
-    def is_system_v() -> bool: ...
-    def is_unix() -> bool: ...
-    def is_unix_layers() -> bool: ...
-    def is_unix_not_macos() -> bool: ...
-    def is_unknown() -> bool: ...
-    def is_web_terminals() -> bool: ...
-    def is_webassembly() -> bool: ...
-    def is_windows_shells() -> bool: ...
-    def is_x86() -> bool: ...
-
-
-def invalidate_caches():
-    """Invalidate all cached properties.
-
-    Inspired by the new [`platform.invalidate_caches()` from Python 3.14](https://docs.python.org/3.14/library/platform.html#platform.invalidate_caches),
-    which is also called here when available.
-    """
-    # Invalidate platform module caches if available.
-    if sys.version_info >= (3, 14):
-        stdlib_platform.invalidate_caches()
-
-    # Invalidate os-release caches.
-    from .platform_info import invalidate_os_release_cache
-
-    invalidate_os_release_cache()
-
-    # Invalidate cached properties of trait classes.
-    for member in ALL_TRAITS:
-        if "current" in vars(member):
-            # Use object.__delattr__ to bypass frozen dataclass restriction.
-            object.__delattr__(member, "current")
-
-    # Invalidate every cached callable of the detection module: trait
-    # heuristics, current_*() resolvers, and private signal caches (like the
-    # parent process tree walk).
-    for func_id in dir(detection):
-        func = getattr(detection, func_id)
-        if callable(func) and hasattr(func, "cache_clear"):
-            func.cache_clear()
-
-    # Invalidate the group detection functions generated at the package root.
-    # Trait heuristics are also registered there, but clearing them twice is
-    # a harmless no-op.
-    for func in detection._detection_registry.values():
-        cache_clear = getattr(func, "cache_clear", None)
-        if cache_clear is not None:
-            cache_clear()
+__version__ = "14.0.1"
 
 
 __all__ = (
@@ -992,15 +907,3 @@ Sorting of `__all__` is enforced by `ruff` via rule `RUF022`.
 Completeness (no missing or extra entries) is checked in unittests.
 ```
 """
-
-
-def __getattr__(name: str) -> Any:
-    """Resolve deprecated symbols lazily, emitting a {exc}`DeprecationWarning`.
-
-    Implements the [PEP 562](https://peps.python.org/pep-0562/) module
-    ``__getattr__`` hook: it only fires for attributes not found in the module,
-    so current symbols are served without overhead. See ``_deprecated.py``.
-    """
-    from ._deprecated import resolve_deprecated
-
-    return resolve_deprecated(__name__, name)

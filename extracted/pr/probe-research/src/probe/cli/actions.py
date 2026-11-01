@@ -14,7 +14,7 @@ training loops and must not pay for any of this.
 
 from __future__ import annotations
 
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 
 from probe.cli.capabilities import (
     AGENT_INSTALL,
@@ -189,6 +189,17 @@ def grouped_actions() -> tuple[tuple[str | None, tuple[Action, ...]], ...]:
     return ACTION_GROUPS
 
 
+def _add_flags(source: str) -> str:
+    """What `plugin_cli.add_marketplace` adds to `marketplace add` for `source`:
+    Codex's sparse paths (`codex_config.MARKETPLACE_SPARSE_PATHS`)."""
+    from probe.shared.harness import plugins as plugin_cli  # noqa: PLC0415
+    from probe.shared.harness.harnesses.codex.config import MARKETPLACE_SPARSE_PATHS  # noqa: PLC0415
+
+    if source != plugin_cli.CODEX:
+        return ""
+    return "".join(f" --sparse {each}" for each in MARKETPLACE_SPARSE_PATHS)
+
+
 def manual_steps(
     *,
     base_url: str,
@@ -201,8 +212,9 @@ def manual_steps(
     drifted from the commands beside it, and a printed script cannot drift from
     the code that prints it.
     """
-    from probe.cli import pi_config, plugin_cli
-    from probe.harness import FAMILY_EXTENSION, FAMILY_HOOK_PLUGIN, get_registry
+    from probe.shared.harness.harnesses import pi as pi_config
+    from probe.shared.harness import plugins as plugin_cli
+    from probe.foundation.harness_registry import FAMILY_EXTENSION, FAMILY_HOOK_PLUGIN, get_registry
 
     registry = get_registry()
     requested = (agent_source,) if isinstance(agent_source, str) else tuple(agent_source)
@@ -233,9 +245,14 @@ def manual_steps(
         elif harness.family == FAMILY_HOOK_PLUGIN:
             if len(marketplace_harnesses) > 1:
                 marketplace_commands.append(f"# {harness.label}")
+            if harness.id == plugin_cli.CODEX:
+                # A printed `add --sparse` cannot move an older entry onto the sparse clone.
+                marketplace_commands.append(
+                    "# Added before? Codex may refuse this add as \"a different source\": harmless, the next line updates it"
+                )
             marketplace_commands.extend(
                 (
-                    f"{harness.binary} plugin marketplace add {MARKETPLACE_REPO}",
+                    f"{harness.binary} plugin marketplace add {MARKETPLACE_REPO}{_add_flags(harness.id)}",
                     f"{harness.binary} plugin marketplace {plugin_cli.refresh_verb(harness.id)} research-os-agent",
                 )
             )

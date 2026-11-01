@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from probe.cli import client_installation, doctor, import_jobs, onboarding_complete, setup, tui
 from probe.cli.capabilities import Capabilities, TokenSource
-from probe.sdk.config import save_context
+from probe.sdk.settings.settings import save_context
 from tests import test_wizard_auth_entry as auth
 
 entry = auth.entry
@@ -188,7 +188,7 @@ def test_skipped_install_work_does_not_settle_despite_existing_plugins(installat
 
 
 def test_wizard_signin_does_not_publish_install_completion_before_confirmation(entry, monkeypatch):
-    from probe.sdk import device
+    from probe.sdk.settings import device
 
     authorizations = []
     registrations = []
@@ -253,7 +253,8 @@ def test_install_sets_this_computers_workspace_after_every_agent_and_before_impo
 
 @pytest.mark.usefixtures("real_computer_workspace")
 def test_an_install_finishes_when_the_workspace_step_cannot_reach_the_server(installation, monkeypatch):
-    monkeypatch.setattr("probe.sdk.client.Client", lambda **_k: (_ for _ in ()).throw(ConnectionError("down")))
+    monkeypatch.setattr("probe.sdk.client.client.Client", lambda **_k: (_ for _ in ()).throw(ConnectionError("down")))
+    monkeypatch.setattr("probe.sdk.client.resources.runs.attach.Client", lambda **_k: (_ for _ in ()).throw(ConnectionError("down")))
 
     result = CliRunner().invoke(main.app, ["install", "--agent", "claude"])
 

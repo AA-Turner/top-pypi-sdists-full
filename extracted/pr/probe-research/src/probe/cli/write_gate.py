@@ -159,7 +159,7 @@ def _asks_help(args: Sequence[str]) -> bool:
     so no other command pays for the parse."""
     if session_marker.HELP_FLAG not in _command_words(args):
         return False
-    from probe.daemon.precheck import asks_help
+    from probe.shared.command_rules.command_rules import asks_help
 
     return asks_help(list(args))
 

@@ -1,12 +1,12 @@
-"""The tap's ATIF fragment builder is the engine's, byte for byte.
+"""The tap's ATIF fragment builder is the one in probe-contracts, byte for byte.
 
 `src/probe/tap_core/atif_fragment.py` and `transcript_render.py` are vendored
-from prbe-knowledge by `scripts/sync_atif_fragment.py`, which stamps each with
-the engine commit and the sha256 of the engine file. The engine rebuilds
-fragments from events to compare with what a client sent, so a hand edit here
-is a silent divergence. These need no engine checkout: the header proves the
-body (the one import rewrite reversed, the hash must match), and
-`--check --knowledge-root <checkout> --ref <commit>` proves the source.
+from contracts/probe_contracts/transcripts by `scripts/sync_atif_fragment.py`,
+which stamps each with the sha256 of its source. The engine rebuilds fragments
+from events (with its own vendored copy of probe-contracts) to compare with
+what a client sent, so a hand edit here is a silent divergence. The header
+proves the body (the one import rewrite reversed, the hash must match), and
+`--check` proves the source.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import importlib.util
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -33,13 +34,18 @@ def _sync():
 
 
 SYNC = _sync()
+needs_contracts = pytest.mark.skipif(
+    not (SYNC.REPO / "contracts" / "probe_contracts" / "transcripts").is_dir(),
+    reason="not a research-os checkout: contracts/ is absent",
+)
 
-#: The engine's pins (prbe-knowledge): the sha256 of each engine file the tap
-#: must run, so client and server build the same fragments. Moving one is a
-#: change on both sides: re-vendor (scripts/sync_atif_fragment.py), then here.
-ENGINE_PINS = {
-    "engine/ingest/atif/fragment.py": "b0d5ac850d7c84ff1028d42ee95a04041c80ce1f73b6ea580ec8b00a2516a809",
-    "engine/shared/transcript_render.py": "c0bb4168f7aa86f89a9c6360d1f120b588458d94ad5e0b84cd9c077942008c9e",
+#: The sha256 of each source file, keyed by the tap file. The engine runs these
+#: bytes too (its vendored probe-contracts), so changing them is a change on both
+#: sides: re-vendor the tap (scripts/sync_atif_fragment.py) and the engine
+#: (scripts/sync_engine_contracts.py), then update these.
+SOURCE_PINS = {
+    "atif_fragment.py": "c7440c06862e561fe61217614cdb760c6843fd1617e732c8c550f9c2144dde4b",
+    "transcript_render.py": "c0bb4168f7aa86f89a9c6360d1f120b588458d94ad5e0b84cd9c077942008c9e",
 }
 
 
@@ -49,7 +55,6 @@ def test_the_header_proves_the_body(spec):
     assert SYNC.self_consistent(spec, text) == []
     fields, body = SYNC.split(text)
     assert fields["source"] == spec.source
-    assert len(fields["commit"]) == 40 and int(fields["commit"], 16) >= 0
     original = SYNC.reverse(spec, body).encode("utf-8")
     assert hashlib.sha256(original).hexdigest() == fields["sha256"]
     # The rewrite is reversible exactly: applying it again gives the body back.
@@ -65,11 +70,11 @@ def test_a_hand_edit_is_caught(spec):
 
 
 @pytest.mark.parametrize("spec", SYNC.FILES, ids=lambda spec: spec.target)
-def test_the_vendored_files_are_the_engines_pinned_ones(spec):
+def test_the_vendored_files_are_the_pinned_ones(spec):
     fields, body = SYNC.split((SYNC.TAP_CORE / spec.target).read_text("utf-8"))
-    assert set(ENGINE_PINS) == {f.source for f in SYNC.FILES}
-    assert fields["sha256"] == ENGINE_PINS[spec.source]
-    assert hashlib.sha256(SYNC.reverse(spec, body).encode("utf-8")).hexdigest() == ENGINE_PINS[spec.source]
+    assert set(SOURCE_PINS) == {f.target for f in SYNC.FILES}
+    assert fields["sha256"] == SOURCE_PINS[spec.target]
+    assert hashlib.sha256(SYNC.reverse(spec, body).encode("utf-8")).hexdigest() == SOURCE_PINS[spec.target]
 
 
 def test_the_header_names_the_modules_fragment_version():
@@ -97,7 +102,8 @@ def test_the_vendored_files_are_python_310(spec):
     ast.parse((SYNC.TAP_CORE / spec.target).read_text("utf-8"), feature_version=(3, 10))
 
 
-def test_check_without_an_engine_checkout_passes():
+@needs_contracts
+def test_check_passes():
     result = subprocess.run(
         [sys.executable, str(_SCRIPT), "--check"], capture_output=True, text=True, timeout=60
     )
@@ -118,66 +124,37 @@ def test_a_line_planted_among_the_header_lines_is_caught(spec):
     end marker runs on import, and the hash of the body cannot see it."""
     text = (SYNC.TAP_CORE / spec.target).read_text("utf-8")
     assert SYNC.self_consistent(spec, _planted(text))
-    commit = SYNC.split(text)[0]["commit"]
-    assert SYNC.self_consistent(spec, text.replace(commit, commit[:12], 1))  # a stamp names a full id
-
-
-def _git(repo: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", "-C", str(repo), "-c", "user.name=synthetic", "-c", "user.email=synthetic@example.invalid",
-         "-c", "commit.gpgsign=false", *args],
-        check=True, capture_output=True, text=True,
-    ).stdout.strip()
 
 
 @pytest.fixture
-def engine(tmp_path, monkeypatch):
-    """A prbe-knowledge history holding the vendored files' engine bytes:
-    `main` = [A: the two files] -> [B: an unrelated change]; `side` = A + a
-    copy of those bytes in a commit off main's history (a squashed branch)."""
-    repo = tmp_path / "prbe-knowledge"
-    repo.mkdir()
-    _git(repo, "init", "-q", "-b", "main")
+def repo(tmp_path, monkeypatch):
+    """A copy of the two sources and the tap's two files, as the sync sees them."""
     for spec in SYNC.FILES:
-        body = SYNC.split((SYNC.TAP_CORE / spec.target).read_text("utf-8"))[1]
-        source = repo / spec.source
+        source = tmp_path / spec.source
         source.parent.mkdir(parents=True, exist_ok=True)
+        body = SYNC.split((SYNC.TAP_CORE / spec.target).read_text("utf-8"))[1]
         source.write_bytes(SYNC.reverse(spec, body).encode("utf-8"))
-    _git(repo, "add", "-A")
-    _git(repo, "commit", "-q", "-m", "A")
-    a = _git(repo, "rev-parse", "HEAD")
-    _git(repo, "checkout", "-q", "-b", "side")
-    _git(repo, "commit", "-q", "--allow-empty", "-m", "branch commit")
-    side = _git(repo, "rev-parse", "HEAD")
-    _git(repo, "checkout", "-q", "main")
-    (repo / "README").write_text("unrelated\n")
-    _git(repo, "add", "-A")
-    _git(repo, "commit", "-q", "-m", "B")
-    b = _git(repo, "rev-parse", "HEAD")
     vendored = tmp_path / "tap_core"
-    vendored.mkdir()
+    shutil.copytree(SYNC.TAP_CORE, vendored, ignore=shutil.ignore_patterns("__pycache__"))
+    monkeypatch.setattr(SYNC, "REPO", tmp_path)
     monkeypatch.setattr(SYNC, "TAP_CORE", vendored)
-    return repo, vendored, {"A": a, "B": b, "side": side}
+    return tmp_path, vendored
 
 
-def _check(repo: Path, ref: str) -> int:
-    return SYNC.main(["--check", "--knowledge-root", str(repo), "--ref", ref])
-
-
-def test_a_check_against_a_moving_main_passes_until_the_files_change(engine):
-    repo, vendored, commits = engine
-    assert SYNC.main(["--knowledge-root", str(repo), "--ref", commits["A"]]) == 0
-    assert _check(repo, commits["A"]) == 0
-    assert _check(repo, commits["B"]) == 0  # main moved; these bytes did not
-    assert SYNC.main(["--check"]) == 0  # and CI's no-checkout check agrees
-    target = vendored / "atif_fragment.py"
-    target.write_text(_planted(target.read_text("utf-8")), "utf-8")
-    assert _check(repo, commits["B"]) == 1 and _check(repo, commits["A"]) == 1
+def test_a_changed_source_is_drift_until_re_vendored(repo):
+    root, vendored = repo
+    assert SYNC.main(["--check"]) == 0
+    source = root / SYNC.FILES[1].source
+    source.write_text(source.read_text("utf-8") + "\n# changed\n", "utf-8")
     assert SYNC.main(["--check"]) == 1
+    assert SYNC.main([]) == 0
+    assert SYNC.main(["--check"]) == 0
+    assert SYNC.self_consistent(SYNC.FILES[1], (vendored / SYNC.FILES[1].target).read_text("utf-8")) == []
 
 
-def test_a_stamp_off_mains_history_is_drift(engine):
-    repo, _vendored, commits = engine
-    assert SYNC.main(["--knowledge-root", str(repo), "--ref", commits["side"]]) == 0
-    assert _check(repo, commits["side"]) == 0
-    assert _check(repo, commits["B"]) == 1  # same bytes, but a commit main never had
+def test_a_source_importing_the_engine_or_the_package_stops_the_sync(repo):
+    root, _vendored = repo
+    source = root / SYNC.FILES[1].source
+    source.write_text("import probe_contracts.knowledge\n" + source.read_text("utf-8"), "utf-8")
+    with pytest.raises(SystemExit, match="standard library"):
+        SYNC.main([])

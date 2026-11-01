@@ -106,7 +106,7 @@ def test_every_thread_append_survives_the_fold(tmp_path, state_dir):
 def _die_holding(path: str) -> None:  # pragma: no cover - subprocess
     """Take the lock, then die without releasing it. Must be module level:
     multiprocessing pickles the target, and a closure cannot be pickled."""
-    from probe.sdk.durable import file_lock
+    from probe.foundation.durable.durable import file_lock
 
     with file_lock(path):
         os._exit(9)

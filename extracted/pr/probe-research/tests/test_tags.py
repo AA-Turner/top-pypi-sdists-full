@@ -10,8 +10,8 @@ import typer
 
 from probe.cli.main import _apply_tag_ops, _tag_verb_flow
 from probe.sdk import errors
-from probe.sdk.client import Client
-from probe.sdk.tags import canonical_tags
+from probe.sdk.client.client import Client
+from probe.sdk.values.tags import canonical_tags
 
 
 @pytest.mark.parametrize(

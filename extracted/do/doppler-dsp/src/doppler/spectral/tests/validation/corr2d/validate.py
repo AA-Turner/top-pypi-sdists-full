@@ -63,6 +63,26 @@ class Data:
     peak_preserved: float = 0.0
     reset_keeps_config: bool = False
     rejects_bad_args: bool = False
+    batch_rows: list[list[str]] = field(default_factory=list)
+    batch_maps_exact: bool = False
+    batch_coherent_exact: bool = False
+    batch_folds_worst: float = 1.0
+    batch_index_exact: bool = False
+    batch_dwell_untouched: bool = False
+    batch_refuses: bool = False
+    batch_cancel: float = 1.0
+    batch_doubles: float = 1.0
+    bank_rows: list[list[str]] = field(default_factory=list)
+    bank_worst: float = 1.0
+    bank_index_exact: bool = False
+    bank_dwell_untouched: bool = False
+    bank_refuses: bool = False
+    bank_loss_ok: bool = False
+    bank_loss_tight: bool = False
+    bank_detect_ok: bool = False
+    bank_refine_worst: float = 1.0
+    bank_pfa_held: bool = False
+    bank_pd_parity: bool = False
 
 
 def _rng(tag: int) -> np.random.Generator:
@@ -208,8 +228,10 @@ def section_object() -> None:
                 "C §set_ref",
             ],
             [
-                "`nthreads` is accepted and ignored",
-                "C, as a forward guard",
+                "`nthreads` fans the fast path out, and the output is "
+                "bit-identical at every count",
+                "C (`_test_delay_doppler`, `_test_batch` at 1, 2, 7) + "
+                "Python §2.10",
                 "F4",
             ],
             [
@@ -218,6 +240,66 @@ def section_object() -> None:
                 "§2.8",
             ],
             ["the state triplet round-trips", "C + Python", "§2.7"],
+            [
+                "a batch's map h is a fresh dwell-1 object's map for frame "
+                "h, every path, every thread count",
+                "C (`_test_batch`, bit-exact) + Python",
+                "§2.10",
+            ],
+            [
+                "`execute_coherent` is a fresh dwell-H object's dump",
+                "C (bit-exact) + Python",
+                "§2.10",
+            ],
+            [
+                "power sum, power max (lowest h on a tie) and per-map peaks "
+                "are folds over the maps, in h order",
+                "C + Python",
+                "§2.10",
+            ],
+            [
+                "a batch never touches the dwell",
+                "C (blob compare) + Python",
+                "§2.10",
+            ],
+            [
+                "a ragged, empty or short-output batch writes nothing",
+                "C (poisoned outputs) + Python (`ValueError`)",
+                "§2.10",
+            ],
+            [
+                "`dp_corr2d_execute_fold` takes a caller's reducer",
+                "C — **C-ONLY**, no Python callback by design",
+                "C `_test_batch`",
+            ],
+            [
+                "bank map h is the frame corrected by hand (within each "
+                "period, times the rate), on every path",
+                "C `_test_bank`, 5 paths x 1/2/7 threads",
+                "§2.11",
+            ],
+            [
+                "an offset between grid points loses at most sinc(1/(2L)), "
+                "the bound itself at half a step",
+                "C `_test_bank`",
+                "§2.11",
+            ],
+            [
+                "`bank_detect` names the fine carrier and recovers the "
+                "coarse grid's straddle; the refine is the fine bank's value",
+                "C `_test_bank_detect`, every path",
+                "§2.11",
+            ],
+            [
+                "detect-and-refine holds L = 4's sensitivity at the same Pfa",
+                "the characterization (full geometry) and its fast twin",
+                "§2.11 (small scale)",
+            ],
+            [
+                "`dp_corr2d_bank_fold` takes a caller's reducer",
+                "C — **C-ONLY**, no Python callback by design",
+                "C `_test_bank`",
+            ],
         ],
     )
 
@@ -239,6 +321,8 @@ def characterise() -> Data:
     _sec_accuracy(d)
     _sec_lifecycle(d)
     _sec_bounds(d)
+    _sec_batch(d)
+    _sec_bank(d)
     return d
 
 
@@ -716,17 +800,16 @@ def review(d: Data) -> None:
     R.find(
         "F4",
         "BY DESIGN",
-        '`nthreads` is documented *"accepted for API compatibility; '
-        'ignored"* and cannot be sabotaged: `dp_corr2d_state_t` has no such '
-        "member, `create()` forwards the argument to "
-        "`dp_fft_create`/`dp_fft2d_create`, and both open with "
-        "`(void)nthreads;`. "
-        "So nothing stores it and there is no state to corrupt. The C test "
-        "checks bit-identical output across four values anyway, described "
-        "there as a forward guard rather than a proof — it fires the day "
-        "someone wires it to a threaded reduction whose summation order "
-        "differs, which is exactly when the documented no-op stops being "
-        "one.",
+        "`nthreads` was once documented *accepted for API compatibility; "
+        "ignored*, and this finding said so. Since #2666 it is real: the "
+        "fast path's rows and the delay-Doppler columns fan out over a "
+        "persistent pool, each worker on its own FFT plans, and a batch "
+        "makes whole maps per worker (#2683). The forward guard this "
+        "finding described is what now holds the design: the output is "
+        "bit-identical at every thread count, checked in C at 1, 2 and 7 "
+        "workers and here at 1 and 3 (§2.10). A threaded reduction that "
+        "folded in completion order would break it, and the C test's "
+        "sabotage of exactly that goes red.",
     )
     R.find(
         "F6",
@@ -760,6 +843,361 @@ def review(d: Data) -> None:
         "The last is now asserted with the padded path checked to allocate "
         "them, so it cannot pass on fields that are always NULL.",
     )
+
+
+def _sec_batch(d: Data) -> None:
+    R.md("### 2.10 Batches")
+    R.md()
+    R.md(
+        "A batch is H frames in one call (#2683, "
+        "[`docs/design/corr2d-batch.md`](../../../../../../docs/design/"
+        "corr2d-batch.md)). Every map is checked against what a FRESH "
+        "dwell-1 object returns for that frame through `execute()`, which "
+        "shares no batch code path, on the general, fast and known-column "
+        "paths, at one thread and at three. The five frames are more than "
+        "the three workers, so the three-thread rows run the whole-map "
+        "path."
+    )
+    R.md()
+    ny, nx, H = 4, 8, 5
+    r = _rng(600)
+    single = np.zeros((ny, nx), dtype=np.complex64)
+    single[0] = _cplx(r, nx)
+    dense = _cplx(r, ny, nx)
+    x = _cplx(r, H * ny * nx).ravel()
+    configs = [
+        ("general 2-D", {"ref": dense}),
+        ("fast path", {"ref": single}),
+        ("fast, nx_out=12", {"ref": single, "nx_out": 12}),
+        ("known column 3", {"ref": single, "col_out": 3}),
+    ]
+    maps_ok = coh_ok = idx_ok = untouched = refuses = True
+    folds = 0.0
+    for name, kw in configs:
+        for nt in (1, 3):
+            c = Corr2D(dwell=2, nthreads=nt, **kw)
+            n = ny * nx
+            fresh = np.stack(
+                [
+                    np.asarray(
+                        Corr2D(dwell=1, **kw).execute(x[h * n : (h + 1) * n])
+                    )
+                    for h in range(H)
+                ]
+            )
+            c.execute(x[:n])  # a dwell in progress
+            blob = c.get_state()
+            maps = c.execute_all(x)
+            exact = bool(np.array_equal(maps, fresh))
+            dh = Corr2D(dwell=H, **kw)
+            for h in range(H):
+                want = dh.execute(x[h * n : (h + 1) * n])
+            coh = c.execute_coherent(x)
+            coh_exact = bool(np.array_equal(coh, np.asarray(want)))
+            pw = np.abs(fresh.astype(np.complex128)) ** 2
+            ps = c.execute_power_sum(x)
+            pm, ix = c.execute_power_max(x)
+            pk, _, _, mn = c.execute_peaks(x)
+            worst = max(
+                float(np.max(np.abs(ps - pw.sum(0)) / pw.sum(0).max())),
+                float(np.max(np.abs(pm - pw.max(0)) / pw.max())),
+                float(np.max(np.abs(pk - pw.max(1)) / pw.max())),
+                float(np.max(np.abs(mn - pw.mean(1)) / pw.mean(1).max())),
+            )
+            idx = bool(np.array_equal(ix, np.argmax(pw, axis=0)))
+            still = c.get_state() == blob and c.count == 1
+            bad = 0
+            for length in (0, n - 1, n + 1, 2 * n + 1):
+                try:
+                    c.execute_all(x[:length])
+                except ValueError:
+                    bad += 1
+            maps_ok &= exact
+            coh_ok &= coh_exact
+            idx_ok &= idx
+            untouched &= still
+            refuses &= bad == 4
+            folds = max(folds, worst)
+            d.batch_rows.append(
+                [
+                    name,
+                    str(nt),
+                    str(exact),
+                    str(coh_exact),
+                    f"{worst:.1e}",
+                    str(idx),
+                    str(still),
+                    f"{bad}/4",
+                ]
+            )
+    d.batch_maps_exact, d.batch_coherent_exact = maps_ok, coh_ok
+    d.batch_index_exact, d.batch_dwell_untouched = idx_ok, untouched
+    d.batch_refuses, d.batch_folds_worst = refuses, folds
+    R.table(
+        [
+            "path",
+            "threads",
+            "maps == fresh",
+            "coherent == dwell-H",
+            "folds, worst rel.",
+            "max index",
+            "dwell untouched",
+            "refused",
+        ],
+        d.batch_rows,
+    )
+    R.md()
+    c = Corr2D(ref=single, dwell=1)
+    one = np.abs(np.asarray(c.execute(x[: ny * nx]))) ** 2
+    both = np.concatenate([x[: ny * nx], -x[: ny * nx]])
+    d.batch_cancel = float(
+        np.abs(c.execute_coherent(both)).max() / np.sqrt(one.max())
+    )
+    d.batch_doubles = float(
+        np.max(np.abs(c.execute_power_sum(both) - 2 * one)) / one.max()
+    )
+    R.md(
+        f"Frames x and -x: the coherent sum cancels to "
+        f"{d.batch_cancel:.1e} of one map's peak magnitude, and the power "
+        f"sum is twice one map's power to {d.batch_doubles:.1e}. That is "
+        f"the difference between the two sums, and why both exist."
+    )
+    R.md()
+
+
+def _sec_bank(d: Data) -> None:
+    R.md("### 2.11 The hypothesis bank")
+    R.md()
+    R.md(
+        "One frame through every carrier g on a 1/(L nx) grid times every "
+        "rate (#2683 phase 3, [`docs/design/corr2d-hypotheses.md`]"
+        "(../../../../../../docs/design/corr2d-hypotheses.md) section 6). "
+        "Each bank's `power_max` is checked against `execute_power_max` "
+        "over the frame batch of hand-corrected copies, which shares no "
+        "bank code, on every path, with two rate vectors."
+    )
+    R.md()
+    from doppler.spectral import DelayDoppler
+
+    ny, nx, L, g0, g1 = 4, 8, 3, -4, 3
+    r = _rng(700)
+    single = np.zeros((ny, nx), dtype=np.complex64)
+    single[0] = _cplx(r, nx)
+    dense = _cplx(r, ny, nx)
+    x = _cplx(r, ny * nx).ravel()
+    rates = np.exp(1j * r.uniform(0, 2 * np.pi, (2, ny))).astype(np.complex64)
+    n_idx = np.arange(nx)
+    copies = np.concatenate(
+        [
+            x
+            * np.tile(np.exp(-2j * np.pi * g * n_idx / (L * nx)), ny)
+            * np.repeat(w, nx)
+            for g in range(g0, g1 + 1)
+            for w in rates
+        ]
+    ).astype(np.complex64)
+    configs = [
+        ("general 2-D", lambda: Corr2D(ref=dense, dwell=2)),
+        ("fast path", lambda: Corr2D(ref=single, dwell=2)),
+        ("fast, nx_out=12", lambda: Corr2D(ref=single, dwell=2, nx_out=12)),
+        ("known column 3", lambda: Corr2D(ref=single, dwell=2, col_out=3)),
+        (
+            "DelayDoppler, ny_out=8",
+            lambda: DelayDoppler(single[0], ny=ny, dwell=2, ny_out=8),
+        ),
+    ]
+    worst, idx_ok, untouched, refuses = 0.0, True, True, True
+    for name, make in configs:
+        c = make()
+        c.execute(x)  # a dwell in progress
+        blob = c.get_state()
+        pw, h = c.bank_power_max(x, L, g0, g1, rates.ravel())
+        bp, _bi = c.execute_power_max(copies)
+        rel = float(np.max(np.abs(pw - bp)) / bp.max())
+        # The bank names a hypothesis whose batch power IS the cell's maximum,
+        # to rounding. Not the same index: on noise two hypotheses can hold a
+        # cell to within an ulp, and rounding decides which is strictly first.
+        stack = (
+            np.abs(
+                np.asarray(c.execute_all(copies)).reshape(-1, h.size)
+            ).astype(np.float64)
+            ** 2
+        )
+        named = stack[h.astype(np.int64), np.arange(h.size)]
+        exact = bool(np.all(named >= stack.max(0) * (1 - 1e-5)))
+        still = c.get_state() == blob and c.count == 1
+        bad = 0
+        for args in (
+            (x[:-1], L, g0, g1),
+            (x, 0, g0, g1),
+            (x, L, g1, g0),
+        ):
+            try:
+                c.bank_power_max(*args, rates.ravel())
+            except ValueError:
+                bad += 1
+        try:
+            c.bank_power_max(x, L, g0, g1, rates.ravel()[:-1])
+        except ValueError:
+            bad += 1
+        worst = max(worst, rel)
+        idx_ok &= exact
+        untouched &= still
+        refuses &= bad == 4
+        d.bank_rows.append(
+            [name, f"{rel:.1e}", str(exact), str(still), f"{bad}/4"]
+        )
+    d.bank_worst, d.bank_index_exact = worst, idx_ok
+    d.bank_dwell_untouched, d.bank_refuses = untouched, refuses
+    R.table(
+        [
+            "path",
+            "power_max vs corrected batch, rel.",
+            "names a strongest hypothesis",
+            "dwell untouched",
+            "refused",
+        ],
+        d.bank_rows,
+    )
+    R.md()
+
+    # an offset between grid points: the strongest cell against the exact
+    # correction's, noiseless, on DelayDoppler (64 chips, 8 periods)
+    rr = _rng(701)
+    code = (2 * rr.integers(0, 2, 64) - 1).astype(np.complex64)
+    dd = DelayDoppler(code, ny=8)
+    m_all = np.arange(8 * 64)
+    loss_rows, ok, tight = [], True, True
+    for Lg in (1, 2, 4):
+        bound = float(np.sinc(1 / (2 * Lg)))
+        worst_ratio, at_mid = 1.0, None
+        for phi in (0.1, 0.125, 0.25, 0.375, 0.5, -0.625):
+            sig = np.tile(np.roll(code, 13), 8) * np.exp(
+                2j * np.pi * phi / 64 * m_all
+            )
+            exact_map = dd.execute(
+                (
+                    sig
+                    * np.tile(
+                        np.exp(-2j * np.pi * phi * np.arange(64) / 64), 8
+                    )
+                ).astype(np.complex64)
+            )
+            ex = float(np.max(np.abs(exact_map) ** 2))
+            pw, _ = dd.bank_power_max(
+                sig.astype(np.complex64),
+                Lg,
+                -2 * Lg,
+                2 * Lg,
+                np.empty(0, np.complex64),
+            )
+            ratio = float(np.sqrt(pw.max() / ex))
+            worst_ratio = min(worst_ratio, ratio)
+            if abs(phi * Lg - np.floor(phi * Lg) - 0.5) < 1e-12:
+                at_mid = ratio
+        ok &= worst_ratio >= bound - 1e-3
+        tight &= at_mid is not None and abs(at_mid - bound) < 2e-3
+        loss_rows.append(
+            [
+                str(Lg),
+                f"{-20 * np.log10(bound):.2f} dB",
+                f"{-20 * np.log10(worst_ratio):.2f} dB",
+                f"{-20 * np.log10(at_mid):.2f} dB" if at_mid else "-",
+            ]
+        )
+    d.bank_loss_ok, d.bank_loss_tight = ok, tight
+    R.table(
+        ["L", "bound sinc(1/(2L))", "worst measured", "at half a step"],
+        loss_rows,
+    )
+    R.md()
+
+    # bank_detect: noiseless, between two coarse points; the refine is the
+    # fine bank's own value at the cell, on every path
+    det_ok, ref_worst = True, 0.0
+    for phi in (0.25, -0.75, 1.25):
+        sig = (
+            np.tile(np.roll(code, 41), 8)
+            * np.exp(2j * np.pi * phi / 64 * m_all)
+        ).astype(np.complex64)
+        none = np.empty(0, np.complex64)
+        coarse, _ = dd.bank_power_max(sig, 2, -4, 4, none)
+        t = 0.5 * float(coarse.max())
+        p, g, _rate, row, col = dd.bank_detect(sig, 2, 4, -4, 4, t, t, none)
+        want = round(4 * phi)
+        fine, _ = dd.bank_power_max(sig, 4, want, want, none)
+        recovered = float(p[0] / coarse.max()) if len(p) else 0.0
+        det_ok &= (
+            len(p) == 1
+            and int(g[0]) == want
+            and int(col[0]) == 41
+            and abs(recovered - 1 / np.sinc(0.25) ** 2) < 1e-3
+        )
+        if len(p):
+            ref_worst = max(
+                ref_worst,
+                float(abs(p[0] - fine[int(row[0]) * 64 + int(col[0])]) / p[0]),
+            )
+    d.bank_detect_ok, d.bank_refine_worst = det_ok, ref_worst
+    R.md(
+        f"`bank_detect` (L_d = 2, L_r = 4) on a carrier a quarter bin from "
+        f"both coarse neighbors, at three such carriers: one record each, on "
+        f"the fine carrier and lag, recovering 1/sinc(1/4)^2 = "
+        f"{1 / np.sinc(0.25) ** 2:.3f} of the coarse peak "
+        f"({'yes' if det_ok else 'NO'}); the refined power is the fine "
+        f"bank's map at the cell to {ref_worst:.1e}."
+    )
+    R.md()
+
+    # detection at the same Pfa, small scale: the characterization's
+    # measure, as its fast twin runs it
+    from doppler.spectral.tests.characterization.corr2d_bank import (
+        characterize as bank_char,
+    )
+
+    geo = bank_char.Geometry(
+        16, 7, 0.1, 0.3, {"uniform": -19.5, "worst": -21.0}
+    )
+    res = bank_char.measure(geo, trials=120, noise_frames=300)
+    pfa_held = all(
+        lo <= geo.pfa and p >= geo.pfa / 3 for p, lo, hi in res["pfa"].values()
+    )
+    parity = all(
+        pd["refine"][1] <= pd["L4"][2] and pd["L4"][1] <= pd["refine"][2]
+        for pd in res["pd"].values()
+    )
+    d.bank_pfa_held, d.bank_pd_parity = pfa_held, parity
+    rows = []
+    for mode, pd in res["pd"].items():
+        rows.append(
+            [mode, f"{geo.snr_db[mode]:.1f} dB"]
+            + [
+                f"{pd[k][0]:.3f} [{pd[k][1]:.3f}, {pd[k][2]:.3f}]"
+                for k in ("oracle", "L4", "L2", "refine")
+            ]
+        )
+    R.md(
+        "Detection at one false-alarm rate per search (0.1 here), 16 periods "
+        "of a 127-chip PN code, 120 trials a row and 300 noise frames: the "
+        "characterization's `measure` at the scale its fast twin runs. The "
+        "full geometry (64 x 511, 1e-3) is "
+        "`characterization/corr2d_bank/characterize.py`, run by "
+        "`make characterize`."
+    )
+    R.md()
+    R.table(
+        ["carrier", "SNR/sample", "oracle", "L = 4", "L = 2", "detect 2 -> 4"],
+        rows,
+    )
+    R.md()
+    R.table(
+        ["detector", "Pfa on fresh noise"],
+        [
+            [k, f"{v[0]:.3f} [{v[1]:.3f}, {v[2]:.3f}]"]
+            for k, v in res["pfa"].items()
+        ],
+    )
+    R.md()
 
 
 # ── 4. limits ─────────────────────────────────────────────────────────
@@ -852,9 +1290,69 @@ def limits(d: Data) -> None:
         "reset() clears the run and keeps the configuration",
     )
     R.limit(
+        d.batch_maps_exact,
+        "a batch's map h is bit-identical to a fresh dwell-1 object's map "
+        "for frame h, on the general, fast, interpolated and known-column "
+        "paths, at one thread and three",
+    )
+    R.limit(
+        d.batch_coherent_exact,
+        "execute_coherent is bit-identical to a fresh dwell-H object's dump",
+    )
+    R.limit(
+        d.batch_folds_worst < 1e-5,
+        f"power sum, power max and per-map peak and mean are the folds over "
+        f"the maps (worst {d.batch_folds_worst:.1e})",
+    )
+    R.limit(
+        d.batch_index_exact,
+        "execute_power_max's index is the map each maximum came from",
+    )
+    R.limit(
+        d.batch_dwell_untouched,
+        "a batch mid-dwell leaves the count and the state blob unchanged",
+    )
+    R.limit(
+        d.batch_refuses,
+        "an empty or ragged batch is a ValueError",
+    )
+    R.limit(
+        d.batch_cancel < 1e-5 and abs(d.batch_doubles) < 1e-5,
+        f"frames x and -x: the coherent sum cancels "
+        f"({d.batch_cancel:.1e}) and the power sum doubles "
+        f"({d.batch_doubles:.1e})",
+    )
+    R.limit(
         d.rejects_bad_args,
         "an output grid smaller than the input, and dwell=0, are refused "
         "rather than silently accepted",
+    )
+    R.limit(
+        d.bank_worst < 1e-5 and d.bank_index_exact,
+        f"a bank's power_max is the corrected frame batch's on every path, "
+        f"with rates (worst {d.bank_worst:.1e}), and the hypothesis it names "
+        f"holds the cell's strongest power, to rounding",
+    )
+    R.limit(
+        d.bank_dwell_untouched and d.bank_refuses,
+        "a bank leaves the dwell's count and blob unchanged, and a wrong "
+        "frame, L = 0, an inverted range or ragged rates is a ValueError",
+    )
+    R.limit(
+        d.bank_loss_ok and d.bank_loss_tight,
+        "an offset between grid points loses at most sinc(1/(2L)), and "
+        "exactly that half a step from both neighbors, at L = 1, 2 and 4",
+    )
+    R.limit(
+        d.bank_detect_ok and d.bank_refine_worst < 1e-5,
+        f"bank_detect names the fine carrier and lag and recovers the "
+        f"coarse straddle; the refine is the fine bank's value "
+        f"({d.bank_refine_worst:.1e})",
+    )
+    R.limit(
+        d.bank_pfa_held and d.bank_pd_parity,
+        "every detector holds its Pfa on fresh noise, and detect-and-refine "
+        "detects as often as L = 4 within the intervals (small scale)",
     )
 
 
@@ -898,6 +1396,11 @@ def build(write: bool = True) -> Report:
             "Nyquist split was covered by nothing at all. Both were found "
             "by breaking the code and watching the suite stay green, which "
             "is the only way that class of gap surfaces (F1, F2).",
+            "**A batch makes the same maps as execute(), and leaves the "
+            "dwell alone.** H frames in one call give maps bit-identical to "
+            "H fresh dwell-1 objects on every path and thread count, the "
+            "coherent sum is a dwell-H dump, and a batch mid-dwell changes "
+            "neither the count nor the state blob (§2.10).",
         ],
     )
     R.summary(

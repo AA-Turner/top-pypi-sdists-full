@@ -25,10 +25,10 @@ import httpx
 import pytest
 
 from probe import cli
-from probe.mcp import accounting
-from probe.mcp.budget import count_tokens, serialize
-from probe.mcp.contract import MissingMarker
-from probe.mcp.service import ResearchReadService
+from probe.mcp.delivery import accounting
+from probe.foundation.token_budget.token_budget import count_tokens, serialize
+from probe.shared.reads.search_contract import MissingMarker
+from probe.mcp.tools.tools import ResearchReadService
 from probe.sdk import errors
 from test_mcp_delivery import _wire
 from tests.conftest import make_client
@@ -496,7 +496,7 @@ def test_a_ref_selects_exactly_the_branch_it_names():
 def test_a_slug_too_long_for_entity_is_emitted_as_its_id():
     """`entity` takes refs of at most 256 characters: a longer slug ref is
     sent as the uuid ref, everywhere a ref is emitted, and still opens."""
-    from probe.mcp.server import create_server
+    from probe.mcp.server.server import create_server
 
     entity = next(t for t in anyio.run(create_server(object()).list_tools) if t.name == "entity")
     limit = entity.inputSchema["properties"]["refs"]["items"]["maxLength"]
@@ -511,7 +511,7 @@ def test_a_slug_too_long_for_entity_is_emitted_as_its_id():
     assert row["ref"] == f"experiment:{_uuid(1)}"
     full = service.browse_list("branches", workspace_id=WORKSPACE, branch=row["ref"])["data"]
     assert full["branch"]["ref"] == row["ref"] and full["experiments"][0]["ref"] == row["ref"]
-    from probe.mcp.branches import MAX_REF_CHARS
+    from probe.mcp.tools.views.branch_projection import MAX_REF_CHARS
 
     assert MAX_REF_CHARS == limit
 
@@ -613,7 +613,7 @@ def test_a_dead_line_is_flagged_on_its_rows_and_a_marked_experiment_says_why():
 def test_an_experiment_row_says_how_many_sessions_it_leaves_out():
     """R5: a detail row lists the server's (at most 5) session rows, by ref,
     and `sessions_total` only when the server listed fewer than it counts."""
-    from probe.mcp import branches as views
+    from probe.mcp.tools.views import branch_projection as views
 
     busy, quiet = _member(1, "busy"), _member(2, "quiet")
     rows = [{"session": _uuid(100 + i), "harness": "codex", "person": None, "agent_h": 1.0} for i in range(5)]

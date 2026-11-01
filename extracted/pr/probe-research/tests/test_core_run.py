@@ -66,9 +66,9 @@ FAKE_DEVICE = textwrap.dedent(
     from probe.cli import bootstrap, doctor, outbox_worker, setup, upgrading
     from probe.cli import capabilities
     from probe.cli.capabilities import Capabilities, capture_token_sources
-    from probe.sdk import device as device_flow
-    from probe.sdk.config import resolve, save_context
-    from probe.sdk.device import DevicePrompt
+    from probe.sdk.settings import device as device_flow
+    from probe.sdk.settings.settings import resolve, save_context
+    from probe.sdk.settings.device import DevicePrompt
 
     main = importlib.import_module("probe.cli.main")
     fakes = set(filter(None, os.environ.get("FAKES", "").split(",")))
@@ -819,7 +819,7 @@ def test_a_configure_that_leaves_capture_out_keeps_it_off(device):
 
 
 def test_every_registry_agent_and_alias_can_be_configured_through_the_service():
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     for harness in get_registry().installable():
         for word in dict.fromkeys((harness.cli_flag, *harness.names)):
@@ -894,7 +894,7 @@ def test_the_cli_json_events_module_is_the_core_events_module():
 def test_the_version_read_says_whether_the_manifest_answered(monkeypatch, raised, reachable):
     """The Probe service reads it after a failed update: offline (no answer at
     all) is not a failure in a row (`updater._offline`)."""
-    from probe import version_policy
+    from probe.shared.updates import version_policy
     from probe.core import run
 
     def fetch(url, *, context=None):

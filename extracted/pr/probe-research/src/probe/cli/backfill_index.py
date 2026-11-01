@@ -50,7 +50,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..sdk.durable import file_lock
+from ..foundation.durable.durable import file_lock
 from .backfill_ledger import default_dir
 
 #: Written into every index so a format change can be recognised rather than

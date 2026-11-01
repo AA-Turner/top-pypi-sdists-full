@@ -58,7 +58,7 @@ def target_version(active: str | None, running: str) -> str:
     (0.328.0), whose env the health check cannot judge (it imports
     `probe.core.adopt`): a broken 0.320 is replaced by this release, never
     rebuilt as itself."""
-    from probe._shared import handoff
+    from probe.shared.updates import handoff
 
     from probe.cli import install_pipeline
 
@@ -70,7 +70,7 @@ def target_version(active: str | None, running: str) -> str:
 def repair_cli() -> tuple[Part, object]:
     """The CLI's install. `(part, the install_cli outcome or None)`."""
     from probe import __version__
-    from probe._shared import installs
+    from probe.shared.updates import installs
 
     from probe.cli import bootstrap, install_pipeline
 
@@ -118,7 +118,7 @@ def repair_cli() -> tuple[Part, object]:
 
 def repair_keeper(cli_out) -> Part:
     """`keeper-off` cleared, the keeper and lifeboat installed, runtime.json."""
-    from probe._shared import installs
+    from probe.shared.updates import installs
 
     from probe.cli import install_pipeline
 

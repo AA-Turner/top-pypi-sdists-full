@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 import math
 
 from . import import_jobs, import_progress, tui

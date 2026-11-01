@@ -37,8 +37,9 @@ from pydantic_ai.usage import RequestUsage  # noqa: E402
 from pydantic_ai_harness.compaction import estimate_token_count  # noqa: E402
 
 from probe.daemon import agent as agent_mod  # noqa: E402
-from probe.daemon import model as model_mod  # noqa: E402
-from probe.daemon import usage  # noqa: E402
+from probe.daemon.agent.model import model as model_mod  # noqa: E402
+from probe.daemon.agent.model import usage  # noqa: E402
+import probe.daemon.agent.context  # noqa: F401 -- a piece read through its lazy door: loaded here, whatever ran first
 
 SIZE = 10_000
 SUMMARY = "SUMMARY: earlier turns."
@@ -341,7 +342,7 @@ def test_a_size_of_zero_or_below_is_refused_so_the_worker_runs_as_bites(monkeypa
     from probe.daemon import agent as agent_mod
     from probe.daemon import worker as worker_mod
 
-    monkeypatch.setattr(agent_mod, "CONTEXT_TOKENS", size)
+    monkeypatch.setattr(agent_mod.context, "CONTEXT_TOKENS", size)
     with pytest.raises(ValueError):
         agent_mod.counted_compaction(agent_mod.RunState(conversation=True))
     assert worker_mod._compaction_available() is False

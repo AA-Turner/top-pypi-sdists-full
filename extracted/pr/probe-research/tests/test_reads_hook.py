@@ -1,7 +1,7 @@
 """Claude Code delivery of the daemon's `[Probe]` messages (daemon reads, plan T3).
 
 `plugins/probe-research/hooks/reads_hook.py` is stdlib-only and cannot import
-`probe`, so it mirrors `probe.daemon.mailbox`. Every test here runs the hook the
+`probe`, so it mirrors `probe.shared.mailbox`. Every test here runs the hook the
 way Claude Code does -- a subprocess with a real payload on stdin and the state
 folder in XDG_STATE_HOME -- except the few that need a short waiter timeout,
 which call it in-process. The parity tests publish with the real mailbox and
@@ -31,9 +31,9 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import mailbox
-from probe.daemon.mailbox import Kind
-from probe.daemon.store import store_path
+from probe.shared import mailbox
+from probe.shared.mailbox.mailbox import Kind
+from probe.daemon.store.store import store_path
 
 AGENT_ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = AGENT_ROOT / "plugins" / "probe-research"
@@ -117,7 +117,7 @@ def _inbox(body: str = "stop the lr=3e-3 run, it diverged", *, person: bool = Tr
            title: "str | None" = "Swarm orchestrator", **kw) -> mailbox.Message:
     """A message Probe held for the session, as the worker's poller publishes it
     (`session_messages.inbox_message`)."""
-    from probe.daemon import session_messages
+    from probe.daemon.lanes import session_messages
 
     sender = {"kind": "person" if person else "agent", "name": "Richard Wei", "session_title": title}
     import uuid
@@ -568,7 +568,7 @@ def test_the_waiter_waits_past_its_ask_ceiling_for_a_request_to_the_writer(monke
     """A writer run often takes minutes: a request's reply still wakes the agent
     after WAKE_MAX_S, up to REQUEST_WAKE_MAX_S (twice the writer's timeout, by
     when the run has answered or failed it)."""
-    from probe.daemon import requests as requests_mod
+    from probe.shared.mailbox import requests as requests_mod
 
     hook = _load()
     assert hook.REQUEST_WAKE_MAX_S > 2 * requests_mod.WRITE_REQUEST_TIMEOUT_S
@@ -749,7 +749,7 @@ def test_past_the_asks_budget_the_waiter_still_wakes_for_an_alert(monkeypatch, c
 
 
 # ---------------------------------------------------------------------------
-# Parity with probe.daemon.mailbox.
+# Parity with probe.shared.mailbox.
 # ---------------------------------------------------------------------------
 
 
@@ -1850,8 +1850,8 @@ def test_the_receipt_is_the_shared_fixtures(case, tmp_path, monkeypatch):
 def test_the_worker_writes_the_holder_the_hook_reads():
     """`session_messages.inbox_message` names the lease holder in the file, and
     the mailbox and the hook read the same fields and rules."""
-    from probe.daemon import probe_api as daemon_api
-    from probe.daemon import session_messages
+    from probe.daemon.session import probe_api as daemon_api
+    from probe.daemon.lanes import session_messages
 
     hook = _load()
     row = {"id": RECEIPT["server_id"], "body": "ship it", "created_at": None,
@@ -1868,8 +1868,8 @@ def test_the_worker_writes_the_holder_the_hook_reads():
     assert (hook.DAEMON_INSTANCE_HEADER, hook.ACK_DELIVERED_TO_AGENT, hook.INBOX_ID_PREFIX) == (
         daemon_api.DAEMON_INSTANCE_HEADER, daemon_api.ACK_DELIVERED_TO_AGENT, mailbox.INBOX_ID_PREFIX)
     assert hook.DAEMON_INSTANCE_RE.pattern == mailbox.DAEMON_INSTANCE_RE.pattern
-    from probe.daemon import model
-    from probe.sdk import config as sdk_config
+    from probe.daemon.agent.model import model
+    from probe.sdk.settings import settings as sdk_config
 
     assert (hook.DAEMON_KEY_ENV, hook.DEFAULT_BASE_URL) == (model.ENV_KEY, sdk_config.DEFAULT_BASE_URL)
     for bad in ("short", "has space in it here", 7, None):

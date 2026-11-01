@@ -29,11 +29,11 @@ import threading
 import time
 from contextlib import ExitStack, contextmanager, redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 
-from ..sdk.durable import file_lock, now_iso, write_text_atomic
+from ..foundation.durable.durable import file_lock, now_iso, write_text_atomic
 
 
 #: How often a worker that is still waiting for a connection re-reports the
@@ -344,8 +344,8 @@ def _post_failure_report(context: str, job_id: str, body: dict) -> None:
     worker replays from a PINNED source tree, and a module that is missing there
     must cost a notification, never the import.
     """
-    from ..sdk.config import resolve
-    from ..sdk.transport import Transport
+    from ..sdk.settings.settings import resolve
+    from ..sdk.delivery.transport.transport import Transport
 
     transport = Transport(
         resolve(context=context), timeout=_REPORT_TIMEOUT_S, surface="cli", attribution="backfill"

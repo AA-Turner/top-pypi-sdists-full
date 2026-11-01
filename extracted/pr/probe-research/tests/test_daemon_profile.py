@@ -500,7 +500,7 @@ SKILL_NAMES_REFUSED = {
     # Writes: each refusal names `--directed` and `probe ask --writer`.
     "probe edge add", "probe dataset use", "probe checkpoint use",
     # `probe edge remove` (instrument-code: a wrong data link): with the daemon
-    # on it is the daemon's, which removes its own links (`daemon/tools.py`
+    # on it is the daemon's, which removes its own links (`daemon/agent/tools/tools.py`
     # `_own_link`); the refusal names `/probe inline`.
     "probe edge",
     # Where the researcher turns the daemon on or off.
@@ -561,7 +561,7 @@ def test_the_daemon_stopped_line_is_the_approved_researcher_line():
         spec.loader.exec_module(vc)
     finally:
         sys.path.remove(str(hooks))
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     assert vc.DAEMON_STOPPED_LINE == mailbox.FAILURE_MESSAGES[mailbox.DAEMON_STOPPED]
 

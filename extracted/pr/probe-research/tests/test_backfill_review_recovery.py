@@ -9,19 +9,21 @@ import typer
 
 from probe.cli.backfill_coverage import Coverage, Scope
 from probe.cli.backfill_delivery import enqueue
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
 from probe.sdk.errors import ValidationError
-from probe.sdk.journal import Journal, drain
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain.drain import drain
 
 
 @pytest.mark.parametrize("queued_before_move", [False, True])
 def test_reference_remount_preserves_intent_before_and_after_enqueue(
     tmp_path, monkeypatch, queued_before_move,
 ):
-    from probe.sdk import journal as jm
+    from probe.sdk.delivery import journal as jm
 
-    monkeypatch.setattr(jm, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
     source = tmp_path / "original"
     source.mkdir()
     (source / "weights.pt").write_bytes(b"weights")

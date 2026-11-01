@@ -72,7 +72,7 @@ class MyBuild(build_py):
 
 setup(
     name="pykcs11",
-    version="1.5.20",
+    version="1.5.21",
     description="A Full PKCS#11 wrapper for Python",
     keywords="crypto,pki,pkcs11,c++",
     classifiers=classifiers,
@@ -83,7 +83,6 @@ setup(
     maintainer="Ludovic Rousseau",
     maintainer_email="ludovic.rousseau@free.fr",
     url="https://github.com/LudovicRousseau/PyKCS11",
-    download_url="http://sourceforge.net/projects/pkcs11wrap/files/pykcs11/",
     license="GPL-2.0-or-later",
     cmdclass={"build_py": MyBuild},
     package_dir={"": "src"},

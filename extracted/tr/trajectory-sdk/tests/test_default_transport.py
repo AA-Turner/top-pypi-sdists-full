@@ -126,18 +126,35 @@ def test_default_network_deadlines_allow_slow_responses(
 @pytest.mark.parametrize(
   ("client_options", "request_options", "copy_options", "http_options", "expected"),
   [
-    ({}, {}, None, None, httpx2.Timeout(600, connect=5)),
-    ({}, {}, {}, None, httpx2.Timeout(600, connect=5)),
-    ({}, {}, None, {"timeout": 5}, httpx2.Timeout(5)),
-    ({}, {}, {}, {"timeout": 5}, httpx2.Timeout(5)),
-    ({}, {}, None, {}, httpx2.Timeout(5)),
-    ({"timeout": 120}, {}, None, {"timeout": 5}, httpx2.Timeout(120)),
+    ({}, {}, None, None, httpx2.Timeout(connect=5, read=5400, write=600, pool=600)),
+    ({}, {}, {}, None, httpx2.Timeout(connect=5, read=5400, write=600, pool=600)),
+    ({}, {}, None, {"timeout": 5}, httpx2.Timeout(connect=5, read=5400, write=600, pool=600)),
+    ({}, {}, {}, {"timeout": 5}, httpx2.Timeout(connect=5, read=5400, write=600, pool=600)),
+    ({}, {}, None, {}, httpx2.Timeout(connect=5, read=5400, write=600, pool=600)),
+    (
+      {"timeout": 120},
+      {},
+      None,
+      {"timeout": 5},
+      httpx2.Timeout(connect=5, read=5400, write=600, pool=600),
+    ),
+    ({"timeout": None}, {}, None, None, httpx2.Timeout(connect=5, read=5400, write=600, pool=600)),
     ({"timeout": 120}, {"timeout": 9}, None, None, httpx2.Timeout(9)),
     ({}, {"timeout": None}, None, None, httpx2.Timeout(None)),
-    ({}, {}, {"timeout": 60}, None, httpx2.Timeout(60)),
+    ({}, {}, {"timeout": 60}, None, httpx2.Timeout(connect=5, read=5400, write=600, pool=600)),
+    ({}, {"timeout": 9}, None, {"timeout": 5}, httpx2.Timeout(9)),
+    (
+      {"timeout": 120},
+      {"timeout": httpx2.Timeout(connect=2, read=30, write=4, pool=1)},
+      None,
+      None,
+      httpx2.Timeout(connect=2, read=30, write=4, pool=1),
+    ),
   ],
 )
-def test_inference_preserves_explicit_deadlines_without_extra_retries(
+@pytest.mark.parametrize("resource", ["chat", "responses"])
+def test_inference_timeout_uses_resource_default_unless_overridden_on_call(
+  resource: str,
   monkeypatch: pytest.MonkeyPatch,
   client_options: dict[str, Any],
   request_options: dict[str, Any],
@@ -164,11 +181,14 @@ def test_inference_preserves_explicit_deadlines_without_extra_retries(
   ) as client:
     selected = client if copy_options is None else client.with_options(**copy_options)
     with pytest.raises(APITimeoutError):
-      selected.chat.completions.create(
-        model="model_test",
-        messages=[{"role": "user", "content": "Question"}],
-        **request_options,
-      )
+      if resource == "chat":
+        selected.chat.completions.create(
+          model="model_test",
+          messages=[{"role": "user", "content": "Question"}],
+          **request_options,
+        )
+      else:
+        selected.responses.create(model="model_test", input="Question", **request_options)
 
   assert len(requests) == 1
   assert requests[0].extensions["timeout"] == expected.as_dict()

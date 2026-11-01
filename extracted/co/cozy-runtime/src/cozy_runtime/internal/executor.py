@@ -53,6 +53,7 @@ import importlib.util
 import json
 import math
 import os
+import signal
 import socket
 import sys
 import threading
@@ -66,10 +67,11 @@ from typing import TYPE_CHECKING, Any
 
 import msgspec
 import tensorfs
+import tensorfs.varena
 from msgspec import UNSET, UnsetType
 
 from cozy_runtime import __version__ as RUNTIME_VERSION
-from cozy_runtime import graphs, weights_store
+from cozy_runtime import graphs, stepcache, weights_store
 from cozy_runtime.author import ModelRegistry, _split, describe
 from cozy_runtime.author import _request_path as request_path
 from cozy_runtime.author._activity import ThreadPoolExecutor
@@ -120,7 +122,7 @@ from cozy_runtime.author._model import (
     WarningRow,
     component_use,
 )
-from cozy_runtime.author._observations import DEVICE, Attribution
+from cozy_runtime.author._observations import DEVICE, PLANS, Attribution
 from cozy_runtime.author._prepared_use import PreparedUse, prepared_use
 from cozy_runtime.author._services import AdjustmentRow, ProgressFrame
 from cozy_runtime.author._services import Attempt as AuthorAttempt
@@ -806,7 +808,7 @@ class Executor:
         self.mux: Mux = (
             host.mux
             if host is not None
-            else Mux(channel, functools.partial(_supplied, self.bearers), self._discard)
+            else Mux(channel, functools.partial(_supplied, self.bearers), self._discard, self._room)
         )
         self.in_flight: _InFlight = host.in_flight if host is not None else _InFlight()
         #: the construction key this generation was loaded under; "" on the host
@@ -1011,6 +1013,11 @@ class Executor:
             "memory_backend": "rust-local" if self.device_kind == "cuda" else "torch",
             # Correlated PrepareRequest replies and cancellation-safe publication.
             "request_lookahead": True,
+            # `room` read at once, a running call's included (`_room`), where TensorFS can hold one
+            # (`residency.yields`: imported here, residency would bring Torch in before the hello).
+            "room": all(
+                callable(getattr(tensorfs.varena, f, None)) for f in ("make_room", "no_capture")
+            ),
             "sealed": dict(_SEALED),
             "rank": self.rank,
             "world": self.world,
@@ -1051,6 +1058,11 @@ class Executor:
                 "detail": "Torch CUDA was already initialized before Runtime's explicit "
                 "allocator boundary; package execution is refused",
             }
+        # A single-GPU executor tells the machine just before and after its CUDA context opens:
+        # where the driver names other pids (a container), the one that appears between is its.
+        opening = self.device_kind == "cuda" and self.world == 1
+        if opening:
+            _cuda(self.channel, "opening")
         try:
             accel.initialize(torch, self.device_kind)
             if self.world > 1 and self.device_kind == "cuda":
@@ -1060,6 +1072,8 @@ class Executor:
         except ResidencyError as exc:
             return {"ok": False, "code": "weight_residency_unavailable", "detail": str(exc)}
         accel.first_launches(torch, self.device_kind)
+        if opening:
+            _cuda(self.channel, "open")
         if self.device_kind == "cuda" and self.world == 1:
             # The prebuilt 8-bit op opens from here, before any request, beside the weight fill:
             # a component first built mid-request (Klein's on-demand upsampler under a 16-bit
@@ -1083,6 +1097,7 @@ class Executor:
         host.execution = execution
         if device.type == "cuda":  # steps report the device's time beside the host's
             DEVICE[:] = [execution.Steps()]
+        PLANS[:] = [host.serving]
         _split.install(execution)
         attention_ulysses.install(execution)
         loop.install()
@@ -1946,6 +1961,19 @@ class Executor:
             **({"compiles": compiles} if compiles else {}),
             "memory_backend": "rust-local" if self.device_kind == "cuda" else "torch",
         }
+
+    def serving(self) -> str:
+        """The active construction's execution plans applied now (`Plan.report`), by name, or
+        "eager": what each step records it ran (`Attribution.step`)."""
+        construction = self.constructions.get(self.active, self)
+        applied = {
+            name
+            for member in construction.model_executors or [construction]
+            for reports in list(member.plan_reports.values())
+            for name, report in list(reports.items())
+            if report.get("applied")
+        }
+        return " ".join([*sorted(applied), stepcache.verdict()]).strip() or "eager"
 
     def _model_classes(self) -> list[type[Model[Any]]]:
         """The classes the package's constructed Model slots declare, wherever they are
@@ -3232,8 +3260,83 @@ class Executor:
         if self.host.memory is not None:
             # Never hold the prepared-record lock while touching a native read owner.
             self.host.memory.cancel_queued(request_id)
+        IDLE_WAITED.pop(request_id, None)
         if self.order is not None:
             self.order.wake()  # an idle period may open now (`awaiting_invoke`)
+
+    def _room(self, frame: Frame) -> None:
+        """TensorD's `room` (design/vram-yield.md): the GPU bytes this process may hold (`target`,
+        against what the driver charged it, `held`; none: no limit). Taken on the thread that read
+        it, a running call's included. Idle and asked to give, its kept programs (graphs,
+        decoders, holds) go first, in its command order. A group's followers serve their own
+        GPUs: rank 0 takes only its own."""
+        memory = self.host.memory
+        if memory is None or not memory.cuda or int(frame.get("device", 0)) != 0:
+            return
+        target = frame.get("target")
+        try:
+            held = int(frame.get("held", 0))
+            memory.room_target = None if target is None else int(target)
+            limit = memory.room_for(memory.room_target, held)
+            if limit is not None and not memory.requests and self.order is not None:
+                ticket = self.order.ticket(True, "room")
+                threading.Thread(
+                    target=self._idle_room, args=(memory, limit, ticket), name="room", daemon=True
+                ).start()
+                return
+            before = memory.held()
+            memory.make_room(limit)
+            self._room_kept(memory, limit, before)
+        except Exception as exc:  # the seam outlives a refused room; the next reading asks again
+            self._room_kept(memory, None, 0, exc)
+            traceback.print_exc()
+            sys.stderr.flush()
+
+    def _idle_room(self, memory: Memory, limit: int, ticket: int) -> None:
+        """An idle executor's room, in its turn: its unpinned pages go first; only if they cannot
+        meet it do its kept programs (graphs, decoders, holds) release their pins, so its next
+        call stays a native replay when they can."""
+        assert self.order is not None
+        try:
+            with self.order.turn(ticket):
+                before = memory.held()
+                memory.make_room(limit)
+                if not memory.requests and limit < memory.held():
+                    accel.synchronize(self.torch, self.device_kind)
+                    self._release_programs()
+                    memory.make_room(limit)
+                self._room_kept(memory, limit, before)
+        except Exception as exc:
+            self._room_kept(memory, limit, 0, exc)
+            traceback.print_exc()
+            sys.stderr.flush()
+
+    def _room_kept(
+        self, memory: Memory, limit: int | None, before: int, error: Exception | None = None
+    ) -> None:
+        """What this process holds after a room, and why, in `room.json` in its root, where the
+        machine reads it when a give moved less than asked; a room that raised says so, gave 0."""
+        reading: dict[str, Any] = {"at": time.time(), "gave": 0, "error": repr(error)}
+        if error is None:
+            reading = memory.room_reading(limit, before)
+        reading["order"] = self.order.holders() if self.order is not None else []
+        path = self.root / "room.json"
+        try:
+            path.with_suffix(".tmp").write_text(json.dumps(reading))
+            path.with_suffix(".tmp").replace(path)
+        except (OSError, TypeError, ValueError):
+            pass  # the report is evidence only
+
+    def _release_programs(self, constructions: Iterable[Executor] | None = None) -> None:
+        """Every slot's decoders, graphs and holds go: what pins weight pages besides a call."""
+        for child in self.constructions.values() if constructions is None else constructions:
+            for member in [m for m in child.model_executors or [child] if m.backend is not None]:
+                if member.residency is not None:
+                    member.residency.release()
+                for model in member.backend.models.values():
+                    for _, release in graphs.DECODERS:
+                        release(model.module)
+                    graphs.retire(self.torch, model.module)
 
     def awaiting_invoke(self) -> bool:
         """A prepared request waits for its invoke, which comes next (TensorD's lookahead or its
@@ -3632,10 +3735,14 @@ class Executor:
                 )
             for message, raised in (*warnings, *tools.warnings()):
                 record.emit("log", message, "warn", **raised)
+            if (waited := IDLE_WAITED.pop(command.request_id, 0.0)) >= 1:
+                record.emit("confession", "idle.waited", _IDLE_WORK, ms=round(waited, 1))
+                if waited >= IDLE_BLOCKING_MS:
+                    blocking[_IDLE_WORK] = (waited, 1)
             for work, (ms, times) in blocking.items():
                 took = {"ms": round(ms, 1), "times": times}
                 record.emit("confession", "request_path.blocking", work, **took)
-                record.emit("log", "kernel work blocked the request", "warn", work=work, **took)
+                record.emit("log", f"{work} blocked the request", "warn", work=work, **took)
             followed()
             for name, where in swapped:
                 record.emit("confession", "kernel.ready", name, **where)
@@ -4827,13 +4934,7 @@ class Executor:
                     # language model's engine retains its drafter's weights too, and Klein's
                     # drafter slot maps before its upsampler, so an idle Klein refused every
                     # offload and a running call beside it ran out of memory (0.36.0 gate).
-                    for member in members:
-                        if member.residency is not None:
-                            member.residency.release()
-                        for model in member.backend.models.values():
-                            for _, release in graphs.DECODERS:
-                                release(model.module)
-                            graphs.retire(self.torch, model.module)
+                    self._release_programs([child])
                 for member in members:
                     for model in member.backend.models.values():
                         self.memory.load(model.module, command.level)
@@ -5109,6 +5210,8 @@ def _remember_distributions() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     faulthandler.enable(all_threads=True)
+    if hasattr(signal, "SIGUSR1"):  # every thread's Python stack to stderr, the process lives on
+        faulthandler.register(signal.SIGUSR1, all_threads=True, chain=False)
     parser = argparse.ArgumentParser(description="cozy-runtime device executor")
     parser.add_argument("--socket", default="")
     parser.add_argument("--root", required=True)
@@ -5168,6 +5271,12 @@ def _compiling(channel: Channel, state: kernel_compile.State) -> None:
     _waiting(channel, f"waiting for {state.kernel} compile", state.progress)
 
 
+def _cuda(channel: Channel, phase: str) -> None:
+    """The executor's CUDA context opening or open, told to the machine outside every call."""
+    with contextlib.suppress(SeamError):
+        channel.send({"event": "progress", "request_id": "", "kind": "progress", "cuda": phase})
+
+
 def _waiting(channel: Channel, what: str, fraction: float | None = None) -> None:
     """A wait, told to the machine as the waiting call's stage ("": the executor's, outside
     every call)."""
@@ -5186,12 +5295,22 @@ def _waiting(channel: Channel, what: str, fraction: float | None = None) -> None
 
 #: Commands of one call: served on the executor's pool, side by side with other calls.
 _CALL_COMMANDS = frozenset({"prepare_request", "invoke"})
+#: The idle holder's name, as a command waiting for it is told.
+_IDLE_WORK = "idle work"
+#: A call's wait for idle work to give the order back at least this long is request-path
+#: blocking (the release gate fails it): idle work yields at its next op with two ops left on
+#: the device, or after one store window's read or one page's registration.
+IDLE_BLOCKING_MS = 100.0
+#: call -> ms its commands waited for idle work, until its run's record takes it (`_Order.turn`)
+IDLE_WAITED: dict[str, float] = {}
 
 
 class _Order:
     """Commands in the order they came: a call's run side by side, and a process-wide one
     alone, after every command before it and before every command after it. One waiting for
-    its turn is told what it waits on."""
+    its turn is told what it waits on. Idle work holds it as a process-wide command does (`idle`),
+    and every call's wait for it goes into the call's record (`IDLE_WAITED`): the one place each
+    kind of idle work is measured."""
 
     def __init__(self) -> None:
         self._changed = threading.Condition()
@@ -5200,11 +5319,18 @@ class _Order:
         self._next = 0
         #: commands answered so far: an idle period follows each (`idle`)
         self.answered = 0
+        #: the idle holder's ticket while it holds the order, and when each command since came
+        self._idle: int | None = None
+        self._arrived: dict[int, float] = {}
+        #: ticket -> ms it waited for the idle holder
+        self._waited: dict[int, float] = {}
 
     def ticket(self, alone: bool, what: str) -> int:
         with self._changed:
             self._next += 1
             self._open[self._next] = (alone, what)
+            if self._idle is not None:
+                self._arrived[self._next] = time.perf_counter()
             return self._next
 
     def first(self, ticket: int) -> bool:
@@ -5227,6 +5353,9 @@ class _Order:
                     "",
                 ),
             )
+            waited = self._waited.pop(ticket, 0.0)
+        if waited and (call := _CALL.get()):
+            IDLE_WAITED[call] = IDLE_WAITED.get(call, 0.0) + waited
         try:
             yield
         finally:
@@ -5244,13 +5373,24 @@ class _Order:
             self._changed.wait_for(lambda: not self._open and self.answered != answered and ready())
             self._next += 1
             ticket, answered = self._next, self.answered
-            self._open[ticket] = (True, "graph capture")
+            self._open[ticket] = (True, _IDLE_WORK)
+            self._idle = ticket
         try:
             yield answered
         finally:
             with self._changed:
                 del self._open[ticket]
+                self._idle = None
+                now = time.perf_counter()
+                for came, at in self._arrived.items():
+                    self._waited[came] = (now - at) * 1e3
+                self._arrived.clear()
                 self._changed.notify_all()
+
+    def holders(self) -> list[str]:
+        """What holds or waits for the order now (`room.json`)."""
+        with self._changed:
+            return [what for _, what in self._open.values()]
 
     def waiting(self) -> bool:
         """A command arrived beside the idle holder."""
@@ -5265,8 +5405,9 @@ class _Order:
 def _idle(executor: Executor, order: _Order) -> None:
     """Graphs record and host pages pin off the request path (`graphs.capture_idle`,
     `Memory.pin_idle`): after a command is answered, while no other is open. One arriving makes
-    either yield at its next region boundary or stored part. A device fault there poisons the
-    executor, as one in a request does (the machine ends it)."""
+    either yield at its next op or stored part, and its wait goes into its call's record
+    (`IDLE_WAITED`). A device fault there poisons the executor, as one in a request does (the
+    machine ends it)."""
     answered = 0
 
     def pins() -> bool:

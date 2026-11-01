@@ -16,9 +16,13 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import adapters, approvals as appr, bite as bite_mod, precheck, tools
-from probe.daemon.events import Event, Kind
-from probe.daemon.store import Store
+from probe.shared.harness import lookup as adapters
+from probe.daemon.worker.bite import bite as bite_mod
+from probe.daemon.agent import tools
+from probe.shared.mailbox import approvals as appr
+from probe.shared.command_rules import command_rules as precheck
+from probe.shared.harness.events import Event, Kind
+from probe.daemon.store.store import Store
 
 HOOK = Path(__file__).resolve().parents[1] / "plugins" / "probe-research" / "hooks" / "approvals_hook.py"
 FAKE_KEY = "sk-proj-" + "Ab3dE5gH7jK9mN1pQ3sT5vX7zB9dF1hJ3lN5pR7tV9xZ"
@@ -99,7 +103,7 @@ def test_codex_lines_and_mode():
 def test_codex_marks_a_helper_agents_message_and_skips_an_encrypted_one():
     """Plan probe-hints T4: Codex's multi-agent `agent_message` (real shape,
     2026-10-18), read as a peer agent's message when its payload is plain."""
-    from probe.daemon.events import PEER_TOOL
+    from probe.shared.harness.events import PEER_TOOL
 
     a = adapters.for_source("codex")
 
@@ -360,7 +364,7 @@ def test_the_daemon_uploads_up_to_5_gb_and_scans_the_first_scan_bytes(tmp_path, 
 
 
 def test_a_file_bigger_than_the_scan_is_identified_by_size_and_mtime_not_hashed(tmp_path, monkeypatch):
-    from probe.daemon import tools
+    from probe.daemon.agent import tools
 
     monkeypatch.setattr(precheck, "SCAN_BYTES", 1024)
     small, big = tmp_path / "a.txt", tmp_path / "b.bin"
@@ -552,7 +556,9 @@ def test_a_long_outline_comes_in_pages(tmp_path, monkeypatch):
     deps = _deps(tmp_path)
     deps.store.add(_parse(adapters.for_source("claude_code"), _cc_lines()))
     short = tools.session(deps, "outline")
-    monkeypatch.setattr(tools, "OPEN_PAGE_CHARS", 20)
+    monkeypatch.setattr(tools.tools, "OPEN_PAGE_CHARS", 20)
+    monkeypatch.setattr(tools.session_op, "OPEN_PAGE_CHARS", 20)
+    monkeypatch.setattr(tools.session_ops.open, "OPEN_PAGE_CHARS", 20)
     paged = tools.session(deps, "outline", page=1)
     assert paged.startswith("[outline · page 2 of ") and paged.split("\n", 1)[1].startswith(short[20:40])
 
@@ -574,6 +580,6 @@ def test_a_long_outline_comes_in_pages(tmp_path, monkeypatch):
     ("X=1 python eval.py 2> err.log", ["err.log"]),
 ])
 def test_written_paths(command, written):
-    from probe.daemon.folders import written_paths
+    from probe.daemon.session.session import written_paths
 
     assert written_paths(command) == written

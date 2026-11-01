@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from probe.sdk.journal import Journal
+from probe.sdk.delivery.journal.journal import Journal
 
 from tests.conftest import make_client
 
@@ -140,7 +140,7 @@ def _fsync_raising_once(monkeypatch, journal, exc, times=1):
     temp file exists: the write is cut off in the middle, not before it."""
     import os as _os
 
-    from probe.sdk import durable
+    from probe.foundation.durable import durable
 
     real, fired = durable.os.fsync, []
 

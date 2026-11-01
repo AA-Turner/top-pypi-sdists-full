@@ -28,12 +28,14 @@ from pydantic_ai.exceptions import ContentFilterError, ModelAPIError, ModelHTTPE
 from pydantic_ai.messages import ModelResponse, ToolCallPart  # noqa: E402
 from pydantic_ai.models.function import FunctionModel  # noqa: E402
 
-from probe._shared import telemetry as tm  # noqa: E402
-from probe.sdk import _telemetry_core as core  # noqa: E402
-from probe.daemon import alerts  # noqa: E402
-from probe.daemon import lease, mailbox  # noqa: E402
-from probe.daemon import reader_lane as rl  # noqa: E402
+from probe import analytics as tm  # noqa: E402
+from probe.analytics import core as core  # noqa: E402
+from probe.daemon.worker import alerts  # noqa: E402
+from probe.daemon.host import lease  # noqa: E402
+from probe.shared import mailbox
+from probe.daemon.lanes import reader as rl  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
+import probe.daemon.agent.reader  # noqa: F401 -- a piece read through its lazy door: loaded here, whatever ran first
 
 try:
     ExceptionGroup
@@ -70,8 +72,8 @@ def _isolated(tmp_path, monkeypatch):
 @pytest.fixture()
 def sent(monkeypatch) -> list[dict]:
     records: list[dict] = []
-    monkeypatch.setattr(tm, "_sender", None)
-    monkeypatch.setattr(tm, "_flush_registered", True)  # keep atexit out of tests
+    monkeypatch.setattr(tm.sender, "_sender", None)
+    monkeypatch.setattr(tm.sender, "_flush_registered", True)  # keep atexit out of tests
     monkeypatch.setattr(tm._Sender, "start", lambda self: None)
     monkeypatch.setattr(tm._Sender, "put", lambda self, rec: records.append(rec))
     return records
@@ -310,7 +312,7 @@ def _busy(messages, info):
 ])
 def test_skipped_events_ping_with_how_many(tmp_path, sent, monkeypatch, mode, how):
     monkeypatch.setenv(worker_mod.ENV_MODE, mode)
-    monkeypatch.setattr(worker_mod, "BITE_REQUESTS", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "BITE_REQUESTS", 2)
     w = _worker(tmp_path, model=FunctionModel(_busy))
     w.read_new()
     _bite(w)
@@ -395,7 +397,7 @@ def _done(messages, info):
 def test_a_reader_turn_out_of_rounds_pings_with_its_limit(tmp_path, sent, monkeypatch):
     from probe.daemon import agent as agent_mod
 
-    monkeypatch.setattr(agent_mod, "READ_ROUNDS", 3)
+    monkeypatch.setattr(agent_mod.reader, "READ_ROUNDS", 3)
     w = _worker(tmp_path)
     w.read_new()
     got = asyncio.run(rl.ReaderLane(w, model=FunctionModel(_outline)).run_turn("prompt"))
@@ -421,14 +423,15 @@ def test_a_crash_pings_and_sends_its_stack(tmp_path, sent, monkeypatch):
     monkeypatch.setenv("PROBE_BASE_URL", HOSTED)
     monkeypatch.setenv("PROBE_DIAGNOSTICS", "on")
     monkeypatch.setattr(alerts, "_base_url", None)  # main() sets it from the endpoint
-    monkeypatch.setattr(tm, "_flush_at_exit", lambda: None)
-    monkeypatch.setattr(tm, "_current", None)
+    monkeypatch.setattr(tm.sender, "_flush_at_exit", lambda: None)
+    monkeypatch.setattr(tm.analytics, "_current", None)
 
     class Broken:  # a LookupError would be read as a missing session (EXIT_DO_NOT_RESPAWN), not a crash
         def __init__(self, *a, **kw):
             raise ValueError("not enough values to unpack (expected 2, got 1)")
 
-    monkeypatch.setattr(worker_mod, "Worker", Broken)
+    monkeypatch.setattr(worker_mod.worker, "Worker", Broken)
+    monkeypatch.setattr(worker_mod.startup, "Worker", Broken)
     transcript = tmp_path / f"{SID}.jsonl"
     transcript.write_text("")
     code = worker_mod.main(["--session-id", SID, "--transcript", str(transcript), "--cwd", str(tmp_path)])
@@ -449,14 +452,15 @@ def test_a_full_disk_is_said_to_the_researcher_and_pings_nobody(tmp_path, sent, 
     monkeypatch.setenv("PROBE_BASE_URL", HOSTED)
     monkeypatch.setenv("PROBE_DIAGNOSTICS", "on")
     monkeypatch.setattr(alerts, "_base_url", None)
-    monkeypatch.setattr(tm, "_flush_at_exit", lambda: None)
-    monkeypatch.setattr(tm, "_current", None)
+    monkeypatch.setattr(tm.sender, "_flush_at_exit", lambda: None)
+    monkeypatch.setattr(tm.analytics, "_current", None)
 
     class Full:
         def __init__(self, *a, **kw):
             raise sqlite3.OperationalError("database or disk is full")
 
-    monkeypatch.setattr(worker_mod, "Worker", Full)
+    monkeypatch.setattr(worker_mod.worker, "Worker", Full)
+    monkeypatch.setattr(worker_mod.startup, "Worker", Full)
     transcript = tmp_path / f"{SID}.jsonl"
     transcript.write_text("")
     code = worker_mod.main(["--session-id", SID, "--transcript", str(transcript), "--cwd", str(tmp_path)])

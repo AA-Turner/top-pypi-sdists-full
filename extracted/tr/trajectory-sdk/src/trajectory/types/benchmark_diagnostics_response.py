@@ -18,6 +18,15 @@ class BenchmarkDiagnosticTask(BaseModel):
   failure: dict[str, Any] | None
   """Failure for this task, including rollout details when available."""
 
+  trajectory_id: str | None = None
+  """Trajectory of the task's rollout; null before one was created."""
+
+  termination_reason: str | None = None
+  """Recorded reason the trajectory ended; null when not recorded."""
+
+  reward: float | None = None
+  """Reward recorded for the trajectory; null when none was recorded."""
+
   created_at: datetime
 
   updated_at: datetime

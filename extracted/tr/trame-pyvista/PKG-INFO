@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trame-pyvista
-Version: 0.2.3
+Version: 0.3.1
 Summary: Trame interface for PyVista
 Author-email: The PyVista Developers <info@pyvista.org>
 License-Expression: MIT
@@ -14,12 +14,12 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Visualization
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pyvista>=0.48
@@ -34,16 +34,20 @@ Requires-Dist: trame-vuetify<3.3.1,>=3.2.5
 Requires-Dist: trame<4.0.1,>=3.9.1
 Requires-Dist: wslink<2.6.1,>=2.5
 Provides-Extra: jupyter
+Requires-Dist: anywidget>=0.9; extra == "jupyter"
 Requires-Dist: ipywidgets; extra == "jupyter"
 Requires-Dist: jupyter-server-proxy; extra == "jupyter"
 Requires-Dist: nest-asyncio2; extra == "jupyter"
+Provides-Extra: marimo
+Requires-Dist: anywidget>=0.9; extra == "marimo"
+Requires-Dist: marimo>=0.23.14; extra == "marimo"
+Requires-Dist: nest-asyncio2; extra == "marimo"
 Provides-Extra: sphinx
 Requires-Dist: docutils; extra == "sphinx"
 Requires-Dist: sphinx; extra == "sphinx"
 Provides-Extra: dev
 Requires-Dist: mypy>=1.10; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: ruff==0.17.1; extra == "dev"
 Requires-Dist: trame-pyvista[jupyter,playwright,sphinx,test]; extra == "dev"
 Provides-Extra: playwright
 Requires-Dist: matplotlib; extra == "playwright"
@@ -54,8 +58,10 @@ Requires-Dist: sphinx-book-theme; extra == "playwright"
 Requires-Dist: sphinx-design; extra == "playwright"
 Requires-Dist: sphinx-gallery; extra == "playwright"
 Provides-Extra: test
+Requires-Dist: anywidget>=0.9; extra == "test"
 Requires-Dist: ipython; extra == "test"
 Requires-Dist: ipywidgets; extra == "test"
+Requires-Dist: marimo>=0.23.14; extra == "test"
 Requires-Dist: nest-asyncio2; extra == "test"
 Requires-Dist: numpy<2.5; extra == "test"
 Requires-Dist: pytest-cov>=7.0; extra == "test"
@@ -89,12 +95,29 @@ For Jupyter:
 pip install "trame-pyvista[jupyter]"
 ```
 
+The notebook widgets are [anywidgets](https://anywidget.dev). When the
+Jupyter server runs in a separate environment from the kernel (JupyterHub,
+`nb_conda_kernels`), install `anywidget` in the server environment too.
+
+For [marimo](https://marimo.io):
+
+```bash
+pip install "trame-pyvista[marimo]"
+```
+
 ## What you get
 
 - **Jupyter backends**: `trame`, `server`, `client`, `html`. Registered
   with PyVista via the `pyvista.jupyter_backends` entry-point group, so
   `pv.set_jupyter_backend('trame')` works once `trame-pyvista` is
   installed.
+- **marimo**: with PyVista 0.50 or newer (`pip install "pyvista[marimo]"`),
+  `pl.show()` and `mesh.plot()` render inline and `jupyter_backend` or
+  `pv.set_jupyter_backend` picks the backend, as in Jupyter. With older
+  PyVista, end a cell with `pl.trame.show(mode=...)` instead. `html` works
+  in any marimo session, while `trame`, `server` and `client` need the
+  browser on the machine running marimo. See
+  [examples/marimo/viewer.py](examples/marimo/viewer.py).
 - **Plotter views**: `PyVistaLocalView`, `PyVistaRemoteView`,
   `PyVistaRemoteLocalView` for embedding in trame apps.
 - **`plotter.trame` namespace**: registered as a PyVista plotter

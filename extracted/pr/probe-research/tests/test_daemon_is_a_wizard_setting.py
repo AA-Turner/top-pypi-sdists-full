@@ -401,7 +401,7 @@ def _statusline(tmp_path, sid: str) -> str:
     [(session_marker.STATE_READ_ONLY, "read only (daemon)"), (session_marker.STATE_FULL, "on (daemon)")],
 )
 def test_an_unseeded_session_reads_as_the_daemons_when_claude_code_records_by_it(tmp_path, default, shown):
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     sid = "44444444-5555-6666-7777-888888888888"
     save_context({"companion_token": "probe_pat_" + "0" * 32})  # the daemon can start

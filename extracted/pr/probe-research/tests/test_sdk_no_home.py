@@ -7,7 +7,7 @@ managed-job runners) can start with HOME unset and no passwd entry. There
 found by the environment suite (managed/home[unset], 0.196.1). The outbox had
 been taught this in plan 1.5; the config, state and identity paths had not.
 
-`probe.sdk.homedir` is now the one door to `~`: the real home, else a private
+`probe.foundation.durable.homedir` is now the one door to `~`: the real home, else a private
 `$TMPDIR/probe-home-<uid>`.
 """
 
@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.sdk import homedir
+from probe.foundation.durable import homedir
 from tests.served_fake_app import serve
 from tests.conftest import _WS_MINE
 
@@ -108,7 +108,10 @@ def test_a_real_home_is_used_as_is(monkeypatch, tmp_path):
 
 
 def test_config_and_state_paths_resolve_without_a_home(no_home):
-    from probe.sdk import config, device_identity, inputs, journal, session_marker, spool
+    from probe.sdk.settings import settings as config, device_identity
+    from probe.sdk.capture import lineage as inputs
+    from probe.sdk import session_marker
+    from probe.sdk.delivery import journal, spool
 
     stand_in = homedir.home()
     for path in (
@@ -134,7 +137,7 @@ def test_init_log_finish_with_no_home_directory(app, tmp_path):
     tmp = tmp_path / "tmp"
     tmp.mkdir()
     with serve(app) as url:
-        from probe.sdk.client import Client
+        from probe.sdk.client.client import Client
 
         setup = Client(base_url=url, token="ros_pat_deadbeef", async_writes=False, auto_drain=False,
                        spool_dir=tmp_path / "setup-spool")
@@ -215,7 +218,7 @@ def test_capture_state_moves_to_the_stand_in_when_home_cannot_be_written(tmp_pat
     """HOME exists but is read-only: capture state takes the private
     `$TMPDIR/probe-home-<uid>`, as a process with no home does. A writable
     home keeps it (the control)."""
-    from probe.sdk import inputs, outputs
+    from probe.sdk.capture import lineage as inputs, outputs
 
     tmp = tmp_path / "tmp"
     tmp.mkdir()
@@ -257,7 +260,7 @@ def test_home_slash_still_captures_the_run_log_and_reads(app, tmp_path):
     tmp = tmp_path / "tmp"
     tmp.mkdir()
     with serve(app) as url:
-        from probe.sdk.client import Client
+        from probe.sdk.client.client import Client
 
         app.upload_base = url  # the child PUTs the log's bytes here, not to r2.test
         setup = Client(base_url=url, token="ros_pat_deadbeef", async_writes=False, auto_drain=False,

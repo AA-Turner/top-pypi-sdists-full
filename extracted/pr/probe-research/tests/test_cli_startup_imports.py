@@ -1,8 +1,8 @@
 """The CLI starts without the generated wire models.
 
-Building the ~770 pydantic models in `probe._generated.models` took ~0.5 s of
+Building the ~770 pydantic models in `probe.generated.models` took ~0.5 s of
 every `probe` command -- the wizard, the plugin hooks, the status line -- that
-never sends one. The CLI imports the option enums from `_generated.enums`
+never sends one. The CLI imports the option enums from `generated.enums`
 (`scripts/gen_models.py:split_enums`) and the SDK client when a command builds
 one (`main._client_class`).
 """
@@ -12,7 +12,7 @@ from __future__ import annotations
 import subprocess
 import sys
 
-HEAVY = ("probe._generated.models", "probe.models", "probe.sdk.client")
+HEAVY = ("probe.generated.models", "probe.models", "probe.sdk.client")
 
 
 def test_the_cli_starts_without_the_wire_models():
@@ -29,14 +29,14 @@ def test_the_cli_starts_without_the_wire_models():
 
 def test_the_client_seam_is_still_the_sdk_client():
     import probe.cli
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     assert probe.cli.Client is Client
 
 
 def test_every_generated_enum_is_still_a_model_export():
-    from probe._compat import StrEnum
-    from probe._generated import enums, models
+    from probe.foundation.compat.compat import StrEnum
+    from probe.generated import enums, models
 
     names = [n for n, v in vars(enums).items() if isinstance(v, type) and issubclass(v, StrEnum) and v is not StrEnum]
     assert names

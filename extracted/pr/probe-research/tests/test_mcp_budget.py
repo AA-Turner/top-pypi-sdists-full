@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.mcp import budget
+from probe.foundation.token_budget import token_budget as budget
 
 
 @pytest.mark.parametrize("limit,byte_limit", [(512, 4096), (2000, 16000), (8000, 64000)])
@@ -134,9 +134,9 @@ def test_text_counters_reject_invalid_input(text):
 
 @pytest.mark.parametrize("broken", ["config", "vocabulary", "missing"])
 def test_missing_or_corrupt_assets_raise_a_bounded_error(tmp_path, monkeypatch, broken):
-    assets = tmp_path / "_tokenizer"
+    assets = tmp_path / "tokenizer"
     assets.mkdir()
-    real_assets = Path(budget.__file__).parent / "_tokenizer"
+    real_assets = Path(budget.__file__).parent / "tokenizer"
     (assets / "o200k_base.json").write_bytes(
         b"corrupt" if broken == "config" else (real_assets / "o200k_base.json").read_bytes()
     )
@@ -193,7 +193,7 @@ import probe
 import probe.sdk
 # The existing probe.mcp package imports the service (and Pydantic). Load only
 # the new module to prove it adds no dependency to lightweight CLI/SDK imports.
-spec = importlib.util.spec_from_file_location('budget_under_test', Path(probe.__file__).parent / 'mcp' / 'budget.py')
+spec = importlib.util.spec_from_file_location('budget_under_test', Path(probe.__file__).parent / 'foundation' / 'token_budget' / 'token_budget.py')
 budget = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = budget
 spec.loader.exec_module(budget)

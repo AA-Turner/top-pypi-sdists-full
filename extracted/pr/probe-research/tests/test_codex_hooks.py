@@ -19,7 +19,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.cli import codex_hooks, doctor, setup, updater
+from probe.shared.harness.harnesses.codex import hooks as codex_hooks
+from probe.cli import doctor, setup, updater
 from probe.cli.capabilities import Capabilities
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "codex_hooks_list_0.159.2.json").read_text())

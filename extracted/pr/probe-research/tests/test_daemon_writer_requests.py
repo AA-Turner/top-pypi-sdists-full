@@ -26,13 +26,14 @@ pytest.importorskip("pydantic_ai_harness")
 from pydantic_ai.messages import ModelResponse, ToolCallPart  # noqa: E402
 from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
-from probe.daemon import bite as bite_mod  # noqa: E402
-from probe.daemon import lease, mailbox  # noqa: E402
-from probe.daemon import model as model_mod  # noqa: E402
-from probe.daemon import requests as requests_mod  # noqa: E402
+from probe.daemon.worker.bite import bite as bite_mod  # noqa: E402
+from probe.daemon.host import lease  # noqa: E402
+from probe.shared import mailbox
+from probe.daemon.agent.model import model as model_mod  # noqa: E402
+from probe.shared.mailbox import requests as requests_mod  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
-from probe.daemon.events import REQUEST_SOURCE, REQUEST_STREAM, Kind  # noqa: E402
-from probe.daemon.store import UNRECORDED_BITE  # noqa: E402
+from probe.shared.harness.events import REQUEST_SOURCE, REQUEST_STREAM, Kind  # noqa: E402
+from probe.daemon.store.events import UNRECORDED_BITE  # noqa: E402
 
 SID = "11111111-2222-3333-4444-555555555555"
 CREATE = "probe experiment create sft-wave1 --project willow --question 'Does more SFT data help?'"
@@ -155,7 +156,7 @@ def test_a_request_shows_under_the_approved_label():
     lines = fixture.read_text(encoding="utf-8").split("\n")
     approved = "\n".join(lines[lines.index("---", 1) + 1:]).rstrip("\n")
     pattern = re.compile("[^\n]+?".join(re.escape(p) for p in re.split(r"\{[^{}]+\}", approved)))
-    from probe.daemon.store import StoredEvent
+    from probe.daemon.store.events import StoredEvent
 
     ev = StoredEvent(seq=1, event_id="request:7:0", stream=REQUEST_STREAM, kind=Kind.META, turn=1, ts=None,
                      noticed=0.0, text=requests_mod.REQUEST_LINE.format(text="group the arms"), tool=None,
@@ -273,7 +274,8 @@ def test_two_requests_in_one_run_get_the_same_reply(tmp_path):
 def test_a_paused_run_replies_when_it_finishes_with_the_writes_of_both_bites(tmp_path, monkeypatch):
     """O2: a run pauses after ROUNDS_BEFORE_YIELD rounds with the request shown;
     the reply waits for the run's end, and lists what both bites did."""
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 2)
     w, _ = _worker(tmp_path)
     req = mailbox.write_request(SID, "group the arms")
     w.read_new()
@@ -436,7 +438,8 @@ def test_read_only_fails_waiting_requests(tmp_path):
 
 
 def test_a_run_skipped_unfinished_fails_its_requests_with_what_it_did(tmp_path, monkeypatch):
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 2)
     w, _ = _worker(tmp_path)
     req = mailbox.write_request(SID, "group the arms")
     w.read_new()
@@ -444,7 +447,8 @@ def test_a_run_skipped_unfinished_fails_its_requests_with_what_it_did(tmp_path, 
                 ("shell", "ls")])
     asyncio.run(w.run_bite(w.due()))
     assert w.store.recent_bites(1)[0]["outcome"] == "paused"
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 40)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 40)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 40)
     _script(w, [("shell", "ls same")] * 8)  # the loop detector stops the carried-on run
     asyncio.run(w.run_bite(w.due()))
     assert w.store.recent_bites(1)[0]["outcome"] == "cut short: skipped"
@@ -479,12 +483,12 @@ def test_a_crash_before_publishing_publishes_once(tmp_path, monkeypatch):
         calls["n"] += 1
         raise OSError("disk full")
 
-    monkeypatch.setattr(mailbox, "publish", crash)
+    monkeypatch.setattr(mailbox.poster, "publish", crash)
     _script(w, [("shell", CREATE), ("end", ("Grouped.", "Made sft-wave1."))])
     assert asyncio.run(w.run_bite(w.due())) is True, "a mailbox that refuses never stops the worker"
     assert calls["n"] == 1 and _writer_messages() == []
     assert w.store.unpublished_writer_messages(), "saved before the publish"
-    monkeypatch.setattr(mailbox, "publish", real)
+    monkeypatch.setattr(mailbox.poster, "publish", real)
     w.publish_writer_messages()
     w.publish_writer_messages()
     assert len(_writer_messages()) == 1
@@ -494,7 +498,8 @@ def test_a_request_shown_to_a_paused_run_that_fails_never_runs_later(tmp_path, m
     """Codex P1: failing a request a paused run was shown ends that conversation,
     so no carry-on acts on it; the paused run's other events go back on the
     queue for a fresh run, the request's is retired."""
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 2)
     w, _ = _worker(tmp_path)
     req = mailbox.write_request(SID, "group the arms")
     w.read_new()
@@ -517,7 +522,8 @@ def test_a_request_a_run_saw_that_will_never_finish_fails_and_is_not_answered_la
     """A paused run's conversation ended without giving its events back (an
     older paused run, `requeue_paused` takes the newest only): the request is
     failed as skipped, never answered by a fresh run that never saw it."""
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 2)
     w, _ = _worker(tmp_path)
     req = mailbox.write_request(SID, "group the arms")
     w.read_new()
@@ -551,7 +557,8 @@ def test_a_request_whose_event_was_marked_unrecorded_fails(tmp_path):
 
 
 def test_a_paused_run_that_never_carries_on_fails_its_request_after_twice_the_timeout(tmp_path, monkeypatch):
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 2)
     now = [time.time()]
     w, _ = _worker(tmp_path, clock=lambda: now[0])
     req = mailbox.write_request(SID, "group the arms", now=now[0])
@@ -588,7 +595,8 @@ def test_a_reply_lists_what_its_run_wrote_before_the_request_arrived(tmp_path, m
     """A paused run made a write, then a request arrived and its carry-on
     answered it: the run sends no receipt (it had a request), so the reply
     names that earlier write too."""
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 2)
     w, _ = _worker(tmp_path)
     w.read_new()
     _script(w, [("shell", CREATE), ("shell", "ls"), ("shell", "ls again")])
@@ -605,12 +613,14 @@ def test_a_reply_lists_what_its_run_wrote_before_the_request_arrived(tmp_path, m
 
 def test_a_skipped_run_with_no_request_is_told_by_the_next_receipt(tmp_path, monkeypatch):
     monkeypatch.setenv(mailbox.ENV_READS, "on")
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 2)
     w, _ = _worker(tmp_path)
     w.read_new()
     _script(w, [("shell", CREATE), ("shell", "ls"), ("shell", "ls again")])
     asyncio.run(w.run_bite("turn end"))
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 40)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 40)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 40)
     _script(w, [("shell", "ls same")] * 8)  # the loop detector stops the carried-on run: skipped
     asyncio.run(w.run_bite(w.due()))
     assert w.store.recent_bites(1)[0]["outcome"] == "cut short: skipped"
@@ -641,7 +651,8 @@ def test_an_approved_write_is_named_by_its_command_not_its_logbook_head():
 
 def test_a_write_told_with_a_failed_request_is_not_told_again_by_a_receipt(tmp_path, monkeypatch):
     monkeypatch.setenv(mailbox.ENV_READS, "on")
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 2)
     now = [time.time()]
     w, _ = _worker(tmp_path, clock=lambda: now[0])
     req = mailbox.write_request(SID, "group the arms", now=now[0])

@@ -1,6 +1,6 @@
 """The CLI's half of the root-skills install: which folder, and from where.
 
-The copying itself is `probe.root_skills_core`, stdlib-only because the
+The copying itself is `probe.foundation.skills.root_skills_core`, stdlib-only because the
 session-start hook runs it under the system python (see that module). This half
 knows the one thing only the CLI knows: where each harness keeps its skills.
 
@@ -19,8 +19,8 @@ import json
 import os
 from pathlib import Path
 
-from probe import root_skills_core as core
-from probe.harness import get_registry
+from probe.foundation.skills import root_skills_core as core
+from probe.foundation.harness_registry import get_registry
 
 
 def skills_root(source: str, env: "dict[str, str] | None" = None) -> Path | None:
@@ -30,7 +30,7 @@ def skills_root(source: str, env: "dict[str, str] | None" = None) -> Path | None
     same rule `agent_rules.memory_path` follows, because a machine that moved
     its config must not get files written to the real home.
     """
-    from probe.harness.registry import CAPABILITY_ROOT_SKILLS
+    from probe.foundation.harness_registry.harness_registry import CAPABILITY_ROOT_SKILLS
 
     harness = get_registry().find(source)
     if harness is None or not harness.can(CAPABILITY_ROOT_SKILLS):

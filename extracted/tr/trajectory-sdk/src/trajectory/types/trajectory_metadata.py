@@ -6,6 +6,7 @@ from typing import Any
 
 from trajectory._models import BaseModel
 from trajectory.types.trajectory_rollout_status import TrajectoryRolloutStatus
+from trajectory.types.trajectory_termination_subreason import TrajectoryTerminationSubreason
 
 
 class TrajectoryMetadata(BaseModel):
@@ -39,6 +40,8 @@ class TrajectoryMetadata(BaseModel):
     Recorded reason the trajectory ended, independent of rollout state; null when not
     recorded.
     """
+
+  termination_subreason: TrajectoryTerminationSubreason | None = None
 
   reward: float | None = None
 

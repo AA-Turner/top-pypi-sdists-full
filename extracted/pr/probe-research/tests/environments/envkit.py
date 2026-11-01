@@ -287,12 +287,12 @@ def _kill_group(pid: int) -> None:
 #: name is a literal substring of /proc/<pid>/cmdline regardless of NUL
 #: joining). Both outlive the run script on purpose:
 #:   - the outbox sender, spawned by outbox_worker.maybe_spawn() at
-#:     agent/src/probe/sdk/outbox_worker.py:463-464, delivers whatever is
+#:     agent/src/probe/sdk/delivery/outbox/outbox.py:463-464, delivers whatever is
 #:     still queued (e.g. a big artifact upload) after the run process exits;
 #:   - the output-capture "process died" reporter, spawned by
 #:     _spawn_recovery()/_spawn_writer_gone() at
-#:     agent/src/probe/sdk/logcapture.py:756 and :774 (both run
-#:     agent/src/probe/sdk/outputs.py as ``--recover``/``--writer-gone``),
+#:     agent/src/probe/sdk/capture/logs/logs.py:756 and :774 (both run
+#:     agent/src/probe/sdk/capture/outputs/outputs.py as ``--recover``/``--writer-gone``),
 #:     tells the server a SIGKILLed run crashed instead of leaving it
 #:     `running` forever.
 SDK_HELPER_MODULES = ("probe.sdk.outbox_worker", "probe.sdk.outputs")

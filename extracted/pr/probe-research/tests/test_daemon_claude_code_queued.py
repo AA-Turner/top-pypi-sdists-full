@@ -16,8 +16,8 @@ import json
 
 import pytest
 
-from probe.daemon.adapters import for_source
-from probe.daemon.events import PEER_TOOL, Kind
+from probe.shared.harness.lookup import for_source
+from probe.shared.harness.events import PEER_TOOL, Kind
 
 TS = "2026-09-29T04:00:00.000Z"
 

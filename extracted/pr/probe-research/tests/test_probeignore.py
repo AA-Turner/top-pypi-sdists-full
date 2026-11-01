@@ -9,7 +9,7 @@ import warnings
 
 import pytest
 
-from probe.sdk import ignore
+from probe.sdk.recording_rules import ignore
 
 
 def _repo(root):

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(doppler VERSION 0.77.0 LANGUAGES C)
+project(doppler VERSION 0.78.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -1248,6 +1248,16 @@ target_include_directories(test_dp_thread_sleep
 target_link_libraries(test_dp_thread_sleep PRIVATE Threads::Threads)
 add_test(NAME test_dp_thread_sleep COMMAND test_dp_thread_sleep)
 
+# dp_cpu_count honors the affinity mask (doppler#2679): pinned to one CPU,
+# then two, the count follows. Skips (77) where fewer than two are usable.
+add_executable(test_dp_cpu_count native/tests/test_dp_cpu_count.c)
+target_include_directories(test_dp_cpu_count
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_link_libraries(test_dp_cpu_count PRIVATE Threads::Threads)
+add_test(NAME test_dp_cpu_count COMMAND test_dp_cpu_count)
+set_tests_properties(test_dp_cpu_count PROPERTIES SKIP_RETURN_CODE 77)
+
 add_executable(test_dp_state native/tests/test_dp_state.c)
 target_include_directories(test_dp_state
                            PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
@@ -1263,6 +1273,18 @@ target_include_directories(test_dp_test_fail_order
                            PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
                                    ${CMAKE_SOURCE_DIR}/native/tests)
 add_test(NAME test_dp_test_fail_order COMMAND test_dp_test_fail_order)
+
+# The floating-point policy's canary: red when -fno-finite-math-only is gone
+# (see the ENABLE_SIMD block above). Built at -O2 whatever the build type,
+# because clang does not fold NaN tests away at -O0 and the canary would pass
+# vacuously in a Debug build.
+add_executable(test_fp_policy native/tests/test_fp_policy.c)
+target_include_directories(test_fp_policy
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_link_libraries(test_fp_policy PRIVATE ${DP_MATH_LIBRARY})
+dp_gnu_compile_options(test_fp_policy PRIVATE -O2)
+add_test(NAME test_fp_policy COMMAND test_fp_policy)
 
 # native/tests/dp_tx_test.h is the harness STIMULUS SSOT, and docs/design/
 # rx-test.md section 5.4 records it as the ONE place the stimulus rule cannot

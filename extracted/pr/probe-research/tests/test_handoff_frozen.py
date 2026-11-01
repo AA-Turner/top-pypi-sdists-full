@@ -1,4 +1,4 @@
-"""`probe/_shared/handoff.py` is frozen: it changes only on purpose, with its version.
+"""`probe/shared/updates/handoff.py` is frozen: it changes only on purpose, with its version.
 
 It is the one piece of updater code a newer release cannot replace on a
 machine that is already stuck: stage 1 of every update runs the INSTALLED
@@ -11,7 +11,7 @@ shipping a fix. So its bytes are pinned here, like the pi shim's
 
 TO CHANGE IT, DELIBERATELY: raise `HANDOFF_VERSION` in handoff.py, then set
 `FROZEN_HANDOFF` below to `(<the new version>, "<sha256 of the new file>")`
-(`sha256sum agent/src/probe/_shared/handoff.py`). Say in the PR why, and what
+(`sha256sum agent/src/probe/shared/updates/handoff.py`). Say in the PR why, and what
 an older lifeboat copy does with the new files it may meet.
 """
 
@@ -22,7 +22,7 @@ import hashlib
 import sys
 from pathlib import Path
 
-from probe._shared import handoff
+from probe.shared.updates import handoff
 
 #: (HANDOFF_VERSION, sha256 of handoff.py): see the module docstring.
 FROZEN_HANDOFF = (3, "e35fb7f3a32dea1043eecc66ea377037d32d7f578abfe4abc312960d626fe456")

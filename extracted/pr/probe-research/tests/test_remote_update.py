@@ -1,7 +1,7 @@
 """Probe staff asked this machine to update now (research-os control/071).
 
 The server answers a machine with an open request with `X-Probe-Update-Requested`;
-the client that got it leaves a mark (`probe._shared.update_request`), and the
+the client that got it leaves a mark (`probe.foundation.remote_settings.update`), and the
 next `probe` command hands an update to the machine's own updater
 (`probe.cli.main._remote_update_notice`). What each test pins would fail
 silently: a request no client ever notices, an update started from inside a
@@ -20,11 +20,12 @@ import time
 import httpx
 import pytest
 
-from probe import version_policy
-from probe._shared import device_mark, update_request
-from probe.cli import autoupdate, update_report
-from probe.sdk.config import Settings
-from probe.sdk.transport import Transport
+from probe.shared.updates import version_policy
+from probe.foundation.remote_settings import remote_settings as device_mark, update as update_request
+from probe.cli import autoupdate
+from probe.shared.updates import update_report
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.transport.transport import Transport
 
 cli_main = importlib.import_module("probe.cli.main")
 

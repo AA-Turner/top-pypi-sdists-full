@@ -1,63 +1,66 @@
+from collections.abc import Iterator
+
 import torch
 from torch.utils.data.sampler import Sampler
 
-from ..utils import common_functions as c_f
+from ..types import DatasetLabels
+from ._sampling import Rotation, as_label_list, indices_by_label
 
 
-# modified from
-# https://raw.githubusercontent.com/bnulihaixia/Deep_metric/master/utils/sampler.py
-class MPerClassSampler(Sampler):
-    """
-    At every iteration, this will return m samples per class. For example,
-    if dataloader's batchsize is 100, and m = 5, then 20 classes with 5 samples
-    each will be returned
-    """
-
-    def __init__(self, labels, m, batch_size=None, length_before_new_iter=100000):
-        if isinstance(labels, torch.Tensor):
-            labels = labels.numpy()
+class MPerClassSampler(Sampler[list[int]]):
+    def __init__(
+        self,
+        labels: DatasetLabels,
+        m: int,
+        batch_size: int,
+        num_batches: int | None = None,
+        *,
+        generator: torch.Generator | None = None,
+    ) -> None:
         self.m_per_class = int(m)
-        self.batch_size = int(batch_size) if batch_size is not None else batch_size
-        self.labels_to_indices = c_f.get_labels_to_indices(labels)
-        self.labels = list(self.labels_to_indices.keys())
-        self.length_of_single_pass = self.m_per_class * len(self.labels)
-        self.list_size = length_before_new_iter
-        if self.batch_size is None:
-            if self.length_of_single_pass < self.list_size:
-                self.list_size -= (self.list_size) % (self.length_of_single_pass)
-        else:
-            assert self.list_size >= self.batch_size
-            assert (
-                self.length_of_single_pass >= self.batch_size
-            ), "m * (number of unique labels) must be >= batch_size"
-            assert (
-                self.batch_size % self.m_per_class
-            ) == 0, "m_per_class must divide batch_size without any remainder"
-            self.list_size -= self.list_size % self.batch_size
-
-    def __len__(self):
-        return self.list_size
-
-    def __iter__(self):
-        idx_list = [0] * self.list_size
-        i = 0
-        num_iters = self.calculate_num_iters()
-        for _ in range(num_iters):
-            c_f.NUMPY_RANDOM.shuffle(self.labels)
-            if self.batch_size is None:
-                curr_label_set = self.labels
-            else:
-                curr_label_set = self.labels[: self.batch_size // self.m_per_class]
-            for label in curr_label_set:
-                t = self.labels_to_indices[label]
-                idx_list[i : i + self.m_per_class] = c_f.safe_random_choice(
-                    t, size=self.m_per_class
-                )
-                i += self.m_per_class
-        return iter(idx_list)
-
-    def calculate_num_iters(self):
-        divisor = (
-            self.length_of_single_pass if self.batch_size is None else self.batch_size
+        self.batch_size = int(batch_size)
+        if self.m_per_class <= 0:
+            raise ValueError("m must be positive")
+        if self.batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+        if self.batch_size % self.m_per_class != 0:
+            raise ValueError("m must divide batch_size without any remainder")
+        self.generator = generator
+        self.labels_to_indices = {
+            label: indices.tolist()
+            for label, indices in indices_by_label(as_label_list(labels)).items()
+        }
+        self.labels = list(self.labels_to_indices)
+        if not self.labels:
+            raise ValueError("labels must not be empty")
+        self.classes_per_batch = self.batch_size // self.m_per_class
+        if self.classes_per_batch > len(self.labels):
+            raise ValueError("m * (number of unique labels) must be >= batch_size")
+        self.num_batches = (
+            self.batches_to_cover_every_example()
+            if num_batches is None
+            else int(num_batches)
         )
-        return self.list_size // divisor if divisor < self.list_size else 1
+        if self.num_batches <= 0:
+            raise ValueError("num_batches must be positive")
+
+    def batches_to_cover_every_example(self) -> int:
+        largest_class = max(map(len, self.labels_to_indices.values()))
+        passes = -(-largest_class // self.m_per_class)
+        return -(-passes * len(self.labels) // self.classes_per_batch)
+
+    def __len__(self) -> int:
+        return self.num_batches
+
+    def __iter__(self) -> Iterator[list[int]]:
+        classes = Rotation(self.labels, self.generator)
+        members = {
+            label: Rotation(indices, self.generator)
+            for label, indices in self.labels_to_indices.items()
+        }
+        for _ in range(self.num_batches):
+            yield [
+                index
+                for label in classes.take(self.classes_per_batch)
+                for index in members[label].take(self.m_per_class)
+            ]

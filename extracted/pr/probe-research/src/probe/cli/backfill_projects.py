@@ -36,6 +36,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from .backfill_plan import Origin, Plan, ProjectSpec
+from .filed_workspace import say_filed
 
 #: Pages of the workspace's projects read, at most (200 a page).
 MAX_PAGES = 10
@@ -559,13 +560,15 @@ def destination(client, slug: str, spec: dict, *, workspace_id, created: dict, r
         if project is not None:
             return project
         try:
-            return client.create_project(slug, name, kind="general", authored_by=authored_by,
-                                         description=description, workspace_id=workspace_id)
+            project = client.create_project(slug, name, kind="general", authored_by=authored_by,
+                                            description=description, workspace_id=workspace_id)
         except errors.ConflictError:
             project = client.resolve_project(slug, strict=True)
             if project is None:
                 raise
             return project
+        say_filed(client, project)
+        return project
     made = created.get(slug)
     if isinstance(made, str):
         try:
@@ -600,6 +603,7 @@ def destination(client, slug: str, spec: dict, *, workspace_id, created: dict, r
             continue
         created[slug] = str(project["id"])
         remember()
+        say_filed(client, project)
         return project
     raise errors.ConflictError(f"no free project slug near {slug!r}")
 

@@ -9,10 +9,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.mcp import delivery_context as delivery
-from probe.mcp.delivery_context import current_delivery, delivery_context, pin_document
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.mcp.delivery import context as delivery
+from probe.mcp.delivery.context import current_delivery, delivery_context, pin_document
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
 from tests.test_mcp_session_views import _SID, _seed
 

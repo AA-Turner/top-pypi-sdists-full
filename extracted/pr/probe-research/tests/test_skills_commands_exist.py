@@ -81,7 +81,7 @@ def _invocations(text: str) -> list[str]:
     return found
 
 
-#: The lean daemon plugin's hand-kept skills (the Makefile's `DAEMON_HAND_KEPT`):
+#: The lean daemon plugin's hand-kept skills (plugins/VENDORED.json's `daemon_hand_kept`):
 #: their own wording, so not covered by the canonical skills/ above.
 _HAND_KEPT = _SKILLS.parent / "plugins" / "probe-research-daemon" / "agent-skills"
 

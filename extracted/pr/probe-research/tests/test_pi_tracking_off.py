@@ -15,9 +15,10 @@ from pathlib import Path
 
 import pytest
 
-from probe.cli import capabilities, capture, pi_config
+from probe.cli import capabilities, capture
+from probe.shared.harness.harnesses import pi as pi_config
 from probe.cli import setup as wizard
-from probe.cli.claude_cli import Result
+from probe.shared.harness.harnesses.claude_code.binary import Result
 
 MIRROR = pi_config.MIRROR_GIT_SOURCE
 DAEMON_FILTER = ["plugins/probe-research-pi/skills/instrument-code"]
@@ -238,8 +239,8 @@ def test_a_project_entry_that_wins_is_named(isolate, monkeypatch, want):
 def test_the_version_floor_updates_pi_first(monkeypatch, before, after, ok, updated):
     versions = iter([before, after])
     calls: list[str] = []
-    monkeypatch.setattr(pi_config, "installed_package_version", lambda *a, **k: next(versions))
-    monkeypatch.setattr(pi_config, "update_package", lambda *a, **k: calls.append("update"))
+    monkeypatch.setattr(pi_config.package_update, "installed_package_version", lambda *a, **k: next(versions))
+    monkeypatch.setattr(pi_config.package_update, "update_package", lambda *a, **k: calls.append("update"))
     result = wizard._settings_tracking_ready()
     assert result.ok is ok and (calls == ["update"]) is updated
     if not ok:

@@ -20,9 +20,9 @@ import json
 from pathlib import Path
 
 import pytest
-from probe.cli import team_note_file
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.shared.notes import team_note as team_note_file
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
 
 
@@ -542,7 +542,7 @@ class TestTheInFlightMerge:
 
         monkeypatch.setattr(client, "sync_team_note", racing_sync)
         monkeypatch.setattr(
-            team_note_file, "merge3", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("too big"))
+            team_note_file.team_note, "merge3", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("too big"))
         )
         report = team_note_file.push(client, where)
 
@@ -664,8 +664,8 @@ class TestLegacyMigration:
         # The park reserves its name with `link` and falls back to `replace`;
         # a file that disappeared under either must read as "someone else got
         # there first", never as an error.
-        monkeypatch.setattr(team_note_file.os, "link", vanished)
-        monkeypatch.setattr(team_note_file.os, "replace", vanished)
+        monkeypatch.setattr(team_note_file.parking.os, "link", vanished)
+        monkeypatch.setattr(team_note_file.parking.os, "replace", vanished)
         assert team_note_file.migrate_legacy_documents(where) == []
 
     def test_the_new_document_is_never_parked_by_the_sweep(self, client, app, where, monkeypatch):
@@ -759,7 +759,7 @@ class TestTheDoctorRow:
 
         # `_team_note_rows` imports `resolve` inside the function, so the patch
         # has to land on the module it imports FROM.
-        from probe.sdk import config as sdk_config
+        from probe.sdk.settings import settings as sdk_config
 
         monkeypatch.setattr(sdk_config, "resolve", lambda **_: _DoctorSettings(where))
         rows = doctor._team_note_rows()
@@ -778,7 +778,7 @@ class TestTheDoctorRow:
 
         # `_team_note_rows` imports `resolve` inside the function, so the patch
         # has to land on the module it imports FROM.
-        from probe.sdk import config as sdk_config
+        from probe.sdk.settings import settings as sdk_config
 
         monkeypatch.setattr(sdk_config, "resolve", lambda **_: _DoctorSettings(where))
         rows = doctor._team_note_rows()
@@ -910,7 +910,7 @@ class TestAFailedMergeDoesNotAdvanceTheBase:
         """
         with pytest.MonkeyPatch.context() as patch:
             patch.setattr(
-                team_note_file,
+                team_note_file.team_note,
                 "merge3",
                 lambda *a, **k: (_ for _ in ()).throw(RuntimeError("too big")),
             )
@@ -1107,7 +1107,7 @@ def test_the_first_sighting_records_no_hash() -> None:
     tightening. A hash is only ever written when a stamp CHANGE is observed,
     because that is the only evidence available here that an audit ran.
     """
-    from probe.cli import team_note_file as tnf
+    from probe.shared.notes import team_note as tnf
 
     first = tnf._audit_baseline("<!-- audited 2026-09-01 -->\nweeks of appends", None)
     assert first == {"stamp": "2026-09-01"}
@@ -1118,7 +1118,7 @@ def test_the_baseline_follows_the_stamp_not_the_render() -> None:
     """Refreshing the hash on every render would answer "changed since the last
     RENDER" -- nearly always no, since renders happen at every session start --
     and tightening would be suppressed forever."""
-    from probe.cli import team_note_file as tnf
+    from probe.shared.notes import team_note as tnf
 
     body = "<!-- audited 2026-09-01 -->\nbody"
     seen = tnf._audit_baseline(body, None)
@@ -1139,7 +1139,7 @@ def test_the_hash_is_taken_over_the_stripped_document() -> None:
     trailing newline on every paragraph write, so the guard would have been dead
     on any tenant that ever used that door -- silently, by tightening every
     cycle forever."""
-    from probe.cli import team_note_file as tnf
+    from probe.shared.notes import team_note as tnf
 
     seen = {"stamp": "2026-09-01"}
     audited = "<!-- audited 2026-09-08 -->\nbody"
@@ -1152,6 +1152,6 @@ def test_the_hash_is_taken_over_the_stripped_document() -> None:
 
 def test_an_unstamped_note_records_no_baseline() -> None:
     """There is no audit to be unchanged since."""
-    from probe.cli import team_note_file as tnf
+    from probe.shared.notes import team_note as tnf
 
     assert tnf._audit_baseline("no stamp here", None) == {}

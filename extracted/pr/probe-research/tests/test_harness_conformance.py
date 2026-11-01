@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import adapters
-from probe.harness import get_registry
+from probe.shared.harness import lookup as adapters
+from probe.foundation.harness_registry import get_registry
 from probe.sdk import agent_session
 
 AGENT = Path(__file__).resolve().parents[1]

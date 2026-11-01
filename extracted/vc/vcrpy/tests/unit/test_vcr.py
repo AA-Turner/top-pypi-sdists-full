@@ -1,5 +1,8 @@
+import gc
 import http.client as httplib
+import json
 import os
+import re
 from pathlib import Path
 from unittest import mock
 
@@ -58,9 +61,35 @@ def test_vcr_record_mode_validation():
     assert VCR(record_mode="all").record_mode == mode.ALL
 
 
+@pytest.mark.parametrize("nested", [False, True])
+def test_filter_nested_post_data_parameters(nested):
+    body = b'{"password": "a", "params": {"password": "b"}}'
+    request = Request("POST", "http://example.com/", body, {"Content-Type": "application/json"})
+    vcr = VCR(filter_post_data_parameters=["password"], filter_nested_post_data_parameters=nested)
+    with vcr.use_cassette("test") as cassette:
+        filtered = cassette.filter_request(request)
+    assert json.loads(filtered.body) == {"params": {} if nested else {"password": "b"}}
+
+
 def test_ignore_localhost_includes_ipv6():
     with VCR(ignore_localhost=True).use_cassette("test") as cassette:
         assert cassette.filter_request(Request("GET", "http://[::1]:8000/", "", {})) is None
+
+
+def test_ignore_hosts_with_patterns():
+    ignore_hosts = ["exact.example.com", re.compile(r".*\.actions\.example\.com")]
+    with VCR(ignore_hosts=ignore_hosts).use_cassette("test") as cassette:
+
+        def ignored(url):
+            return cassette.filter_request(Request("GET", url, "", {})) is None
+
+        assert ignored("http://exact.example.com/")
+        assert ignored("https://pipelines1.actions.example.com/")
+        # Strings match whole host names, as before, and patterns match whole host names too.
+        assert not ignored("http://notexact.example.com/")
+        assert not ignored("http://exact.example.com.evil.test/")
+        assert not ignored("http://pipelines1.actions.example.com.evil.test/")
+        assert not ignored("http://actions.example.com/")
 
 
 def test_use_cassette_persister_option():
@@ -221,6 +250,24 @@ def test_custom_patchers():
         assert issubclass(Test.attribute, VCRHTTPSConnection)
         assert VCRHTTPSConnection is not Test.attribute
         assert Test.attribute is Test.attribute2
+
+
+def test_inject_cassette_into_method():
+    class Test:
+        @VCR(inject_cassette=True).use_cassette("test")
+        def method(self, cassette, value):
+            return self, cassette, value
+
+    test = Test()
+    instance, cassette, value = test.method(1)
+    assert instance is test
+    assert cassette.__class__.__name__ == "Cassette"
+    assert value == 1
+
+
+def test_use_cassette_context_manager_without_path():
+    with pytest.raises(TypeError, match="needs a path"), VCR(cassette_library_dir="dir").use_cassette():
+        pass
 
 
 def test_inject_cassette():
@@ -474,3 +521,24 @@ def test_interaction_hook_options():
     with my_vcr.use_cassette("test", after_load_interaction=[on_load]) as cassette:
         assert cassette._before_save_interaction == [on_save]
         assert cassette._after_load_interaction == [on_load]
+
+
+def test_force_reset_does_not_unpatch_a_cassette_opened_during_the_window():
+    """An abandoned window is unwound by the collector, inside a later cassette (#1051)."""
+    gc.disable()
+    try:
+        cycle = {"window": force_reset()}
+        cycle["self"] = cycle  # only the cyclic collector can free this window
+        cycle["window"].__enter__()
+        del cycle
+
+        with use_cassette(path="test"):
+            patched = httplib.HTTPConnection
+            assert patched is not _HTTPConnection
+            gc.enable()
+            gc.collect()
+            assert httplib.HTTPConnection is patched
+    finally:
+        gc.enable()
+
+    assert httplib.HTTPConnection is _HTTPConnection

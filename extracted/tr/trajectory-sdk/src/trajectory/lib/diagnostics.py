@@ -6,6 +6,7 @@ from trajectory import BenchmarkSpec, Client, TaskSpec, omit
 from trajectory.lib.benchmark_submission import SubmissionUpload
 from trajectory.lib.benchmarks import _BenchmarkPackage, wait_for_benchmark_images
 from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UPLOAD_BATCH_FILES, put_files
+from trajectory.types.run_options_param import RunOptionsParam
 from trajectory.types.start_benchmark_diagnostics_response import StartBenchmarkDiagnosticsResponse
 
 
@@ -18,10 +19,12 @@ def start_task_diagnostic(
   timeout_seconds: float = 1800,
   upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
   agent_name: str | None = None,
+  options: RunOptionsParam | None = None,
 ) -> StartBenchmarkDiagnosticsResponse:
   """Upload one task, wait for its runtime build, and start its diagnostic run.
 
   ``timeout_seconds`` limits the image-build wait, not the managed task's execution.
+  ``options`` takes evaluation settings, as for ``client.evals.create()``.
   """
   if timeout_seconds < 0:
     raise ValueError("timeout_seconds must be non-negative")
@@ -50,4 +53,5 @@ def start_task_diagnostic(
   return client.diagnostics.start_task(
     bench_id=registered.bench_id,
     base_model_slug=base_model_slug if base_model_slug is not None else omit,
+    options=options if options is not None else omit,
   )

@@ -15,8 +15,8 @@ import os
 import pytest
 
 from probe import cli
-from probe.sdk import multipart
-from probe.sdk.anchors import Anchor
+from probe.sdk.artifact.storage_handlers import multipart
+from probe.sdk.artifact.anchors import Anchor
 from tests.conftest import make_client
 
 MiB = 1024 * 1024
@@ -173,7 +173,7 @@ def test_only_a_run_sends_a_runs_fields() -> None:
 
 
 def test_the_anchor_vocabulary_is_the_clients() -> None:
-    from probe.sdk.client import Anchor as ClientAnchor
+    from probe.sdk.artifact.anchors import Anchor as ClientAnchor
 
     assert ClientAnchor is Anchor
 
@@ -204,7 +204,7 @@ def test_a_big_project_file_queues_in_parts_even_under_probe_async_0(app, tmp_pa
     """The Probe daemon runs `probe` with PROBE_ASYNC=0 and kills a call at
     180 s: a project file over 64 MiB is queued in parts unless --sync says
     otherwise, as a run's is (#2641), when a credential could deliver it."""
-    from probe.sdk.client import Client as SdkClient
+    from probe.sdk.client.client import Client as SdkClient
 
     def factory(**kw):
         return make_client(app, tmp_spool=tmp_path / "spool", async_writes=kw.get("async_writes") is True)

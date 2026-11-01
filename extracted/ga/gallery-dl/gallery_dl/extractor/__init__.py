@@ -77,6 +77,7 @@ modules = [
     "fantia",
     "fapello",
     "fapachi",
+    "febri",
     "fikfap",
     "filester",
     "fitnakedgirls",

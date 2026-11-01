@@ -19,7 +19,7 @@ import os
 
 import pytest
 
-from probe import version_policy
+from probe.shared.updates import version_policy
 from probe.sdk import session_marker
 
 
@@ -1116,7 +1116,7 @@ def test_the_default_survives_logout(tmp_path, monkeypatch) -> None:
     """THE REASON IT IS TOP-LEVEL. `clear_context` replaces a context wholesale,
     so a preference stored inside one would be wiped by `probe logout` and
     tracking would silently come back on."""
-    from probe.sdk import config as sdk_config
+    from probe.sdk.settings import settings as sdk_config
 
     path = tmp_path / "config.json"
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(path))
@@ -1141,7 +1141,7 @@ def test_the_writer_and_the_readers_address_the_same_file(tmp_path, monkeypatch)
     readers honoured it, so a value written here landed in ~/.config while the
     readers looked elsewhere: it worked in the field and vanished under test."""
     from probe.cli import capabilities
-    from probe.sdk import config as sdk_config
+    from probe.sdk.settings import settings as sdk_config
 
     target = tmp_path / "elsewhere.json"
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(target))

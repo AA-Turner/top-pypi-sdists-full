@@ -37,7 +37,7 @@ from pathlib import Path
 import pytest
 
 from probe import cli
-from probe.sdk.notes import (
+from probe.sdk.reads.notes_cap import (
     COMPACT_ACTION,
     LIMIT_KEY,
     MOVE_UP_ACTION,
@@ -77,11 +77,11 @@ def test_token_text_has_the_count_it_says() -> None:
 
 def test_the_fakes_notes_numbers_have_the_servers_shapes(app, tmp_path):
     """The fake publishes the numbers every test here reads, so they are held
-    to the server's own response models (`_generated/models.py`): each shape
+    to the server's own response models (`generated/models.py`): each shape
     validates, and every fullness key the fake sends is a field the server
     declares. A fake key the server lacks would let a client read a number no
     real response carries."""
-    from probe._generated import models
+    from probe.generated import models
 
     c = make_client(app, tmp_spool=tmp_path / "spool")
     project = c.create_project("p", kind="general")
@@ -219,7 +219,7 @@ def test_the_sdk_does_not_warn_because_it_no_longer_writes_notes(app, tmp_path):
 def test_the_notes_write_verbs_are_not_public_sdk_surface():
     """The removal itself, pinned. A caller reaching for `client.append_notes`
     gets an AttributeError rather than a queued write nothing delivers."""
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     for verb in ("append_notes", "edit_notes", "append_project_notes", "set_project_notes"):
         assert not hasattr(Client, verb), f"{verb} is public again"
@@ -433,7 +433,7 @@ def test_a_text_whose_bytes_fit_the_cap_is_never_tokenized(monkeypatch):
     """No token is shorter than a byte, so N bytes is at most N tokens: the
     common case answers without importing the MCP package or loading the
     vocabulary. Proven by a counter that fails if it is called."""
-    import probe.mcp.budget as budget
+    import probe.foundation.token_budget.token_budget as budget
 
     def no_count(_text: str) -> int:
         raise AssertionError("tokenized a text its byte size already cleared")
@@ -456,7 +456,7 @@ def test_a_text_past_the_bytes_is_counted_exactly():
 def test_a_text_this_machine_cannot_count_is_left_to_the_server(monkeypatch):
     """A missing tokenizer refuses nothing: the server's own check answers, and
     a client that guessed would refuse a write the server takes."""
-    import probe.mcp.budget as budget
+    import probe.foundation.token_budget.token_budget as budget
 
     def unavailable(_text: str) -> int:
         raise budget.TokenizerUnavailable("no vocabulary")

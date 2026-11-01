@@ -79,7 +79,7 @@ def _run_loop(be, sdk_py, tmp_path, mode: str) -> dict:
 
 
 def _start_before_a_window_closes(lead: float = 10.0) -> None:
-    """Hardware points are 60 s windows on the epoch grid (`probe/hw/grid.py`).
+    """Hardware points are 60 s windows on the epoch grid (`probe/sdk/hardware/grid.py`).
     Releases up to 0.198.0 send a window only once it has CLOSED and drop the
     one open at finish(), so there a run must straddle a minute boundary to
     record any: start ``lead`` seconds before one, train ~16 s, and the first

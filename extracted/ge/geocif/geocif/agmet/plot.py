@@ -148,6 +148,7 @@ class AgmetPlotter:
         show_logos=True,
         logo_max_px=LOGO_MAX_PX,
         yield_units="MT/ha",
+        inset_outlines=False,
     ):
         self.df = df.copy()
         self.names_cols = names_cols
@@ -169,6 +170,10 @@ class AgmetPlotter:
         self.show_logos = show_logos
         self.logo_max_px = logo_max_px
         self.yield_units = yield_units
+        # Draw each unit of boundary_gdf in the locator map (thin white
+        # outlines), e.g. the counties of a state; off draws one dissolved
+        # outline, as for a whole country.
+        self.inset_outlines = inset_outlines
 
         self.use_forecast = False
         self.color_list = get_colors("tableau", only_colors=True)
@@ -544,6 +549,39 @@ class AgmetPlotter:
             if label:
                 added_legend = True
 
+    def _data_sources_body(self):
+        """Text of the 'Data Sources' caption, one source per line."""
+        if self.precip_var == "chirps":
+            precip_str = "Precipitation: CHIRPS\n"
+        elif self.precip_var == "daymet_prcp":
+            precip_str = "Precipitation: Daymet V4\n"
+        else:
+            precip_str = "Precipitation: NOAA CPC\n"
+        if self.use_forecast:
+            precip_str += "Precipitation Forecast: CHIRPS-GEFS\n"
+        if "chirts_era5_tmax" in self.df.columns:
+            temp_str = "Temperature: CHIRTS-ERA5\n"
+        elif "daymet_tmax" in self.df.columns:
+            temp_str = "Temperature: Daymet V4\n"
+        else:
+            temp_str = "Temperature: NOAA CPC\n"
+        fldas_str = ""
+        if any(c.startswith("fldas_") for c in self.df.columns):
+            fldas_str = "Forecast: FLDAS NMME\n"
+        # Credit soil moisture only when a soil moisture panel is drawn; a
+        # run whose eo_plot has no nsidc_* listed it anyway.
+        soil_str = ""
+        if any(c.startswith("nsidc_") for c in self.names_cols):
+            soil_str = "Soil Moisture: NASA-USDA Global Soil Moisture\n"
+        return (
+            "NDVI: UMD GLAM system\n"
+            + temp_str
+            + precip_str
+            + "Evaporative Stress Index: NASA ESI\n"
+            + soil_str
+            + fldas_str
+        )
+
     def _add_annotations(self, fig, leg):
         """Add logos, data sources, production share, and footer text."""
         if self.show_logos and self.logos:
@@ -570,31 +608,7 @@ class AgmetPlotter:
         # present), which made it land below 0.13 on some country plots
         # and overlap the first line of the body. A constant keeps
         # every plot in the gallery looking the same.
-        if self.precip_var == "chirps":
-            precip_str = "Precipitation: CHIRPS\n"
-        elif self.precip_var == "daymet_prcp":
-            precip_str = "Precipitation: Daymet V4\n"
-        else:
-            precip_str = "Precipitation: NOAA CPC\n"
-        if self.use_forecast:
-            precip_str += "Precipitation Forecast: CHIRPS-GEFS\n"
-        if "chirts_era5_tmax" in self.df.columns:
-            temp_str = "Temperature: CHIRTS-ERA5\n"
-        elif "daymet_tmax" in self.df.columns:
-            temp_str = "Temperature: Daymet V4\n"
-        else:
-            temp_str = "Temperature: NOAA CPC\n"
-        fldas_str = ""
-        if any(c.startswith("fldas_") for c in self.df.columns):
-            fldas_str = "Forecast: FLDAS NMME\n"
-        body = (
-            "NDVI: UMD GLAM system\n"
-            + temp_str
-            + precip_str
-            + "Evaporative Stress Index: NASA ESI\n"
-            + "Soil Moisture: NASA-USDA Global Soil Moisture\n"
-            + fldas_str
-        )
+        body = self._data_sources_body()
         # The body is anchored at DATA_SOURCES_BODY_Y and grows UPWARD, and its
         # line count varies per run (the forecast and FLDAS lines appear
         # conditionally), so a constant header y eventually collides with the
@@ -638,7 +652,8 @@ class AgmetPlotter:
         )
 
     def _add_inset_map(self, fig):
-        """Draw a small country map with the current region highlighted in black."""
+        """Draw a small locator map of boundary_gdf (the country, or one admin_1
+        unit) with the current region highlighted."""
         if self.boundary_gdf is None or self.boundary_gdf.empty:
             return
         try:
@@ -684,7 +699,11 @@ class AgmetPlotter:
 
             # Draw country as single dissolved polygon (avoids tiny admin_2 dots)
             dissolved = gdf.dissolve()
-            dissolved.plot(ax=ax_map, color="lightgray", edgecolor="black", linewidth=1.0)
+            if self.inset_outlines:
+                gdf.plot(ax=ax_map, color="lightgray", edgecolor="white", linewidth=0.3)
+                dissolved.boundary.plot(ax=ax_map, color="black", linewidth=1.0)
+            else:
+                dissolved.plot(ax=ax_map, color="lightgray", edgecolor="black", linewidth=1.0)
 
             # Highlight region: use highlight_gdf (district) or match by name (adm1).
             # When region_id is given AND boundary_gdf carries ADM_ID, prefer ID-based

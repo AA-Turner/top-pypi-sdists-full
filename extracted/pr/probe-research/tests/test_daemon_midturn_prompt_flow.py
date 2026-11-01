@@ -14,10 +14,11 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import bite as bite_mod
-from probe.daemon import lease, mailbox
+from probe.daemon.worker.bite import bite as bite_mod
+from probe.daemon.host import lease
+from probe.shared import mailbox
 from probe.daemon import worker as worker_mod
-from probe.daemon.events import Event, Kind
+from probe.shared.harness.events import Event, Kind
 
 SID = "11111111-2222-3333-4444-555555555555"
 TS = "2026-09-29T04:00:00.000Z"
@@ -136,7 +137,7 @@ def reader():
     from pydantic_ai.messages import ModelResponse
     from pydantic_ai.models.function import FunctionModel
 
-    from probe.daemon import reader_lane
+    from probe.daemon.lanes import reader as reader_lane
 
     return lambda w: reader_lane.ReaderLane(w, model=FunctionModel(lambda messages, info: ModelResponse(parts=[])))
 
@@ -200,7 +201,7 @@ def test_only_a_turn_end_or_age_run_waits_for_the_gap(tmp_path, monkeypatch, lin
     elif setup == "stopping":
         w.stopping = True
     elif setup == "size":
-        monkeypatch.setattr(worker_mod, "QUEUE_LIMIT_CHARS", 1)
+        monkeypatch.setattr(worker_mod.loop.triggers, "QUEUE_LIMIT_CHARS", 1)
     elif setup == "carry_on":
         w.mode = worker_mod.Mode.CONVERSATION
         w.store.set_fact(worker_mod.CARRY_ON, True)
@@ -218,7 +219,7 @@ def test_no_gap_is_the_old_timing(tmp_path, monkeypatch):
 
 
 def test_the_server_sets_the_gap_and_the_environment_wins(monkeypatch):
-    from probe.daemon import model as model_mod
+    from probe.daemon.agent.model import model as model_mod
 
     monkeypatch.delenv("PROBE_DAEMON_WRITER_GAP_S", raising=False)
     monkeypatch.setattr(model_mod, "_PUSHED", {})

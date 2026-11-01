@@ -11,7 +11,8 @@ from __future__ import annotations
 import json
 import subprocess
 
-from probe.cli import codex_config, updater, upgrading
+from probe.shared.harness.harnesses.codex import config as codex_config
+from probe.cli import updater, upgrading
 from probe.cli import setup as wizard
 from probe.cli.setup import RunSummary, SummaryAction
 
@@ -168,7 +169,8 @@ def test_a_readable_list_is_believed_over_the_files(tmp_path, monkeypatch):
 
 
 def test_a_deferred_update_is_no_agent_updated(one_update, monkeypatch):  # noqa: F811
-    from probe.cli import autoupdate, run_lock, update_report
+    from probe.cli import autoupdate, run_lock
+    from probe.shared.updates import update_report
 
     monkeypatch.setattr(run_lock, "any_live", lambda: True)
     monkeypatch.setattr(autoupdate, "record_skip", lambda *a, **k: None)

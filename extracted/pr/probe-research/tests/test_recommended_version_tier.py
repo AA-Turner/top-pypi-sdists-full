@@ -36,6 +36,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -221,6 +222,15 @@ def test_no_restart_is_said_only_where_open_sessions_follow(hook, monkeypatch, c
     if case == "protocol-1":
         sid = "0b8f1c9e-protocol-1"
         sleeper = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "tap watch", sid])
+        # Popen returns when the child starts its exec (vfork), before the
+        # kernel has set its argv: /proc/<pid>/cmdline reads empty until then,
+        # and an unproven watcher reads as none. Wait for the argv.
+        cmdline = Path(f"/proc/{sleeper.pid}/cmdline")
+        if cmdline.exists():
+            deadline = time.monotonic() + 30
+            while sid.encode() not in cmdline.read_bytes():
+                assert time.monotonic() < deadline, "the stand-in watcher never showed its argv"
+                time.sleep(0.01)
         (watchers / f"probe-research-tap-watcher-{sid}.pid").write_text(str(sleeper.pid))
         (watchers / f"probe-research-tap-watcher-{sid}.version").write_text("0.4.4")
     try:
@@ -357,7 +367,7 @@ def test_a_malformed_recommended_does_not_break_the_nudge(hook, monkeypatch) -> 
 
 
 def _rows(manifest, local):
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     return {row.kind: row for row in versions.compare(manifest, local)}
 
@@ -367,28 +377,28 @@ def _local(cli="0.147.0", plugin="0.71.0", tap="0.4.5"):
 
 
 def test_doctor_grades_below_recommended_as_needed() -> None:
-    from probe.cli.versions import VersionStatus
+    from probe.shared.updates.updates import VersionStatus
 
     rows = _rows(_manifest(cli_recommended="0.146.0"), _local(cli="0.144.0"))
     assert rows["cli"].status is VersionStatus.NEEDED
 
 
 def test_doctor_grades_at_recommended_as_a_plain_update() -> None:
-    from probe.cli.versions import VersionStatus
+    from probe.shared.updates.updates import VersionStatus
 
     rows = _rows(_manifest(cli_recommended="0.146.0"), _local(cli="0.146.0"))
     assert rows["cli"].status is VersionStatus.UPDATE
 
 
 def test_doctor_without_the_field_is_unchanged() -> None:
-    from probe.cli.versions import VersionStatus
+    from probe.shared.updates.updates import VersionStatus
 
     rows = _rows(_manifest(), _local(cli="0.144.0"))
     assert rows["cli"].status is VersionStatus.UPDATE
 
 
 def test_minimum_still_outranks_recommended_in_doctor() -> None:
-    from probe.cli.versions import VersionStatus
+    from probe.shared.updates.updates import VersionStatus
 
     rows = _rows(_manifest(cli_recommended="0.146.0"), _local(cli="0.100.0"))
     assert rows["cli"].status is VersionStatus.REQUIRED
@@ -398,7 +408,7 @@ def test_the_sdk_inherits_the_cli_threshold() -> None:
     """The SDK ships inside the same distribution as the CLI and is graded
     against the `cli` pair. A threshold that skipped it would report one number
     as two different verdicts."""
-    from probe.cli.versions import VersionStatus
+    from probe.shared.updates.updates import VersionStatus
 
     rows = _rows(_manifest(cli_recommended="0.146.0"), _local(cli="0.144.0"))
     assert rows["sdk"].status is VersionStatus.NEEDED
@@ -415,7 +425,7 @@ def test_the_needed_tier_counts_as_behind() -> None:
 def test_doctor_names_the_consequence_not_the_severity() -> None:
     """The rendered line has to say what waiting costs, in a list where every
     other line is routine housekeeping."""
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     rendered = "\n".join(
         versions.render(
@@ -566,7 +576,7 @@ def test_the_message_never_reaches_the_model_channel(hook, monkeypatch) -> None:
 def test_doctor_prints_the_published_message(hook, monkeypatch) -> None:
     """`probe doctor` is where a researcher goes to ASK, so its answer has to be
     the same one the hook volunteered -- including the reason."""
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     manifest = _manifest_with_message("experiment writes return 422")
     rendered = "\n".join(versions.render(versions.compare(manifest, _local(cli="0.144.0"))))
@@ -576,7 +586,7 @@ def test_doctor_prints_the_published_message(hook, monkeypatch) -> None:
 def test_doctor_keeps_the_severity_label(hook, monkeypatch) -> None:
     """In a four-row list the label is what a reader scans for. Replacing it with
     prose would cost the one thing this rendering is good at."""
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     manifest = _manifest_with_message("experiment writes return 422")
     rendered = "\n".join(versions.render(versions.compare(manifest, _local(cli="0.144.0"))))
@@ -586,7 +596,7 @@ def test_doctor_keeps_the_severity_label(hook, monkeypatch) -> None:
 def test_doctor_does_not_print_a_message_on_a_current_row(hook, monkeypatch) -> None:
     """A message can sit in the manifest permanently. A row that is fine must not
     grow a breakage warning out of it."""
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     manifest = _manifest_with_message("experiment writes return 422")
     rendered = "\n".join(versions.render(versions.compare(manifest, _local(cli="0.147.0"))))
@@ -596,7 +606,7 @@ def test_doctor_does_not_print_a_message_on_a_current_row(hook, monkeypatch) -> 
 def test_doctor_caps_a_long_message(hook, monkeypatch) -> None:
     """A diagnostic whose rows ARE its output must not let one network-fetched
     row run to a paragraph, or carry a newline that forges another row."""
-    from probe.cli import versions
+    from probe.shared.updates import updates as versions
 
     manifest = _manifest_with_message("word " * 200 + "\nCLI  99.9.9 (ok)")
     rendered = "\n".join(versions.render(versions.compare(manifest, _local(cli="0.144.0"))))

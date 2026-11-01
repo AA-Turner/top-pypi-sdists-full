@@ -1,6 +1,6 @@
 """TLS trust: one CA decision for every connection the agent opens (plan item (l), D21).
 
-Before `probe.sdk.tls`, httpx (every SDK write) trusted SSL_CERT_FILE/SSL_CERT_DIR
+Before `probe.foundation.tls.tls`, httpx (every SDK write) trusted SSL_CERT_FILE/SSL_CERT_DIR
 else certifi, and urllib (telemetry) trusted the OS store. Behind a TLS-re-signing
 proxy, telemetry reported a healthy SDK while every write failed verification, and
 REQUESTS_CA_BUNDLE -- the variable the researcher had already set -- did nothing.
@@ -36,10 +36,11 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from probe.cli import telemetry as cli_telemetry
-from probe.sdk import _telemetry_core as core
-from probe.sdk import errors, tls
-from probe.sdk.config import Settings
-from probe.sdk.transport import Transport
+from probe.analytics import core as core
+from probe.sdk import errors
+from probe.foundation.tls import tls
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.transport.transport import Transport
 
 _SRC = Path(__file__).resolve().parent.parent / "src" / "probe"
 
@@ -611,7 +612,7 @@ def _violations(tree: ast.AST, rel: str) -> list[str]:
         if owner == "httpx" and "http2" in keywords:
             found.append(f"{where} httpx.{name}(http2=...) on the shared TLS context")
         # urllib, and the vendored stdlib-only helpers that forward a context
-        # to it (they cannot import probe.sdk.tls; their CLI callers pass it).
+        # to it (they cannot import probe.foundation.tls.tls; their CLI callers pass it).
         forwards = (
             name == "urlopen"
             or (owner == "core" and name in {"resolve_identity", "post_batch"})
@@ -629,7 +630,7 @@ def test_every_client_in_the_package_is_handed_the_shared_trust():
         rel = path.relative_to(_SRC).as_posix()
         missing += _violations(ast.parse(path.read_text(encoding="utf-8")), rel)
     assert not missing, (
-        "every connection must use probe.sdk.tls.ssl_context() (plan item (l)):\n  "
+        "every connection must use probe.foundation.tls.tls.ssl_context() (plan item (l)):\n  "
         + "\n  ".join(missing)
     )
 
@@ -658,7 +659,7 @@ def test_the_guard_catches_what_it_is_for():
 
 def test_the_shared_module_is_stdlib_only():
     """Enqueue paths and urllib callers import it without an HTTP client."""
-    tree = ast.parse((_SRC / "sdk" / "tls.py").read_text(encoding="utf-8"))
+    tree = ast.parse((_SRC / "foundation" / "tls" / "tls.py").read_text(encoding="utf-8"))
     imported = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):

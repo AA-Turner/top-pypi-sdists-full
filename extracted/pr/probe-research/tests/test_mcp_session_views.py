@@ -24,8 +24,8 @@ from __future__ import annotations
 
 import pytest
 
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
 
 _SID = "22222222-2222-2222-2222-222222222222"
@@ -381,12 +381,12 @@ def test_pre_sessions_backend_reads_as_predates_not_absent(client, app):
 
 def test_transcript_agents_cover_every_capture_source():
     """The 2026-08-28 straggler, pinned: the 44-branch audit swept cli/ and
-    missed mcp/source.py's private two-source tuple, so the read surface
+    missed mcp/source/source.py's private two-source tuple, so the read surface
     rejected 'pi' transcripts the backend was happily storing. Tie the tuple
     to the capture-source vocabulary so source #4 cannot repeat this."""
-    from probe.mcp.source import _TRANSCRIPT_AGENTS
+    from probe.mcp.source.sessions import _TRANSCRIPT_AGENTS
 
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     assert set(_TRANSCRIPT_AGENTS) == {h.id for h in get_registry().captured()}
     assert set(_TRANSCRIPT_AGENTS) == {"claude_code", "codex", "pi", "kimi_code"}

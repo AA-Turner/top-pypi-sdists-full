@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from probe.cli import pi_config
+from probe.shared.harness.harnesses import pi as pi_config
 
 
 @pytest.fixture

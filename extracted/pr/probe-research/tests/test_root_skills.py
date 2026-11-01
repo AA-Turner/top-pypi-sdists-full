@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from probe import root_skills_core as core
+from probe.foundation.skills import root_skills_core as core
 from probe.cli import root_skills
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-codspeed
-Version: 5.0.3
+Version: 5.0.4
 Summary: Pytest plugin to create CodSpeed benchmarks
 Author-email: Arthur Pastel <arthur@codspeed.io>
 License: The MIT License (MIT)
@@ -60,7 +60,7 @@ Requires-Dist: pytest-xdist~=3.6.1; extra == "compat"
 
 [![CI](https://github.com/CodSpeedHQ/pytest-codspeed/actions/workflows/ci.yml/badge.svg)](https://github.com/CodSpeedHQ/pytest-codspeed/actions/workflows/ci.yml)
 [![PyPi Version](https://img.shields.io/pypi/v/pytest-codspeed?color=%2334D058&label=pypi)](https://pypi.org/project/pytest-codspeed)
-![Python Version](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-informational.svg)
+![Python Version](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14%20%7C%203.15-informational.svg)
 [![Discord](https://img.shields.io/badge/chat%20on-discord-7289da.svg)](https://discord.com/invite/MxpaCfKSqF)
 [![CodSpeed Badge](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/CodSpeedHQ/pytest-codspeed)
 
@@ -168,7 +168,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@v4
+        uses: CodSpeedHQ/action@v5
         with:
           mode: simulation # or `walltime`
           token: ${{ secrets.CODSPEED_TOKEN }}

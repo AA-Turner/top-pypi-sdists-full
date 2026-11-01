@@ -93,7 +93,7 @@ def test_the_tap_and_the_worker_agree_on_the_missing_libraries_retry():
 
 @pytest.mark.parametrize("start", [session_marker.STATE_DAEMON, session_marker.STATE_READ_ONLY])
 def test_quota_inline_never_respawns_a_worker_on_resume(writer, start):
-    from probe.daemon import lease
+    from probe.daemon.host import lease
     session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
     session_marker.set_session_state(SID, start)
     assert session_marker.inline_on_budget(SID, start)

@@ -1,6 +1,6 @@
 """`probe session send <sid> "..."` and the SDK under it (swarm visibility G7): a
 message to one of the researcher's own running sessions, which its Probe daemon
-hands to the agent (`probe.daemon.session_messages`).
+hands to the agent (`probe.daemon.lanes.session_messages`).
 """
 
 from __future__ import annotations
@@ -12,9 +12,9 @@ import httpx
 from typer.testing import CliRunner
 
 from probe.cli.main import app as cli_app
-from probe.daemon import precheck
+from probe.shared.command_rules import command_rules as precheck
 from probe.sdk import session_marker
-from probe.sdk.key_refusal import credential_refused
+from probe.sdk.settings.key_refusal import credential_refused
 
 from tests.conftest import make_client
 

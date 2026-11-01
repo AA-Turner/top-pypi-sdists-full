@@ -77,6 +77,7 @@ _REGISTRY_OPTION_NAMES = frozenset(
         "dataset_ids",
         "grader_ids",
         "only_with_assertions",
+        "category_ids",
         "skip_assertion_judging",
         "judge_assertions",
         "mock",
@@ -354,6 +355,17 @@ def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
         dest="only_with_assertions",
     )
     parser.add_argument(
+        "--category-ids",
+        dest="category_ids",
+        type=_comma_separated,
+        metavar="id1,id2",
+        help=(
+            "With --trace-ids or --dataset-ids: replay only the traces carrying "
+            "an approved assertion in one of these categories. Which "
+            "assertions are judged stays the same."
+        ),
+    )
+    parser.add_argument(
         "--skip-assertion-judging",
         action="store_true",
         dest="skip_assertion_judging",
@@ -440,6 +452,7 @@ _RESUME_REFUSED_FLAGS = (
     ("attempts", "--attempts"),
     ("grader_ids", "--grader-ids"),
     ("only_with_assertions", "--only-with-assertions"),
+    ("category_ids", "--category-ids"),
     ("dry_run", "--dry-run"),
 )
 
@@ -450,6 +463,7 @@ _RESUME_FIXED_OPTIONS = (
     "dataset_ids",
     "grader_ids",
     "only_with_assertions",
+    "category_ids",
     "attempts",
     "dry_run",
 )
@@ -969,22 +983,40 @@ def _run_assigned_item(
     return item
 
 
-def _has_approved_assertion(assertions: list[dict[str, Any]]) -> bool:
-    return any(assertion.get("approvalState") == "approved" for assertion in assertions)
+@dataclass(frozen=True)
+class _AssertionNarrowing:
+    only_with_assertions: bool = False
+    category_ids: list[str] | None = None
+
+    def narrows(self) -> bool:
+        return self.only_with_assertions or self.category_ids is not None
+
+
+def _has_approved_assertion(
+    assertions: list[dict[str, Any]], category_ids: list[str] | None
+) -> bool:
+    return any(
+        assertion.get("approvalState") == "approved"
+        and (category_ids is None or assertion.get("category_id") in category_ids)
+        for assertion in assertions
+    )
 
 
 def _bound_trace_ids(
-    client: Bitfab, trace_ids: list[str], limit: int, only_with_assertions: bool
+    client: Bitfab,
+    trace_ids: list[str],
+    limit: int,
+    narrowing: _AssertionNarrowing,
 ) -> list[str]:
     if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
         raise ValueError("Replay limit must be a positive integer.")
-    if not only_with_assertions or limit >= len(trace_ids):
+    if not narrowing.narrows() or limit >= len(trace_ids):
         return trace_ids[:limit]
     selected = []
     for trace_id in trace_ids:
         result = client.traces.get_assertions(trace_id)
         if result["inheritedFrom"] is None and _has_approved_assertion(
-            result["assertions"]
+            result["assertions"], narrowing.category_ids
         ):
             selected.append(trace_id)
             if len(selected) == limit:
@@ -992,6 +1024,9 @@ def _bound_trace_ids(
     if not selected:
         raise ValueError(
             "No traces with approved assertions matched this replay selection."
+            if narrowing.category_ids is None
+            else "No traces with an approved assertion in the given "
+            "categories matched this replay selection."
         )
     return selected
 
@@ -1000,7 +1035,7 @@ def _pinned_dataset_members(
     client: Bitfab,
     dataset_ids: list[str],
     limit: int,
-    only_with_assertions: bool = False,
+    narrowing: _AssertionNarrowing,
 ) -> list[str] | None:
     members = sorted(
         {
@@ -1018,7 +1053,7 @@ def _pinned_dataset_members(
             f"{_MAX_PINNED_TRACE_IDS}. Drop the limit to replay every "
             "selected dataset in full."
         )
-    return _bound_trace_ids(client, members, limit, only_with_assertions)
+    return _bound_trace_ids(client, members, limit, narrowing)
 
 
 def _require_code_change(args: argparse.Namespace) -> None:
@@ -1109,12 +1144,28 @@ def run_replay_cli(
         elif args.dataset_ids is not None:
             options.pop("trace_ids", None)
 
-        only_with_assertions = args.only_with_assertions or options.get(
-            "only_with_assertions", False
+        category_ids = (
+            args.category_ids
+            if args.category_ids is not None
+            else options.get("category_ids")
+        )
+        narrowing = _AssertionNarrowing(
+            only_with_assertions=args.only_with_assertions
+            or options.get("only_with_assertions", False),
+            category_ids=category_ids,
         )
         bound = args.limit if args.limit is not None else options.get("limit")
         options.pop("limit", None)
         selected_dataset_ids = args.dataset_ids or options.get("dataset_ids")
+        if (
+            category_ids is not None
+            and options.get("trace_ids") is None
+            and selected_dataset_ids is None
+        ):
+            raise ValueError(
+                "--category-ids narrows a trace ID or dataset "
+                "selection. Pass it with --trace-ids or --dataset-ids."
+            )
 
         if options.get("trace_ids") is not None:
             if bound is not None:
@@ -1122,7 +1173,7 @@ def run_replay_cli(
                     registration.client,
                     options["trace_ids"],
                     bound,
-                    only_with_assertions,
+                    narrowing,
                 )
         elif selected_dataset_ids is not None:
             if bound is not None:
@@ -1130,7 +1181,7 @@ def run_replay_cli(
                     registration.client,
                     selected_dataset_ids,
                     bound,
-                    only_with_assertions,
+                    narrowing,
                 )
                 if pinned is not None:
                     options["trace_ids"] = pinned
@@ -1152,6 +1203,7 @@ def run_replay_cli(
         "mock": args.mock,
         "attempts": args.attempts,
         "only_with_assertions": args.only_with_assertions or None,
+        "category_ids": args.category_ids,
         "skip_assertion_judging": args.skip_assertion_judging or None,
     }
     options.update(

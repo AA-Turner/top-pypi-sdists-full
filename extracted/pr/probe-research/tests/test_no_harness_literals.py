@@ -41,8 +41,8 @@ def test_the_scanner_finds_a_literal_and_honours_the_escape(tmp_path, monkeypatc
         'b = os.environ.get("CODEX_THREAD_ID")\n'
         'c = "pi"  # harness-literal-ok: the circle constant\n'
     )
-    (probe_dir / "harness").mkdir()
-    (probe_dir / "harness" / "registry.py").write_text('"codex"\n')
+    (probe_dir / "foundation" / "harness_registry").mkdir(parents=True)
+    (probe_dir / "foundation" / "harness_registry" / "harness_registry.py").write_text('"codex"\n')
     monkeypatch.setattr(scanner, "REPO", tmp_path)
     assert scanner.count("agent") == {"agent/src/probe/core.py": 3}
 
@@ -50,7 +50,7 @@ def test_the_scanner_finds_a_literal_and_honours_the_escape(tmp_path, monkeypatc
 def test_the_scanner_guards_every_registry_row():
     """The words it counts come from the registry, so a new harness is guarded
     the moment its row lands, with no edit to the scanner."""
-    from probe.harness import registry
+    from probe.foundation.harness_registry import harness_registry as registry
 
     scanner = _scanner()
     for harness in registry.get_registry().all():

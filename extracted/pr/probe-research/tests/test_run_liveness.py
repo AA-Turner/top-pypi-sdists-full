@@ -14,10 +14,10 @@ import json
 import pytest
 
 from datetime import datetime, timedelta
-from probe._compat import UTC
+from probe.foundation.compat.compat import UTC
 
 from probe import errors
-from probe.sdk.run import Run
+from probe.sdk.run.run import Run
 from tests.conftest import open_run
 
 
@@ -403,7 +403,7 @@ class TestReviewFindings:
         was fenced. 1.1 removes the bump itself: self-recovery asks the server
         to keep the generation, so the handle, the beat loop, every op already
         queued and every sibling rank stay valid."""
-        from probe.sdk.run import _recover_after_outage
+        from probe.sdk.run.closing.outage import _recover_after_outage
         import weakref
 
         run = open_run(client, experiment="e", name="r", heartbeat=False)
@@ -427,7 +427,7 @@ class TestReviewFindings:
 
     def test_a_handle_without_an_epoch_does_not_recover(self, client, app):
         """It cannot prove the crashed row is still its own."""
-        from probe.sdk.run import _recover_after_outage
+        from probe.sdk.run.closing.outage import _recover_after_outage
 
         run = open_run(client, experiment="e", name="r", heartbeat=False)
         app.runs[run.id].update(status="crashed", ended_at=_recently())
@@ -438,7 +438,7 @@ class TestReviewFindings:
     def test_recovery_refuses_a_run_a_newer_attempt_took_over(self, client, app):
         """Same path, opposite direction: an old process waking up must never
         clobber a legitimate successor."""
-        from probe.sdk.run import _recover_after_outage
+        from probe.sdk.run.closing.outage import _recover_after_outage
 
         run = open_run(client, experiment="e", name="r", heartbeat=False)
         app.runs[run.id].update(status="crashed", write_epoch=5)
@@ -515,7 +515,7 @@ def _start_beating(client, handle):
     import threading
     import weakref
 
-    from probe.sdk.run import _beat_forever
+    from probe.sdk.run.closing.heartbeat import _beat_forever
 
     stop = threading.Event()
     thread = threading.Thread(
@@ -537,7 +537,7 @@ def _stop_beating(beat) -> None:
 def _deliver(app, client) -> None:
     """What the detached worker does once the network is back: drain the
     journal through a fresh client of its own."""
-    from probe.sdk.journal import drain
+    from probe.sdk.delivery.outbox.drain.drain import drain
     from tests.conftest import make_client
 
     worker = make_client(app)
@@ -690,7 +690,7 @@ class TestAnOutageKeepsTheEpoch:
         (epoch 2) and crashed too: the old process must not revive it."""
         import weakref
 
-        from probe.sdk.run import _recover_after_outage
+        from probe.sdk.run.closing.outage import _recover_after_outage
 
         run = open_run(client, experiment="e", name="r", heartbeat=False)
         stale_read = {**app.runs[run.id], "status": "crashed", "write_epoch": 1}

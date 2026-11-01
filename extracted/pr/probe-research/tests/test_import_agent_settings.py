@@ -38,7 +38,7 @@ class _Transport:
         self.answer, self.calls, self.deadlines = answer, 0, []
 
     def get(self, path):
-        from probe.sdk import transport
+        from probe.sdk.delivery import transport
 
         assert path == "/v1/import-jobs/agent-settings"
         self.calls += 1
@@ -291,7 +291,7 @@ def test_a_background_job_reads_them_itself_and_meters_into_the_attempt(tmp_path
 
     from probe.cli import backfill_import as imp
     from probe.cli import import_jobs
-    from probe.sdk import journal
+    from probe.sdk.delivery import journal
 
     queued = []
     monkeypatch.setattr(import_jobs, "enqueue", lambda **kw: queued.append(

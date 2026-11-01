@@ -1,4 +1,4 @@
-"""Moved to :mod:`probe._shared.autoupdate` (Probe service, T4): the service
+"""Moved to :mod:`probe.shared.updates.autoupdate` (Probe service, T4): the service
 records its deferrals with it, and importing anything under `probe.cli` loads
 the whole CLI. This name stays importable and IS that module -- not a
 re-export -- so `monkeypatch.setattr(probe.cli.autoupdate, ...)` and every
@@ -6,6 +6,6 @@ re-export -- so `monkeypatch.setattr(probe.cli.autoupdate, ...)` and every
 
 import sys
 
-from probe._shared import autoupdate as _moved
+from probe.shared.updates import autoupdate as _moved
 
 sys.modules[__name__] = _moved

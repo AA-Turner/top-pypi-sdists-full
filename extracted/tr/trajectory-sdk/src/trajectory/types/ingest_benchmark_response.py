@@ -11,8 +11,6 @@ class IngestBenchmarkResponse(BaseModel):
 
   name: str
 
-  family: str | None = None
-
   task_count: int
 
   failed_tasks: list[BenchmarkTaskWriteFailure] | None = None

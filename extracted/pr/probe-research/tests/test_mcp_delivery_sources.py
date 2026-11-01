@@ -7,8 +7,8 @@ from copy import deepcopy
 
 import pytest
 
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from tests.test_mcp_delivery import _bounded, _wire
 from tests.test_mcp_document_consistency import NoteClient
 from tests.test_mcp_entity_projection import EntitySource
@@ -86,7 +86,7 @@ def test_real_transcript_source_mutation_is_explicit_at_the_mcp_boundary(client,
 
 
 def test_native_document_staleness_records_only_a_closed_telemetry_reason(client, app, monkeypatch):
-    from probe.mcp import accounting
+    from probe.mcp.delivery import accounting
 
     measurements = []
     monkeypatch.setattr(accounting, "note_delivery", lambda **counts: measurements.append(counts))

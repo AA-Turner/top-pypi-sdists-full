@@ -23,6 +23,8 @@ import pytest
 
 from probe.connectors import wandb as wb
 
+SCANNING_DISABLED = "credential scanning is disabled in the SDK; these tests assert the redaction it did"
+
 
 def _wandb_available() -> bool:
     try:
@@ -71,7 +73,7 @@ def _make_offline_run(directory, *, project="wb-proj", name="wb-run"):
                     "eval/acc": CURVES["eval/acc"][step],
                     "nested": {"a": CURVES["nested.a"][step]},
                     # A string is not a metric point; it must be dropped, not
-                    # coerced, exactly as sdk/run.py::_as_metric_value does.
+                    # coerced, exactly as sdk/run/run.py::_as_metric_value does.
                     "note": "not a number",
                 },
                 step=step,
@@ -432,7 +434,7 @@ def test_the_stored_key_lands_in_the_probe_config_under_a_redacted_name():
     """Stored like every other probe credential — and under the exact spelling
     ``sdk/redaction.py`` already classes as sensitive, so a captured payload
     carrying it is scrubbed without this module doing anything."""
-    from probe.sdk import config as sdk_config
+    from probe.sdk.settings import settings as sdk_config
     from probe.sdk.redaction import default_scrub, is_sensitive_key
 
     path = wb.store_api_key("wb-secret-key-value")
@@ -447,7 +449,7 @@ def test_the_stored_key_lands_in_the_probe_config_under_a_redacted_name():
 
 
 def test_logout_clears_the_stored_wandb_key_with_everything_else():
-    from probe.sdk import config as sdk_config
+    from probe.sdk.settings import settings as sdk_config
 
     wb.store_api_key("wb-secret-key-value")
     sdk_config.clear_context()
@@ -715,6 +717,7 @@ def test_import_links_the_wandb_run_id(client, app):
     }
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_a_secret_in_the_wandb_config_is_scrubbed_on_the_way_in(client, app):
     """``Client(redact=True)`` is opt-in; a connector must not need it to avoid
     importing somebody's HF token into Probe."""

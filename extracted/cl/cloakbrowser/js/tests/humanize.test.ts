@@ -588,3 +588,42 @@ describe("mergeConfig", () => {
   });
 });
 
+// =========================================================================
+// Frame mapping (Playwright frame -> CDP frame id)
+// =========================================================================
+describe("matchChild", () => {
+  const F = (name: string, url: string, childFrames: any[] = []): any =>
+    ({ name: () => name, url: () => url, childFrames: () => childFrames });
+
+  it("survives a frame renamed by page JS", async () => {
+    // CDP has the window.name set by page JS, Playwright the old one, and the
+    // cross-site sibling (own process) is absent from the parent's CDP tree.
+    const { matchChild } = await import("../src/human/world.js");
+    const mid = F("m", "http://site.test/mid.html");
+    const parent = F("", "", [F("", "http://other.test/b.html"), mid]);
+    const kids = [{ id: "MID", name: "renamed-by-js", url: "http://site.test/mid.html" }];
+    expect(matchChild(mid, parent, kids)).toBe("MID");
+  });
+
+  it("keeps attach order for same-url siblings after a rename", async () => {
+    const { matchChild } = await import("../src/human/world.js");
+    const a = F("a", "http://site.test/w.html");
+    const b = F("b", "http://site.test/w.html");
+    const parent = F("", "", [F("", "http://other.test/x.html"), a, b]);
+    const kids = [
+      { id: "A", name: "a", url: "http://site.test/w.html" },
+      { id: "B", name: "renamed", url: "http://site.test/w.html" },
+    ];
+    expect(matchChild(a, parent, kids)).toBe("A");
+    expect(matchChild(b, parent, kids)).toBe("B");
+  });
+});
+
+
+describe("bounded browser calls (#619)", () => {
+  it("a timeout beyond setTimeout's range means no limit, not an instant stall", async () => {
+    const { ACTION, bounded } = await import("../src/human/world.js");
+    const call = new Promise((r) => setTimeout(() => r("ok"), 50));
+    expect(await ACTION.run({ timeout: 1e10, stalled: false }, () => bounded(call))).toBe("ok");
+  });
+});

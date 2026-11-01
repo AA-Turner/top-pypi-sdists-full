@@ -102,10 +102,9 @@ _CLIENT_IDENTIFIER = f"river-client-python/{__version__}"
 # is the largest finite client-side value; the River server enforces 2 GiB.
 _GRPC_MAX_MESSAGE_SIZE_BYTES = 2 * 1024 * 1024 * 1024 - 1
 
-# A request that cannot fit in one gRPC message is submitted as sequential
-# gradient-accumulation sub-batches. The upload API accepts an assembled body
-# up to and including 1 GiB, so use that full capacity to avoid unnecessary
-# accumulation calls for large datums.
+# The upload API accepts an assembled body up to and including 1 GiB.
+# Larger requests split at datum boundaries into gradient-accumulation
+# sub-batches; the RL trainer pipelines them within its pending-request limit.
 _FORWARD_BACKWARD_SUB_BATCH_BYTES = 1024 * 1024 * 1024
 
 _FORWARD_BACKWARD_SUM_METRIC_KEYS = frozenset(
@@ -148,7 +147,11 @@ _FORWARD_BACKWARD_MAX_METRIC_KEYS = frozenset({"moe/expert_capping_ratio_max"})
 
 
 class _ForwardBackwardNeedsSubBatches(RiverError):
-    """Preflight rejection: no RPC or sequence ID has been submitted."""
+    """Preflight rejection with byte-sized slices; no RPC or sequence reserved."""
+
+    def __init__(self, message: str, sub_batch_slices: tuple[slice, ...]):
+        super().__init__(message)
+        self.sub_batch_slices = sub_batch_slices
 
 
 def _routing_capture_unavailable(error: RiverConnectionError) -> bool:
@@ -178,6 +181,45 @@ class _ForwardBackwardRequestPlan:
     datum_field_sizes: tuple[int, ...]
     total_size: int
     maximum_total_size: int
+
+    def sub_batch_slices(
+        self, request: pb2.ForwardBackwardRequest
+    ) -> tuple[slice, ...]:
+        """Partition measured datums without retaining their encoded payloads.
+
+        Validate the whole batch before any submission, including a single
+        oversized datum at the end. Reserve maximum-width sequence IDs so
+        later submissions cannot outgrow these boundaries.
+        """
+        slices = []
+        start, size = 0, 0
+        for index, datum_size in enumerate(self.datum_field_sizes):
+            candidate = _forward_backward_request_size(
+                request,
+                static_input_size=self.static_input_size,
+                datum_field_size=size + datum_size,
+                maximum_sequence_id_size=True,
+            )
+            if candidate > _FORWARD_BACKWARD_SUB_BATCH_BYTES:
+                if index > start:
+                    slices.append(slice(start, index))
+                start, size = index, 0
+                if (
+                    _forward_backward_request_size(
+                        request,
+                        static_input_size=self.static_input_size,
+                        datum_field_size=datum_size,
+                        maximum_sequence_id_size=True,
+                    )
+                    > _FORWARD_BACKWARD_SUB_BATCH_BYTES
+                ):
+                    raise RiverError(
+                        "A single forward_backward datum exceeds the client "
+                        f"sub-batch limit of {_FORWARD_BACKWARD_SUB_BATCH_BYTES} bytes"
+                    )
+            size += datum_size
+        slices.append(slice(start, len(self.datum_field_sizes)))
+        return tuple(slices)
 
 
 def _protobuf_varint_size(value: int) -> int:
@@ -1241,6 +1283,9 @@ class Model:
         self._model_id = model_id
         self._training_run_id = training_run_id
         self._base_model = base_model
+        # Preserve the caller's selection for capabilities and durable RL
+        # fingerprints while base_model exposes the server's canonical name.
+        self._requested_base_model = base_model
         self._tokenizer = tokenizer
         self._full_weight = full_weight
         self._step = 0
@@ -1349,7 +1394,26 @@ class Model:
 
     def get_server_capabilities(self) -> ServerCapabilities:
         """Read the endpoint's public protocol support (used by RL preflight)."""
-        return self._session._client.get_server_capabilities(model_name=self.base_model)
+        capabilities = self._session._client.get_server_capabilities(
+            model_name=self._requested_base_model
+        )
+        if self._requested_base_model == self.base_model:
+            return capabilities
+        # Legacy scripts can explicitly select an RL deployment while the
+        # same weights also have an SFT deployment. Preserve the selected
+        # deployment's capabilities without exposing its key as model identity.
+        return ServerCapabilities(
+            supported_models=tuple(
+                self.base_model if name == self._requested_base_model else name
+                for name in capabilities.supported_models
+            ),
+            features=capabilities.features,
+            model_features={
+                self.base_model: capabilities.model_features.get(
+                    self._requested_base_model, frozenset()
+                )
+            },
+        )
 
     def get_policy_version(self) -> PolicyVersion | None:
         """Read the last server-committed policy; legacy servers return None."""
@@ -1603,7 +1667,6 @@ class Model:
             # PendingOp was built with the forward-backward parser.
             return cast("ForwardResult", result)
 
-        self._validate_forward_backward_sub_batch_plan(request, plan)
         return self._run_forward_backward_sub_batches(
             request,
             data=data,
@@ -1738,7 +1801,6 @@ class Model:
             force_routing_replay=force_routing_replay,
         )
         if plan.maximum_total_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES:
-            self._validate_forward_backward_sub_batch_plan(request, plan)
             fb_result = self._run_forward_backward_sub_batches(
                 request, data=data, plan=plan, timeout=timeout
             )
@@ -1819,10 +1881,13 @@ class Model:
             force_routing_replay=force_routing_replay,
         )
         if plan.maximum_total_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES:
+            # Repacked custom losses were rejected above; these slices index
+            # the caller's original datums, not a transformed batch.
             raise _ForwardBackwardNeedsSubBatches(
                 "forward_backward batch exceeds the 1 GiB upload limit; use "
                 "forward_backward() so the client can submit accumulated "
-                "sub-batches sequentially"
+                "sub-batches sequentially",
+                plan.sub_batch_slices(request),
             )
         request.seq_id = self._next_seq_id()
         chunk = self._session._single_forward_backward_chunk(request, data, plan)
@@ -1923,25 +1988,6 @@ class Model:
             _timeout=timeout,
         )
 
-    @staticmethod
-    def _validate_forward_backward_sub_batch_plan(
-        request: pb2.ForwardBackwardRequest,
-        plan: _ForwardBackwardRequestPlan,
-    ) -> None:
-        """Reject an unsendable datum before consuming a model sequence id."""
-        for datum_field_size in plan.datum_field_sizes:
-            maximum_size = _forward_backward_request_size(
-                request,
-                static_input_size=plan.static_input_size,
-                datum_field_size=datum_field_size,
-                maximum_sequence_id_size=True,
-            )
-            if maximum_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES:
-                raise RiverError(
-                    "A single forward_backward datum exceeds the client "
-                    f"sub-batch limit of {_FORWARD_BACKWARD_SUB_BATCH_BYTES} bytes"
-                )
-
     def _run_forward_backward_sub_batches(
         self,
         request: pb2.ForwardBackwardRequest,
@@ -1953,12 +1999,11 @@ class Model:
     ) -> ForwardResult:
         results: list[ForwardResult] = []
         chunk_sizes: list[int] = []
-        request.seq_id = self._next_seq_id()
         for chunk_index, (chunk, chunk_size) in enumerate(
             self._session._iter_forward_backward_sub_batches(request, data, plan)
         ):
+            chunk.seq_id = self._next_seq_id()
             if chunk_index:
-                chunk.seq_id = self._next_seq_id()
                 chunk.forward_backward_input.init_gradients = False
             result = self._submit_forward_backward_request(
                 chunk,
@@ -2296,12 +2341,15 @@ class Model:
         Uses the new sampling transport; requires server support. Consume
         ``pending.as_completed()`` to receive individual successes/failures.
         ``policy_selection="ordered"`` preserves training-queue ordering.
-        ``policy_selection="latest_snapshot"`` samples the newest available
-        immutable committed snapshot without waiting for queued training work.
-        Publish one with ``save_weights(mode="inference", immutable=True)`` first;
-        missing snapshots fail explicitly. This mode may lag the committed head.
-        ``pinned_policy_id`` continues a previously returned policy snapshot and
-        cannot be combined with ``latest_snapshot``.
+        ``policy_selection="latest_snapshot"`` samples independently of queued
+        or running training work. For LoRA it selects an immutable committed
+        snapshot published with ``save_weights(mode="inference", immutable=True)``.
+        For full-weight RL it uses the run's sampler weights published with
+        ``save_weights(mode="publish")``; these may update during generation,
+        and token policy spans report the weights actually used. Missing
+        published weights fail explicitly. Sampling may lag the training head.
+        ``pinned_policy_id`` continues a LoRA policy snapshot; full-weight live
+        sampling cannot pin a policy. Pins cannot accompany ``latest_snapshot``.
         Alternatively, ``retained_kv_groups`` supplies one trajectory UUID per
         independent sample (including the num_samples expansion) and permits
         earlier-policy KV within ``kv_cache_policy``: max_staleness (updates),
@@ -2641,11 +2689,24 @@ class Session:
         *,
         idempotency_key: str | None = None,
         timeout: float | None = None,
+        session_scoped: bool = True,
     ) -> ImageHandle:
-        """Upload into this session; bytes remain recoverable in the local image cache."""
+        """Upload through this session; bytes remain recoverable in the local image cache.
+
+        A session-scoped image is released when this session ends. With
+        ``session_scoped=False`` the image outlives the session and any session
+        of the same API user may submit it, until it is released or six hours
+        pass without a submission. Release it explicitly when done; it counts
+        against the user's image quota until then.
+        """
         self._prepare_image_upload()
         return self._client._upload_image(
-            data, self.session_id, idempotency_key, timeout, self._live_stub
+            data,
+            self.session_id,
+            idempotency_key,
+            timeout,
+            self._live_stub,
+            session_scoped,
         )
 
     async def upload_image_async(
@@ -2654,13 +2715,14 @@ class Session:
         *,
         idempotency_key: str | None = None,
         timeout: float | None = None,
+        session_scoped: bool = True,
     ) -> ImageHandle:
-        """Bounded non-blocking upload, automatically released when this session ends."""
+        """Bounded non-blocking :meth:`upload_image`."""
 
         def upload(stub):
             self._prepare_image_upload()
             return self._client._upload_image(
-                data, self.session_id, idempotency_key, timeout, stub
+                data, self.session_id, idempotency_key, timeout, stub, session_scoped
             )
 
         return await self._client._image_uploads.run(upload)
@@ -2982,9 +3044,11 @@ class Session:
         """Create a new model for training.
 
         Args:
-            base_model: Base model name (e.g., "Qwen/Qwen3.6-35B-A3B-FP8")
+            base_model: Base model name (e.g., "Qwen/Qwen3.6-35B-A3B-FP8").
+                Use the actual model name for full-weight training too;
+                full_weight selects the trainer internally.
             lora: LoRA configuration. Mutually exclusive with full_weight.
-            full_weight: Train the GLM 5.3 Flash backbone and experts on a
+            full_weight: Train a supported model's backbone and experts on a
                 dedicated full-weight pool. Configure AdamW through optim_step;
                 checkpoints include optimizer state. Only an RL model (feature
                 ``full_weight_rl_v1``) can sample: its run owns a sampler that
@@ -3064,11 +3128,15 @@ class Session:
 
         create_model_result = result.create_model
 
-        if full_weight and tokenizer is None:
-            # A full-weight model key (e.g. an RL trainer's own key) need not
-            # name a Hugging Face repository; the server names its tokenizer.
+        if full_weight:
+            # The server separates model identity from deployment routing.
+            # Resolve legacy aliases even when the tokenizer was explicit.
+            # Older servers may still return their legacy key; keep accepting
+            # that identity until those servers and saved sessions retire.
             info = self._get_info(create_model_result.model_id)
-            tokenizer = info.model_data.tokenizer_id
+            base_model = info.model_data.model_name or info.model_name or base_model
+            if tokenizer is None:
+                tokenizer = info.model_data.tokenizer_id
         tok = load_tokenizer(tokenizer, base_model=base_model)
 
         model = Model(
@@ -3079,6 +3147,7 @@ class Session:
             tokenizer=tok,
             full_weight=full_weight,
         )
+        model._requested_base_model = req.base_model
         self._models.append(model)
 
         # Load checkpoint if provided
@@ -3903,58 +3972,25 @@ class Session:
             return chunk
 
         data_iterator = iter(data)
-        chunk = new_chunk()
-        chunk_datum_field_size = 0
-        chunk_datum_count = 0
-        if not plan.datum_field_sizes:
-            yield chunk, 0
-            return
-        for planned_datum_field_size in plan.datum_field_sizes:
-            try:
-                raw_datum = next(data_iterator)
-            except StopIteration as error:
-                raise RiverError(
-                    "forward_backward data changed while the request was being prepared"
-                ) from error
-            datum = self._encode_datum(raw_datum)
-            datum_field_size = _length_delimited_field_size(datum.ByteSize())
-            if datum_field_size != planned_datum_field_size:
-                raise RiverError(
-                    "forward_backward data changed while the request was being prepared"
-                )
-            candidate_size = _forward_backward_request_size(
-                chunk,
-                static_input_size=plan.static_input_size,
-                datum_field_size=chunk_datum_field_size + datum_field_size,
-                maximum_sequence_id_size=True,
-            )
-            if candidate_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES:
-                if chunk_datum_count == 0:
+        for sub_batch in plan.sub_batch_slices(request):
+            chunk = new_chunk()
+            for planned_datum_field_size in plan.datum_field_sizes[sub_batch]:
+                try:
+                    raw_datum = next(data_iterator)
+                except StopIteration as error:
                     raise RiverError(
-                        "A single forward_backward datum exceeds the client "
-                        f"sub-batch limit of {_FORWARD_BACKWARD_SUB_BATCH_BYTES} bytes"
-                    )
-                yield chunk, chunk_datum_count
-                chunk = new_chunk()
-                chunk_datum_field_size = 0
-                chunk_datum_count = 0
-                candidate_size = _forward_backward_request_size(
-                    chunk,
-                    static_input_size=plan.static_input_size,
-                    datum_field_size=datum_field_size,
-                    maximum_sequence_id_size=True,
-                )
-                if candidate_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES:
+                        "forward_backward data changed while the request was being prepared"
+                    ) from error
+                datum = self._encode_datum(raw_datum)
+                if (
+                    _length_delimited_field_size(datum.ByteSize())
+                    != planned_datum_field_size
+                ):
                     raise RiverError(
-                        "A single forward_backward datum exceeds the client "
-                        f"sub-batch limit of {_FORWARD_BACKWARD_SUB_BATCH_BYTES} bytes"
+                        "forward_backward data changed while the request was being prepared"
                     )
-            chunk.forward_backward_input.data.append(datum)
-            chunk_datum_field_size += datum_field_size
-            chunk_datum_count += 1
-
-        if chunk_datum_count:
-            yield chunk, chunk_datum_count
+                chunk.forward_backward_input.data.append(datum)
+            yield chunk, sub_batch.stop - sub_batch.start
 
         try:
             next(data_iterator)
@@ -4705,9 +4741,13 @@ class Client:
         self._image_cache = tempfile.TemporaryDirectory(prefix="river-images-")
         self._local_images = ImageStore(self._image_cache.name)
 
-    def _upload_image(self, data, session_id, idempotency_key, timeout, stub):
+    def _upload_image(
+        self, data, session_id, idempotency_key, timeout, stub, session_scoped
+    ):
         if not isinstance(data, (bytes, bytearray, memoryview)) or not data:
             raise ValueError("image data must be nonempty bytes")
+        if not isinstance(session_scoped, bool):
+            raise TypeError("session_scoped must be a bool")
         key = (
             str(uuid.UUID(idempotency_key))
             if idempotency_key is not None
@@ -4720,7 +4760,10 @@ class Client:
         response = self._rpc_with_retry(
             lambda: stub.UploadImage(
                 pb2.UploadImageRequest(
-                    idempotency_key=key, data=bytes(data), session_id=session_id
+                    idempotency_key=key,
+                    data=bytes(data),
+                    session_id=session_id,
+                    unscoped=not session_scoped,
                 ),
                 metadata=self._get_metadata(),
                 timeout=self._timeout if timeout is None else timeout,
@@ -4747,8 +4790,10 @@ class Client:
     ):
         if not close_session and (image is None) == (idempotency_key is None):
             raise ValueError("provide exactly one image handle or upload key")
-        if image is not None and image.session_id != session_id:
-            raise ValueError("image belongs to a different session")
+        if image is not None:
+            # The server names an image by its uploading session, which may be
+            # another session of this user when the image is unscoped.
+            session_id = image.session_id
         request = pb2.ReleaseImageRequest(
             session_id=session_id,
             image_handle=image.id if image is not None else "",

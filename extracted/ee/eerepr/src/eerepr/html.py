@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import html
-from collections.abc import Hashable
 from datetime import datetime, timezone
+from functools import lru_cache
 from itertools import chain
-from typing import Any
+
+from eerepr.style import CSS
 
 # Max characters to display for a list before truncating to "List (n elements)"
 MAX_INLINE_LENGTH = 50
@@ -25,81 +26,92 @@ PROPERTY_PRIORITY = [
 # Format for ee.Date and ee.DateRange
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
+# Mapping of numeric ranges to type names
+_TYPE_RANGES = {
+    "[-128, 127]": "signed int8",
+    "[0, 255]": "unsigned int8",
+    "[-32768, 32767]": "signed int16",
+    "[0, 65535]": "unsigned int16",
+    "[-2147483648, 2147483647]": "signed int32",
+    "[0, 4294967295]": "unsigned int32",
+    "[-9.223372036854776e+18, 9.223372036854776e+18]": "signed int64",
+}
 
-def escape_object(obj: Any) -> Any:
-    """Recursively escape HTML strings in a Python object."""
-    if isinstance(obj, str):
-        return html.escape(obj)
-    if isinstance(obj, list):
-        return [escape_object(element) for element in obj]
-    if isinstance(obj, dict):
-        return {escape_object(key): escape_object(value) for key, value in obj.items()}
-    return obj
+
+@lru_cache(maxsize=8192)
+def _escape_str(s: str) -> str:
+    # Quotes only need escaping inside attributes, and we only escape text content
+    return html.escape(s, quote=False)
 
 
-def convert_to_html(obj: Any, key: Hashable | None = None) -> str:
-    """Converts a Python object (not list or dict) to an HTML <li> element.
+def build_html_repr(obj: str | int | float | bool | dict | list | None) -> str:
+    """Build a complete HTML repr for a Python object, including the stylesheet."""
+    body = convert_to_html(obj)
+    return f"<div><style>{CSS}</style><div class='eerepr'><ul>{body}</ul></div></div>"
+
+
+def convert_to_html(obj: str | int | float | bool | dict | list | None) -> str:
+    """Converts a Python object to an HTML <li> element.
 
     Parameters
     ----------
-    obj : Any
+    obj : str | int | float | bool | dict | list | None
         The object to convert to HTML.
-    key : str, optional
-        The key to prepend to the object value, in the case of a dictionary value or
-        list element.
     """
-    if isinstance(obj, list):
-        return list_to_html(obj, key)
-    if isinstance(obj, dict):
-        return dict_to_html(obj, key)
-
-    key_html = f"<span class='ee-k'>{key}:</span>" if key is not None else ""
-    return f"<li>{key_html}<span class='ee-v'>{obj}</span></li>"
+    acc: list[str] = []
+    _write_object(obj, acc, key=None)
+    return f"<li>{''.join(acc)}"
 
 
-def list_to_html(obj: list, key: Hashable | None = None) -> str:
-    """Convert a Python list to an HTML <li> element."""
-    n = len(obj)
-    header = f"{key}: " if key is not None else ""
-
-    # Only stringify the list if it has few enough elements that it might not be
-    # truncated.
-    if n < MAX_LIST_LENGTH and len(contents := str(obj)) < MAX_INLINE_LENGTH:
-        header += contents
+def _write_object(
+    obj: str | int | float | bool | None | dict | list,
+    acc: list[str],
+    key: str | None = None,
+) -> None:
+    if isinstance(obj, (list, dict)):
+        _write_collection(obj, key=key, acc=acc)
     else:
-        header += f"List ({n} {'element' if n == 1 else 'elements'})"
-
-    children = [convert_to_html(item, key=i) for i, item in enumerate(obj)]
-    return _make_collapsible_li(header, children)
+        _write_item(str(obj), key=key, acc=acc)
 
 
-def dict_to_html(obj: dict, key: Hashable | None = None) -> str:
-    """Convert a Python dictionary to an HTML <li> element."""
-    label = _build_label(obj)
-    header = (f"{key}: " if key is not None else "") + label
+def _write_collection(obj: list | dict, acc: list[str], key: str | None = None) -> None:
+    # Create a collapsible <detail> block with a <summary> for the collection
+    acc.append("<details><summary>")
+    summary = _summarize_collection(obj)
+    _write_item(summary, key=key, acc=acc)
+    acc.append("</summary><ul>")
 
-    # Sort properties by priority, then alphabetically
-    sorted_keys = [k for k in PROPERTY_PRIORITY if k in obj] + sorted(
-        [k for k in obj if k not in PROPERTY_PRIORITY]
-    )
+    # Build a list of key, value pairs for the collection's children
+    if isinstance(obj, list):
+        children = list(enumerate(obj))
+    else:
+        sorted_keys = [k for k in PROPERTY_PRIORITY if k in obj] + sorted(
+            [k for k in obj if k not in PROPERTY_PRIORITY]
+        )
+        children = [(k, obj[k]) for k in sorted_keys]
 
-    children = [convert_to_html(obj[key], key=key) for key in sorted_keys]
-    return _make_collapsible_li(header, children)
+    # Add an <li> entry for each child to the detail block. Closing </li> tags are
+    # optional in HTML and omitted to reduce repr size.
+    for child_key, child_element in children:
+        acc.append("<li>")
+        _write_object(child_element, acc=acc, key=str(child_key))
 
-
-def _make_collapsible_li(header: str, children: list) -> str:
-    """Package a header and children into a collapsible list element."""
-    return (
-        "<li>"
-        "<details>"
-        f"<summary>{header}</summary>"
-        f"<ul>{''.join(children)}</ul>"
-        "</details>"
-        "</li>"
-    )
+    acc.append("</ul></details>")
 
 
-def _build_image_label(obj: dict) -> str:
+def _write_item(value: str, key: str | None, acc: list[str]) -> None:
+    """
+    Write a single HTML entry.
+
+    If the item is a child of a collection, it will prepend the optional key. Values and
+    keys are escaped prior to writing.
+    """
+    if key is not None:
+        acc.append(f"<b>{_escape_str(key)}:</b>")
+    acc.append(_escape_str(value))
+
+
+def _summarize_image(obj: dict) -> str:
     obj_id = obj.get("id")
     id_label = f" {obj_id}" if obj_id else ""
     n = len(obj.get("bands", []))
@@ -107,7 +119,7 @@ def _build_image_label(obj: dict) -> str:
     return f"Image{id_label} ({n} {noun})"
 
 
-def _build_imagecollection_label(obj: dict) -> str:
+def _summarize_imagecollection(obj: dict) -> str:
     obj_id = obj.get("id")
     id_label = f" {obj_id} " if obj_id else ""
     n = len(obj.get("features", []))
@@ -115,12 +127,12 @@ def _build_imagecollection_label(obj: dict) -> str:
     return f"ImageCollection{id_label} ({n} {noun})"
 
 
-def _build_date_label(obj: dict) -> str:
+def _summarize_date(obj: dict) -> str:
     dt = datetime.fromtimestamp(obj.get("value", 0) / 1000, tz=timezone.utc)
     return f"Date ({dt.strftime(DATE_FORMAT)})"
 
 
-def _build_feature_label(obj: dict) -> str:
+def _summarize_feature(obj: dict) -> str:
     n = len(obj.get("properties", []))
     try:
         geom_type = obj["geometry"]["type"]
@@ -132,7 +144,7 @@ def _build_feature_label(obj: dict) -> str:
     return f"Feature ({type_label}{n} {noun})"
 
 
-def _build_featurecollection_label(obj: dict) -> str:
+def _summarize_featurecollection(obj: dict) -> str:
     obj_id = obj.get("id")
     id_label = f" {obj_id} " if obj_id else ""
     ncols = len(obj.get("columns", []))
@@ -142,20 +154,20 @@ def _build_featurecollection_label(obj: dict) -> str:
     return f"FeatureCollection{id_label} ({nfeats} {feat_noun}, {ncols} {col_noun})"
 
 
-def _build_point_label(obj: dict) -> str:
+def _summarize_point(obj: dict) -> str:
     x, y = obj.get("coordinates", [None, None])
     xstr = f"{x:.2f}" if isinstance(x, (int, float)) else "NaN"
-    ystr = f"{y:.2f}" if isinstance(x, (int, float)) else "NaN"
+    ystr = f"{y:.2f}" if isinstance(y, (int, float)) else "NaN"
     return f"Point ({xstr}, {ystr})"
 
 
-def _build_polygon_label(obj: dict) -> str:
+def _summarize_polygon(obj: dict) -> str:
     n = len(obj.get("coordinates", [[]])[0])
     noun = "vertex" if n == 1 else "vertices"
     return f"Polygon ({n} {noun})"
 
 
-def _build_multipolygon_label(obj: dict) -> str:
+def _summarize_multipolygon(obj: dict) -> str:
     coords = obj.get("coordinates", [])[0]
     flat = list(chain.from_iterable(coords))
     n = len(flat)
@@ -163,7 +175,7 @@ def _build_multipolygon_label(obj: dict) -> str:
     return f"MultiPolygon ({n} {noun})"
 
 
-def _build_multipoint_label(obj: dict) -> str:
+def _summarize_multipoint(obj: dict) -> str:
     """This also works for LineString and LinearRing."""
     obj_type = obj.get("type")
     n = len(obj.get("coordinates", []))
@@ -171,35 +183,23 @@ def _build_multipoint_label(obj: dict) -> str:
     return f"{obj_type} ({n} {noun})"
 
 
-def _build_pixeltype_label(obj: dict) -> str:
+def _summarize_pixeltype(obj: dict) -> str:
     prec = obj.get("precision", "")
+    if prec in ["double", "float"]:
+        return prec
+
     minimum = str(obj.get("min", ""))
     maximum = str(obj.get("max", ""))
     val_range = f"[{minimum}, {maximum}]"
 
-    type_ranges = {
-        "[-128, 127]": "signed int8",
-        "[0, 255]": "unsigned int8",
-        "[-32768, 32767]": "signed int16",
-        "[0, 65535]": "unsigned int16",
-        "[-2147483648, 2147483647]": "signed int32",
-        "[0, 4294967295]": "unsigned int32",
-        "[-9.223372036854776e+18, 9.223372036854776e+18]": "signed int64",
-    }
-
-    if prec in ["double", "float"]:
-        return prec
-    try:
-        return type_ranges[val_range]
-    except KeyError:
-        return f"{prec} ∈ {val_range}"
+    return _TYPE_RANGES.get(val_range, f"{prec} ∈ {val_range}")
 
 
-def _build_band_label(obj: dict) -> str:
+def _summarize_band(obj: dict) -> str:
     band_id = obj.get("id", "")
     if band_id:
         band_id = f'"{band_id}"'
-    dtype = _build_pixeltype_label(obj.get("data_type", {}))
+    dtype = _summarize_pixeltype(obj.get("data_type", {}))
     dims = obj.get("dimensions")
     dimensions = f"{dims[0]}x{dims[1]} px" if dims else ""
     crs = obj.get("crs", "")
@@ -207,7 +207,7 @@ def _build_band_label(obj: dict) -> str:
     return ", ".join(filter(None, [band_id, dtype, crs, dimensions]))
 
 
-def _build_daterange_label(obj: dict) -> str:
+def _summarize_daterange(obj: dict) -> str:
     start, end = obj.get("dates", [0, 0])
     dt_start = datetime.fromtimestamp(start / 1000, tz=timezone.utc)
     dt_end = datetime.fromtimestamp(end / 1000, tz=timezone.utc)
@@ -216,14 +216,14 @@ def _build_daterange_label(obj: dict) -> str:
     )
 
 
-def _build_object_label(obj: dict) -> str:
+def _summarize_object(obj: dict) -> str:
     """Build a label for a generic JS object."""
     n = len(obj.keys())
     noun = "property" if n == 1 else "properties"
     return f"Object ({n} {noun})"
 
 
-def _build_typed_label(obj: dict) -> str:
+def _summarize_typed(obj: dict) -> str:
     """Build a label for an object with an unrecognized type."""
     obj_type = obj.get("type")
     obj_id = obj.get("id", "")
@@ -231,33 +231,40 @@ def _build_typed_label(obj: dict) -> str:
     return f"{obj_type}{id_label}"
 
 
-def _build_label(obj: dict) -> str:
-    """Take an info dictionary from Earth Engine and return a header label.
+def _summarize_collection(obj: dict | list) -> str:
+    """Generate a summary of a collection.
 
     These labels attempt to be consistent with outputs from the Code Editor.
     """
-    labelers = {
-        "Image": _build_image_label,
-        "ImageCollection": _build_imagecollection_label,
-        "Date": _build_date_label,
-        "Feature": _build_feature_label,
-        "FeatureCollection": _build_featurecollection_label,
-        "Point": _build_point_label,
-        "MultiPoint": _build_multipoint_label,
-        "LineString": _build_multipoint_label,
-        "LinearRing": _build_multipoint_label,
-        "Polygon": _build_polygon_label,
-        "MultiPolygon": _build_multipolygon_label,
-        "PixelType": _build_pixeltype_label,
-        "DateRange": _build_daterange_label,
-    }
+    if isinstance(obj, list):
+        n = len(obj)
+        # Only stringify the list if it has few enough elements that it might not be
+        # truncated.
+        if n < MAX_LIST_LENGTH and len(contents := str(obj)) < MAX_INLINE_LENGTH:
+            return contents
+        return f"List ({n} {'element' if n == 1 else 'elements'})"
 
     obj_type = obj.get("type", "")
     if not obj_type:
         if "data_type" in obj and "id" in obj:
-            return _build_band_label(obj)
-        return _build_object_label(obj)
-    try:
-        return labelers[obj_type](obj)
-    except KeyError:
-        return _build_typed_label(obj)
+            return _summarize_band(obj)
+        return _summarize_object(obj)
+
+    return _LABELERS.get(obj_type, _summarize_typed)(obj)
+
+
+_LABELERS = {
+    "Image": _summarize_image,
+    "ImageCollection": _summarize_imagecollection,
+    "Date": _summarize_date,
+    "Feature": _summarize_feature,
+    "FeatureCollection": _summarize_featurecollection,
+    "Point": _summarize_point,
+    "MultiPoint": _summarize_multipoint,
+    "LineString": _summarize_multipoint,
+    "LinearRing": _summarize_multipoint,
+    "Polygon": _summarize_polygon,
+    "MultiPolygon": _summarize_multipolygon,
+    "PixelType": _summarize_pixeltype,
+    "DateRange": _summarize_daterange,
+}

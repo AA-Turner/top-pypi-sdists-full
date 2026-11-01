@@ -2,7 +2,7 @@
 
 The server answers a device with an open settings request with
 `X-Probe-Settings-Requested`; the client that got it leaves a mark
-(`probe._shared.settings_request`), and a later `probe` command, a Probe service
+(`probe.foundation.remote_settings.preferences`), and a later `probe` command, a Probe service
 child included, applies it once (`probe.cli.remote_settings.apply_pending`, run
 by `probe.cli.main._settings_request_notice`). What each test pins would fail
 silently: a request no command on a service machine ever applies, one applied
@@ -22,13 +22,13 @@ import uuid
 import httpx
 import pytest
 
-from probe import version_policy
-from probe._shared import device_mark, settings_request
+from probe.shared.updates import version_policy
+from probe.foundation.remote_settings import remote_settings as device_mark, preferences as settings_request
 from probe.cli import remote_settings
 from probe.cli import telemetry as tm
 from probe.sdk import session_marker
-from probe.sdk.config import save_context
-from probe.sdk.transport import Transport
+from probe.sdk.settings.settings import save_context
+from probe.sdk.delivery.transport.transport import Transport
 
 cli_main = importlib.import_module("probe.cli.main")
 
@@ -89,7 +89,7 @@ def server(monkeypatch):
         status, body = answers.get(request.url.path, (404, {"detail": "no route"}))
         return httpx.Response(status, json=body)
 
-    from probe.sdk import transport as transport_mod
+    from probe.sdk.delivery import transport as transport_mod
 
     real_client = httpx.Client
 
@@ -135,7 +135,7 @@ def test_the_sdk_transport_notes_every_staff_request_kind():
         return httpx.Response(200, json={}, headers={settings_request.HEADER: STAMP})
 
     Transport(
-        __import__("probe.sdk.config", fromlist=["Settings"]).Settings(base_url=BASE, token="t"),
+        __import__("probe.sdk.settings.settings", fromlist=["Settings"]).Settings(base_url=BASE, token="t"),
         client=httpx.Client(base_url=BASE, transport=httpx.MockTransport(handle)),
         max_retries=0,
     ).request("GET", "/v1/me")
@@ -143,7 +143,7 @@ def test_the_sdk_transport_notes_every_staff_request_kind():
 
 
 def test_note_all_leaves_only_the_marks_the_answer_carries():
-    from probe._shared import capture_repair, update_request
+    from probe.foundation.remote_settings import capture_repair, update as update_request
 
     for mark in (update_request.MARK, capture_repair.MARK, settings_request.MARK):
         mark.reset_for_tests()
@@ -475,8 +475,8 @@ def test_session_default_and_doctor_say_staff_set_it_until_a_local_change(server
 def test_the_event_carries_words_and_counts_only(monkeypatch):
     records: list[dict] = []
     monkeypatch.setenv("PROBE_TELEMETRY", "on")
-    monkeypatch.setattr(tm, "_sender", None)
-    monkeypatch.setattr(tm, "_flush_registered", True)
+    monkeypatch.setattr(tm.sender, "_sender", None)
+    monkeypatch.setattr(tm.sender, "_flush_registered", True)
     monkeypatch.setattr(tm._Sender, "start", lambda self: None)
     monkeypatch.setattr(tm._Sender, "put", lambda self, rec: records.append(rec))
 
@@ -622,7 +622,7 @@ def test_staff_are_never_credited_with_a_value_they_did_not_set(server, monkeypa
 
 
 def _write_record(phase: str, moving_since: float | None = None, **report) -> None:
-    from probe import version_policy as vp
+    from probe.shared.updates import version_policy as vp
 
     vp.atomic_write_json(
         vp.state_dir() / remote_settings.APPLIED_NAME,

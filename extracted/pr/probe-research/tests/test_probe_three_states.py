@@ -697,7 +697,7 @@ def test_the_walk_stops_at_another_agent_and_passes_an_unreadable_match(marker, 
 def codex_shell(env, monkeypatch):
     """This process as a Codex tool shell: no other agent's markers (the suite
     may itself run inside one)."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     for harness in get_registry().all():
         for name in (*harness.detect_env, *((harness.session_env,) if harness.session_env else ())):
@@ -712,7 +712,7 @@ def test_a_defaulted_codex_session_without_proc_is_told_how(monkeypatch, codex_s
     which is then the researcher's choice for these sessions too."""
     import importlib
 
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
     from probe.sdk import session_marker
 
     cli_main = importlib.import_module("probe.cli.main")  # the package attribute is a function
@@ -730,7 +730,7 @@ def test_a_defaulted_codex_session_without_proc_is_told_how(monkeypatch, codex_s
 
 def test_session_status_carries_the_warning_for_its_own_session_only(monkeypatch, codex_shell, capsys):
     from probe import cli
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
     from probe.sdk import session_marker
 
     monkeypatch.setattr(codex_hooks, "launch_env_unreadable", lambda: True)
@@ -742,7 +742,8 @@ def test_session_status_carries_the_warning_for_its_own_session_only(monkeypatch
 
 
 def test_doctor_names_a_state_codex_hooks_will_not_see(monkeypatch, env):
-    from probe.cli import codex_hooks, doctor
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
+    from probe.cli import doctor
 
     caps = type("Caps", (), {"codex_available": True})()
     monkeypatch.setattr(codex_hooks, "status", lambda *a, **k: None)

@@ -69,9 +69,14 @@ from pathlib import Path
 import httpx
 import pytest
 
-from probe.daemon import adapters, approvals as appr, lease, precheck, probe_api, tools
+from probe.shared.harness import lookup as adapters
+from probe.daemon.host import lease
+from probe.daemon.session import probe_api
+from probe.daemon.agent import tools
+from probe.shared.mailbox import approvals as appr
+from probe.shared.command_rules import command_rules as precheck
 from probe.daemon import shell as sh
-from probe.daemon.store import Store
+from probe.daemon.store.store import Store
 
 AGENT = Path(__file__).resolve().parents[1]
 HOOKS = AGENT / "plugins" / "probe-research" / "hooks"
@@ -152,7 +157,8 @@ def test_every_tool_stops_when_the_daemon_may_no_longer_write(tmp_path, monkeypa
     async def never(*a, **k):
         raise AssertionError("nothing may run")
 
-    monkeypatch.setattr(tools, "run_probe_process", never)
+    monkeypatch.setattr(tools.probe_cli.process, "run_probe_process", never)
+    monkeypatch.setattr(tools.summaries, "run_probe_process", never)
     deps = _deps(tmp_path, replay=None, session_id=SID)
     _live(SID, state="off")
     calls = [
@@ -1337,7 +1343,7 @@ def test_a_non_idempotent_write_that_failed_in_transport_runs_once(tmp_path, mon
     fake.write_text(f"#!/bin/sh\necho x >> {counter}\necho 'error: POST /v1/artifacts/presign: timed out' >&2\n"
                     "exit 1\n")
     fake.chmod(0o755)
-    monkeypatch.setattr(tools, "probe_executable", lambda: [str(fake)])
+    monkeypatch.setattr(tools.probe_cli.process, "probe_executable", lambda: [str(fake)])
 
     async def no_wait(_s):
         return None
@@ -1413,7 +1419,7 @@ def _fake_probe(tmp_path, monkeypatch, script: str) -> Path:
     fake = tmp_path / "probe"
     fake.write_text("#!/bin/sh\n" + script)
     fake.chmod(0o755)
-    monkeypatch.setattr(tools, "probe_executable", lambda: [str(fake)])
+    monkeypatch.setattr(tools.probe_cli.process, "probe_executable", lambda: [str(fake)])
     return fake
 
 
@@ -1461,7 +1467,7 @@ def test_a_moved_switch_kills_the_command_already_running(tmp_path, monkeypatch)
     """[G-8] the lease is re-read while the command runs, not only before it."""
     pidfile = tmp_path / "pid"
     _fake_probe(tmp_path, monkeypatch, f"sleep 30 & echo $! > {pidfile}\nwait\n")
-    monkeypatch.setattr(tools, "LEASE_POLL_S", 0.05)
+    monkeypatch.setattr(tools.probe_cli.process, "LEASE_POLL_S", 0.05)
     deps = _deps(tmp_path, replay=None, session_id=SID)
     _live(SID)
 
@@ -1529,9 +1535,9 @@ def test_a_commands_retries_fit_inside_the_lease(tmp_path, monkeypatch):
     async def no_wait(s):
         clock[0] += s
 
-    monkeypatch.setattr(tools, "_attempt", attempt)
+    monkeypatch.setattr(tools.probe_cli.process, "_attempt", attempt)
     monkeypatch.setattr(tools.asyncio, "sleep", no_wait)
-    monkeypatch.setattr(tools, "_clock", lambda: clock[0])
+    monkeypatch.setattr(tools.probe_cli.process, "_clock", lambda: clock[0])
     deps = _deps(tmp_path, replay=None, session_id=SID)
     _live(SID)
     _run(tools.run_probe_process(deps, ["run", "tag", "r1", "x"], "op"))
@@ -1870,7 +1876,7 @@ def test_bypass_mode_never_runs_probe_from_the_shell(tmp_path, monkeypatch):
         ran.append(command)
         return sh.ShellResult(0, "", False, False)
 
-    monkeypatch.setattr(sh, "run", run)
+    monkeypatch.setattr(sh.runner, "run", run)
     deps = _deps(tmp_path, bypass=True)
     (deps.cwd / "results.md").write_text("val F1 0.81\n")
     out = _run(tools.shell(deps, "cd . && probe artifact add results.md --project p", why="record it"))

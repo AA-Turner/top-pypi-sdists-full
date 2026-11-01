@@ -10,13 +10,13 @@ from __future__ import annotations
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 from probe.cli.capabilities import Capabilities
 from probe.sdk import errors
-from probe.sdk.client import Client
-from probe.sdk.config import Settings, resolve
-from probe.sdk.device import hostname
-from probe.sdk.surface import Surface
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings, resolve
+from probe.sdk.settings.device import hostname
+from probe.foundation.request_identity.surface import Surface
 
 
 class Installed(StrEnum):

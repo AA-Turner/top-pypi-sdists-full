@@ -60,7 +60,7 @@ def test_an_artifact_name_defaults_to_the_relative_path_not_the_basename(tmp_pat
     monkeypatch.chdir(tmp_path)
 
     row = {"path": "michael/odyssey/config.yaml", "notes": "the odyssey config"}
-    from probe.sdk.client import Anchor  # noqa: PLC0415
+    from probe.sdk.artifact.anchors import Anchor  # noqa: PLC0415
 
     planned = _plan_manifest_row(row, default_anchor=(Anchor.PROJECT, "p-1"), reference_over=10**9)
     assert planned["name"] == "michael/odyssey/config.yaml", (
@@ -89,7 +89,7 @@ def test_an_absolute_path_still_falls_back_to_the_basename(tmp_path, monkeypatch
     manifest. That is not a name anyone wants in a dashboard, and it leaks a
     local layout into shared data."""
     from probe.cli.main import _plan_manifest_row  # noqa: PLC0415
-    from probe.sdk.client import Anchor  # noqa: PLC0415
+    from probe.sdk.artifact.anchors import Anchor  # noqa: PLC0415
 
     target = tmp_path / "deep" / "shard.bin"
     target.parent.mkdir(parents=True)

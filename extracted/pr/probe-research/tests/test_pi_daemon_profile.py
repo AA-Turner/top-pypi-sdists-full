@@ -15,10 +15,11 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from probe.cli import agent_rules, pi_config
+from probe.cli import agent_rules
+from probe.shared.harness.harnesses import pi as pi_config
 from probe.cli import setup as wizard
 from probe.cli.capabilities import Capabilities
-from probe.cli.claude_cli import Result
+from probe.shared.harness.harnesses.claude_code.binary import Result
 from probe.sdk import session_marker
 
 AGENT = Path(__file__).resolve().parents[1]
@@ -174,7 +175,7 @@ class _Moves:
             (clone / "package.json").write_text(json.dumps({"name": "probe-research-pi", "version": update_to}))
             return Result(ok=True, detail="updated")
 
-        monkeypatch.setattr(pi_config, "update_package", update)
+        monkeypatch.setattr(pi_config.package_update, "update_package", update)
 
 
 def _pi_caps():
@@ -291,7 +292,7 @@ def test_an_old_package_stops_the_switch_before_pairing(isolate, monkeypatch):
     monkeypatch.setattr(cli_main, "_run_daemon_page", lambda **kw: None)
     monkeypatch.setattr(cli_main, "_daemon_key_refused", lambda base: False)
     _install_mirror_entry(isolate, version="0.2.0")
-    monkeypatch.setattr(pi_config, "update_package", lambda env=None: Result(ok=False, detail="offline"))
+    monkeypatch.setattr(pi_config.package_update, "update_package", lambda env=None: Result(ok=False, detail="offline"))
     monkeypatch.setattr(wizard, "pair_capture", lambda source, **kw: calls.append(("pair", source)) or [])
     monkeypatch.setattr(wizard, "apply_recorder", lambda caps, value, **kw: calls.append(("apply", value)) or [])
 

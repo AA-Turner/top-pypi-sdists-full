@@ -277,10 +277,10 @@ class PawchiveExtractor(Extractor):
                 file["url"] = url
             if "path" not in file:
                 file["path"] = url
-        else:
+        elif file.get("deferred"):
             file["deferred"] = False
             self.log.debug("%s: Missing 'deferred' file link (%s)",
-                           post["id"], file["name"])
+                           post["id"], file.get("name") or file.get("path"))
 
     def _extract_inline(self, post):
         for path in self._find_inline(post.get("content") or ""):

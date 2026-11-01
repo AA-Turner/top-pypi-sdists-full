@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.286
+Version: 0.3.287
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -69,7 +69,7 @@ Requires-Dist: aws-bedrock-token-generator; extra == "dev"
 Requires-Dist: azure-ai-inference; extra == "dev"
 Requires-Dist: azure-identity; extra == "dev"
 Requires-Dist: brotli; extra == "dev"
-Requires-Dist: google-genai>=2.14.0; extra == "dev"
+Requires-Dist: google-genai>=2.31.0; extra == "dev"
 Requires-Dist: griffe>=2; extra == "dev"
 Requires-Dist: groq>=0.28.0; extra == "dev"
 Requires-Dist: huggingface_hub>=1.6.0; extra == "dev"
@@ -89,7 +89,8 @@ Requires-Dist: pandas>=2.0.0; extra == "dev"
 Requires-Dist: pandas-stubs; extra == "dev"
 Requires-Dist: panflute; extra == "dev"
 Requires-Dist: pip; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pre-commit>=4.4.0; extra == "dev"
+Requires-Dist: pre-commit-hooks==4.5.0; extra == "dev"
 Requires-Dist: pyarrow>=10.0.1; extra == "dev"
 Requires-Dist: pyarrow-stubs; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
@@ -119,6 +120,7 @@ Requires-Dist: types-psutil; extra == "dev"
 Requires-Dist: types-python-dateutil; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
 Requires-Dist: types-regex; extra == "dev"
+Requires-Dist: typos==1.31.2; extra == "dev"
 Requires-Dist: xai_sdk>=1.18.0; extra == "dev"
 Requires-Dist: zipfile-zstd>=0.0.4; python_version < "3.14" and extra == "dev"
 Provides-Extra: doc
@@ -133,6 +135,7 @@ Requires-Dist: quarto-cli>=1.9.36; extra == "doc"
 Requires-Dist: types-PyYAML; extra == "doc"
 Provides-Extra: dist
 Requires-Dist: build; extra == "dist"
+Requires-Dist: check-wheel-contents; extra == "dist"
 Requires-Dist: twine; extra == "dist"
 Provides-Extra: math
 Requires-Dist: antlr4-python3-runtime!=4.10.*,!=4.12.*,!=4.13.0,!=4.13.1,<=4.13.2,>=4.9.3; extra == "math"
@@ -161,7 +164,7 @@ cd inspect_ai
 uv sync
 ```
 
-This installs Inspect in editable mode with its development dependencies at the versions recorded in `uv.lock`. Project dependencies are declared in `requirements*.txt` and exposed through `pyproject.toml`. When changing dependencies, update the appropriate requirements file and run `uv lock` rather than relying on `uv add`. uv only resolves releases that are at least seven days old, except for model provider SDKs and Inspect's own packages; see [CONTRIBUTING.md](CONTRIBUTING.md#working-on-your-issue) for how to adopt a newer release.
+This installs Inspect in editable mode with its development dependencies at the versions recorded in `uv.lock`. Project dependencies are declared in `pyproject.toml` (`dependencies` and the `optional-dependencies` extras). When changing dependencies, edit them there and run `uv lock`. uv only resolves releases that are at least seven days old, except for model provider SDKs and Inspect's own packages; see [CONTRIBUTING.md](CONTRIBUTING.md#working-on-your-issue) for how to adopt a newer release.
 
 Optionally install pre-commit hooks via
 

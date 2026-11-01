@@ -162,6 +162,10 @@ class LinkedInExtractor:
         """Read how a job posting takes applications and the employer's link."""
         return await self._jobs.get_job_apply_url(job_id)
 
+    async def get_easy_apply_form(self, job_id: str) -> dict[str, Any]:
+        """Read the questions of a job posting's Easy Apply form."""
+        return await self._jobs.get_easy_apply_form(job_id)
+
     async def search_jobs(
         self,
         keywords: str,
@@ -195,6 +199,10 @@ class LinkedInExtractor:
         """List the authenticated user's jobs at one job-tracker stage."""
         return await self._jobs.get_saved_jobs(max_pages, stage)
 
+    async def dismiss_job(self, job_id: str) -> dict[str, Any]:
+        """Dismiss a job from job search through its result card."""
+        return await self._jobs.dismiss_job(job_id)
+
     async def search_people(
         self,
         keywords: str,
@@ -219,12 +227,14 @@ class LinkedInExtractor:
         keywords: str,
         date_posted: str | None = None,
         max_pages: int = 3,
+        content_type: str | None = None,
     ) -> dict[str, Any]:
         """Search LinkedIn posts and extract the results page."""
         return await self._posts.search_posts(
             keywords,
             date_posted=date_posted,
             max_pages=max_pages,
+            content_type=content_type,
         )
 
     async def get_inbox(self, limit: int = 20) -> dict[str, Any]:
@@ -247,6 +257,10 @@ class LinkedInExtractor:
     ) -> dict[str, Any]:
         """Search messages by keyword."""
         return await self._conversations.search_conversations(keywords, limit)
+
+    async def archive_conversation(self, thread_id: str) -> dict[str, Any]:
+        """Archive one messaging thread by its thread id."""
+        return await self._conversations.archive_conversation(thread_id)
 
     async def send_message(
         self,

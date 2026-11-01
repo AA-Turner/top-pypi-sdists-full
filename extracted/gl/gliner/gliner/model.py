@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Mapping, Optional
 from pathlib import Path
 from threading import RLock
+from contextlib import contextmanager
 
 import torch
 import transformers
@@ -90,6 +91,7 @@ from .data_processing import (
     UniEncoderTokenDecoderProcessor,
     RelationExtractionTokenProcessor,
 )
+from .modeling.calibrator import GLiNERCalibrator, calibrator_mode, apply_calibrator, build_calibrator
 from .data_processing.utils import prepare_streaming_span_idx
 from .data_processing.collator import (
     BiEncoderSpanDataCollator,
@@ -389,6 +391,8 @@ class BaseGLiNER(ABC, nn.Module, PyTorchModelHubMixin):
     data_processor_class: type = None
     data_collator_class: type = None
     decoder_class: type = None
+    # Whether a calibration head (gliner/modeling/calibrator.py) can be attached.
+    supports_calibrator: bool = True
 
     def __init__(
         self,
@@ -444,6 +448,109 @@ class BaseGLiNER(ABC, nn.Module, PyTorchModelHubMixin):
 
         self._keys_to_ignore_on_save = None
         self._inference_packing_config: InferencePackingConfig | None = None
+
+        self._calibrator_hook = None
+        self.calibrator_enabled = True
+        if getattr(config, "use_calibrator", False):
+            if self.runtime_model:
+                warnings.warn(
+                    "This model has a calibration head, but it is not applied with the "
+                    f"'{self.runtime}' runtime; scores are uncalibrated.",
+                    stacklevel=2,
+                )
+            elif self.supports_calibrator:
+                self._attach_calibrator(build_calibrator(config))
+
+    # ------------------------------------------------------------------
+    # Calibration head
+    # ------------------------------------------------------------------
+
+    def _core_model(self) -> nn.Module:
+        """The underlying model, looking through torch.compile wrappers."""
+        return getattr(self.model, "_orig_mod", self.model)
+
+    @property
+    def calibrator(self) -> GLiNERCalibrator | None:
+        """The attached calibration head, or None."""
+        if self.runtime_model:
+            return None
+        return getattr(self._core_model(), "calibrator", None)
+
+    def add_calibrator(
+        self,
+        word_dim: int | None = None,
+        label_dim: int | None = None,
+        **calibrator_kwargs: Any,
+    ) -> GLiNERCalibrator:
+        """Attach a fresh calibration head and record it in the config.
+
+        The head starts as the identity (beta = 1, bias = 0); fit it with
+        ``gliner.calibration.fit_calibrator`` or ``scripts/calibrate.py --method head``.
+
+        Args:
+            word_dim: Size of ``words_embedding``. Defaults to ``config.hidden_size``.
+            label_dim: Size of ``prompts_embedding``. Defaults to ``config.hidden_size``.
+            **calibrator_kwargs: Overrides for ``calibrator_*`` config fields, e.g.
+                ``hidden_size=256``, ``beta_max=5.0``, ``use_bias=True``,
+                ``candidate_threshold=0.01``.
+
+        Returns:
+            The new calibrator module.
+        """
+        if self.runtime_model:
+            raise RuntimeError("A calibration head can only be attached to a PyTorch-backed model.")
+        if not self.supports_calibrator:
+            raise NotImplementedError(f"{type(self).__name__} does not support a calibration head.")
+        for key, value in calibrator_kwargs.items():
+            attr = f"calibrator_{key}"
+            if not hasattr(self.config, attr):
+                raise TypeError(f"Unknown calibrator option '{key}'")
+            setattr(self.config, attr, value)
+        self.config.calibrator_word_dim = word_dim or self.config.calibrator_word_dim or self.config.hidden_size
+        self.config.calibrator_label_dim = label_dim or self.config.calibrator_label_dim or self.config.hidden_size
+        self.config.calibrator_mode = self.config.calibrator_mode or calibrator_mode(self.config)
+        self.config.use_calibrator = True
+
+        reference = next(self._core_model().parameters())
+        calibrator = build_calibrator(self.config).to(device=reference.device)
+        self._attach_calibrator(calibrator)
+        return calibrator
+
+    def remove_calibrator(self) -> None:
+        """Detach the calibration head and mark the config as uncalibrated."""
+        core = self._core_model()
+        if hasattr(core, "calibrator"):
+            del core.calibrator
+        if self._calibrator_hook is not None:
+            self._calibrator_hook.remove()
+            self._calibrator_hook = None
+        self.config.use_calibrator = False
+
+    def _attach_calibrator(self, calibrator: GLiNERCalibrator) -> None:
+        # Registered as a child of the core model so save_pretrained / from_pretrained carry it.
+        self._core_model().calibrator = calibrator
+        if self._calibrator_hook is None:
+            # A forward hook covers every inference path that calls self.model(...).
+            self._calibrator_hook = self._core_model().register_forward_hook(self._calibrator_forward_hook)
+
+    def _calibrator_forward_hook(self, module: nn.Module, args: Any, output: Any) -> Any:
+        calibrator = getattr(module, "calibrator", None)
+        if calibrator is None or not self.calibrator_enabled or module.training:
+            return None
+        # Training / loss computation (labels given) always sees raw logits.
+        if getattr(output, "loss", None) is not None or not hasattr(output, "logits"):
+            return None
+        return apply_calibrator(calibrator, output)
+
+    @contextmanager
+    def calibrator_disabled(self):
+        """Context manager that temporarily returns uncalibrated logits."""
+        previous = self.calibrator_enabled
+        self.calibrator_enabled = False
+        try:
+            yield self
+        finally:
+            self.calibrator_enabled = previous
 
     @abstractmethod
     def _create_model(self, config, backbone_from_pretrained, cache_dir, **kwargs):
@@ -533,10 +640,11 @@ class BaseGLiNER(ABC, nn.Module, PyTorchModelHubMixin):
 
         Best combined with ``quantize()`` for maximum throughput (~1.9x over fp32).
 
-        When FlashDeBERTa is active, its custom Triton kernels are incompatible
-        with torch.compile tracing.  The encoder forward is automatically
-        wrapped with ``torch.compiler.disable`` so the rest of the model
-        (span representation, scoring, etc.) still benefits from compilation.
+        FlashDeBERTa versions that register their attention kernels as
+        ``torch.library`` custom ops (``flashdeberta.ops.library``) are compiled
+        together with the rest of the model. Older versions cannot be traced, so
+        their encoder forward is wrapped with ``torch.compiler.disable`` and the
+        rest of the model (span representation, scoring, etc.) is still compiled.
         """
         if self.is_runtime_model:
             raise RuntimeError(
@@ -546,16 +654,35 @@ class BaseGLiNER(ABC, nn.Module, PyTorchModelHubMixin):
 
         torch._dynamo.config.capture_scalar_outputs = True
 
-        # FlashDeBERTa uses hand-written Triton kernels that torch.compile cannot trace.
-        try:
-            bert_layer = self.model.token_rep_layer.bert_layer
-            model_cls = bert_layer.model.__class__.__name__
-            if model_cls == "FlashDebertaV2Model":
-                bert_layer.forward = torch.compiler.disable(bert_layer.forward)
-        except AttributeError:
-            pass  # non-standard architecture, skip
+        flashdeberta_compilable = is_module_available("flashdeberta") and is_module_available(
+            "flashdeberta.ops.library"
+        )
+        if not flashdeberta_compilable:
+            try:
+                bert_layer = self.model.token_rep_layer.bert_layer
+                encoder = bert_layer.model
+                # Look through wrappers such as PolyLoRA (``base_model``).
+                encoder = getattr(encoder, "base_model", encoder)
+                if encoder.__class__.__name__ == "FlashDebertaV2Model":
+                    bert_layer.forward = torch.compiler.disable(bert_layer.forward)
+            except AttributeError:
+                pass  # non-standard architecture, skip
 
         self.model = torch.compile(self.model, dynamic=True)
+
+    # Decoding metadata the collators add to a batch. The model forward never reads it,
+    # and keeping it out of the call keeps it out of torch.compile guards: per-request
+    # label sets turn ``id_to_classes`` from a dict into a list of dicts, which aborts the
+    # process in torch 2.10's guard check instead of recompiling.
+    _DECODE_ONLY_KEYS = frozenset(
+        {"tokens", "entities", "id_to_classes", "relations", "rel_id_to_classes", "rel_class_to_ids"}
+    )
+
+    def _forward_inputs(self, batch: Dict[str, Any]) -> Dict[str, Any]:
+        """The entries of a collated batch that the model forward takes."""
+        if self.is_runtime_model:
+            return dict(batch)
+        return {key: value for key, value in batch.items() if key not in self._DECODE_ONLY_KEYS}
 
     _PRECISION_ALIASES = {"fp16", "float16", "half", "bf16", "bfloat16"}
 
@@ -903,19 +1030,27 @@ class BaseGLiNER(ABC, nn.Module, PyTorchModelHubMixin):
         return resolved
 
     def quantize(self, dtype: str = "int8") -> None:
-        """Apply int8 quantization to the model.
+        """Apply int8 or fp8 quantization to the model.
 
-        Only ``"int8"`` is accepted; for precision changes (fp16/bf16), use
+        Only ``"int8"`` and ``"fp8"`` are accepted; for precision changes (fp16/bf16), use
         ``dtype=`` on :meth:`GLiNER.from_pretrained` or ``model.to(torch_dtype)``
         — those are downcasts, not quantization, and were removed from this API.
 
         Args:
-            dtype: Must be ``"int8"``. On CPU, uses PyTorch's built-in dynamic
+            dtype: ``"int8"`` or ``"fp8"``.
+
+                ``"int8"``: on CPU, uses PyTorch's built-in dynamic
                 quantization with FBGEMM int8 kernels (~1.6x speedup). On GPU,
                 uses ``torchao`` int8 weight-only quantization (~50% memory
                 reduction, no speed gain; requires the ``torchao`` package).
                 Stock DeBERTa-based models lose accuracy with int8; use this
                 with models fine-tuned with quantization-aware training (QAT).
+
+                ``"fp8"``: rowwise-scaled FP8 linear layers in the encoder(s) via
+                ``torchao``, plus FP8 Q·Kᵀ attention when the encoder is FlashDeBERTa.
+                Needs a GPU with FP8 tensor cores (compute capability 8.9+) and is
+                meant to run under :meth:`compile`. Works on PolyLoRA-wrapped
+                encoders: the base layers are converted, the adapters are not.
 
         Raises:
             RuntimeError: If the model is an ONNX model (use ONNX quantization instead).
@@ -937,7 +1072,7 @@ class BaseGLiNER(ABC, nn.Module, PyTorchModelHubMixin):
 
         if not isinstance(dtype, str):
             raise TypeError(
-                f"`quantize()` expects a string (only 'int8' is supported), "
+                f"`quantize()` expects a string ('int8' or 'fp8'), "
                 f"got {type(dtype).__name__}. For precision changes use `dtype=` "
                 f"on `GLiNER.from_pretrained` or `model.to(torch_dtype)`."
             )
@@ -949,14 +1084,69 @@ class BaseGLiNER(ABC, nn.Module, PyTorchModelHubMixin):
                 f"`quantize({dtype!r})` is no longer supported — these values were precision "
                 f"downcasts, not quantization. Use `GLiNER.from_pretrained(..., dtype={dtype!r})` "
                 f"for an efficient load, or `model.to(torch.{torch_name})` post-load. "
-                f"`quantize('int8')` is the only remaining value."
+                f"`quantize('int8')` and `quantize('fp8')` are the supported values."
             )
+        if dtype_lower == "fp8":
+            self._apply_fp8_quantization()
+            return
         if dtype_lower != "int8":
             raise ValueError(
-                f"Unknown quantize dtype {dtype!r}. Only 'int8' is supported; "
+                f"Unknown quantize dtype {dtype!r}. Only 'int8' and 'fp8' are supported; "
                 f"use `dtype=` on `GLiNER.from_pretrained` for precision changes."
             )
         self._apply_int8_quantization()
+
+    _FP8_SKIP_MARKERS = ("lora_A", "lora_B", "lora_embedding", "lora_magnitude")
+
+    @classmethod
+    def _fp8_module_filter(cls, module: nn.Module, fqn: str) -> bool:
+        """Linear layers with FP8-friendly sizes; no LoRA adapter matrices."""
+        if not isinstance(module, nn.Linear):
+            return False
+        if any(marker in fqn for marker in cls._FP8_SKIP_MARKERS):
+            return False
+        return module.in_features % 16 == 0 and module.out_features % 16 == 0
+
+    def _apply_fp8_quantization(self) -> None:
+        """Quantize the encoder(s) for FP8 inference.
+
+        Linear layers use torchao rowwise-scaled FP8 (per-token activation and
+        per-channel weight scales). FlashDeBERTa encoders also run Q·Kᵀ in FP8.
+        Heads stay in high precision. Under PolyLoRA the base layer of every
+        multi-LoRA linear is converted and the adapters stay as they are.
+        """
+        if self.device.type != "cuda":
+            raise RuntimeError("fp8 quantization requires a CUDA device.")
+        if torch.cuda.get_device_capability(self.device) < (8, 9):
+            raise RuntimeError("fp8 quantization requires a GPU with compute capability 8.9+ (Ada, Hopper or newer).")
+        if not is_module_available("torchao"):
+            raise ImportError("fp8 quantization requires the 'torchao' package. Install it with: pip install torchao")
+        from torchao.quantization import PerRow, Float8DynamicActivationFloat8WeightConfig, quantize_  # noqa: PLC0415
+
+        encoders = {
+            name: module
+            for name, module in self._get_freezable_components().items()
+            if name in {"text_encoder", "labels_encoder"}
+        }
+        if not encoders:
+            raise RuntimeError("fp8 quantization needs a transformer encoder; none was found on this model.")
+
+        # Padded tokens can be all zeros: a lower bound on the activation amax keeps
+        # their rowwise scale finite instead of 0 / 0.
+        config = Float8DynamicActivationFloat8WeightConfig(
+            granularity=PerRow(), activation_value_lb=1e-12, set_inductor_config=False
+        )
+        for name, encoder in encoders.items():
+            quantize_(encoder, config, filter_fn=self._fp8_module_filter)
+            logger.info("Applied fp8 rowwise quantization to %s linear layers via torchao.", name)
+
+            if is_module_available("flashdeberta"):
+                from flashdeberta import FlashDisentangledSelfAttention  # noqa: PLC0415
+                from flashdeberta.quantization import set_attention_precision  # noqa: PLC0415
+
+                if any(isinstance(m, FlashDisentangledSelfAttention) for m in encoder.modules()):
+                    set_attention_precision(encoder, "fp8_qk")
+                    logger.info("Enabled fp8 Q·Kᵀ attention in the FlashDeBERTa %s.", name)
 
     def _apply_int8_quantization(self) -> None:
         """Apply int8 quantization using the best backend for the current device.
@@ -1503,9 +1693,9 @@ class BaseGLiNER(ABC, nn.Module, PyTorchModelHubMixin):
             resize_token_embeddings: Whether to resize token embeddings.
             backbone_from_pretrained: Whether to load the backbone encoder from pretrained weights.
             compile_torch_model: Whether to compile with torch.compile.
-            quantize: Only ``"int8"`` is accepted (int8 dynamic quantization: torchao
-                on GPU, FBGEMM on CPU). For precision-only changes (fp16/bf16), use
-                ``dtype=``. ``None`` to disable.
+            quantize: ``"int8"`` (int8 dynamic quantization: torchao on GPU, FBGEMM
+                on CPU) or ``"fp8"`` (FP8 encoder, see :meth:`quantize`). For
+                precision-only changes (fp16/bf16), use ``dtype=``. ``None`` to disable.
             map_location: Device to map model to.
             max_length: Override max_length in config.
             max_width: Override max_width in config.
@@ -1646,9 +1836,9 @@ class BaseGLiNER(ABC, nn.Module, PyTorchModelHubMixin):
             load_tokenizer: Whether to load tokenizer.
             resize_token_embeddings: Whether to resize embeddings.
             compile_torch_model: Whether to compile with torch.compile.
-            quantize: Only ``"int8"`` is accepted (int8 dynamic quantization: torchao
-                on GPU, FBGEMM on CPU). For precision-only changes (fp16/bf16), use
-                ``dtype=``. ``None`` to disable.
+            quantize: ``"int8"`` (int8 dynamic quantization: torchao on GPU, FBGEMM
+                on CPU) or ``"fp8"`` (FP8 encoder, see :meth:`quantize`). For
+                precision-only changes (fp16/bf16), use ``dtype=``. ``None`` to disable.
             dtype: Target floating-point dtype for the loaded weights (e.g.
                 ``torch.bfloat16``, ``"bf16"``, ``"fp16"``). When set, the model
                 shell is pre-cast and each state-dict tensor is cast during
@@ -2410,7 +2600,8 @@ class BaseGLiNER(ABC, nn.Module, PyTorchModelHubMixin):
             bf16: Whether to use bfloat16.
             dataloader_num_workers: Number of dataloader workers.
             report_to: Where to report metrics.
-            **kwargs: Additional training arguments.
+            **kwargs: Additional training arguments, e.g. ``loss_type``
+                ('focal', 'bce', 'dice', 'ce', 'ce_calibrated') and ``ce_calib_weight``.
 
         Returns:
             TrainingArguments instance.
@@ -2905,12 +3096,9 @@ class BaseEncoderGLiNER(BaseGLiNER):
         if move_to_device and not self.is_runtime_model:
             batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
 
-        if packing_config is not None or external_inputs:
-            model_inputs = {**batch, **external_inputs}
-            if packing_config is not None:
-                model_inputs["packing_config"] = packing_config
-        else:
-            model_inputs = batch
+        model_inputs = {**self._forward_inputs(batch), **external_inputs}
+        if packing_config is not None:
+            model_inputs["packing_config"] = packing_config
 
         if return_vectors:
             model_inputs = {**model_inputs, "return_embeddings": True}
@@ -3842,6 +4030,9 @@ class UniEncoderSpanGLiNER(BaseEncoderGLiNER):
 
 class StreamingSpanGLiNER(BaseEncoderGLiNER):
     """Causal-decoder span model with optional per-session streaming state."""
+
+    # Session logits are merged across calls, so a per-call head would be inconsistent.
+    supports_calibrator = False
 
     config_class = StreamingSpanConfig
     model_class = StreamingSpanModel
@@ -5382,7 +5573,9 @@ class UniEncoderSpanDecoderGLiNER(BaseEncoderGLiNER):
         if move_to_device and not self.is_runtime_model:
             batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
 
-        model_inputs = batch.copy() if packing_config is None else {**batch, "packing_config": packing_config}
+        model_inputs = self._forward_inputs(batch)
+        if packing_config is not None:
+            model_inputs["packing_config"] = packing_config
         if return_vectors:
             model_inputs["return_embeddings"] = True
         model_output = self.model(**model_inputs, threshold=threshold)
@@ -5920,12 +6113,9 @@ class UniEncoderSpanRelexGLiNER(BaseEncoderGLiNER):
         if move_to_device and not self.is_runtime_model:
             batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
 
-        if packing_config is not None or external_inputs:
-            model_inputs = {**batch, **external_inputs}
-            if packing_config is not None:
-                model_inputs["packing_config"] = packing_config
-        else:
-            model_inputs = batch
+        model_inputs = {**self._forward_inputs(batch), **external_inputs}
+        if packing_config is not None:
+            model_inputs["packing_config"] = packing_config
 
         if return_vectors:
             model_inputs = {**model_inputs, "return_embeddings": True}
@@ -6564,7 +6754,7 @@ class UniEncoderSpanRelexGLiNER(BaseEncoderGLiNER):
                 batch = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}  # noqa: PLW2901
 
             # Get model predictions
-            model_inputs = batch.copy()
+            model_inputs = self._forward_inputs(batch)
             model_output = self.model(**model_inputs, threshold=threshold, adjacency_threshold=adjacency_threshold)
 
             # Extract logits and relation outputs
@@ -6962,9 +7152,9 @@ class GLiNER(nn.Module, PyTorchModelHubMixin):
             load_tokenizer: Whether to load tokenizer.
             resize_token_embeddings: Whether to resize embeddings.
             compile_torch_model: Whether to compile with torch.compile.
-            quantize: Only ``"int8"`` is accepted (int8 dynamic quantization: torchao
-                on GPU, FBGEMM on CPU). For precision-only changes (fp16/bf16), use
-                ``dtype=``. ``None`` to disable.
+            quantize: ``"int8"`` (int8 dynamic quantization: torchao on GPU, FBGEMM
+                on CPU) or ``"fp8"`` (FP8 encoder, see :meth:`quantize`). For
+                precision-only changes (fp16/bf16), use ``dtype=``. ``None`` to disable.
             dtype: Target floating-point dtype for the loaded weights (e.g.
                 ``torch.bfloat16``, ``"bf16"``, ``"fp16"``). When set, weights
                 are cast during the state-dict read so the fp32 copy is never
@@ -7134,9 +7324,9 @@ class GLiNER(nn.Module, PyTorchModelHubMixin):
             resize_token_embeddings: Whether to resize token embeddings.
             backbone_from_pretrained: Whether to load the backbone encoder from pretrained weights.
             compile_torch_model: Whether to compile with torch.compile.
-            quantize: Only ``"int8"`` is accepted (int8 dynamic quantization: torchao
-                on GPU, FBGEMM on CPU). For precision-only changes (fp16/bf16), use
-                ``dtype=``. ``None`` to disable.
+            quantize: ``"int8"`` (int8 dynamic quantization: torchao on GPU, FBGEMM
+                on CPU) or ``"fp8"`` (FP8 encoder, see :meth:`quantize`). For
+                precision-only changes (fp16/bf16), use ``dtype=``. ``None`` to disable.
             map_location: Device to map model to.
             max_length: Override max_length in config.
             max_width: Override max_width in config.

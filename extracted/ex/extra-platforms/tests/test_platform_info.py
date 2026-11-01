@@ -74,8 +74,9 @@ CLOUDLINUX_OS_RELEASE = {
 
 @pytest.fixture
 def fresh_os_release_caches():
-    """Clear derived os-release caches around a test patching
-    ``_parse_os_release``.
+    """Clear derived os-release caches around a test.
+
+    The test patches ``_parse_os_release``.
 
     Only the caches of ``os_release_id()`` and ``linux_info()`` are cleared:
     ``_parse_os_release()`` itself is replaced by ``monkeypatch``, whose
@@ -593,11 +594,14 @@ def test_get_macos_codename_unknown_version():
         get_macos_codename("16", "0")
 
 
-def test_get_macos_codename_ambiguous_version(monkeypatch):
-    """A version two codenames claim raises, instead of picking one of them."""
-    monkeypatch.setitem(MACOS_CODENAMES, ("14", "2"), "Sonoma Two")
-    with pytest.raises(ValueError, match="match multiple codenames"):
-        get_macos_codename("14", "2")
+def test_macos_codenames_key_each_major_one_way():
+    """A major version keys its codenames either alone or with its minor versions.
+
+    Both ways at once would make a version match two codenames.
+    """
+    by_major_alone = {major for major, minor in MACOS_CODENAMES if minor is None}
+    with_minor = {major for major, minor in MACOS_CODENAMES if minor is not None}
+    assert not by_major_alone & with_minor
 
 
 @pytest.fixture
@@ -641,8 +645,10 @@ def test_windows_platform_info_release(monkeypatch, windows_11, fresh_caches):
 def test_release_is_windows_only(
     plat, version, monkeypatch, macos_sonoma, fresh_caches
 ):
-    """No other platform fills ``release``: on macOS, CPython's own
-    ``platform.release()`` names the Darwin kernel, another meaning.
+    """No other platform fills ``release``.
+
+    On macOS, CPython's own ``platform.release()`` names the Darwin kernel,
+    another meaning.
 
     Each platform is forced current, since ``info()`` fills nothing for a
     platform that is not.

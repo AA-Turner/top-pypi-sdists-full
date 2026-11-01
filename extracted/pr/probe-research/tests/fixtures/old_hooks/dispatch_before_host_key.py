@@ -424,7 +424,7 @@ def _complete(real: str) -> bool:
 
 def _codex_cache(env) -> str:
     """Codex's plugin cache: `$CODEX_HOME` or `~/.codex`, then `plugins/cache`
-    (as `probe.cli.codex_config` and probe-research-tap's hooks read it)."""
+    (as `probe.shared.harness.harnesses.codex.config` and probe-research-tap's hooks read it)."""
     home = (env.get("CODEX_HOME") or "").strip()
     base = os.path.expanduser(home) if home else os.path.join(os.path.expanduser("~"), ".codex")
     return os.path.join(base, "plugins", "cache")

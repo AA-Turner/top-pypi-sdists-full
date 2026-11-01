@@ -25,11 +25,12 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from probe.cli import bootstrap, codex_hooks, doctor, json_events, outbox_worker, setup, upgrading
+from probe.cli import bootstrap, doctor, json_events, outbox_worker, setup, upgrading
+from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 from probe.cli.capabilities import Capabilities, capture_token_sources
-from probe.sdk import device as device_flow
-from probe.sdk.config import resolve, save_context
-from probe.sdk.device import DevicePrompt, OnboardingRequired
+from probe.sdk.settings import device as device_flow
+from probe.sdk.settings.settings import resolve, save_context
+from probe.sdk.settings.device import DevicePrompt, OnboardingRequired
 
 main = importlib.import_module("probe.cli.main")
 

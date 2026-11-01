@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-benchmark
-Version: 5.3.0
+Version: 5.3.1
 Summary: A ``pytest`` fixture for benchmarking code. It will group the tests into rounds that are calibrated to the chosen timer.
 Author-email: Ionel Cristian Mărieș <contact@ionelmc.ro>
 License-Expression: BSD-2-Clause
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Utilities
@@ -80,9 +81,9 @@ Overview
 .. |supported-implementations| image:: https://img.shields.io/pypi/implementation/pytest-benchmark.svg
     :alt: Supported implementations
     :target: https://pypi.org/project/pytest-benchmark
-.. |commits-since| image:: https://img.shields.io/github/commits-since/ionelmc/pytest-benchmark/v5.3.0.svg
+.. |commits-since| image:: https://img.shields.io/github/commits-since/ionelmc/pytest-benchmark/v5.3.1.svg
     :alt: Commits since latest release
-    :target: https://github.com/ionelmc/pytest-benchmark/compare/v5.3.0...master
+    :target: https://github.com/ionelmc/pytest-benchmark/compare/v5.3.1...master
 
 A ``pytest`` fixture for benchmarking code. It will group the tests into rounds that are calibrated to the chosen
 timer.
@@ -234,6 +235,19 @@ Credits
 
 Changelog
 =========
+
+v5.3.1 (2026-11-01)
+-------------------
+
+* Fixed an ``AttributeError`` with pytest's public ``nodeid`` attribute by
+  avoiding the removed private ``node._nodeid`` attribute (fixes `#321 <https://github.com/ionelmc/pytest-benchmark/issues/321>`_).
+  This adds support for Pytest 9.2.
+  Contributed by Hfycium in `#323 <https://github.com/ionelmc/pytest-benchmark/pull/323>`_.
+* Fixed ``Stats.hd15iqr`` returning the first datum *above* the Tukey upper fence
+  instead of the highest datum within it, so the statistic reported the outlier it
+  exists to exclude. ``ld15iqr`` was already correct.
+  Contributed by WatchTree-19 in `#320 <https://github.com/ionelmc/pytest-benchmark/pull/320>`_.
+* Added workaround for pygal's broken PluginImportFixer (it's removed from ``sys.meta_path``).
 
 v5.3.0 (2026-08-23)
 --------------------

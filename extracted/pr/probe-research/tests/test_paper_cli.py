@@ -351,7 +351,7 @@ def test_omitting_relates_to_sends_nothing(monkeypatch) -> None:
 def test_the_sdk_sends_relates_to_on_the_create(monkeypatch) -> None:
     """`add_paper(relates_to=...)` rides the create body as given; omitted, the
     key is absent (an old server ignores it either way)."""
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     bodies: list[dict] = []
     client = Client(base_url="http://test", token="t")
@@ -367,7 +367,7 @@ def test_the_sdk_sends_relates_to_on_the_create(monkeypatch) -> None:
 def test_edge_add_takes_relates_to_through_the_generated_model(monkeypatch) -> None:
     """`probe edge add --relation relates_to` reaches the SDK's generated
     `EdgeCreate`, whose relation enum must know the word."""
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     sent: list[dict] = []
     client = Client(base_url="http://test", token="t")

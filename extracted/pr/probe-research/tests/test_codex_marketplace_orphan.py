@@ -16,7 +16,8 @@ import subprocess
 
 import pytest
 
-from probe.cli import plugin_cli, updater
+from probe.shared.harness import plugins as plugin_cli
+from probe.cli import updater
 from probe.cli import setup as wizard
 
 PUBLISHED = "prbe-ai/research-os-agent"
@@ -32,9 +33,11 @@ class FakeCodex:
 
     def __call__(self, cmd, **kwargs):
         args = cmd[1:]
+        if args == ["--version"]:  # `plugin_cli._git_can_sparse` asking git
+            return self._ok("git version 2.39.5")
         self.ran.append(" ".join(args))
         match args:
-            case ["plugin", "marketplace", "add", location]:
+            case ["plugin", "marketplace", "add", location, *_sparse]:
                 if self.checkout and self.configured != location:
                     return self._fail(
                         f"Error: marketplace '{NAME}' is already added from a different source; "
@@ -129,7 +132,7 @@ def test_without_a_name_add_is_never_repaired(codex):
     fake = codex(configured=None, checkout=True)
 
     assert not plugin_cli.add_marketplace(plugin_cli.CODEX, PUBLISHED).ok
-    assert fake.ran == [f"plugin marketplace add {PUBLISHED}"]
+    assert fake.ran == [f"plugin marketplace add {PUBLISHED} --sparse .agents --sparse plugins"]
 
 
 def test_when_add_and_refresh_both_fail_both_are_reported(monkeypatch):

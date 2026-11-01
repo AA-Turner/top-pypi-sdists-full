@@ -4,7 +4,9 @@ uninstall once ran `claude plugin uninstall` for a pi device."""
 
 import pytest
 
-from probe.cli import capture, pi_config, plugin_cli
+from probe.cli import capture
+from probe.shared.harness.harnesses import pi as pi_config
+from probe.shared.harness import plugins as plugin_cli
 
 
 def test_binary_name_claude_code():
@@ -29,7 +31,7 @@ def test_capture_uninstall_routes_pi_through_pi_config(monkeypatch):
     calls = []
     monkeypatch.setenv("PROBE_AGENT", "pi")
     monkeypatch.setattr(
-        pi_config,
+        pi_config.package_entry,
         "remove_package_entry",
         lambda: (calls.append("removed"), plugin_cli.claude_cli.Result(ok=True, detail="gone"))[1],
     )
@@ -49,7 +51,7 @@ def test_capture_uninstall_routes_pi_through_pi_config(monkeypatch):
 def test_capture_uninstall_pi_failure_surfaces_detail(monkeypatch):
     monkeypatch.setenv("PROBE_AGENT", "pi")
     monkeypatch.setattr(
-        pi_config,
+        pi_config.package_entry,
         "remove_package_entry",
         lambda: plugin_cli.claude_cli.Result(ok=False, detail="settings.json is not JSON"),
     )

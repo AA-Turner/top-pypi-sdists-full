@@ -22,10 +22,10 @@ import zlib
 import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
 
-from probe.mcp import continuation
-from probe.mcp._generated.views import View
-from probe.mcp.contract import ToolCorpus
-from probe.mcp.server import create_server
+from probe.mcp.delivery import delivery as continuation
+from probe.mcp.generated.views import View
+from probe.shared.reads.search_contract import ToolCorpus
+from probe.mcp.server.server import create_server
 
 _REF = "session:claude_code/0b9d2f7e-5c1a-4b8e-9f3d-2a6c8e1b7d40"
 _GREP = {"grep": "bench/"}
@@ -330,8 +330,8 @@ def test_a_mixed_docs_search_carries_docs_on_page_one_only(client, app):
     sent with the cursor alone, gets `search_in` back from the cursor -- docs
     included -- and still carries no docs list. A cursor page continues the
     team's channels; the docs were answered on page one."""
-    from probe.mcp.service import ResearchReadService
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.tools.tools import ResearchReadService
+    from probe.mcp.source.source import ResearchOSSource
     from tests.conftest import search_response
 
     def experiment(eid):

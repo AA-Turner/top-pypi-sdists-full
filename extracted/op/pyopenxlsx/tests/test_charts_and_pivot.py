@@ -17,7 +17,7 @@ def test_charts(tmp_path):
         ws.write_rows(2, [["A", 10, 20, 5], ["B", 15, 25, 10], ["C", 20, 30, 15]])
 
         # Test Bar chart with advanced properties
-        chart = ws._sheet.add_chart(XLChartType.Bar, "Chart1", 5, 5, 400, 300)
+        chart = ws.add_chart(XLChartType.Bar, "Chart1", 5, 5, 400, 300)
         assert chart is not None
 
         chart.set_title("My Chart")
@@ -37,18 +37,14 @@ def test_charts(tmp_path):
         x_axis.set_number_format("0.00", False)
 
         # Test 3D and Doughnut chart methods
-        doughnut_chart = ws._sheet.add_chart(
-            XLChartType.Doughnut, "Chart2", 5, 15, 400, 300
-        )
+        doughnut_chart = ws.add_chart(XLChartType.Doughnut, "Chart2", 5, 15, 400, 300)
         doughnut_chart.set_hole_size(50)
 
-        chart3d = ws._sheet.add_chart(XLChartType.Bar3D, "Chart3", 20, 5, 400, 300)
+        chart3d = ws.add_chart(XLChartType.Bar3D, "Chart3", 20, 5, 400, 300)
         chart3d.set_rotation(45, 120, 30)
 
         # Test Bubble series
-        bubble_chart = ws._sheet.add_chart(
-            XLChartType.Bubble, "Chart4", 20, 15, 400, 300
-        )
+        bubble_chart = ws.add_chart(XLChartType.Bubble, "Chart4", 20, 15, 400, 300)
         bubble_chart.add_bubble_series(
             "Sheet1!$B$2:$B$4", "Sheet1!$C$2:$C$4", "Sheet1!$D$2:$D$4", "Bubble Series"
         )
@@ -83,13 +79,24 @@ def test_pivot_tables(tmp_path):
         options.set_pivot_table_style("PivotStyleMedium9")
         options.set_compact_data(False)
 
-        ws._sheet.add_pivot_table(options)
+        ws.add_pivot_table(options)
 
         wb.save(file_path)
 
     with Workbook(file_path) as wb:
         ws = wb.active
         assert ws.cell(1, 1).value == "Region"
+
+
+def test_pivot_subtotals_enum():
+    assert hasattr(XLPivotSubtotal, "Sum")
+    assert hasattr(XLPivotSubtotal, "Average")
+    assert hasattr(XLPivotSubtotal, "Count")
+    assert hasattr(XLPivotSubtotal, "CountNums")
+    assert hasattr(XLPivotSubtotal, "StdDev")
+    assert hasattr(XLPivotSubtotal, "StdDevP")
+    assert hasattr(XLPivotSubtotal, "Var")
+    assert hasattr(XLPivotSubtotal, "VarP")
 
 
 def test_stock_and_surface_charts(tmp_path):
@@ -110,7 +117,7 @@ def test_stock_and_surface_charts(tmp_path):
             ],
         )
 
-        stock_chart = ws._sheet.add_chart(
+        stock_chart = ws.add_chart(
             XLChartType.StockOHLC, "Stock Performance", 2, 7, 500, 350
         )
         stock_chart.add_series_ref("Sheet1!$B$2:$B$4", "Open", "Sheet1!$A$2:$A$4")
@@ -122,9 +129,7 @@ def test_stock_and_surface_charts(tmp_path):
         ws.write_row(10, ["", "Col1", "Col2", "Col3"])
         ws.write_rows(11, [["Row1", 1, 2, 3], ["Row2", 4, 5, 6], ["Row3", 7, 8, 9]])
 
-        surf_chart = ws._sheet.add_chart(
-            XLChartType.Surface3D, "Surface 3D", 10, 7, 500, 350
-        )
+        surf_chart = ws.add_chart(XLChartType.Surface3D, "Surface 3D", 10, 7, 500, 350)
         surf_chart.add_series_ref(
             "Sheet1!$B$11:$B$13", "Sheet1!$B$10", "Sheet1!$A$11:$A$13"
         )
@@ -141,3 +146,49 @@ def test_stock_and_surface_charts(tmp_path):
         ws = wb.active
         assert ws.cell(1, 1).value == "Date"
         assert ws.cell(11, 2).value == 1
+
+
+def test_pivot_show_values_as_and_layout(tmp_path):
+    from pyopenxlsx._openxlsx import XLPivotShowValuesAs
+    from pyopenxlsx.pivot import pivot_table, pivot_show_values_as
+
+    # Test helper parsing
+    opt1 = pivot_show_values_as("percent_of_grand_total")
+    assert opt1.type == XLPivotShowValuesAs.PercentOfGrandTotal
+
+    opt2 = pivot_show_values_as(("difference_from", "Region", "North"))
+    assert opt2.type == XLPivotShowValuesAs.DifferenceFrom
+    assert opt2.base_field == "Region"
+    assert opt2.base_item == "North"
+
+    opt3 = pivot_show_values_as({"type": "index"})
+    assert opt3.type == XLPivotShowValuesAs.Index
+
+    # Test creating and saving pivot table with advanced options
+    file_path = tmp_path / "test_pivot_advanced.xlsx"
+    with Workbook() as wb:
+        ws = wb.active
+        ws.write_row(1, ["Region", "Year", "Sales"])
+        ws.write_rows(
+            2,
+            [
+                ["North", 2024, 100],
+                ["South", 2024, 200],
+                ["North", 2025, 150],
+                ["South", 2025, 250],
+            ],
+        )
+
+        builder = (
+            pivot_table("SalesPivot", "Sheet1!A1:C5", "E1")
+            .rows("Region", compact=True, outline=True)
+            .columns("Year")
+            .data("Sales", subtotal="sum", show_values_as="percent_of_total")
+            .style("PivotStyleMedium9")
+        )
+        builder.add_to(ws)
+        wb.save(file_path)
+
+    with Workbook(file_path) as wb:
+        ws = wb.active
+        assert ws.cell(1, 1).value == "Region"

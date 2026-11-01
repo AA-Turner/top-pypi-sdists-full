@@ -1,7 +1,7 @@
 """:module: watchdog.utils
 :synopsis: Utility classes and functions.
 :author: yesudeep@google.com (Yesudeep Mangalapilly)
-:author: contact@tiger-222.fr (Mickaël Schoentgen)
+:author: Mickaël Schoentgen <contact@tiger-222.fr>
 
 Classes
 -------
@@ -10,18 +10,59 @@ Classes
    :show-inheritance:
    :inherited-members:
 
+Types
+-----
+.. autodata:: Seconds
+
 """
 
 from __future__ import annotations
 
 import sys
 import threading
-from typing import TYPE_CHECKING
+import warnings
+from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
     from types import ModuleType
 
     from watchdog.tricks import Trick
+
+T = TypeVar("T")
+
+Seconds = float
+"""A duration expressed in seconds."""
+
+
+def resolve_renamed_argument(old_name: str, old: T | None, new_name: str, new: T | None, default: T) -> T:
+    """Resolves an argument that was renamed from ``old_name`` to ``new_name``.
+
+    Both values are expected to default to ``None`` ("not given"). Passing the
+    old name emits a :class:`DeprecationWarning` pointing at the caller of the
+    function that called this helper, and passing both names is an error.
+    """
+    if old is None:
+        return default if new is None else new
+    if new is not None:
+        error = f"Cannot pass both {new_name!r} and its deprecated name {old_name!r}."
+        raise TypeError(error)
+    warnings.warn(f"{old_name!r} is deprecated, use {new_name!r} instead.", DeprecationWarning, stacklevel=3)
+    return old
+
+
+def renamed_attribute(old_name: str, new_name: str) -> property:
+    """Creates a read/write property keeping ``old_name`` as a deprecated alias of the attribute ``new_name``."""
+    message = f"{old_name!r} is deprecated, use {new_name!r} instead."
+
+    def getter(self: Any) -> Any:
+        warnings.warn(message, DeprecationWarning, stacklevel=2)
+        return getattr(self, new_name)
+
+    def setter(self: Any, value: Any) -> None:
+        warnings.warn(message, DeprecationWarning, stacklevel=2)
+        setattr(self, new_name, value)
+
+    return property(getter, setter, doc=f"Deprecated, use ``{new_name}`` instead.")
 
 
 class UnsupportedLibcError(Exception):
@@ -33,7 +74,14 @@ class WatchdogShutdownError(Exception):
 
 
 class BaseThread(threading.Thread):
-    """Convenience class for creating stoppable threads."""
+    """Convenience class for creating stoppable threads.
+
+    Instances always run as daemon threads: :meth:`__init__` sets
+    :attr:`~threading.Thread.daemon` to ``True`` unconditionally. The value is
+    therefore *not* inherited from the creating thread, unlike a plain
+    :class:`threading.Thread`, and setting it before :meth:`~threading.Thread.start`
+    is the caller's only opportunity to override it.
+    """
 
     def __init__(self) -> None:
         threading.Thread.__init__(self)
@@ -52,8 +100,8 @@ class BaseThread(threading.Thread):
         return not self._stopped_event.is_set()
 
     def on_thread_stop(self) -> None:
-        """Override this method instead of :meth:`stop()`.
-        :meth:`stop()` calls this method.
+        """Override this method instead of :meth:`~watchdog.utils.BaseThread.stop`.
+        :meth:`~watchdog.utils.BaseThread.stop` calls this method.
 
         This method is called immediately after the thread is signaled to stop.
         """
@@ -64,8 +112,8 @@ class BaseThread(threading.Thread):
         self.on_thread_stop()
 
     def on_thread_start(self) -> None:
-        """Override this method instead of :meth:`start()`. :meth:`start()`
-        calls this method.
+        """Override this method instead of :meth:`~watchdog.utils.BaseThread.start`.
+        :meth:`~watchdog.utils.BaseThread.start` calls this method.
 
         This method is called right before this thread is started and this
         object's run() method is invoked.

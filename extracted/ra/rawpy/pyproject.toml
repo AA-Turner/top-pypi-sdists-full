@@ -2,7 +2,7 @@
 requires = [
     "setuptools>=69.0.0",
     "wheel",
-    "Cython>=0.29.32",
+    "Cython",
     "cmake",
     # Build against NumPy 2.x headers. Extensions compiled with NumPy 2.0+
     # are backward-compatible with NumPy >= 1.19 at runtime.
@@ -25,12 +25,11 @@ classifiers = [
     "Natural Language :: English",
     "Programming Language :: Cython",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX",
@@ -38,7 +37,7 @@ classifiers = [
     "Topic :: Multimedia :: Graphics",
     "Topic :: Software Development :: Libraries",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26.0"
 ]
@@ -55,7 +54,8 @@ test = [
     "pytest",
     "imageio>=2.21",
     "mypy",
-    "scikit-image",
+    "scikit-image; python_version < '3.15'",
+    "scikit-image==0.27.0rc1; python_version >= '3.15'",
 ]
 
 [tool.setuptools.packages.find]

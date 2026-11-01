@@ -24,8 +24,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from probe.daemon import mailbox
-from probe.daemon.events import PEER_TOOL, Event, Kind
+from probe.shared import mailbox
+from probe.shared.harness.events import PEER_TOOL, Event, Kind
 from probe.service import hints, recorders
 from probe.service.alertpoll import Endpoint
 from probe.service.protocol import Mode
@@ -1654,7 +1654,7 @@ def test_a_window_request_waits_window_timeout_s_and_any_other_timeout_s(monkeyp
 def test_a_window_request_outwaits_the_servers_window_lookup():
     """The server spends its window budget on the engine, then at most five
     database statements under its statement timeout, before it answers."""
-    source = AGENT_ROOT.parent / "app" / "hints" / "service.py"
+    source = AGENT_ROOT.parent / "app" / "knowledge" / "hints" / "hints.py"
     if not source.is_file():
         pytest.skip("the server's code is not beside this package")
     text = source.read_text(encoding="utf-8")
@@ -1668,7 +1668,7 @@ def test_a_window_request_outwaits_the_servers_window_lookup():
 def test_a_window_request_fits_the_servers_accepted_bounds():
     """Past one of them the server answers 422, and a 422 naming no `trigger` is
     one more failure: every window would fail."""
-    source = AGENT_ROOT.parent / "app" / "hints" / "schemas.py"
+    source = AGENT_ROOT.parent / "app" / "knowledge" / "hints" / "schemas.py"
     if not source.is_file():
         pytest.skip("the server's code is not beside this package")
     text = source.read_text(encoding="utf-8")
@@ -1830,7 +1830,7 @@ def test_a_harness_that_shows_hints_only_at_a_prompt_gets_no_window(tmp_path, st
     assert _live(session).is_file() and not _window_marker(session).exists()
     assert hints.shows_mid_turn(tail.adapter) is False
     for harness in ("claude_code", "codex", "pi"):
-        from probe.daemon import adapters
+        from probe.shared.harness import lookup as adapters
 
         assert hints.shows_mid_turn(adapters.for_source(harness)), harness
 
@@ -1874,7 +1874,7 @@ def test_a_turn_looked_at_by_no_window_for_a_check_ins_length_stops_the_marker(t
 def test_a_counted_tool_call_never_runs_the_filters_per_call_reads(tmp_path, state, monkeypatch):
     """The window only counts a tool call: its folder's verdict, never the
     filter's reads of what it touches (they walk trees, ~1 s each)."""
-    from probe.daemon import exclusions
+    from probe.shared.harness import session_filter as exclusions
 
     called: list = []
     monkeypatch.setattr(exclusions.Filter, "_call_excluded", lambda self, event, where: called.append(1) or False)

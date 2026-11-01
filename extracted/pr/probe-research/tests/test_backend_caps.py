@@ -11,8 +11,8 @@ kinder than the backend is a fake that certifies broken code.
 from __future__ import annotations
 
 
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 
 
 def _service(client):

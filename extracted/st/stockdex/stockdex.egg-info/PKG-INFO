@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stockdex
-Version: 1.5.0
+Version: 1.6.0
 Summary: A package to get stock data from Yahoo Finance
 Home-page: https://github.com/ahnazary/stockdex
 Author: Amir Nazary
@@ -15,7 +15,6 @@ Requires-Dist: beautifulsoup4==4.12.3
 Requires-Dist: numpy
 Requires-Dist: pandas>=2.2.3
 Requires-Dist: plotly>=5.24.1
-Requires-Dist: selenium==4.25.0
 Requires-Dist: plotly>=5.24.1
 Requires-Dist: dash>=2.18.0
 Requires-Dist: curl_cffi==0.12.0
@@ -85,7 +84,7 @@ result = ticker.yahoo_api_income_statement(frequency='quarterly')
 
 ## Use with Claude
 
-Stockdex ships a local, read-only MCP server with 21 tools so Claude can fetch prices, financial statements, margins, dividends, insider trades, earnings reactions and more for you.
+Stockdex ships a local, read-only MCP server with 24 tools so Claude can fetch prices, financial statements, margins, dividends, insider trades, earnings reactions, analyst forecasts, European ETF profiles and more for you.
 
 - **Claude Desktop**: download `stockdex.mcpb` from the [latest release](https://github.com/ahnazary/stockdex/releases/latest) and double-click it.
 - **Claude Code**: install the plugin, which requires [uv](https://docs.astral.sh/uv/):

@@ -14,7 +14,7 @@ once per machine, and never blocks anything:
                   same file: one look every POLL_S per session (an open and an
                   fstat), and only the new bytes read (the page cache has them: the recorder just read
                   them). New whole lines are parsed with the daemon's adapter
-                  (`probe.daemon.adapters`, the worker's parse) and its
+                  (`probe.shared.harness.lookup`, the worker's parse) and its
                   `.probe.config` filter (`exclusions.Filter`, the worker's), so
                   the events are the daemon's. A session first seen starts near
                   its end: only lines younger than FRESH_S there count
@@ -338,7 +338,7 @@ def _poll_interval() -> float:
 
 
 def _safe(sid: str) -> str:
-    """`probe.daemon.mailbox._safe`: a session id as a file stem."""
+    """`probe.shared.mailbox.layout._safe`: a session id as a file stem."""
     return "".join(c for c in sid if c.isalnum() or c in "-_") or "session"
 
 
@@ -520,7 +520,7 @@ def trigger_of(event) -> tuple[str, str, list[str]] | None:
     """`(trigger, text, its senders)` for an event that asks for a lookup, else
     None. A sender is an address the lane resolves to a session to exclude
     (`Senders`)."""
-    from probe.daemon.events import PEER_TOOL, Kind
+    from probe.shared.harness.events import PEER_TOOL, Kind
 
     if event.stream != MAIN_STREAM:
         return None
@@ -781,7 +781,7 @@ def withdraw_hints(sid: str, state: str) -> list[str]:
     """Every hint still waiting in the session's mailbox, taken out: the ids.
     Only hints: the mailbox's own `withdraw_unasked` is the reader's, and never
     takes one."""
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     gone: list[str] = []
     with mailbox.rooted(state):
@@ -797,7 +797,7 @@ def withdraw_hints(sid: str, state: str) -> list[str]:
 
 def waiting_hints(sid: str, state: str) -> set[str]:
     """The ids of the hints waiting in the session's mailbox now (unexpired)."""
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     with mailbox.rooted(state):
         return {msg.id for _path, msg in mailbox.waiting(sid)
@@ -847,7 +847,7 @@ def delivery_facts(sid: str, state: str, ledger: Path) -> dict:
     and the mailbox): `posted` and `withdrawn` (id -> when), the deliverers'
     `claims` and `shown` lines (id -> (when, by)), the hints still `waiting`,
     and the deliverer heartbeat `alive` (or None)."""
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     posted: dict[str, float] = {}
     withdrawn: dict[str, float] = {}
@@ -935,7 +935,7 @@ def delivery_receipt(facts: dict, *, tool_calls, prompts, mid_turn: bool, now: f
     since = [mid for mid, at in posted if last is None or at > last]
     by = (alive or {}).get("by") if alive else None
     if by is None and (shown or claims):
-        by = max([*shown.values(), *claims.values()])[1]  # the latest line's
+        by = max(list(shown.values()) + list(claims.values()))[1]  # the latest line's
     deliverer = _DELIVERER_OF.get(by, Deliverer.OTHER) if by else None
     alive_age = now - float(alive["at"]) if alive else None
     fresh = alive_age is not None and alive_age <= DELIVERER_FRESH_S.get(deliverer, DELIVERER_FRESH_DEFAULT_S)
@@ -962,7 +962,7 @@ def delivery_receipt(facts: dict, *, tool_calls, prompts, mid_turn: bool, now: f
 
 def mailbox_ttl() -> float:
     """How long a hint may wait in a mailbox (`mailbox.UNASKED_TTL_S`)."""
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     return float(mailbox.UNASKED_TTL_S)
 
@@ -970,7 +970,7 @@ def mailbox_ttl() -> float:
 def delivered_ids(sid: str, state: str) -> set[str]:
     """The message ids delivered to the session: its claim log's (the tail) and
     the files in its `claimed/` folder (a claim whose log line was lost)."""
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     ids: set[str] = set()
     with mailbox.rooted(state):
@@ -1286,7 +1286,7 @@ class HintLane:
             # Lookups work, but nothing says a hint reaches this agent: its
             # reader keeps its prompt turns and check-ins (plan hints-relevance R12).
             return
-        from probe.daemon import mailbox
+        from probe.shared import mailbox
 
         with mailbox.rooted(session.state):
             path = mailbox.hints_live_path(session.sid)
@@ -1321,8 +1321,8 @@ class HintLane:
         tail = self._tails.get(session.sid)
         if tail is not None:
             return tail
-        from probe.daemon import adapters
-        from probe.daemon.exclusions import Filter
+        from probe.shared.harness import lookup as adapters
+        from probe.shared.harness.session_filter import Filter
 
         try:
             adapter = adapters.for_source(session.harness)
@@ -1433,7 +1433,7 @@ class HintLane:
         # A first look's prompts and turn ends are no newer than a hint the last
         # service posted for them: they withdraw nothing.
         newer = fresh_after is None
-        from probe.daemon.events import Kind
+        from probe.shared.harness.events import Kind
 
         when = stamp if stamp is not None else self.wall()
         marks = [e.kind for e in events
@@ -1491,7 +1491,7 @@ class HintLane:
         (`take_due`), so one replaced while it waits loses nothing."""
         if not steps:
             return
-        from probe.daemon.events import Kind
+        from probe.shared.harness.events import Kind
 
         state = self._state(session.sid)
         with self._cv:
@@ -1764,7 +1764,7 @@ class HintLane:
         if ep is None:
             return  # `trigger` queues none without one
         try:
-            from probe.daemon import adapters
+            from probe.shared.harness import lookup as adapters
 
             harness = adapters.for_source(session.harness).name
         except Exception:  # noqa: BLE001
@@ -1947,7 +1947,7 @@ class HintLane:
             ):
                 self.stats["repeat"] += 1
                 return False, Skip.REPEAT
-            from probe.daemon import mailbox
+            from probe.shared import mailbox
 
             message = {"id": "h" + secrets.token_hex(6), "session": job.sid, "kind": mailbox.Kind.MESSAGE.value,
                        "text": hint, "made_at": self.wall(), "origin": mailbox.ORIGIN_HINT}
@@ -2078,7 +2078,7 @@ class HintLane:
         elif before == DeliveryState.UNDELIVERABLE and receipt["state"] != DeliveryState.UNDELIVERABLE:
             self._log(f"hints: session {session.sid}: hints reach the agent again")
         with contextlib.suppress(Exception):
-            from probe.daemon import mailbox
+            from probe.shared import mailbox
 
             with mailbox.rooted(session.state):
                 # `at` and `harness` for `probe doctor` only (`service_calls.hints_unreached`).

@@ -22,7 +22,7 @@ from probe.cli import capabilities as capabilities_mod
 from probe.cli import capture, doctor, setup, tui
 from probe.cli.actions import Action
 from probe.cli.capabilities import Capabilities, Capability, TokenSource, tap_plugin_dir
-from probe.sdk.config import load_context, save_context
+from probe.sdk.settings.settings import load_context, save_context
 from tests.test_wizard_auth_entry import entry  # noqa: F401 -- a fixture: the wizard's menu, scripted
 
 main = importlib.import_module("probe.cli.main")

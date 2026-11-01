@@ -14,9 +14,9 @@ import json
 
 import pytest
 
-from probe.mcp.service import ResearchReadService
-from probe.mcp.source import ResearchOSSource
-from probe.sdk import links
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
+from probe.sdk.reads import links
 from tests.conftest import open_run
 
 DASHBOARD = "https://research.prbe.ai"

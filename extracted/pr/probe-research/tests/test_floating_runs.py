@@ -131,7 +131,7 @@ def test_a_floating_parent_begets_a_floating_child(client, app):
 
 
 def test_a_pre_0054_parent_still_raises(client, app):
-    from probe.sdk.run import Run
+    from probe.sdk.run.run import Run
 
     old = Run(client, {"id": "r-old", "name": "old", "experiment_id": None})
     with pytest.raises(errors.ValidationError, match="predates project-direct"):
@@ -150,7 +150,7 @@ def test_the_floating_body_is_the_run_create_contract(client, app):
     sends validates against the generated RunCreate model, and the fake's row
     carries every RunDetailOut key -- `project_id` present and null. (The
     checked-in schema still types it as a string: the server PR regenerates it.)"""
-    from probe._generated.models import RunCreate
+    from probe.generated.models import RunCreate
 
     client.run(description="d", tags=["t"], config={"a": 1}, intent="i", external_id="x-1")
     [body] = _posts(app, "/v1/runs")
@@ -444,8 +444,8 @@ def test_a_move_into_an_experiment_is_accepted(client, app, monkeypatch):
 
 
 def test_browse_at_the_lab_root_lists_unfiled_runs(app, client):
-    from probe.mcp.service import ResearchReadService
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.tools.tools import ResearchReadService
+    from probe.mcp.source.source import ResearchOSSource
     from tests.test_mcp import _browse_payload
 
     run = client.run(description="f", tags=["sweep"])
@@ -461,8 +461,8 @@ def test_browse_at_the_lab_root_lists_unfiled_runs(app, client):
 
 
 def test_browse_omits_unfiled_when_there_are_none_and_scoped_reads_never_ask(app, client):
-    from probe.mcp.service import ResearchReadService
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.tools.tools import ResearchReadService
+    from probe.mcp.source.source import ResearchOSSource
     from tests.test_mcp import _browse_payload
 
     app.browse_response = _browse_payload()
@@ -476,8 +476,8 @@ def test_browse_omits_unfiled_when_there_are_none_and_scoped_reads_never_ask(app
 def test_browse_under_a_workspace_lens_names_no_unfiled_runs(app, client):
     """A floating run belongs to no workspace, so a workspace's listing must not
     carry the lab's unfiled bucket -- nor ask for it, nor mark it missing."""
-    from probe.mcp.service import ResearchReadService
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.tools.tools import ResearchReadService
+    from probe.mcp.source.source import ResearchOSSource
     from tests.test_mcp import _browse_payload
 
     client.run(description="f")
@@ -494,8 +494,8 @@ def test_browse_under_a_workspace_lens_names_no_unfiled_runs(app, client):
 
 
 def test_browse_on_a_backend_without_floating_runs_marks_it_missing(app, client):
-    from probe.mcp.service import ResearchReadService
-    from probe.mcp.source import ResearchOSSource
+    from probe.mcp.tools.tools import ResearchReadService
+    from probe.mcp.source.source import ResearchOSSource
     from tests.test_mcp import _browse_payload
 
     client.create_project("p", kind="general")
@@ -509,7 +509,7 @@ def test_browse_on_a_backend_without_floating_runs_marks_it_missing(app, client)
 
 
 def test_browse_delivery_carries_unfiled_on_the_first_page_only():
-    from probe.mcp.browse_delivery import invoke
+    from probe.mcp.delivery.browse import invoke
     from tests.test_mcp_browse_delivery import Tree, node
 
     tree = Tree([node("project", f"p{i}") for i in range(40)])

@@ -1,6 +1,6 @@
 """Clean install in ML environments (plan 2.11, D29).
 
-* Python 3.10: the three 3.11-only names come from ``probe._compat``, never the
+* Python 3.10: the three 3.11-only names come from ``probe.foundation.compat.compat``, never the
   standard library, and its ``StrEnum`` behaves exactly like 3.11's.
 * The SDK never imports the CLI (``probe.cli``'s initializer loads typer and every
   command): logging, delivery, the run lock and diagnostics all work in an
@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from probe import _compat
+from probe.foundation.compat import compat as _compat
 from tests.served_fake_app import child_env, serve
 
 _SRC = Path(__file__).resolve().parents[1] / "src" / "probe"
@@ -35,6 +35,23 @@ _PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
 #: the CLI when they run, while `import probe.core` itself loads none of it
 #: (`test_core_run.py` pins that).
 _CLI_SIDE = {"cli", "core", "daemon", "_entry.py"}
+#: Files of `probe.shared` (what the CLI, daemon and service share, agent:12-13) that still
+#: reach into the CLI, which the product splits invert; every other shared/ file stays checked.
+_CLI_REACHERS = {
+    "shared/harness/harnesses/claude_code/claude_code.py",
+    "shared/harness/harnesses/codex/config.py",
+    "shared/harness/harnesses/codex/hooks.py",
+    "shared/harness/harnesses/kimi_code/config.py",
+    "shared/harness/plugins.py",
+    "shared/notes/summary/summary.py",
+    "shared/notes/team_note/parking.py",
+    "shared/notes/team_note/render.py",
+    "shared/reads/reads.py",
+    "shared/reports/facts.py",
+    "shared/reports/staff_report.py",
+    "shared/updates/update_report.py",
+    "shared/updates/updates.py",
+}
 
 
 def _imports(path: Path):
@@ -63,17 +80,23 @@ def _sources():
 
 
 def test_nothing_imports_a_311_only_name_from_the_standard_library():
-    """The package, and the tests and scripts that run on the 3.10 leg."""
+    """The package, the probe-contracts the wheel vendors, and the tests and
+    scripts that run on the 3.10 leg."""
     agent = _SRC.parents[1]
     others = sorted((agent / "tests").glob("*.py")) + sorted((agent / "scripts").glob("*.py"))
+    contracts = agent.parent / "contracts" / "probe_contracts"
+    vendored = sorted(p for p in contracts.rglob("*.py") if "__pycache__" not in p.parts)
     offenders = []
-    for path in _sources() + others:
-        if path.name == "_compat.py":
+    for path in _sources() + others + vendored:
+        if path in (_SRC / "foundation" / "compat" / "compat.py", contracts / "compat.py"):
             continue
         for module, name, line in _imports(path):
             if (module, name) in {("enum", "StrEnum"), ("datetime", "UTC")} or module == "tomllib":
                 offenders.append(f"{path.name}:{line} {module}.{name or ''}")
-    assert offenders == [], "import these from probe._compat:\n" + "\n".join(offenders)
+    assert offenders == [], (
+        "import these from probe.foundation.compat.compat (in contracts/, from probe_contracts.compat):\n"
+        + "\n".join(offenders)
+    )
 
 
 def test_the_sdk_never_imports_the_cli():
@@ -83,7 +106,7 @@ def test_the_sdk_never_imports_the_cli():
     behind the `except Exception` at every call site."""
     offenders = []
     for path in _sources():
-        if path.relative_to(_SRC).parts[0] in _CLI_SIDE:
+        if path.relative_to(_SRC).parts[0] in _CLI_SIDE or path.relative_to(_SRC).as_posix() in _CLI_REACHERS:
             continue
         for module, name, line in _imports(path):
             full = f"{module}.{name}" if name else module
@@ -94,7 +117,8 @@ def test_the_sdk_never_imports_the_cli():
 
 def test_the_cli_names_of_the_moved_modules_are_the_same_objects():
     """A monkeypatch through either name must be seen by both."""
-    from probe._shared import run_lock, telemetry
+    from probe.foundation.durable import run_lock
+    from probe import analytics as telemetry
     from probe.cli import run_lock as cli_run_lock
     from probe.cli import telemetry as cli_telemetry
 
@@ -232,7 +256,7 @@ def test_the_sdk_lifecycle_runs_without_the_cli_or_mcp_dependencies(app, tmp_pat
         probe.finish()
         # What the SDK reaches lazily (the worker's delivery report, the
         # no-run crash report): importable here, where the CLI is not.
-        import probe._shared.run_lock, probe._shared.telemetry, probe.sdk.outbox_worker
+        import probe.foundation.durable.run_lock, probe.analytics.events, probe.analytics.crash, probe.sdk.outbox_worker
         print(json.dumps({
             "run": run.id, "locked": locked, "attempts": ATTEMPTS,
             "cli_loaded": "probe.cli" in sys.modules,
@@ -296,7 +320,7 @@ def test_an_unrelated_missing_module_keeps_its_traceback(monkeypatch):
 def test_generated_models_import_strenum_from_compat():
     """scripts/gen_models.py still targets 3.11 (a 3.10 target writes
     `class X(str, Enum)`, whose str() is "X.member"), then points the one
-    3.11-only import at probe._compat."""
+    3.11-only import at probe.foundation.compat.compat."""
     sys.path.insert(0, str(_PYPROJECT.parent / "scripts"))
     try:
         import gen_models
@@ -304,7 +328,7 @@ def test_generated_models_import_strenum_from_compat():
         sys.path.pop(0)
     generated = "from __future__ import annotations\n\nfrom enum import StrEnum\nfrom typing import Any\n"
     assert gen_models.py310_imports(generated) == (
-        "from __future__ import annotations\n\nfrom probe._compat import StrEnum\nfrom typing import Any\n"
+        "from __future__ import annotations\n\nfrom probe.foundation.compat.compat import StrEnum\nfrom typing import Any\n"
     )
     with pytest.raises(SystemExit):
         gen_models.py310_imports("from enum import Enum\n")
@@ -329,7 +353,7 @@ def test_split_enums_moves_the_enums_and_keeps_both_modules_valid(pydantic_impor
     finally:
         sys.path.pop(0)
     source = (
-        "# GENERATED\n\nfrom __future__ import annotations\n\nfrom probe._compat import StrEnum\n\n"
+        "# GENERATED\n\nfrom __future__ import annotations\n\nfrom probe.foundation.compat.compat import StrEnum\n\n"
         + pydantic_import
         + "\n\nclass Color(StrEnum):\n    \"\"\"A colour.\"\"\"\n\n    red = 'red'\n\n\n"
         + "class Paint(BaseModel):\n    color: Color = Field(...)\n"

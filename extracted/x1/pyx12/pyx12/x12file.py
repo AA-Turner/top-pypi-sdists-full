@@ -28,12 +28,28 @@ from typing import Literal, TextIO
 # Intrapackage imports
 import pyx12.errors
 import pyx12.segment
+from pyx12.error_codes import (
+    ISA_001_CONTROL_NUMBER_MISMATCH,
+    ISA_021_INVALID_GROUP_COUNT,
+    ISA_023_PREMATURE_EOF,
+    ISA_024_INVALID_CONTENT,
+    ISA_025_DUPLICATE_CONTROL_NUMBER,
+    SEG_1_INVALID_SEG_ID,
+    SEG_1_LEADING_SPACE,
+    SEG_8_HL_COUNT_MISMATCH,
+    SEG_8_HL_INVALID_PARENT,
+    SEG_8_LX_COUNT_MISMATCH,
+    SEG_8_SEGMENT_EMPTY,
+    SEG_8_TRAILING_TERMINATORS,
+)
 from pyx12.rawx12file import RawX12File
 
 # (kind, code, message, value, src_line)
 _ErrTuple = tuple[str, str, str, str | None, int | None]
 # (loop_type, control_number)
 _LoopTuple = tuple[str, str | None]
+# trailer seg_id -> the loop header it closes
+_TRAILER_HEADERS: dict[str | None, str] = {"IEA": "ISA", "GE": "GS", "SE": "ST"}
 
 
 class X12Base:
@@ -99,10 +115,10 @@ class X12Base:
         """
         if seg_data.is_empty():
             err_str = f'Segment "{seg_data}" is empty'
-            self._seg_error("8", err_str, None, src_line=self.cur_line + 1)
+            self._seg_error(SEG_8_SEGMENT_EMPTY, err_str, None, src_line=self.cur_line + 1)
         if not seg_data.is_seg_id_valid():
             err_str = f'Segment identifier "{seg_data.get_seg_id()}" is invalid'
-            self._seg_error("1", err_str, None, src_line=self.cur_line + 1)
+            self._seg_error(SEG_1_INVALID_SEG_ID, err_str, None, src_line=self.cur_line + 1)
         seg_id = seg_data.get_seg_id()
         if seg_id == "ISA":
             if len(seg_data) != 16:
@@ -112,7 +128,7 @@ class X12Base:
             if interchange_control_number in self.isa_ids:
                 err_str = "ISA Interchange Control Number "
                 err_str += f"{interchange_control_number} not unique within file"
-                self._isa_error("025", err_str)
+                self._isa_error(ISA_025_DUPLICATE_CONTROL_NUMBER, err_str)
             self.loops.append(("ISA", interchange_control_number))
             self.isa_ids.append(interchange_control_number)
             self.gs_count = 0
@@ -156,12 +172,12 @@ class X12Base:
                 #   'My HL count %i does not match your HL count %s' \
                 #    % (self.hl_count, seg[1])
                 err_str = f"My HL count {self.hl_count:d} does not match your HL count {hl_count}"
-                self._seg_error("HL1", err_str)
+                self._seg_error(SEG_8_HL_COUNT_MISMATCH, err_str)
             if seg_data.get_value("HL02") != "":
                 hl_parent = self._int(seg_data.get_value("HL02"))
                 if hl_parent not in self.hl_stack:
                     err_str = f"HL parent ({hl_parent}) is not a valid parent"
-                    self._seg_error("HL2", err_str)
+                    self._seg_error(SEG_8_HL_INVALID_PARENT, err_str)
                 while self.hl_stack and hl_parent != self.hl_stack[-1]:
                     del self.hl_stack[-1]
             else:
@@ -180,7 +196,7 @@ class X12Base:
                         seg_data.get_value("LX01"), self.lx_count
                     )
                 )
-                self._seg_error("LX", err_str)
+                self._seg_error(SEG_8_LX_COUNT_MISMATCH, err_str)
         # count all regular segments
         if seg_id not in ("ISA", "IEA", "GS", "GE", "ST", "SE"):
             self.seg_count += 1
@@ -347,7 +363,14 @@ class X12Reader(X12Base):
             if src_file_obj == "-":
                 self.fd_in = sys.stdin
             else:
-                self.fd_in = open(src_file_obj, encoding="ascii")  # type: ignore[arg-type]
+                # X12 requires ASCII, but a non-ASCII byte in the input
+                # should surface as a validation error (caught by the
+                # rec_ID_* regexes in pyx12.validation), not a parse-time
+                # UnicodeDecodeError that crashes the whole pipeline.
+                # latin-1 maps every byte 0-255 to a Unicode codepoint and
+                # never raises, so non-ASCII bytes get through to the
+                # validator where they're rejected by normal error paths.
+                self.fd_in = open(src_file_obj, encoding="latin-1")  # type: ignore[arg-type]
                 self.need_to_close = True
         X12Base.__init__(self)
         try:
@@ -391,23 +414,33 @@ class X12Reader(X12Base):
         """
         X12Base._parse_segment(self, seg_data)
         seg_id = seg_data.get_seg_id()
+        header = _TRAILER_HEADERS.get(seg_id)
+        if header is not None and header not in (loop_type for loop_type, _ in self.loops):
+            # A duplicated or stray trailer: there is no envelope for it to close. Inside an
+            # open group it is a group fault (AK905 "5", per X12 RFI 1339); otherwise an
+            # interchange fault (TA1 024). See err_handler.seg_error for the same routing.
+            err_str = f"{seg_id} segment has no open {header} loop"
+            if self.loops and self.loops[-1][0] == "GS":
+                self._gs_error("5", err_str)
+            else:
+                self._isa_error(ISA_024_INVALID_CONTENT, err_str)
+            return
         if seg_id == "IEA":
-            if self.loops[-1][0] != "ISA":
-                # Unterminated GS loop
+            while self.loops[-1][0] != "ISA":
                 err_str = f"Unterminated Loop {self.loops[-1][0]}"
-                self._isa_error("024", err_str)
+                self._isa_error(ISA_024_INVALID_CONTENT, err_str)
                 del self.loops[-1]
             if self.loops[-1][1] != seg_data.get_value("IEA02"):
                 err_str = "IEA id={} does not match ISA id={}".format(
                     seg_data.get_value("IEA02"), self.loops[-1][1]
                 )
-                self._isa_error("001", err_str)
+                self._isa_error(ISA_001_CONTROL_NUMBER_MISMATCH, err_str)
             if self._int(seg_data.get_value("IEA01")) != self.gs_count:
                 err_str = "IEA count for IEA02={} is wrong".format(seg_data.get_value("IEA02"))
-                self._isa_error("021", err_str)
+                self._isa_error(ISA_021_INVALID_GROUP_COUNT, err_str)
             del self.loops[-1]
         elif seg_id == "GE":
-            if self.loops[-1][0] != "GS":
+            while self.loops[-1][0] != "GS":
                 err_str = f"Unterminated segment {self.loops[-1][1]}"
                 self._gs_error("3", err_str)
                 del self.loops[-1]
@@ -423,8 +456,12 @@ class X12Reader(X12Base):
                 self._gs_error("5", err_str)
             del self.loops[-1]
         elif seg_id == "SE":
+            while self.loops[-1][0] != "ST":
+                err_str = f"Unterminated Loop {self.loops[-1][0]}"
+                self._isa_error(ISA_024_INVALID_CONTENT, err_str)
+                del self.loops[-1]
             se_trn_control_num = seg_data.get_value("SE02")
-            if self.loops[-1][0] != "ST" or self.loops[-1][1] != se_trn_control_num:
+            if self.loops[-1][1] != se_trn_control_num:
                 err_str = f"SE id={se_trn_control_num} does not match ST id={self.loops[-1][1]}"
                 self._st_error("3", err_str)
             if self._int(seg_data.get_value("SE01")) != self.seg_count + 1:
@@ -443,11 +480,15 @@ class X12Reader(X12Base):
             # We have not yet incremented cur_line
             if line.startswith(" "):
                 err_str = "Segment contains a leading space"
-                self._seg_error("1", err_str, None, src_line=self.cur_line + 1)
+                self._seg_error(SEG_1_LEADING_SPACE, err_str, None, src_line=self.cur_line + 1)
                 line = line.lstrip()
+            if not line:
+                continue
             if line[-1] == self.ele_term:
                 err_str = "Segment contains trailing element terminators"
-                self._seg_error("SEG1", err_str, None, src_line=self.cur_line + 1)
+                self._seg_error(
+                    SEG_8_TRAILING_TERMINATORS, err_str, None, src_line=self.cur_line + 1
+                )
             seg_data = pyx12.segment.Segment(line, self.seg_term, self.ele_term, self.subele_term)  # type: ignore[arg-type]
             self._parse_segment(seg_data)
             yield seg_data
@@ -470,7 +511,7 @@ class X12Reader(X12Base):
                 elif seg == "ISA":
                     err_str = 'Mandatory segment "Interchange Control Trailer" '
                     err_str += f"(IEA={id1}) missing"
-                    self._isa_error("023", err_str)
+                    self._isa_error(ISA_023_PREMATURE_EOF, err_str)
                 # elif self.loops[-1][0] == 'LS':
                 #    err_str = 'LS id=%s was not closed with a LE' % \
                 #    (id1, self.loops[-1][1])

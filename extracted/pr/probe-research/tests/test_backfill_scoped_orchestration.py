@@ -26,9 +26,9 @@ from probe.cli import backfill_run as runner
 from probe.cli import telemetry, tui
 from probe.cli.backfill_coverage import Coverage, Scope
 from probe.cli.backfill_ledger import Ledger
-from probe.sdk import journal as jm
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
+from probe.sdk.delivery import journal as jm
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
 
 
 class Remote:
@@ -224,7 +224,8 @@ def make_harness(tmp_path, monkeypatch):
     monkeypatch.setenv("PROBE_BACKFILL_STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config.json"))
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "xdg-state"))
-    monkeypatch.setattr(jm, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
     return Harness(tmp_path, monkeypatch)
 
 

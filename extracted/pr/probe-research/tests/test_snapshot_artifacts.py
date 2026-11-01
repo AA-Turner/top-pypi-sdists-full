@@ -25,9 +25,9 @@ import warnings
 from probe import cli
 from probe.cli.main import _restore_captured_tree
 from probe.sdk import errors
-from probe.sdk import restore as _restore_mod
+from probe.sdk.run.readback import restore as _restore_mod
 from probe.sdk import run as _run_mod
-from probe.sdk import snapshot as _snapshot_mod
+from probe.sdk.capture import code as _snapshot_mod
 from tests.conftest import make_client, open_run
 
 
@@ -356,7 +356,7 @@ def test_an_in_flight_window_names_what_happened_not_never_attempted(client, app
     """A confirm that raises after the PUTs landed: the bytes are in the store,
     the rows are pending for the reaper, and the record says so per file --
     never "upload stopped before this file", which is for later windows."""
-    monkeypatch.setattr(_run_mod, "CAPTURE_WINDOW", 2)
+    monkeypatch.setattr(_run_mod.files.code_files, "CAPTURE_WINDOW", 2)
     real = client.confirm_capture_batch
     calls = []
 
@@ -380,7 +380,7 @@ def test_the_capture_deadline_stops_the_walk_and_names_the_rest(client, app, rep
     """A tree of thousands of files on a flaky link must not park the run start
     for hours: past the deadline the remaining files are named and the run
     goes on."""
-    monkeypatch.setattr(_run_mod, "CAPTURE_DEADLINE_SECONDS", 0.0)
+    monkeypatch.setattr(_run_mod.files.code_upload, "CAPTURE_DEADLINE_SECONDS", 0.0)
     run = open_run(client, experiment="e", name="r")
     with pytest.warns(UserWarning, match="capture deadline of 0s reached"):
         cb = _snap(run, repo)["code_bytes"]
@@ -533,7 +533,7 @@ def test_a_confirm_that_names_nothing_leaves_the_file_unstored(client, app, repo
 
 
 def test_a_tree_larger_than_one_window_is_captured_in_windows(client, app, repo, monkeypatch):
-    monkeypatch.setattr(_run_mod, "CAPTURE_WINDOW", 2)
+    monkeypatch.setattr(_run_mod.files.code_files, "CAPTURE_WINDOW", 2)
     run = open_run(client, experiment="e", name="r")
     cb = _snap(run, repo)["code_bytes"]
     assert [len(b["items"]) for b in app.capture_batches] == [2, 1]
@@ -542,7 +542,7 @@ def test_a_tree_larger_than_one_window_is_captured_in_windows(client, app, repo,
 
 
 def test_a_server_error_after_the_first_window_keeps_what_landed(client, app, repo, monkeypatch):
-    monkeypatch.setattr(_run_mod, "CAPTURE_WINDOW", 2)
+    monkeypatch.setattr(_run_mod.files.code_files, "CAPTURE_WINDOW", 2)
     real = client.presign_capture_batch
     calls = []
 
@@ -775,7 +775,7 @@ def test_two_put_failures_are_both_named_in_path_order(client, app, repo):
 
 
 def test_paths_text_is_bounded(client, app, repo, monkeypatch):
-    monkeypatch.setattr(_run_mod, "PATHS_TEXT_MAX_BYTES", 12)
+    monkeypatch.setattr(_run_mod.files.snapshot, "PATHS_TEXT_MAX_BYTES", 12)
     run = open_run(client, experiment="e", name="r")
     _snap(run, repo)
     meta = _snapshot_meta(app, run.id)
@@ -791,7 +791,7 @@ def test_a_fetch_that_cannot_ask_names_every_file_with_the_batch_reason(tmp_path
     """A blob_fetch that raises BEFORE fetching (the store said no to the whole
     batch) leaves every captured file unavailable with that reason -- not the
     generic "no captured bytes", which is what a falsy reasons mapping gave."""
-    from probe.sdk.restore import restore_snapshot
+    from probe.sdk.run.readback.restore import restore_snapshot
 
     payload = b"x\n"
     entry = {
@@ -848,7 +848,7 @@ def test_put_fileobj_sends_exactly_the_verified_size(app):
     import httpx
 
     from probe.config import Settings
-    from probe.sdk.transport import Transport
+    from probe.sdk.delivery.transport.transport import Transport
 
     seen: dict = {}
 
@@ -896,7 +896,7 @@ def test_nfc_and_nfd_spellings_of_one_file_are_both_stored_and_restored(
 
 
 def test_blob_fetch_restore_refuses_a_path_outside_dest(tmp_path):
-    from probe.sdk.restore import restore_snapshot
+    from probe.sdk.run.readback.restore import restore_snapshot
 
     payload = b"pwned\n"
     manifest = {

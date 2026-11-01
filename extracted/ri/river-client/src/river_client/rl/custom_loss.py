@@ -58,19 +58,19 @@ def custom_batch(data, loss: CustomLoss, custom_loss_inputs: Callable | None):
     for datum in data:
         if "model_input" in datum:
             # Image targets are placeholders; the trajectory mask excludes them.
-            ids = [
-                token
-                for chunk in datum["model_input"]
-                for token in (
+            ids = np.concatenate(
+                [
                     chunk["tokens"]
                     if chunk["type"] == "text"
-                    else [0] * chunk["expected_tokens"]
-                )
-            ]
+                    else np.zeros(chunk["expected_tokens"], dtype=np.int64)
+                    for chunk in datum["model_input"]
+                ],
+                dtype=np.int64,
+            )
         else:
-            ids = datum["input_ids"]
+            ids = np.asarray(datum["input_ids"], dtype=np.int64)
         columns = {
-            "targets": [*ids[1:], 0],
+            "targets": np.append(ids[1:], 0),
             "old_logprobs": np.asarray(datum["old_logprobs"], dtype=np.float32),
             "advantages": np.asarray(datum["advantages"], dtype=np.float32),
             "mask": np.asarray(datum["loss_mask"], dtype=np.float32),

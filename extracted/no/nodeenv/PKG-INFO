@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nodeenv
-Version: 1.11.1
+Version: 1.12.0
 Summary: Node.js virtual environment builder
 Home-page: https://github.com/ekalinin/nodeenv
 Author: Eugene Kalinin
@@ -11,21 +11,21 @@ Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*
+Requires-Python: >=3.10
 License-File: LICENSE
 License-File: AUTHORS
 Provides-Extra: certifi
 Requires-Dist: certifi; extra == "certifi"
+Provides-Extra: completion
+Requires-Dist: shtab>=1.11; extra == "completion"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -67,15 +67,23 @@ Install
 Global installation
 ^^^^^^^^^^^^^^^^^^^
 
-You can install nodeenv globally with `easy_install`_::
+Use `pipx`_ to install nodeenv as a command in an isolated Python
+environment. Install pipx according to its documentation, then run::
 
-    $ sudo easy_install nodeenv
+    $ pipx install nodeenv
+    $ pipx ensurepath
 
-or with `pip`_::
+Open a new terminal after ``pipx ensurepath`` so the directory containing
+``nodeenv`` is on ``PATH``. This keeps nodeenv's Python packages separate
+from your system Python. Alternatively, use the local installation below.
 
-    $ sudo pip install nodeenv
+When using ``nodeenv -p`` with pipx, activate the project's Python virtual
+environment first, or pass its path explicitly, for example
+``nodeenv -p .venv``. Otherwise Node.js is installed in nodeenv's own pipx
+environment and is lost when ``pipx reinstall nodeenv`` recreates it.
 
-or on Debian using `dpkg`_::
+From a source checkout, Debian users can instead build and install a
+package with `dpkg`_::
 
     $ ln -s debian-upstream debian
     $ dpkg-buildpackage -uc -us -b
@@ -86,28 +94,91 @@ or on Debian using `dpkg`_::
 Local installation
 ^^^^^^^^^^^^^^^^^^
 
-If you're using virtualenv_ then you can install nodeenv via
-pip_/easy_install_ inside any virtual environment built with virtualenv::
+On Debian and Ubuntu, install the ``python3-venv`` system package first.
+On macOS and Linux, create a Python virtual environment and install
+nodeenv with `pip`_::
 
-    $ virtualenv env
-    $ . env/bin/activate
-    (env) $ pip install nodeenv
-    (env) $ nodeenv --version
-    0.6.5
+    $ python3 -m venv .venv
+    $ . .venv/bin/activate
+    (.venv) $ python -m pip install nodeenv
+    (.venv) $ nodeenv --version
 
-If you want to work with the latest version of the nodeenv you can
-install it from the github `repository`_::
+If you already use virtualenv_, the environment it creates works as well.
+The name ``.venv`` leaves ``env`` available for the Node.js environment
+created in the Usage example below.
 
-    $ git clone https://github.com/ekalinin/nodeenv.git
-    $ ./nodeenv/nodeenv.py --help
+On Windows with the Python launcher installed, use cmd::
 
-or with `pip`_::
+    C:\> py -m venv .venv
+    C:\> .venv\Scripts\activate.bat
+    (.venv) C:\> python -m pip install nodeenv
+    (.venv) C:\> nodeenv --version
 
-    $ pip install -e git+https://github.com/ekalinin/nodeenv.git#egg=nodeenv
+PowerShell's execution policy may block ``Activate.ps1``. Activation is
+optional; in PowerShell you can invoke the environment's executables
+directly::
+
+    PS> py -m venv .venv
+    PS> .\.venv\Scripts\python.exe -m pip install nodeenv
+    PS> .\.venv\Scripts\nodeenv.exe --version
+
+To run a source checkout, use the activated Python virtual environment
+above and clone the GitHub `repository`_::
+
+    (.venv) $ git clone https://github.com/ekalinin/nodeenv.git
+    (.venv) $ python ./nodeenv/nodeenv.py --help
+
+To install the latest development version in that activated environment,
+use an editable install (requires Git)::
+
+    (.venv) $ python -m pip install -e "git+https://github.com/ekalinin/nodeenv.git#egg=nodeenv"
+
+In an unactivated PowerShell environment, use
+``.\.venv\Scripts\python.exe`` in place of ``python``.
 
 .. _repository: https://github.com/ekalinin/nodeenv
-.. _pip: http://pypi.python.org/pypi/pip
-.. _easy_install: http://pypi.python.org/pypi/setuptools
+.. _pip: https://pypi.org/project/pip/
+.. _pipx: https://pipx.pypa.io/
+
+Shell completion
+^^^^^^^^^^^^^^^^
+
+``nodeenv --print-completion SHELL`` prints a completion script for bash,
+zsh or fish. It needs `shtab`_, which the ``completion`` extra installs::
+
+    $ python -m pip install "nodeenv[completion]"
+
+With pipx, add shtab to nodeenv's environment instead::
+
+    $ pipx inject nodeenv shtab
+
+Then save the script where your shell loads it from.
+
+bash::
+
+    $ mkdir -p ~/.local/share/bash_completion
+    $ nodeenv --print-completion bash > ~/.local/share/bash_completion/nodeenv
+    $ echo 'source ~/.local/share/bash_completion/nodeenv' >> ~/.bashrc
+
+zsh, as ``_nodeenv`` in a directory on ``fpath``::
+
+    $ mkdir -p ~/.zfunc
+    $ nodeenv --print-completion zsh > ~/.zfunc/_nodeenv
+
+and in ``~/.zshrc``, before ``compinit`` runs::
+
+    fpath=(~/.zfunc $fpath)
+
+Instead of the file, ``~/.zshrc`` can run
+``eval "$(nodeenv --print-completion zsh)"`` after ``compinit``, at the
+cost of starting nodeenv in every new shell. Sourcing the script does not
+work in zsh.
+
+fish::
+
+    $ nodeenv --print-completion fish > ~/.config/fish/completions/nodeenv.fish
+
+.. _shtab: https://pypi.org/project/shtab/
 
 
 Dependency
@@ -116,7 +187,7 @@ Dependency
 For nodeenv
 ^^^^^^^^^^^
 
-* python (2.6+, 3.5+, or pypy)
+* Python 3.10 or later (CI tests CPython 3.10 through 3.14)
 * make
 * tail
 
@@ -124,6 +195,9 @@ For node.js
 ^^^^^^^^^^^
 
 * libssl-dev
+* Python 2.7 as a ``python2`` command when building Node.js versions older
+  than 13 from source; this is separate from the Python 3.10+ interpreter
+  that runs nodeenv.
 
 Usage
 -----
@@ -192,6 +266,11 @@ nodejs.org: packages in ``v<version>/`` and, to resolve ``latest``, ``lts``
 or a version range, an ``index.json`` next to them::
 
     $ nodeenv --node=22.14.0 --mirror=file:///srv/node-mirror env-22
+
+A mirror that asks for a login takes it in the URL, with special characters
+percent-encoded::
+
+    $ nodeenv --mirror=https://user:p%2Fss@artifactory.example.com/nodejs env
 
 Install the highest node.js release matching a version range::
 
@@ -389,7 +468,9 @@ Installation options
 
 ``--mirror=URL``
     Set mirror server of nodejs.org to download from. A ``file://`` URL
-    points nodeenv at a local directory instead of a server.
+    points nodeenv at a local directory instead of a server. The
+    ``user:password@`` part of the URL goes to the mirror with HTTP Basic
+    authentication, and to no other host.
 
 ``-c, --clean-src``
     Remove "src" directory after installation. This is the default.
@@ -397,6 +478,15 @@ Installation options
 ``--no-clean-src``
     Keep "src" directory after installation. With ``--source`` it holds the
     downloaded source tree, so a repeated ``--force`` build reuses it.
+
+``--parallel-extract``
+    Extract the node.js zip archive on Windows, Cygwin and MSYS 32 files at
+    a time, so that a security scanner that checks every new file does not
+    hold up the whole install. This is the default.
+
+``--no-parallel-extract``
+    Extract the zip archive one file at a time. Set
+    ``parallel_extract = False`` in ``~/.nodeenvrc`` to make this the default.
 
 NPM options
 ^^^^^^^^^^^
@@ -468,6 +558,10 @@ Other options
 
         $ SSL_CERT_FILE=$(python -c 'import certifi; print(certifi.where())') nodeenv env
 
+``--print-completion=SHELL``
+    Print the completion script for ``bash``, ``zsh`` or ``fish`` and
+    exit. Needs shtab, see `Shell completion`_.
+
 ``--version``
     Show program version and exit.
 
@@ -494,6 +588,7 @@ These are the available options and their defaults::
     prefer_system = False
     isolate_npm = False
     clean_src = True
+    parallel_extract = True
 
 Alternatives
 ------------
@@ -515,6 +610,15 @@ There are several alternatives that create isolated environments:
 
 .. _`virtualenv`: https://github.com/pypa/virtualenv
 
+Contributing
+------------
+
+See `CONTRIBUTING.md`_ for how to set up nodeenv for development, which
+checks a change has to pass, and how to send it.
+
+.. _`CONTRIBUTING.md`:
+   https://github.com/ekalinin/nodeenv/blob/master/CONTRIBUTING.md
+
 LICENSE
 =======
 
@@ -523,6 +627,78 @@ BSD / `LICENSE <https://github.com/ekalinin/nodeenv/blob/master/LICENSE>`_
 
 Nodeenv changelog
 =================
+
+Version 1.12.0
+--------------
+- `--print-completion SHELL` prints a completion script for bash, zsh or
+  fish. It needs shtab, installed with `pip install "nodeenv[completion]"`
+  `#351 <https://github.com/ekalinin/nodeenv/issues/351>`_
+- `--prebuilt` installs no longer fail when the environment path or the
+  node.js version contains `[`, `*` or `?`
+  `#441 <https://github.com/ekalinin/nodeenv/issues/441>`_
+- On Windows, Cygwin and MSYS the node.js zip archive is extracted 32 files
+  at a time instead of one by one, so a security scanner that checks every
+  new file no longer makes the install wait for each file in turn.
+  `--no-parallel-extract`, or `parallel_extract = False` in `~/.nodeenvrc`,
+  extracts it one file at a time again
+  `#366 <https://github.com/ekalinin/nodeenv/issues/366>`_
+- `--prebuilt` installs no longer mistake a cached source tree for a
+  prebuilt archive, or fail when both trees remain in `src/`
+  `#443 <https://github.com/ekalinin/nodeenv/issues/443>`_
+- `activate.fish` restores the caller's `NODE_PATH` and npm configuration
+  on deactivation, including empty values and when `NODE_VIRTUAL_ENV` has
+  been removed. Existing environments keep their old `activate.fish`;
+  recreate them with the same options to get the fix. With `-p`, remove the
+  old nodeenv part from the virtualenv's `activate.fish` first
+  `#399 <https://github.com/ekalinin/nodeenv/issues/399>`_
+- A ``%`` in a ``[nodeenv]`` config value, such as a percent-encoded
+  mirror login, no longer crashes nodeenv: a value that can't be
+  interpolated and has no ``%(name)s`` reference is read as written.
+  ``%%`` still gives ``%``, which ``setup.cfg`` needs, as setuptools
+  reads that file too
+  `#440 <https://github.com/ekalinin/nodeenv/issues/440>`_
+- `nodeenv -p` no longer puts the python venv's `bin` directory on `PATH`
+  a second time: the venv's own `activate` and `activate.fish` put it there
+  already. Envs without those scripts, such as conda envs, and the git-bash
+  `activate` on Windows keep it, and running `nodeenv -p` again fixes an
+  existing venv
+  `#332 <https://github.com/ekalinin/nodeenv/issues/332>`_
+- Require Python 3.10 or later, matching the minimum version tested in CI.
+  Update package classifiers and wheel tags, and remove the unused Python 2
+  compatibility paths. Old Node.js source builds still require Python 2.7
+  as their build interpreter
+  `#436 <https://github.com/ekalinin/nodeenv/issues/436>`_
+- `--source` builds of node.js 13 and later no longer need a `python2`
+  command; 8.8 to 12.x still need one but point `python` at it on their
+  own, so the `python` to python2 link in `PATH` is only set up for older
+  versions, and versions before 13 still fail early with a clear error
+  when `python2` is missing
+  `#419 <https://github.com/ekalinin/nodeenv/issues/419>`_
+- The node.js archive download also retries when the connection is reset or
+  times out in the middle of the body, pauses between the attempts and ends
+  with an error message instead of a traceback when all of them fail; a
+  server that stops answering is given up on after 60 seconds instead of
+  hanging nodeenv
+  `#324 <https://github.com/ekalinin/nodeenv/issues/324>`_
+- `activate.fish` no longer puts a literal `^/dev/null` on `PATH`: fish 3.1+
+  defaults to `stderr-nocaret`, so the old caret redirect was one more path
+  entry; existing environments keep the old `activate.fish` until recreated
+  with `--force`
+  `#400 <https://github.com/ekalinin/nodeenv/issues/400>`_
+- `activate.bat` and `Activate.ps1` now set `npm_config_prefix` to the
+  environment and restore it on deactivate: `npx` exports the outer prefix,
+  and `npm.cmd` runs the npm it finds there instead of its own
+  `#309 <https://github.com/ekalinin/nodeenv/issues/309>`_
+- `--with-npm` on Windows and Cygwin installs npm from the registry tarball
+  instead of the GitHub source archive, whose workspace symlinks unpacked as
+  text files (npm 8) and whose workspaces are missing (npm >= 9); the default
+  `--npm=latest` no longer ends in a 404 there
+  `#310 <https://github.com/ekalinin/nodeenv/issues/310>`_
+- Quoted values in the config file, as the README shows them, are read
+  without the quotes, and `user:password@` in the `--mirror` URL is sent to
+  the mirror with HTTP Basic authentication instead of being taken for a part
+  of the host; the password stays out of error messages and redirects
+  `#321 <https://github.com/ekalinin/nodeenv/issues/321>`_
 
 Version 1.11.1
 --------------

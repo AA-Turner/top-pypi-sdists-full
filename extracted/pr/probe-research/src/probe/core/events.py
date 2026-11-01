@@ -73,7 +73,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, TextIO
 
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 
 #: Takes each event, as the dict its NDJSON line parses to.
 EventSink = Callable[[dict], None]
@@ -156,7 +156,7 @@ class Step(StrEnum):
     REPAIR_INTEGRATIONS = "repair_integrations"
     #: `probe uninstall`'s phases (`probe.cli.uninstall`), in order. The last,
     #: `uninstall_finish`, is written by the finisher the CLI becomes
-    #: (`probe/_shared/finisher.py`), which also writes `result` and `done`.
+    #: (`probe/shared/updates/finisher.py`), which also writes `result` and `done`.
     UNINSTALL_SCOPE = "uninstall_scope"
     UNINSTALL_PLAN = "uninstall_plan"
     UNINSTALL_STOP = "uninstall_stop"
@@ -255,7 +255,7 @@ def persistent_install(result: Any) -> None:
 
 
 def device_prompt(prompt: Any) -> None:
-    """A browser approval about to be polled for (`probe.sdk.device.DevicePrompt`)."""
+    """A browser approval about to be polled for (`probe.sdk.settings.device.DevicePrompt`)."""
     emit(
         {
             "event": Event.DEVICE_PROMPT.value,
@@ -486,7 +486,7 @@ def _owned_signals() -> Iterator[bool]:
 @contextmanager
 def interruptible() -> Iterator[None]:
     """The one stretch of a json run that SIGINT can end: the wait for a browser
-    approval (`probe.sdk.device` wraps its token poll in this). Nothing is
+    approval (`probe.sdk.settings.device` wraps its token poll in this). Nothing is
     written while it waits, so stopping there leaves nothing half-done. Outside
     a session, or off the main thread, a no-op."""
     run = _run
@@ -528,7 +528,7 @@ def session(enabled: bool, *, sink: EventSink | None = None) -> Iterator[None]: 
     # anyway, and the module itself stays light.
     import typer
 
-    from probe.sdk import device
+    from probe.sdk.settings import device
 
     usage_error = _usage_error(typer)
     with redirect_stdout() as out, _owned_signals() as owns_signals:

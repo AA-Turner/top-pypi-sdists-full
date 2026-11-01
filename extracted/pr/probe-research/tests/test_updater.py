@@ -106,7 +106,7 @@ def test_auto_update_is_on_by_default_for_the_uv_tool_installs_only(monkeypatch,
     version of it side by side included. A pipx, editable, project or pip
     install keeps its opt-in (D4), so `version_policy.managed_cli` must agree
     with `detect_install` on every one."""
-    from probe import version_policy
+    from probe.shared.updates import version_policy
 
     _patch_pkg(monkeypatch, pkg)
     uv_tool = updater.detect_install().method in {updater.Method.UV_TOOL, updater.Method.UV_TOOL_LEGACY}
@@ -660,7 +660,8 @@ def test_codex_update_refreshes_and_readds_both_plugins_then_verifies(monkeypatc
 
 # -- the wizard's menu after an Update ---------------------------------------
 def _upgrade_to(monkeypatch, result: updater.CliResult):
-    from probe.cli import run_lock, upgrading, versions
+    from probe.cli import run_lock, upgrading
+    from probe.shared.updates import updates as versions
 
     monkeypatch.setattr(versions, "_installed_cli", None)
     monkeypatch.setattr(run_lock, "any_live", lambda: False)
@@ -774,7 +775,8 @@ def test_a_deferred_update_still_approves_probes_codex_hooks(monkeypatch):
     """Codex rewrites its copies of Probe's plugins by itself, and every rewrite
     switches their hooks off (#3617): a live run holding the update off must not
     hold that approval off too. Only where Codex holds a copy of Probe's plugins."""
-    from probe.cli import codex_hooks, run_lock, upgrading
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
+    from probe.cli import run_lock, upgrading
 
     asked: list[int] = []
     monkeypatch.setattr(run_lock, "any_live", lambda: True)
@@ -801,26 +803,31 @@ def side_by_side(monkeypatch, tmp_path):
     """A uv tool install that updates beside the running version, its
     `installs` steps stood in for: what each install was asked for, and what
     the switch recorded."""
-    from probe._shared import installs
+    from probe.shared.updates import installs
     from probe.core import adopt
 
     adopt.reset()
     seen = {"installs": [], "dropped": [], "activated": [], "fail_pin": True, "fail_with": True,
             "with_said": "No solution found when resolving tool dependencies: wandb conflicts with probe-research"}
-    monkeypatch.setattr(installs, "tool_dir", lambda: tmp_path / "tools")
-    monkeypatch.setattr(installs, "dropped_with", lambda tools=None: list(seen.get("dropped_before", [])))
-    monkeypatch.setattr(installs, "usable", lambda tools=None: True)
-    monkeypatch.setattr(installs, "rejected", lambda tools=None: {})
-    monkeypatch.setattr(installs, "selftest", lambda env: None)
-    monkeypatch.setattr(installs, "activate", lambda env, tools=None: seen["activated"].append(env) or {})
-    monkeypatch.setattr(installs, "prune", lambda tools=None: [])
-    monkeypatch.setattr(installs, "dropped_python", lambda tools=None: None)
+    monkeypatch.setattr(installs.layout, "tool_dir", lambda: tmp_path / "tools")
+    monkeypatch.setattr(installs.installs, "tool_dir", lambda: tmp_path / "tools")
+    monkeypatch.setattr(installs.pruning, "tool_dir", lambda: tmp_path / "tools")
+    monkeypatch.setattr(installs.repair, "tool_dir", lambda: tmp_path / "tools")
+    monkeypatch.setattr(installs.shims, "tool_dir", lambda: tmp_path / "tools")
+    monkeypatch.setattr(installs.active_record, "dropped_with", lambda tools=None: list(seen.get("dropped_before", [])))
+    monkeypatch.setattr(installs.layout, "usable", lambda tools=None: True)
+    monkeypatch.setattr(installs.active_record, "rejected", lambda tools=None: {})
+    monkeypatch.setattr(installs.env_checks, "selftest", lambda env: None)
+    monkeypatch.setattr(installs.installs, "activate", lambda env, tools=None: seen["activated"].append(env) or {})
+    monkeypatch.setattr(installs.pruning, "prune", lambda tools=None: [])
+    monkeypatch.setattr(installs.repair, "prune", lambda tools=None: [])
+    monkeypatch.setattr(installs.active_record, "dropped_python", lambda tools=None: None)
 
     def record(packages, tools=None, *, python=None):
         seen["dropped"].append(list(packages))
         seen["dropped_python"] = python
 
-    monkeypatch.setattr(installs, "record_dropped_with", record)
+    monkeypatch.setattr(installs.active_record, "record_dropped_with", record)
     old = updater.KeptInstall(with_packages=("wandb>=0.17",), python="/gone/bin/python3.12")
     # The running install's receipt, or the new env's: what its install got.
     monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: seen.get("receipt", old)
@@ -836,7 +843,7 @@ def side_by_side(monkeypatch, tmp_path):
                                               python=python or "/uv/python/cpython-3.13/bin/python3.13")
         return tmp_path / "probe-versions" / version / "probe-research"
 
-    monkeypatch.setattr(installs, "install", install)
+    monkeypatch.setattr(installs.installs, "install", install)
     yield seen
     adopt.reset()
 
@@ -882,7 +889,7 @@ def test_a_pin_uv_cannot_use_alone_keeps_the_with_packages(side_by_side):
 def test_a_uv_that_times_out_ends_the_install(side_by_side, monkeypatch):
     """The machine or the network, not the package set: no other try now (four
     300 s tries would outlast the service's 30 min for the whole update)."""
-    from probe._shared import installs
+    from probe.shared.updates import installs
 
     calls = []
 
@@ -890,7 +897,7 @@ def test_a_uv_that_times_out_ends_the_install(side_by_side, monkeypatch):
         calls.append(timeout)
         raise subprocess.TimeoutExpired(["uv"], timeout)
 
-    monkeypatch.setattr(installs, "install", hangs)
+    monkeypatch.setattr(installs.installs, "install", hangs)
     result = updater.upgrade_side_by_side("0.1.0", "0.2.0")
     assert not result.ok and "timed out after 300 s" in result.message and calls == [300.0]
 
@@ -900,10 +907,10 @@ def test_an_env_kept_from_an_earlier_install_loses_nothing_unsaid(side_by_side, 
     timed out), so nothing recorded the drop. Reusing that complete env (no
     install, nothing dropped now), what is left out is read from the
     receipts -- the running one has wandb, the new one does not -- and said."""
-    from probe._shared import installs
+    from probe.shared.updates import installs
 
     side_by_side["receipt"] = updater.KeptInstall(with_packages=(), python="/gone/bin/python3.12")
-    monkeypatch.setattr(installs, "install", lambda version, *a, **k: tmp_path / "probe-versions" / version)
+    monkeypatch.setattr(installs.installs, "install", lambda version, *a, **k: tmp_path / "probe-versions" / version)
     result = updater.upgrade_side_by_side("0.1.0", "0.2.0")
     assert result.ok and side_by_side["dropped"] == [["wandb>=0.17"]]
     assert "left out --with wandb>=0.17" in result.message
@@ -944,7 +951,7 @@ def test_a_confirmed_codex_update_approves_probes_hooks(monkeypatch):
     """The path that heals machines installed before the wizard approved Probe's
     hooks, and any entry an update changed: every confirmed Codex plugin update
     approves them and says so."""
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 
     _fake_codex(monkeypatch, {})
     versions = {updater.tracking_plugin_name("codex"): "1.0.0", "probe-research-tap": "0.10.24"}

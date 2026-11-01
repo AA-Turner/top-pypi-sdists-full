@@ -76,7 +76,7 @@ _CATALOG_PREFIXES = ("/v1/sources", "/v1/catalog/", "/v1/provenance")
 
 
 def manifest_identity(files: list[dict]) -> str:
-    """The client's identity rule (`probe.sdk.catalog.Manifest.identity`),
+    """The client's identity rule (`probe.sdk.catalog.manifest.Manifest.identity`),
     recomputed from the body as a server would."""
     digest = hashlib.sha256()
     for f in sorted(files, key=lambda f: f["relpath"]):
@@ -145,7 +145,7 @@ class CatalogFake:
         return getattr(self.base, name)
 
     def handler(self, request: httpx.Request) -> httpx.Response:
-        from probe.sdk import transport as _transport
+        from probe.sdk.delivery import transport as _transport
 
         self.requests.append(request)
         path = request.url.path

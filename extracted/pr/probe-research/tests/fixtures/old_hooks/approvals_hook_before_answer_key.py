@@ -27,7 +27,7 @@ Every lookup is scoped to the payload's session: one session's hook never
 nudges, checks or answers another session's question.
 
 FEEDBACK. A `feedback.send` question holds feedback about Probe for the Probe
-team (`probe.feedback`); no daemon acts on its answer. After writing a yes to
+team (`probe.shared.feedback.feedback`); no daemon acts on its answer. After writing a yes to
 one, this hook starts `probe feedback flush` (detached, output discarded), which
 sends it with the researcher's own credential; session start runs it again for
 anything left over.
@@ -84,7 +84,7 @@ HEADER_PREFIX = "Probe "
 #: Claude Code spells the flag `multiSelect`, Kimi Code `multi_select`
 #: (agent/tests/fixtures/kimi_code/hook_payloads/tui-ask-PreToolUse.json).
 QUESTION_FIELDS = frozenset({"header", "question", "options", "multiSelect", "multi_select"})
-#: `probe.daemon.approvals.FEEDBACK`: the policy whose yes this hook sends itself.
+#: `probe.shared.mailbox.approvals.FEEDBACK`: the policy whose yes this hook sends itself.
 FEEDBACK_POLICY = "feedback.send"
 
 

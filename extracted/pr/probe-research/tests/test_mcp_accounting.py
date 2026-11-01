@@ -20,8 +20,8 @@ import anyio
 import anyio.to_thread
 import pytest
 
-from probe.client_headers import CLIENT_KIND_HEADER, CLIENT_VERSION_HEADER
-from probe.mcp import accounting
+from probe.foundation.request_identity.request_identity import CLIENT_KIND_HEADER, CLIENT_VERSION_HEADER
+from probe.mcp.delivery import accounting
 
 
 def _headers(**pairs: str) -> dict[bytes, bytes]:
@@ -522,7 +522,7 @@ def test_a_dead_transport_costs_the_caller_nothing() -> None:
 def test_the_killswitch_silences_the_hosted_emitter(monkeypatch) -> None:
     """PROBE_TELEMETRY=off must stop this surface too. It owns its own sender, so the
     gate every other sender applies had to be applied here explicitly."""
-    from probe.mcp import accounting as acc
+    from probe.mcp.delivery import accounting as acc
 
     sent: list[dict] = []
     sender = acc._Sender()
@@ -549,7 +549,7 @@ def test_a_self_hoster_emits_nothing(monkeypatch) -> None:
 
     Fail-CLOSED: the opt-in is simply absent, which is what a self-hoster who
     configured nothing looks like."""
-    from probe.mcp import accounting as acc
+    from probe.mcp.delivery import accounting as acc
 
     sent: list[dict] = []
     sender = acc._Sender()
@@ -700,7 +700,7 @@ def test_the_view_rides_the_event(captured) -> None:
 def test_every_view_the_service_serves_is_recordable() -> None:
     """Guard against the enum growing a member this cannot express. If a new view
     lands and is not accepted here, its traffic silently files as no-view."""
-    from probe.mcp.contract import View
+    from probe.shared.reads.search_contract import View
 
     for member in View:
         state = accounting.begin_request(None, None, {})
@@ -709,3 +709,79 @@ def test_every_view_the_service_serves_is_recordable() -> None:
             assert state["holder"]["view"] == member.value, member
         finally:
             accounting.end_request(state)
+
+
+# --- read ids: what a read opened, so a search joins to it -------------------
+
+_RUN_ID = "0b7f3c1e-5a4d-4f6e-9b8a-2c1d3e4f5a6b"
+_SESSION_ID = "7d6c5b4a-3e2f-4a1b-8c9d-0e1f2a3b4c5d"
+
+
+@pytest.mark.parametrize(
+    ("ref", "expected"),
+    [
+        (f"run:{_RUN_ID}", f"run:{_RUN_ID}"),
+        (f"project:{_RUN_ID.upper()}", f"project:{_RUN_ID}"),
+        (f"session:{_SESSION_ID}", f"session:{_SESSION_ID}"),
+        (f"session:codex/{_SESSION_ID}", f"session:codex/{_SESSION_ID}"),
+        # Slugs and names are the caller's text, never recorded.
+        ("run:prophetic-manatee-987", None),
+        ("artifact:ablation-results", None),
+        (f"checkpoint:run:{_RUN_ID}@best", None),
+        ("team-note", None),
+        # Not an id as ids are written, an unknown kind, an uncaptured agent.
+        (f"run:{{{_RUN_ID}}}", None),
+        (f"run:{_RUN_ID.replace('-', '')}", None),
+        (f"secret:{_RUN_ID}", None),
+        (f"session:cursor/{_SESSION_ID}", None),
+        (f"run:x/{_RUN_ID}", None),
+        (12, None),
+    ],
+)
+def test_only_a_ref_by_id_is_a_read_id(ref, expected) -> None:
+    assert accounting._id_ref(ref) == expected
+
+
+def test_a_read_records_its_ids_and_counts_every_ref(captured) -> None:
+    state = accounting.begin_request("claude_code", "a" * 12, {})
+    try:
+        accounting.note_tool("entity")
+        accounting.note_refs(
+            [f"run:{_RUN_ID}", "run:prophetic-manatee-987", f"run:{_RUN_ID}",
+             f"session:claude_code/{_SESSION_ID}"]
+        )
+        accounting.emit(state, _IDENTITY)
+    finally:
+        accounting.end_request(state)
+    props = captured[0]["properties"]
+    assert props["read_ids"] == [f"run:{_RUN_ID}", f"session:claude_code/{_SESSION_ID}"]
+    assert props["read_ref_count"] == 4
+    assert "prophetic-manatee" not in repr(captured[0])
+
+
+def test_a_read_by_slug_alone_says_so_with_an_empty_list(captured) -> None:
+    """`read_ref_count` without ids tells "read by name" from "not a read"."""
+    state = accounting.begin_request("claude_code", "a" * 12, {})
+    try:
+        accounting.note_tool("entity")
+        accounting.note_refs(["run:prophetic-manatee-987"])
+        accounting.emit(state, _IDENTITY)
+    finally:
+        accounting.end_request(state)
+    props = captured[0]["properties"]
+    assert (props["read_ids"], props["read_ref_count"]) == ([], 1)
+
+
+def test_a_tool_without_refs_carries_no_read_fields(captured) -> None:
+    state = accounting.begin_request("claude_code", "a" * 12, {})
+    try:
+        accounting.note_tool("search")
+        accounting.note_refs(None)
+        accounting.emit(state, _IDENTITY)
+    finally:
+        accounting.end_request(state)
+    assert not {"read_ids", "read_ref_count"} & set(captured[0]["properties"])
+
+
+def test_note_refs_outside_a_request_is_a_no_op() -> None:
+    accounting.note_refs([f"run:{_RUN_ID}"])  # stdio binds no holder; must not raise

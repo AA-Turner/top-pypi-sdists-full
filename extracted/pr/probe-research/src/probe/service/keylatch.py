@@ -43,7 +43,7 @@ def fingerprint(token: str) -> str:
 def state_db(source: str) -> Path | None:
     """The tap's state db for `source`, as `capture_state._halted` finds it."""
     try:
-        from probe.harness import get_registry
+        from probe.foundation.harness_registry import get_registry
 
         capture = get_registry().get(source).capture
         return None if capture is None else Path(capture.state_dir()) / "state.db"

@@ -4,7 +4,7 @@ The service owns delivery: a daemon worker posts its messages, run alerts and
 held questions here, and the hooks claim messages and answer held questions
 here. The files stay the store, and every step is the one a caller without a
 service takes itself, run on this module's one daemon thread with the same
-functions on the same files (`probe.daemon.mailbox.rooted`: the session's own
+functions on the same files (`probe.shared.mailbox.layout.rooted`: the session's own
 state folder):
 
     mailbox.post   {sid, state_dir, deadline, message | question}
@@ -46,7 +46,7 @@ the key is the answer hook's, after the question tool (`ANSWER_CHANNEL`).
 A new question posted here gets its key written beside it (`Board.create`)
 when its daemon did not write one, and the key is never sent back.
 
-`probe.daemon.mailbox` and `approvals` are imported on the thread (stdlib
+`probe.shared.mailbox` and `approvals` are imported on the thread (stdlib
 only, off the start path).
 """
 
@@ -124,7 +124,7 @@ class MailHost:
     @staticmethod
     def post(request: dict) -> dict:
         """A message, or a held question, written as its caller would write it."""
-        from probe.daemon import mailbox
+        from probe.shared import mailbox
 
         if time.monotonic() > request["deadline_mono"]:
             return {"posted": None, "late": True}
@@ -139,7 +139,7 @@ class MailHost:
             except mailbox.Late:
                 return {"posted": None, "late": True}
             return {"posted": path.name, "kind": "message", "late": False}
-        from probe.daemon import approvals
+        from probe.shared.mailbox import approvals
 
         try:
             question = approvals.Request.from_json(request["question"])
@@ -170,7 +170,7 @@ class MailHost:
         message."""
         from dataclasses import asdict
 
-        from probe.daemon import mailbox
+        from probe.shared import mailbox
 
         claimed: list = []
         gone: list = []
@@ -193,11 +193,11 @@ class MailHost:
         ...}`, with nothing written, when the caller did not send the
         question's answer key (`Board.key_matches`). The channel recorded is
         ANSWER_CHANNEL, whatever the caller said."""
-        from probe.daemon import approvals
+        from probe.shared.mailbox import approvals
 
         if time.monotonic() > request["deadline_mono"]:
             return {"answered": None, "late": True}
-        from probe.daemon import mailbox
+        from probe.shared import mailbox
 
         board = approvals.Board(Path(request["state"]) / "approvals")
         held = board.get(request["id"])

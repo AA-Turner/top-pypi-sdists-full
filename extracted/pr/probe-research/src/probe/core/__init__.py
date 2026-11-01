@@ -8,7 +8,7 @@ here once.
     actions   configure, recorder, logout, uninstall, update, session_default,
               workspace_limit (`probe.core.actions`): a request in, events out, an exit status back
     reads     status (`probe.core.reads`): `probe status --json`'s object
-    report    diagnostic reports to the Probe team (`probe.core.report`) and the
+    report    diagnostic reports to the Probe team (`probe.shared.reports`) and the
               debug log (`probe.core.debug_bundle`): `probe doctor --send/--bundle`
     events    the one event type, `probe wizard --json` schema v1 (`probe.core.events`)
     requests  each action's parameters, and their JSON (`probe.core.requests`)

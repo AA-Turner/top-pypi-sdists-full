@@ -1,4 +1,4 @@
-"""The frozen hand-off (`probe._shared.handoff`): stage 1 and the lifeboat (plan A1, B1),
+"""The frozen hand-off (`probe.shared.updates.handoff`): stage 1 and the lifeboat (plan A1, B1),
 and v3's rescue of a broken env at any version, the uninstall barrier, and
 generation folders (plan clean-uninstall-reinstall L-T1).
 
@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from probe._shared import handoff
+from probe.shared.updates import handoff
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="POSIX flock, exec and shebangs")
 

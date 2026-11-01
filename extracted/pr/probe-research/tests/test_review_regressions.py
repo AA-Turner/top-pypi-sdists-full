@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 
 from probe import cli
-from probe.sdk.client import Anchor
-from probe.sdk.config import clear_context, load_context, save_context
+from probe.sdk.artifact.anchors import Anchor
+from probe.sdk.settings.settings import clear_context, load_context, save_context
 
 from tests.conftest import _WS_MINE, make_client
 
@@ -49,7 +49,7 @@ def test_a_missing_mcp_token_never_falls_back_to_the_write_token(monkeypatch):
     from probe.mcp import server as server_mod
 
     save_context({"base_url": "http://test", "token": "probe_pat_WRITE"}, name="staging")
-    from probe.sdk.config import use_context
+    from probe.sdk.settings.settings import use_context
 
     use_context("staging")
     monkeypatch.delenv("PROBE_MCP_TOKEN", raising=False)
@@ -68,11 +68,17 @@ def test_a_missing_mcp_token_never_falls_back_to_the_write_token(monkeypatch):
         def close(self):
             pass
 
-    monkeypatch.setattr(server_mod, "Client", FakeClient)
+    monkeypatch.setattr(server_mod.pool, "Client", FakeClient)
     server_mod._clients.clear()
     server_mod._sources.clear()
-    monkeypatch.setattr(server_mod, "ResearchOSSource", lambda client: object())
-    monkeypatch.setattr(server_mod, "ResearchReadService", lambda source: object())
+    monkeypatch.setattr(server_mod.pool, "ResearchOSSource", lambda client: object())
+    monkeypatch.setattr(server_mod.server, "ResearchReadService", lambda source: object())
+    monkeypatch.setattr(server_mod.metric_mode, "ResearchReadService", lambda source: object())
+    monkeypatch.setattr(server_mod.metric_modes.coordinates, "ResearchReadService", lambda source: object())
+    monkeypatch.setattr(server_mod.metric_modes.grouped, "ResearchReadService", lambda source: object())
+    monkeypatch.setattr(server_mod.metric_modes.points, "ResearchReadService", lambda source: object())
+    monkeypatch.setattr(server_mod.metric_modes.series, "ResearchReadService", lambda source: object())
+    monkeypatch.setattr(server_mod.pool, "ResearchReadService", lambda source: object())
 
     server_mod._service_from_token()
 
@@ -309,7 +315,7 @@ def test_a_corrupt_config_is_never_silently_overwritten():
     """`load_file` returns {} for both 'absent' and 'unreadable'. Writers used that
     as 'fresh install' and replaced the file — one truncated byte took every token
     for every endpoint on the machine, at exit 0."""
-    from probe.sdk.config import ConfigUnreadable, config_path
+    from probe.sdk.settings.settings import ConfigUnreadable, config_path
 
     save_context({"token": "probe_pat_PROD"}, name="prod")
     save_context({"token": "probe_pat_STG"}, name="staging")
@@ -329,7 +335,7 @@ def test_logout_strips_top_level_credentials_left_by_an_older_client():
     key forever — outliving every logout while still authenticating that old client."""
     import json
 
-    from probe.sdk.config import config_path
+    from probe.sdk.settings.settings import config_path
 
     save_context({"token": "probe_pat_CTX"})
     hybrid = json.loads(config_path().read_text())
@@ -386,7 +392,7 @@ def test_concurrent_saves_do_not_drop_a_context(tmp_path, monkeypatch):
 
     program = (
         "import sys;"
-        "from probe.sdk.config import save_context;"
+        "from probe.sdk.settings.settings import save_context;"
         "save_context({'token': 'probe_pat_' + sys.argv[1]}, name=sys.argv[1])"
     )
     procs = [
@@ -395,7 +401,7 @@ def test_concurrent_saves_do_not_drop_a_context(tmp_path, monkeypatch):
     for proc in procs:
         assert proc.wait(timeout=60) == 0
 
-    from probe.sdk.config import load_file
+    from probe.sdk.settings.settings import load_file
 
     saved = load_file().get("contexts", {})
     assert {f"ctx{i}" for i in range(4)} <= set(saved), f"a context was dropped: {sorted(saved)}"

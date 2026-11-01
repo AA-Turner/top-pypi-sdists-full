@@ -14,7 +14,8 @@ from dataclasses import dataclass
 
 import pytest
 
-from probe.cli import agent_rules, team_note_file
+from probe.cli import agent_rules
+from probe.shared.notes import team_note as team_note_file
 
 
 @dataclass
@@ -36,7 +37,7 @@ def harnesses(tmp_path, monkeypatch):
     monkeypatch.delenv("PROBE_AGENT", raising=False)
     # These tests are about two instruction files; Kimi Code's third is
     # covered by `test_kimi_code_gets_the_note_beside_its_pointer`.
-    monkeypatch.setattr(team_note_file, "RENDER_SOURCES", ("claude_code", "codex"))
+    monkeypatch.setattr(team_note_file.render, "RENDER_SOURCES", ("claude_code", "codex"))
     return claude / "CLAUDE.md", codex / "AGENTS.md"
 
 
@@ -198,7 +199,7 @@ def test_notes_sync_actually_renders_the_blocks(opted_in, monkeypatch, capsys) -
 
     monkeypatch.setattr(main, "_client", _fake_client)
     monkeypatch.setattr(
-        team_note_file,
+        team_note_file.team_note,
         "reconcile",
         lambda client, where: (
             team_note_file.Report(pulled=True, version=7),
@@ -247,7 +248,10 @@ def test_push_only_renders_nothing_because_it_never_fetched(opted_in, monkeypatc
     monkeypatch.setattr(main, "_client", _fake_client)
     # push_only never yields text -- the fetch-failed shape.
     monkeypatch.setattr(
-        team_note_file, "push", lambda client, where: team_note_file.Report(pushed=True, version=7)
+        team_note_file.push_pull, "push", lambda client, where: team_note_file.Report(pushed=True, version=7)
+    )
+    monkeypatch.setattr(
+        team_note_file.team_note, "push", lambda client, where: team_note_file.Report(pushed=True, version=7)
     )
 
     main.notes_sync(push_only=True, pull_only=False)
@@ -544,7 +548,7 @@ def test_a_reconcile_whose_fetch_fails_leaves_both_files_byte_for_byte(opted_in,
     def _boom(client, where):
         raise RuntimeError("network is down")
 
-    monkeypatch.setattr(team_note_file, "reconcile", _boom)
+    monkeypatch.setattr(team_note_file.team_note, "reconcile", _boom)
 
     with pytest.raises(RuntimeError):
         main.notes_sync(push_only=False, pull_only=False)
@@ -718,7 +722,7 @@ def test_the_first_render_on_a_fresh_machine_never_advises(opted_in) -> None:
 
 
 def test_kimi_code_is_a_render_target_from_its_registry_row() -> None:
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     assert "kimi_code" in team_note_file._render_sources()
     assert get_registry().get("kimi_code").team_note == "render"
@@ -737,7 +741,7 @@ def test_kimi_code_gets_the_note_beside_its_pointer(tmp_path, monkeypatch) -> No
     }.items():
         monkeypatch.setenv(name, str(value))
     monkeypatch.delenv("PROBE_AGENT", raising=False)
-    monkeypatch.setattr(team_note_file, "RENDER_SOURCES", ("kimi_code",))
+    monkeypatch.setattr(team_note_file.render, "RENDER_SOURCES", ("kimi_code",))
     _opt_in(kimi / "AGENTS.md")
 
     report = team_note_file.render_blocks("## rules\n\n- one", settings=_Settings())

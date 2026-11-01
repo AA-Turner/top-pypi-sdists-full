@@ -19,7 +19,7 @@ pytest.importorskip("pydantic_ai_harness")
 from pydantic_ai.messages import ModelMessagesTypeAdapter, ModelResponse, ToolReturnPart  # noqa: E402
 from pydantic_ai.models.function import FunctionModel  # noqa: E402
 
-from probe.daemon import model as model_mod  # noqa: E402
+from probe.daemon.agent.model import model as model_mod  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
 from tests.test_daemon_conversation import (  # noqa: E402,F401 -- `_isolated` is an autouse fixture
     RUN,
@@ -105,7 +105,8 @@ def test_each_lean_request_extends_the_last_runs_first_request(tmp_path, monkeyp
 
 
 def test_a_paused_lean_run_keeps_its_tool_results_until_the_run_that_finishes_it(tmp_path, monkeypatch, lean):
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 2)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 2)
     first = Script([("shell", "ls PAUSED-A"), ("shell", "ls PAUSED-B"), ("shell", "ls never")])
     w = _worker(tmp_path, model=FunctionModel(first), replay=Replay(), mode="conversation", monkeypatch=monkeypatch)
     w.read_new()
@@ -231,7 +232,8 @@ def test_a_paused_run_settles_its_list_so_the_carry_on_does_not_repeat_it(tmp_pa
     w = _worker(tmp_path, model=FunctionModel(first), replay=Replay(), mode="conversation", monkeypatch=monkeypatch)
     w.read_new()
     assert asyncio.run(w.run_bite("turn end")) is True
-    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 1)
+    monkeypatch.setattr(worker_mod.bite.run, "ROUNDS_BEFORE_YIELD", 1)
+    monkeypatch.setattr(worker_mod.loop.run_end, "ROUNDS_BEFORE_YIELD", 1)
     _append_turn(w.session.transcript, "TURN 2")
     second = Script([("shell", "ls a"), ("shell", "ls b")])
     w._model = FunctionModel(second)

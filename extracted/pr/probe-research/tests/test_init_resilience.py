@@ -19,7 +19,8 @@ import httpx
 import pytest
 
 import probe
-from probe.sdk import errors, fluent, transport
+from probe.sdk import errors, fluent
+from probe.sdk.delivery import transport
 from tests.conftest import make_client
 
 #: Every run-create route: the experiment API's (`/v1/projects/{P}/experiments/{E}/runs`,
@@ -50,7 +51,9 @@ class FakeClock:
 @pytest.fixture
 def clock(monkeypatch) -> FakeClock:
     fake = FakeClock()
-    monkeypatch.setattr(transport, "time", fake)
+    monkeypatch.setattr(transport.transport, "time", fake)
+    monkeypatch.setattr(transport.blobs, "time", fake)
+    monkeypatch.setattr(transport.deadlines, "time", fake)
     return fake
 
 
@@ -120,7 +123,16 @@ def faulty(app, tmp_path, monkeypatch) -> Faults:
     faults = Faults(app)
     app.handler = faults  # make_client binds `app.handler` at construction
     monkeypatch.setattr(
-        fluent, "Client", lambda *_a, **_kw: make_client(app, tmp_spool=tmp_path / "spool")
+        fluent.fluent, "Client", lambda *_a, **_kw: make_client(app, tmp_spool=tmp_path / "spool")
+    )
+    monkeypatch.setattr(
+        fluent.attach, "Client", lambda *_a, **_kw: make_client(app, tmp_spool=tmp_path / "spool")
+    )
+    monkeypatch.setattr(
+        fluent.bindings, "Client", lambda *_a, **_kw: make_client(app, tmp_spool=tmp_path / "spool")
+    )
+    monkeypatch.setattr(
+        fluent.run_openers.online, "Client", lambda *_a, **_kw: make_client(app, tmp_spool=tmp_path / "spool")
     )
     app.seed_experiment("e1")
     return faults
@@ -247,7 +259,7 @@ def test_a_create_resent_after_a_503_waits_its_retry_after(app, faulty, clock):
 
 
 def test_an_unreadable_budget_warns_and_keeps_the_default(monkeypatch):
-    from probe.sdk import config
+    from probe.sdk.settings import settings as config
 
     monkeypatch.setenv("PROBE_INIT_TIMEOUT_SEC", "ninety")
     with pytest.warns(UserWarning, match="PROBE_INIT_TIMEOUT_SEC"):
@@ -260,7 +272,7 @@ def _refusing_transport(counter: list) -> transport.Transport:
         counter.append(request)
         raise httpx.ConnectError("refused", request=request)
 
-    from probe.sdk.config import Settings
+    from probe.sdk.settings.settings import Settings
 
     settings = Settings(base_url="http://test", token="ros_pat_x")
     http = httpx.Client(base_url="http://test", transport=httpx.MockTransport(handler))
@@ -290,7 +302,7 @@ def test_a_patient_write_that_may_have_landed_is_not_resent(clock):
         calls.append(request)
         raise httpx.ReadTimeout("lost", request=request)
 
-    from probe.sdk.config import Settings
+    from probe.sdk.settings.settings import Settings
 
     http = httpx.Client(base_url="http://test", transport=httpx.MockTransport(handler))
     t = transport.Transport(Settings(base_url="http://test", token="ros_pat_x"), client=http)
@@ -329,7 +341,7 @@ def _crashed_incumbent(app, external_id: str) -> str:
 def _slow_resume(monkeypatch, *, opt_out: bool, wait: float = 120.0):
     """A reopen step that waits longer than init's whole budget first -- the
     shape of a requeue takeover waiting out a dead incumbent (plan 2.3)."""
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     real = Client._resume_run
 
@@ -367,7 +379,7 @@ def test_without_the_opt_out_the_init_budget_cuts_the_step_off(app, faulty, cloc
 def test_the_heartbeat_thread_starts_outside_the_init_budget(app, faulty, clock, monkeypatch):
     """A thread that inherits its creator's context (free-threaded 3.14) must
     not carry init's deadline for the life of the run."""
-    from probe.sdk.run import Run
+    from probe.sdk.run.run import Run
 
     seen = []
     monkeypatch.setattr(
@@ -487,9 +499,9 @@ def test_a_takeover_wait_is_not_cut_off_by_the_init_budget(
             app.run_beat_silence[rid] += seconds
             app.run_silence[rid] += seconds
 
-    monkeypatch.setattr(client_mod, "_takeover_sleep", time_passes)
+    monkeypatch.setattr(client_mod.resources.runs.reopen.takeover, "_takeover_sleep", time_passes)
     if not wrapped:
-        monkeypatch.setattr(transport, "without_patience", contextlib.nullcontext)
+        monkeypatch.setattr(transport.deadlines, "without_patience", contextlib.nullcontext)
 
     if wrapped:
         run = probe.init(experiment="e1", external_id="job-requeue", source="sdk")

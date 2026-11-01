@@ -145,7 +145,8 @@ def test_a_file_that_changes_after_its_fingerprint_is_recorded_not_raised(
     src = tmp_path / "metrics.json"
     src.write_text('{"acc": 0.9}\n')
     real = run_mod._fingerprint
-    monkeypatch.setattr(run_mod, "_fingerprint", lambda p: ("0" * 64, real(p)[1]))
+    monkeypatch.setattr(run_mod.files.uploads, "_fingerprint", lambda p: ("0" * 64, real(p)[1]))
+    monkeypatch.setattr(run_mod.files.files, "_fingerprint", lambda p: ("0" * 64, real(p)[1]))
     run = open_run(client, experiment="e", name="r")
 
     with pytest.warns(UserWarning, match="source changed"):
@@ -294,7 +295,8 @@ def _refuse_matching(monkeypatch, predicate, reason="file exceeds inspection siz
             secret_gate._refuse(reason)
         return real(path, **kw)
 
-    monkeypatch.setattr(run_mod, "check_upload", check)
+    monkeypatch.setattr(run_mod.files.code_files, "check_upload", check)
+    monkeypatch.setattr(run_mod.files.files, "check_upload", check)
 
 
 def test_a_refused_code_archive_warns_once_in_its_own_words(client, app, tmp_path, monkeypatch):
@@ -373,7 +375,7 @@ def test_the_servers_gate_copy_has_no_sdk_error_import():
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[2]
-    server_copy = (root / "app" / "security" / "_credential_gate.py").read_text()
+    server_copy = (root / "contracts" / "probe_contracts" / "scrubber" / "scrubber.py").read_text()
     assert "from .errors import" not in server_copy
     assert "\n_RefusalBase = Exception\n" in server_copy
 

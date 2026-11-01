@@ -14,9 +14,9 @@ import pytest
 
 from probe.cli import backfill_wandb as wb
 from probe.cli.backfill_coverage import Coverage, CoverageError, Scope
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
-from probe.sdk.transport import Transport
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.transport.transport import Transport
 
 PROJECT = "00000000-0000-4000-8000-000000000001"
 OTHER = "00000000-0000-4000-8000-000000000002"

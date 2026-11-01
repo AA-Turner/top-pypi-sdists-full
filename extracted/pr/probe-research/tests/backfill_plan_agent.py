@@ -15,9 +15,11 @@ the tool, as it would be for a real agent -- it never reaches the plan.
 
 from __future__ import annotations
 
+import errno
 import json
 import re
 import subprocess
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -57,8 +59,19 @@ def patch_own_sleep(monkeypatch, module, sleep) -> None:
 def tool(kwargs: dict, *args: str) -> tuple[int, str]:
     """Run the session's own `probe-backfill-plan`, as the agent's shell would."""
     exe = Path(kwargs["path_prepend"]) / bf.PLAN_TOOL_COMMAND
-    proc = _POPEN([str(exe), *args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                  text=True, cwd=str(kwargs.get("workdir") or "."))
+    # ETXTBSY: a thread forking right now (a pass's own git or agent child)
+    # inherited the launcher's write fd and holds it until its exec. Retry until
+    # that child has exec'd; no stopwatch decides anything but a hang.
+    give_up = time.monotonic() + 60
+    while True:
+        try:
+            proc = _POPEN([str(exe), *args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                          text=True, cwd=str(kwargs.get("workdir") or "."))
+            break
+        except OSError as exc:
+            if exc.errno != errno.ETXTBSY or time.monotonic() > give_up:
+                raise
+            threading.Event().wait(0.01)  # not time.sleep: suites record those
     out, _ = proc.communicate(timeout=60)
     return proc.returncode, out
 

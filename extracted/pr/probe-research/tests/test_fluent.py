@@ -56,7 +56,10 @@ def wired(app, tmp_path, monkeypatch):
         built.append(client)
         return client
 
-    monkeypatch.setattr(fluent, "Client", factory)
+    monkeypatch.setattr(fluent.fluent, "Client", factory)
+    monkeypatch.setattr(fluent.attach, "Client", factory)
+    monkeypatch.setattr(fluent.bindings, "Client", factory)
+    monkeypatch.setattr(fluent.run_openers.online, "Client", factory)
     app.seed_experiment("e1")
     return built
 
@@ -1110,14 +1113,15 @@ def test_a_run_joined_through_probe_run_id_is_returned_never_finished(app, share
 def test_both_runs_sweep_their_outputs(app, wired, tmp_path, monkeypatch):
     """With both open, each run's sweep saw the other alive over the same folder
     and skipped. Closing the first before the second opens lets both sweep."""
-    from probe.sdk import ephemeral, outputs
+    from probe.sdk.run.launch import ephemeral
+    from probe.sdk.capture import outputs
 
     work = tmp_path / "work"
     work.mkdir()
     monkeypatch.chdir(work)
     monkeypatch.setenv("PROBE_CAPTURE_LOG", "0")
     monkeypatch.setenv(ephemeral.ENV, "0")
-    monkeypatch.setattr(outputs, "_shared_warned", set())
+    monkeypatch.setattr(outputs.host_registry, "_shared_warned", set())
 
     first = probe.init(experiment="e1", name="r1", capture_outputs=True)
     (work / "first.txt").write_text("from the first run")
@@ -1177,7 +1181,7 @@ def test_the_close_is_bounded_even_with_no_finish_timeout_set(app, wired, monkey
     """Unset, a finish() is the hard barrier and refuses to close over pending
     writes. A reinit caps it instead (10 s; shortened here)."""
     monkeypatch.delenv("PROBE_FINISH_TIMEOUT_SEC", raising=False)
-    monkeypatch.setattr(fluent, "_REINIT_FLUSH_CAP_S", 0.2)
+    monkeypatch.setattr(fluent.reinit, "_REINIT_FLUSH_CAP_S", 0.2)
     first = probe.init(experiment="e1", name="r1")
     _refuse(app, monkeypatch, "POST", f"/v1/runs/{first.id}/metrics", 503)
     probe.log({"loss": 0.5}, step=1)
@@ -1344,7 +1348,10 @@ def no_client(monkeypatch):
     def refuse(*_a, **_kw):
         raise AssertionError("PROBE_MODE=disabled built a Client")
 
-    monkeypatch.setattr(fluent, "Client", refuse)
+    monkeypatch.setattr(fluent.fluent, "Client", refuse)
+    monkeypatch.setattr(fluent.attach, "Client", refuse)
+    monkeypatch.setattr(fluent.bindings, "Client", refuse)
+    monkeypatch.setattr(fluent.run_openers.online, "Client", refuse)
 
 
 def test_disabled_mode_records_nothing_and_touches_nothing(app, no_client, monkeypatch, tmp_path):
@@ -1423,8 +1430,8 @@ def test_a_disabled_run_answers_every_run_property_with_a_value():
     method whose real result is a collection answers an empty one."""
     import inspect
 
-    from probe.sdk.disabled import DisabledRun
-    from probe.sdk.run import Run
+    from probe.sdk.run.disabled import DisabledRun
+    from probe.sdk.run.run import Run
 
     run = DisabledRun()
     properties = [n for n, v in inspect.getmembers(Run) if isinstance(v, property) and not n.startswith("_")]
@@ -1443,7 +1450,7 @@ def test_a_disabled_run_answers_every_run_property_with_a_value():
     assert run.foreign_keys == {} and run.log_artifact("x", path="/nope") is None
     # A verb whose real result is an object answers one the script can read
     # (review of #2791: `ds.ref` / `ds.wait()` raised on None).
-    from probe.sdk.catalog import DatasetRef
+    from probe.sdk.catalog.refs import DatasetRef
 
     ds = run.log_dataset("data/", "n")
     assert isinstance(ds, DatasetRef) and ds.ref is None and ds.wait(0)
@@ -1632,7 +1639,7 @@ def test_other_threads_wait_for_the_new_run_instead_of_raising(app, wired, monke
         outcome["thread"] = thread
         _time.sleep(0.2)  # the thread reaches probe.log() inside the gap
 
-    monkeypatch.setattr(fluent, "_close_binding", slow_close)
+    monkeypatch.setattr(fluent.reinit, "_close_binding", slow_close)
     second = probe.init(experiment="e1", name="r2")
     outcome["thread"].join(5)
 
@@ -1846,15 +1853,16 @@ def test_a_reinit_against_a_hung_api_and_a_hashing_backlog_keeps_its_cap(
     hashing a file, which waited up to 30 s of its own outside any deadline."""
     import time as _time
 
-    from probe.sdk import inputs
+    from probe.sdk.capture import lineage as inputs
 
     monkeypatch.setenv(inputs.READS_ENV, "1")
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("PROBE_HEARTBEAT_SECONDS", "3600")
     monkeypatch.delenv("PROBE_FINISH_TIMEOUT_SEC", raising=False)
-    monkeypatch.setattr(fluent, "_REINIT_FLUSH_CAP_S", 1.0)
+    monkeypatch.setattr(fluent.reinit, "_REINIT_FLUSH_CAP_S", 1.0)
     release = threading.Event()
-    monkeypatch.setattr(inputs, "hash_file", lambda *a, **k: release.wait(60) and ("x", None, None))
+    monkeypatch.setattr(inputs.identities, "hash_file", lambda *a, **k: release.wait(60) and ("x", None, None))
+    monkeypatch.setattr(inputs.lineage, "hash_file", lambda *a, **k: release.wait(60) and ("x", None, None))
     inputs._hash_results.clear()
     try:
         first = probe.init(experiment="e1", name="r1", capture_reads=True)
@@ -1966,7 +1974,7 @@ class _HungSource:
         self.release = threading.Event()
 
     def sample(self, now):
-        from probe.hw.types import HwSample
+        from probe.sdk.hardware.types import HwSample
 
         self.threads.append(threading.current_thread().name)
         if len(self.threads) > 1:
@@ -1981,9 +1989,9 @@ def test_a_reinit_with_a_hung_hardware_query_keeps_its_bound(app, wired, monkeyp
     waits within the close's deadline and never samples from the caller."""
     import time as _time
 
-    from probe.hw.monitor import HwMonitor
+    from probe.sdk.hardware.hardware import HwMonitor
 
-    monkeypatch.setattr(fluent, "_REINIT_FLUSH_CAP_S", 1.0)
+    monkeypatch.setattr(fluent.reinit, "_REINIT_FLUSH_CAP_S", 1.0)
     first = probe.init(experiment="e1", name="r1")
     source = _HungSource()
     monitor = HwMonitor([source], emit=lambda points: None, interval=0.02)
@@ -2012,9 +2020,9 @@ def test_a_finish_that_stops_a_healthy_collector_still_flushes_its_windows():
     """The windows the collector completed still go out (the control for the
     test above), and so does the one open at the close: the collector's own
     last pass samples it (lane E3), never the caller's thread."""
-    from probe.hw.grid import HW_STEP_SECONDS
-    from probe.hw.monitor import HwMonitor
-    from probe.hw.types import HwSample
+    from probe.sdk.hardware.grid import HW_STEP_SECONDS
+    from probe.sdk.hardware.hardware import HwMonitor
+    from probe.sdk.hardware.types import HwSample
 
     clock = types.SimpleNamespace(t=1_000_000.0)
     emitted: list = []
@@ -2057,9 +2065,12 @@ def test_a_reinit_with_an_exporter_stuck_mid_request_keeps_its_bound(app, tmp_pa
         built.append(client)
         return client
 
-    monkeypatch.setattr(fluent, "Client", factory)
+    monkeypatch.setattr(fluent.fluent, "Client", factory)
+    monkeypatch.setattr(fluent.attach, "Client", factory)
+    monkeypatch.setattr(fluent.bindings, "Client", factory)
+    monkeypatch.setattr(fluent.run_openers.online, "Client", factory)
     monkeypatch.setenv("PROBE_HEARTBEAT_SECONDS", "3600")
-    monkeypatch.setattr(fluent, "_REINIT_FLUSH_CAP_S", 1.0)
+    monkeypatch.setattr(fluent.reinit, "_REINIT_FLUSH_CAP_S", 1.0)
     app.seed_experiment("e1")
     first = probe.init(experiment="e1", name="r1")
     hung = _hang(app, monkeypatch, first.id, hang_s=30.0)
@@ -2089,7 +2100,7 @@ def test_a_held_commit_false_row_is_sent_inside_the_reinit_bound(app, wired, mon
     and a row that runs out of time is queued, never dropped."""
     import time as _time
 
-    monkeypatch.setattr(fluent, "_REINIT_FLUSH_CAP_S", 1.0)
+    monkeypatch.setattr(fluent.reinit, "_REINIT_FLUSH_CAP_S", 1.0)
     first = probe.init(experiment="e1", name="r1")
     probe.log({"loss": 0.5}, step=1, commit=False)
     _hang(app, monkeypatch, first.id, hang_s=3.0)
@@ -2159,7 +2170,7 @@ def test_other_threads_logs_wait_at_most_the_cap_for_a_slow_new_run(app, wired, 
     dropped the same way; `span` and `update_config` raise, saying why."""
     import time as _time
 
-    monkeypatch.setattr(fluent, "_REINIT_FLUSH_CAP_S", 0.5)
+    monkeypatch.setattr(fluent.reinit, "_REINIT_FLUSH_CAP_S", 0.5)
     probe.init(experiment="e1", name="r1")
     real_open = fluent._open_and_bind
     outcome: dict = {"took": []}
@@ -2190,7 +2201,8 @@ def test_other_threads_logs_wait_at_most_the_cap_for_a_slow_new_run(app, wired, 
         _time.sleep(3.0)  # a slow create of the new run
         return real_open(*a, **k)
 
-    monkeypatch.setattr(fluent, "_open_and_bind", slow_open)
+    monkeypatch.setattr(fluent.run_openers.online, "_open_and_bind", slow_open)
+    monkeypatch.setattr(fluent.fluent, "_open_and_bind", slow_open)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         second = probe.init(experiment="e1", name="r2")
@@ -2257,7 +2269,7 @@ def test_ctrl_c_while_the_close_hashes_reads_cancels_instead_of_completing(
     """Read capture swallowed a Ctrl-C that landed while the close waited on
     hashing, so the close went on and marked the run `completed`. The
     interrupt now reaches the close, which queues `canceled` and re-raises."""
-    from probe.sdk import inputs
+    from probe.sdk.capture import lineage as inputs
 
     monkeypatch.setenv(inputs.READS_ENV, "1")
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
@@ -2267,7 +2279,9 @@ def test_ctrl_c_while_the_close_hashes_reads_cancels_instead_of_completing(
     def interrupted(*_a, **_k):
         raise KeyboardInterrupt()
 
-    monkeypatch.setattr(inputs, "collect_all", interrupted)
+    monkeypatch.setattr(inputs.lineage, "collect_all", interrupted)
+    monkeypatch.setattr(inputs.finishing, "collect_all", interrupted)
+    monkeypatch.setattr(inputs.recovery, "collect_all", interrupted)
     try:
         with pytest.raises(KeyboardInterrupt):
             probe.finish()

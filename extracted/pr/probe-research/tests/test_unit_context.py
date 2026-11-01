@@ -16,7 +16,7 @@ import uuid
 
 import pytest
 
-from probe.sdk.unit_context import UnitContext, current
+from probe.sdk.run.context.context import UnitContext, current
 from tests.conftest import open_run
 
 

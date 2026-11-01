@@ -159,6 +159,9 @@ def test_ensure_backs_off_after_three_starts_a_minute(service_home):
         status = service_home.start()
         os.kill(status["pid"], signal.SIGKILL)
         assert service_home.wait_exit(status["pid"], 3.0)
+        # A killed service's listen socket can outlive its pid for a moment
+        # (its files close as its last thread exits); `ensure` must meet none.
+        assert wait_for(lambda: service_home.status() is None, 5.0), "a killed service still answers"
     assert client.ensure() == client.Ensured.BACKOFF
     assert service_home.status() is None
 

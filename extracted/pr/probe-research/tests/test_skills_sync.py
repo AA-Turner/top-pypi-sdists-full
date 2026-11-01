@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from probe import skill_versions
+from probe.foundation.skills import skills as skill_versions
 from tests.held_for_plugin_release import HELD_NEW_SKILLS, HELD_SKILLS, REASON
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -31,7 +31,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 _CANONICAL = _ROOT / "skills"
 _PLUGIN = _ROOT / "plugins" / "probe-research" / "agent-skills"
 
-# Mirrors the Makefile's sync-plugin-skills list.
+# Mirrors the sync-plugin-skills trees (skills/profiles.json "full").
 _SYNCED = (
     "probe",
     "track-work",
@@ -97,7 +97,7 @@ def test_plugin_skill_copy_matches_canonical(skill: str) -> None:
 
 
 def test_every_canonical_skill_is_covered_by_this_guard() -> None:
-    """A new skill must be added to the Makefile's sync list AND to `_SYNCED`.
+    """A new skill must be added to the sync list (skills/profiles.json) AND to `_SYNCED`.
 
     Without this, adding skills/foo/ without wiring the sync would leave the plugin
     silently missing it while every parametrized case above still passed."""
@@ -105,7 +105,7 @@ def test_every_canonical_skill_is_covered_by_this_guard() -> None:
     covered = set(_SYNCED)
     assert on_disk == covered, (
         f"skills/ holds {sorted(on_disk)} but this guard covers {sorted(covered)}; "
-        "add it to _SYNCED + the Makefile"
+        "add it to _SYNCED + skills/profiles.json"
     )
     # A held skill the plugin already carries: D2 synced it, so empty the hold.
     assert not {s for s in HELD_NEW_SKILLS if (_PLUGIN / s).exists()}, "empty HELD_NEW_SKILLS"
@@ -122,7 +122,7 @@ def test_the_wheel_ships_the_canonical_skills_not_a_third_copy() -> None:
     Point it at the canonical directory, and assert it stays pointed there: the
     moment it names a copy instead, the copy can drift the way the plugin's did.
     """
-    from probe._compat import tomllib
+    from probe.foundation.compat.compat import tomllib
 
     with (_ROOT / "pyproject.toml").open("rb") as fh:
         config = tomllib.load(fh)
@@ -146,7 +146,8 @@ def test_no_skill_names_a_tool_that_does_not_exist() -> None:
     # Read the declared tool names from the server source rather than standing a
     # server up: this guard is about the SKILLS being consistent with the code,
     # and it should not need a client, a fake backend, or an event loop to say so.
-    server_src = (_ROOT / "src" / "probe" / "mcp" / "server.py").read_text()
+    # Every piece of the split server (agent:17): the same text the one server.py held.
+    server_src = "\n".join(p.read_text() for p in sorted((_ROOT / "src" / "probe" / "mcp" / "server").rglob("*.py")))
     declared = set(re.findall(r"^    def ([a-z_]+)\(", server_src, re.M))
 
     referenced: dict[str, set[str]] = {}
@@ -305,23 +306,25 @@ def test_every_skill_description_parses_as_yaml() -> None:
         )
 
 
-def test_the_makefile_sync_list_matches_synced() -> None:
+def test_the_vendor_sync_list_matches_synced() -> None:
     """The two lists were tied only by comments; a hand-copied plugin dir plus
-    an updated _SYNCED leaves the Makefile stale while every test passes, and
+    an updated _SYNCED leaves the sync stale while every test passes, and
     the copy-drift failure message then recommends a command that no longer
-    fixes the drift it detects. Parse the for-loop and make the mirror
+    fixes the drift it detects. Expand the sync and make the mirror
     mechanical."""
-    import re
+    # The trees come from agent/skills/profiles.json, so read them as the tool expands them.
+    trees = [op for op in _vendor_plan("sync-plugin-skills") if op.kind == "tree"]
+    assert {op.dest for op in trees} == {f"plugins/probe-research/agent-skills/{name}" for name in _SYNCED}
 
-    # The loop reads agent/skills/profiles.json, so read it as make expands it.
-    import subprocess
 
-    dry_run = subprocess.run(
-        ["make", "-n", "-C", str(_ROOT), "sync-plugin-skills"], capture_output=True, text=True, check=True
-    ).stdout
-    m = re.search(r"for s in ([^;]+); do", dry_run)
-    assert m, "could not parse the sync-plugin-skills loop"
-    assert set(m.group(1).split()) == set(_SYNCED)
+def _vendor_plan(group: str) -> list:
+    """`make <group>`'s concrete steps, as tools/vendor.py expands plugins/VENDORED.json."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_vendor", _ROOT / "tools" / "vendor.py")
+    vendor = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vendor)
+    return vendor.plan(group)
 
 
 #: The removed team-rules ("workflow memory") surface: its MCP tool, its skills
@@ -339,7 +342,7 @@ def test_no_shipped_text_names_the_removed_team_rules_surface() -> None:
     coming back through a restored paragraph would pass both.
     """
     from probe.cli import agent_rules
-    from probe.mcp.server import MCP_INSTRUCTIONS
+    from probe.mcp.server.tool_text import MCP_INSTRUCTIONS
 
     surfaces = {
         "agent_rules.POINTER_BODY": agent_rules.POINTER_BODY,

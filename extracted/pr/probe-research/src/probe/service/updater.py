@@ -107,7 +107,7 @@
 The SDK in researchers' own project environments is never touched (D4).
 
 Stdlib only at import (the start path; plan S1). `probe._shared` (run locks,
-the skip record) and `probe.version_policy` (the setting) are light and
+the skip record) and `probe.shared.updates.version_policy` (the setting) are light and
 imported when a cycle runs.
 """
 
@@ -124,6 +124,8 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+
+from probe.shared.updates import step as update_step
 
 from . import appupdate, barrier, children, loginenv, paths
 from .protocol import (
@@ -191,15 +193,15 @@ DEFER_LIMIT_S = 24 * 3600
 #: separated (`CHILD_FORCED`): a live run (D33), a setup holding wizard.lock
 #: (C1). The child then goes on as this cycle decided
 #: (`probe.cli.upgrading.forced_past`).
-FORCED_ENV = "PROBE_UPDATE_FORCED"
+FORCED_ENV = update_step.FORCED_ENV
 #: Told to the update child when the CLI is current and daemon workers run
 #: from its env: plugins only (`probe.cli.upgrading.SKIP_CLI_ENV`, D7).
-SKIP_CLI_ENV = "PROBE_UPDATE_SKIP_CLI"
+SKIP_CLI_ENV = update_step.SKIP_CLI_ENV
 #: Told to the update child when it must update the CLI beside the running
 #: version or not at all (`probe.cli.updater.REQUIRE_SIDE_BY_SIDE_ENV`): the
 #: service did not wait for runs and workers, because nothing they run from is
 #: replaced (D6, D33).
-SIDE_BY_SIDE_ENV = "PROBE_UPDATE_SIDE_BY_SIDE"
+SIDE_BY_SIDE_ENV = update_step.SIDE_BY_SIDE_ENV
 #: The update child's wall time, at most. Past it the child is stopped (SIGTERM
 #: to its process group, SIGKILL after UPDATE_STOP_GRACE_S) and the step is
 #: failed, so the next cycle can run: a child that never returned used to keep
@@ -218,7 +220,7 @@ UPDATE_TIMEOUT_S = 30 * 60
 #: SIGTERM to SIGKILL. The child's SIGTERM handler (`probe.core.events`) ends
 #: the run through its `finally` blocks: its locks let go, its records and its
 #: update report written (the send is bounded at 3 s,
-#: `probe.cli.update_report.SEND_TIMEOUT_S`), the command it was running killed.
+#: `probe.shared.updates.update_report.SEND_TIMEOUT_S`), the command it was running killed.
 UPDATE_STOP_GRACE_S = 30.0
 #: Test-only overrides of the two (API v1, "Lifecycle"). Nothing in production sets them.
 WORKER_STOP_ENV = "PROBE_SERVICE_WORKER_STOP_S"
@@ -236,12 +238,12 @@ FOLLOWUP_MAX_AGE_S = 24 * 3600
 #: A cycle's CLI-and-plugins step whose child exited 0 but did not finish
 #: every step (`complete: false`; its update.log says which).
 INCOMPLETE_DETAIL = "the update did not finish every step (see update.log)"
-#: `probe.cli.update_report.TRIGGER_ENV`: what asked, for the server's report.
-TRIGGER_ENV = "PROBE_AUTOUPDATE_TRIGGER"
+#: `probe.shared.updates.update_report.TRIGGER_ENV`: what asked, for the server's report.
+TRIGGER_ENV = update_step.TRIGGER_ENV
 #: `probe.cli.wizard_lock.LOCK_FILENAME`, under the default state dir.
-WIZARD_LOCK_NAME = "wizard.lock"
+WIZARD_LOCK_NAME = update_step.WIZARD_LOCK_NAME
 #: `probe.cli.wizard_lock.BUSY_EXIT_CODE`: the update child found a setup running.
-WIZARD_BUSY_EXIT = 75
+WIZARD_BUSY_EXIT = update_step.WIZARD_BUSY_EXIT
 
 #: The deferrals DEFER_LIMIT_S ends. A setup is one since C1 (owner,
 #: 2026-10-26: nothing a person leaves open blocks updates for more than a day):
@@ -339,7 +341,7 @@ class Worker:
 
     sid: str
     lock: Path
-    #: From its `.worker.json` marker (`probe.daemon.mailbox.mark_worker_accepts`),
+    #: From its `.worker.json` marker (`probe.shared.mailbox.worker_marker.mark_worker_accepts`),
     #: checked to be that worker's process; None when it cannot be told.
     pid: int | None
     #: Its session is not a live one: the worker is finishing the queue of a
@@ -349,7 +351,7 @@ class Worker:
 
     @property
     def handover(self) -> Path:
-        """`probe.daemon.mailbox.handover_path`: the worker hands over at its
+        """`probe.shared.mailbox.presence.handover_path`: the worker hands over at its
         next model round while this is fresh."""
         return self.lock.with_suffix(".handover")
 
@@ -651,7 +653,7 @@ def look(
         busy.run = True
     else:
         try:
-            from probe._shared import run_lock
+            from probe.foundation.durable import run_lock
 
             busy.run = any(run_lock.any_live(state / run_lock.RUNS_DIRNAME) for state in dirs)
         except Exception:  # noqa: BLE001 -- unknown reads as a live run, as run_lock itself does
@@ -679,7 +681,7 @@ def setup_held_since(lock: Path) -> float | None:
     before the record (the file then holds nothing, or a record whose writer is
     gone), a record dated ahead of the clock, or one that does not read."""
     try:
-        from probe._shared import setup_marks
+        from probe.shared.updates import setup_marks
 
         state, at, _pid = setup_marks.holder(lock)
     except Exception:  # noqa: BLE001 -- cannot be told
@@ -692,7 +694,7 @@ def _held_by(lock: Path, pid: int | None) -> bool:
     if pid is None:
         return False
     try:
-        from probe._shared import setup_marks
+        from probe.shared.updates import setup_marks
 
         state, _at, holder_pid = setup_marks.holder(lock)
     except Exception:  # noqa: BLE001
@@ -704,7 +706,7 @@ def _menu_waiting(state: Path, exclude_pid: int | None = None) -> tuple[bool, fl
     """`setup_marks.menu_waiting` for one state folder; one that cannot be
     read is no menu (the lock still guards every write the menu makes)."""
     try:
-        from probe._shared import setup_marks
+        from probe.shared.updates import setup_marks
 
         return setup_marks.menu_waiting(state, exclude_pid=exclude_pid)
     except Exception:  # noqa: BLE001
@@ -719,7 +721,7 @@ def side_by_side() -> bool:
     machine, as an in-place update does. Unknown reads as no: the update waits
     as before."""
     try:
-        from probe._shared import installs
+        from probe.shared.updates import installs
 
         return installs.usable() and not installs.needs_migration()
     except Exception:  # noqa: BLE001
@@ -729,7 +731,7 @@ def side_by_side() -> bool:
 def _switched() -> bool:
     """Does the tool path name a version env now (a side-by-side switch)?"""
     try:
-        from probe._shared import installs
+        from probe.shared.updates import installs
 
         return installs.active() is not None
     except Exception:  # noqa: BLE001
@@ -755,7 +757,7 @@ def _env_moved(started: Path | None = None) -> bool:
     of its own, `<v>+g<N>`: plan R-T3)? Then this service is the old one, as
     after a version change, and restarts onto it."""
     try:
-        from probe._shared import installs
+        from probe.shared.updates import installs
 
         active = installs.active()
         return active is not None and (started or STARTED_ENV) != active
@@ -777,7 +779,7 @@ def runtime_follows_switch(installed: str) -> str | None:
     the wrong version. Blocking (may read that version): a thread. Never
     raises."""
     try:
-        from probe._shared import installs
+        from probe.shared.updates import installs
 
         from . import client
 
@@ -864,7 +866,7 @@ def auto_update_enabled(extra_dirs=()) -> bool:
     every live session's (`extra_dirs`, D13), where a person who runs with
     XDG_STATE_HOME saved it."""
     try:
-        from probe import version_policy
+        from probe.shared.updates import version_policy
 
         return version_policy.autoupdate_enabled(extra_dirs=extra_dirs)
     except Exception:  # noqa: BLE001 -- version_policy never raises; a broken import updates nothing
@@ -883,12 +885,14 @@ def preload() -> None:
     import subprocess  # noqa: F401
 
     from . import guard, loginenv  # noqa: F401  -- the switch's guard; the update child's environment
-    from probe._shared import installs  # noqa: F401  -- side-by-side installs (D6)
+    from probe.shared.updates import installs  # noqa: F401  -- side-by-side installs (D6)
 
-    from probe import version_policy  # noqa: F401
-    from probe._shared import autoupdate, oscompat, run_lock  # noqa: F401
+    from probe.shared.updates import version_policy  # noqa: F401
+    from probe.shared.updates import autoupdate  # noqa: F401
+    from probe._shared import oscompat  # noqa: F401
+    from probe.foundation.durable import run_lock  # noqa: F401
     from probe.core import requests  # noqa: F401  -- action.run checks its params with it
-    from probe.harness import registry  # noqa: F401  -- a request context's session variables
+    from probe.foundation.harness_registry import harness_registry as registry  # noqa: F401  -- a request context's session variables
 
     from .server import session_env_names
 
@@ -909,7 +913,7 @@ def record_skip(reason: str, trigger: str) -> None:
     if name is None:
         return
     try:
-        from probe._shared import autoupdate
+        from probe.shared.updates import autoupdate
 
         report = REPORT_FOR_CHECK.get(trigger, "cli")
         autoupdate.record_skip(getattr(autoupdate, name), trigger=autoupdate.Trigger(report))
@@ -938,7 +942,7 @@ def record_stopped(detail: str, *, version: str, since: float) -> bool:
     that would not stop may hold it. Whether it was written. Blocking (file
     I/O): off the loop. Never raises."""
     try:
-        from probe._shared import autoupdate
+        from probe.shared.updates import autoupdate
 
         now = int(time.time())
 
@@ -1981,7 +1985,7 @@ class Updater:
 
     async def _offline(self) -> bool:
         """Did the release manifest's read find no network at all just now (a
-        name that did not resolve, no route: `probe._shared.offline`), through
+        name that did not resolve, no route: `probe.foundation.tls.network_down`), through
         the login shell's proxy? False when it answered anything, or when that
         cannot be told (an older CLI's read)."""
         try:
@@ -2262,7 +2266,7 @@ class Updater:
         step failed, saying so where people look -- this step (`update.status`,
         `probe doctor`'s Updates row) and the attempt `probe doctor` prints
         (`record_stopped`). The child's own report to the server says it was
-        stopped (`probe.cli.update_report.merged_run`)."""
+        stopped (`probe.shared.updates.update_report.merged_run`)."""
         limit = span(self.update_timeout_s)
         code = overran.code
         how = overran.how
@@ -2549,7 +2553,7 @@ class Updater:
             log(f"the update action installed {installed} (this service is {self.version}): restarting")
             # Watched like a cycle's switch (D5) when it was one.
             with contextlib.suppress(Exception):
-                from probe._shared import installs
+                from probe.shared.updates import installs
 
                 if installs.active() is not None:
                     self.guard_pending = installed
@@ -2561,9 +2565,9 @@ class Updater:
         and switches back when it will not run. The interpreter of the version
         it would return to: this one's version env, or after the first switch
         (this service still runs through the moved folder's old path) the
-        moved folder itself (`probe._shared.installs.previous`). Never raises."""
+        moved folder itself (`probe.shared.updates.installs.installs.previous`). Never raises."""
         try:
-            from probe._shared import installs
+            from probe.shared.updates import installs
 
             from . import procid
 

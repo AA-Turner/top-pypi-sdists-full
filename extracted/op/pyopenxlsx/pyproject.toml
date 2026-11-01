@@ -1,10 +1,10 @@
 [build-system]
-requires = ["scikit-build-core", "nanobind>=2.11.0", "ninja"]
+requires = ["scikit-build-core", "nanobind>=3.1.0", "ninja"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyopenxlsx"
-version = "1.4.2"
+version = "1.5.0"
 description = "Python bindings for OpenXLSX-NX using nanobind"
 readme = "README.md"
 authors = [{name = "curry tang", email = "twn39@163.com"}]
@@ -106,10 +106,19 @@ dev = [
     "pandas>=3.0.2",
 ]
 
+[tool.ruff]
+# Generated nanobind stubs use enum members named `None` (valid at runtime via
+# getattr, invalid as a Python annotated assignment target for the parser).
+extend-exclude = ["src/pyopenxlsx/_openxlsx.pyi"]
+
 [tool.pytest.ini_options]
 addopts = "--cov=pyopenxlsx --cov-report=term-missing --cov-report=html"
 testpaths = ["tests"]
 norecursedirs = ["third_party"]
+markers = [
+    "benchmark_fast: developer-scale benchmarks (no ~1M extreme writes)",
+    "benchmark_extreme: large ~1M-cell write benchmarks (slow, opt-in)",
+]
 
 [tool.coverage.run]
 source = ["src/pyopenxlsx"]

@@ -180,7 +180,16 @@ def wired(app, tmp_path, monkeypatch):
     # keep the runner's own answer (their child closes take that path).
     monkeypatch.setenv("PROBE_EPHEMERAL", "0")
     monkeypatch.setattr(
-        fluent, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool")
+        fluent.fluent, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool")
+    )
+    monkeypatch.setattr(
+        fluent.attach, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool")
+    )
+    monkeypatch.setattr(
+        fluent.bindings, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool")
+    )
+    monkeypatch.setattr(
+        fluent.run_openers.online, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool")
     )
     app.seed_experiment("e1")
 
@@ -446,7 +455,7 @@ def test_a_process_that_is_not_world_zero_writes_nothing(app, wired, tmp_path):
 
 def test_run_progress_is_called_at_each_step(app, wired, tmp_path, monkeypatch):
     """Plan 2.8's stall detector reads `run.progress()`: one per optimizer step."""
-    from probe.sdk.run import Run
+    from probe.sdk.run.run import Run
 
     calls = []
     monkeypatch.setattr(Run, "progress", lambda self: calls.append(self.id))
@@ -459,7 +468,7 @@ def test_run_progress_is_called_at_each_step(app, wired, tmp_path, monkeypatch):
 
 
 def test_a_folder_checkpoint_is_walked_once_per_save(app, wired, tmp_path, monkeypatch):
-    from probe.sdk import hashing
+    from probe.sdk.artifact import hashing
 
     walks = []
     real = hashing.folder_size
@@ -792,7 +801,7 @@ def test_training_again_below_the_logged_steps_warns_once(app, wired, tmp_path):
 def test_under_a_launcher_every_callback_writes_the_launchers_run(
     app, wired, tmp_path, monkeypatch
 ):
-    from probe.sdk.run import EXEC_FINALIZES_ENV
+    from probe.sdk.run.launch.execute import EXEC_FINALIZES_ENV
 
     for var in ("RANK", "WORLD_SIZE", "SLURM_PROCID", "OMPI_COMM_WORLD_RANK"):
         monkeypatch.delenv(var, raising=False)
@@ -817,7 +826,7 @@ def test_under_a_launcher_a_failure_the_script_caught_leaves_the_verdict_to_it(
     """Review of this PR, MED: the script joined the launcher's run with its
     own probe.init(); the exit check saw a script run, noted `failed`, and
     the close skipped the launcher's hand-off. `probe exec` reads exit 0."""
-    from probe.sdk.run import EXEC_FINALIZES_ENV
+    from probe.sdk.run.launch.execute import EXEC_FINALIZES_ENV
 
     for var in ("RANK", "WORLD_SIZE", "SLURM_PROCID", "OMPI_COMM_WORLD_RANK"):
         monkeypatch.delenv(var, raising=False)

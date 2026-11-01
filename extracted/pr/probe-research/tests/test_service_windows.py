@@ -405,7 +405,7 @@ def test_a_json_run_ignores_ctrl_break_outside_its_approval_wait():
 def test_a_spawned_update_sees_its_parent_exit():
     # `os.kill(pid, 0)` answers nothing on Windows (a dead pid included), so the
     # update child spawned by a command waited its whole 30 min for it.
-    from probe._shared import autoupdate
+    from probe.shared.updates import autoupdate
 
     gone = subprocess.Popen([sys.executable, "-c", "pass"])
     gone.wait(timeout=30)
@@ -431,7 +431,7 @@ def test_a_detached_update_child_never_holds_its_command(tmp_path):
         time.sleep(0.1)
     pid = int(pid_file.read_text())
     try:
-        from probe._shared import autoupdate
+        from probe.shared.updates import autoupdate
 
         assert autoupdate.pid_is_alive(pid), "the child runs on after its command returned"
     finally:

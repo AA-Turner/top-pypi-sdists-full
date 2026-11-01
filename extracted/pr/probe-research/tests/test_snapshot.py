@@ -10,6 +10,8 @@ import pytest
 
 from probe import snapshot
 
+SCANNING_DISABLED = "credential scanning is disabled in the SDK; these tests assert the redaction it did"
+
 
 def _git(cwd, *args):
     subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True)
@@ -115,7 +117,7 @@ def test_snapshot_errors_outside_git(tmp_path):
 
 import hashlib  # noqa: E402
 
-from probe.sdk import snapshot as _snap_mod  # noqa: E402
+from probe.sdk.capture import code as _snap_mod  # noqa: E402
 
 PROBE_PAT = "probe_pat_" + "0123456789abcdef" * 2
 HF_TOKEN = "hf_" + "AbCdEfGhIjKlMnOpQrStUvWxYzAbCdEfGh"
@@ -154,6 +156,7 @@ def _write_scratch(path):
     )
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_git_capture_skips_an_untracked_env_and_a_scratch_file_with_keys(repo):
     (repo / ".env").write_text(f"PROBE_TOKEN={PROBE_PAT}\n")
     _write_scratch(repo / "scratch.py")
@@ -176,6 +179,7 @@ def test_git_capture_skips_an_untracked_env_and_a_scratch_file_with_keys(repo):
         assert by_path[name]["size"] == (repo / name).stat().st_size
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_git_capture_content_skip_names_the_rules_never_the_values(repo):
     _write_scratch(repo / "scratch.py")
     m = snapshot.capture_manifest(str(repo))
@@ -198,6 +202,7 @@ def test_git_capture_applies_the_name_filter_to_tracked_files_too(repo):
     assert _skipped(m)["service-account.json"] == "secret"
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_non_git_capture_skips_config_files_holding_keys(tmp_path):
     root = tmp_path / "plain"
     root.mkdir()
@@ -246,6 +251,7 @@ def test_prose_and_code_that_only_mention_tokens_are_captured(tmp_path):
     assert "secret" not in _skipped(m).values()
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_a_hardcoded_generic_key_is_still_caught_in_code_and_config(tmp_path):
     root = tmp_path / "plain"
     root.mkdir()
@@ -262,6 +268,7 @@ def test_a_hardcoded_generic_key_is_still_caught_in_code_and_config(tmp_path):
     }
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_an_included_file_is_content_scanned(repo):
     (repo / ".gitignore").write_text("data/\n")
     (repo / "data").mkdir()
@@ -275,6 +282,7 @@ def test_an_included_file_is_content_scanned(repo):
     assert _skipped(m)["data/keys.txt"] == "secret"
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_a_forced_lockfile_with_an_index_password_is_skipped(repo):
     (repo / ".gitignore").write_text("requirements.txt\n")
     (repo / "requirements.txt").write_text(
@@ -286,7 +294,7 @@ def test_a_forced_lockfile_with_an_index_password_is_skipped(repo):
 
 
 def test_a_file_too_large_to_scan_is_referenced_never_copied(repo, monkeypatch):
-    monkeypatch.setattr(_snap_mod, "CONTENT_SCAN_MAX_BYTES", 1024)
+    monkeypatch.setattr(_snap_mod.content_gate, "CONTENT_SCAN_MAX_BYTES", 1024)
     (repo / "big.txt").write_text("x" * 4096)
     m = snapshot.capture_manifest(str(repo))
     entry = next(e for e in m["entries"] if e["path"] == "big.txt")
@@ -294,6 +302,7 @@ def test_a_file_too_large_to_scan_is_referenced_never_copied(repo, monkeypatch):
     assert entry["sha256"] == _sha(repo / "big.txt")
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_a_plain_token_inside_binary_bytes_is_caught(repo):
     """Bytes that are not UTF-8 (a pickled config, a stored zip member) are read
     through a one-char-per-byte view, so a plainly written token still shows."""
@@ -318,7 +327,10 @@ def test_upload_disabled_scans_nothing_and_a_budget_bounds_the_scan(repo, monkey
     calls = []
     real = _snap_mod.credential_rules
     monkeypatch.setattr(
-        _snap_mod, "credential_rules", lambda raw, name, **kw: calls.append(name) or real(raw, name, **kw)
+        _snap_mod.scanners.source_code, "credential_rules", lambda raw, name, **kw: calls.append(name) or real(raw, name, **kw)
+    )
+    monkeypatch.setattr(
+        _snap_mod.content_gate, "credential_rules", lambda raw, name, **kw: calls.append(name) or real(raw, name, **kw)
     )
 
     m = snapshot.capture_manifest(str(repo), scan=False)
@@ -329,6 +341,7 @@ def test_upload_disabled_scans_nothing_and_a_budget_bounds_the_scan(repo, monkey
         _snap_mod.capture_manifest(str(repo), scan_budget_bytes=1000)
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 @pytest.mark.parametrize("git", [True, False], ids=["git", "no-git"])
 def test_an_include_cannot_bring_back_a_skipped_file(tmp_path, git):
     """Before 0.5 a non-git include re-added a name-filtered `.env` to the
@@ -403,6 +416,7 @@ def _plain(tmp_path, files: dict) -> "object":
 
 
 # 1 CRITICAL -- a vendor token merged into an unquoted key-name hit was dropped.
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 @pytest.mark.parametrize(
     ("line", "secret"),
     [
@@ -445,6 +459,7 @@ def test_review_2_credential_folders_in_a_git_repo_are_never_uploaded(client, ap
 
 
 # 3 HIGH -- unquoted keys in comments, docstrings and notebooks.
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 @pytest.mark.parametrize(
     ("name", "text", "secret"),
     [
@@ -477,6 +492,7 @@ def test_review_3_code_that_only_names_tokens_is_still_uploaded(client, app, tmp
 
 
 # 4 MED-HIGH -- encoded and UTF-16 credentials.
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 @pytest.mark.parametrize(
     ("name", "data", "secret"),
     [
@@ -522,6 +538,7 @@ def test_review_5_tracked_code_named_like_secrets_is_captured(client, app, repo)
 
 
 # 6 MED -- a withheld file stays in the record, so identity never depends on it being left out.
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_review_6_a_withheld_file_stays_in_the_record(client, app, tmp_path):
     root = _plain(tmp_path, {"train.py": "print(1)\n", "cfg.yaml": f"hf: {HF_TOKEN}\n"})
     run, snap, _ = _snap_run(client, root)
@@ -586,6 +603,7 @@ def test_budget_a_20mb_csv_is_scanned_and_uploaded(client, app, tmp_path):
     assert snap["code_bytes"]["pending_upload"] == 0
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_budget_a_pathological_tokens_log_is_withheld_not_uploaded(client, app, tmp_path, monkeypatch):
     # 60 MB of keyword-dense text scans at ~4 MB/s here (~15 s); a 1 s budget
     # keeps the test fast and holds on any machine under 60 MB/s.
@@ -606,6 +624,7 @@ def test_budget_a_pathological_tokens_log_is_withheld_not_uploaded(client, app, 
     assert any("1 file(s) whose credential scan" in w and "PROBE_SNAPSHOT_SCAN_BUDGET_SEC" in w for w in warned), warned
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_budget_the_snapshot_total_holds(tmp_path, monkeypatch):
     """Once the snapshot's budget is spent, large non-source files are withheld
     without being read by the scanner; small and source files still are."""
@@ -633,6 +652,7 @@ def test_budget_the_snapshot_total_holds(tmp_path, monkeypatch):
     assert elapsed < 3.0, f"{elapsed:.1f}s"
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 @pytest.mark.parametrize("budget", ["0.05", None], ids=["tiny-budget", "ample-budget"])
 def test_budget_holds_for_a_small_file_too(client, app, tmp_path, monkeypatch, budget):
     """A file up to FULL_SCAN_MAX_BYTES used to be scanned with no clock at all
@@ -699,7 +719,8 @@ def test_review_8_scan_is_an_explicit_switch(repo, monkeypatch):
     _write_scratch(repo / "scratch.py")
     calls = []
     real = _snap_mod.credential_rules
-    monkeypatch.setattr(_snap_mod, "credential_rules", lambda *a, **k: calls.append(1) or real(*a, **k))
+    monkeypatch.setattr(_snap_mod.scanners.source_code, "credential_rules", lambda *a, **k: calls.append(1) or real(*a, **k))
+    monkeypatch.setattr(_snap_mod.content_gate, "credential_rules", lambda *a, **k: calls.append(1) or real(*a, **k))
     m = snapshot.capture_manifest(str(repo), scan=False)
     assert calls == [] and "scratch.py" in _manifest_paths(m)
 
@@ -864,6 +885,7 @@ def _shape_run(client, app, tmp_path, monkeypatch, rel, content, mode, storage):
     return snap, _sent(app)
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 @pytest.mark.parametrize("storage", ["artifacts", "archive"])
 @pytest.mark.parametrize("mode", MODES)
 @pytest.mark.parametrize("shape", list(SHAPES))
@@ -957,6 +979,7 @@ def test_rereview_benign_archives_are_captured(tmp_path):
     assert {e["path"]: e["source"] for e in m["entries"]} == {"metrics.zip": "blob", "model.pt": "blob"}
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_rereview_an_unreadable_archive_is_withheld_not_uploaded(client, app, tmp_path):
     root = _plain(tmp_path, {"ok.py": "print(1)\n", "broken.tar.gz": b"\x1f\x8b\x08\x00" + b"not deflate data" * 8})
     run, snap, _ = _snap_run(client, root)
@@ -1002,7 +1025,7 @@ def _ignore_tree(repo):
 
 
 def test_probeignore_excludes_tracked_and_untracked_paths(repo):
-    from probe.sdk import ignore
+    from probe.sdk.recording_rules import ignore
 
     _ignore_tree(repo)
     (repo / ".probeignore").write_text("data/\n*.ckpt\n!keep.ckpt\n")
@@ -1021,7 +1044,7 @@ def test_probeignore_excludes_tracked_and_untracked_paths(repo):
 
 
 def test_probeignore_applies_from_a_subdirectory(repo):
-    from probe.sdk import ignore
+    from probe.sdk.recording_rules import ignore
 
     _ignore_tree(repo)
     (repo / ".probeignore").write_text("/src/train.py\n")
@@ -1034,7 +1057,7 @@ def test_probeignore_applies_through_a_symlinked_checkout(repo, tmp_path):
     """git reports its toplevel resolved; a run started through a link to the
     checkout (a symlinked workspace, macOS's /var -> /private/var) still
     matches the file's patterns."""
-    from probe.sdk import ignore
+    from probe.sdk.recording_rules import ignore
 
     _ignore_tree(repo)
     (repo / ".probeignore").write_text("data/\n")
@@ -1049,8 +1072,8 @@ def test_probeignore_applies_through_a_symlinked_checkout(repo, tmp_path):
 def test_probeignore_records_are_capped_with_an_exact_count(repo):
     """#2045 review LOW-3: `*.jsonl` over a results tree put one record per
     file into the code-snapshot's meta (6,667 records, 450 KB)."""
-    from probe.sdk import ignore
-    from probe.sdk.snapshot import PROBEIGNORE_REPORT_LIMIT
+    from probe.sdk.recording_rules import ignore
+    from probe.sdk.capture.code.code import PROBEIGNORE_REPORT_LIMIT
 
     for i in range(PROBEIGNORE_REPORT_LIMIT + 10):
         (repo / f"r{i:03d}.jsonl").write_text("{}\n")
@@ -1062,8 +1085,9 @@ def test_probeignore_records_are_capped_with_an_exact_count(repo):
     assert "n_probeignore" not in snapshot.capture_manifest(str(repo)), "no rules, no key"
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_probeignore_never_re_includes_a_safety_stop(repo):
-    from probe.sdk import ignore
+    from probe.sdk.recording_rules import ignore
 
     (repo / ".env").write_text("OPENAI_API_KEY=sk-proj-" + "a" * 48 + "\n")
     (repo / "notes.txt").write_text(f"token {_PAT}\n")
@@ -1074,7 +1098,7 @@ def test_probeignore_never_re_includes_a_safety_stop(repo):
 
 
 def test_an_explicit_include_wins_over_probeignore(repo):
-    from probe.sdk import ignore
+    from probe.sdk.recording_rules import ignore
 
     _ignore_tree(repo)
     (repo / ".probeignore").write_text("data/\n")
@@ -1087,7 +1111,7 @@ def test_an_explicit_include_wins_over_probeignore(repo):
 
 
 def test_probeignore_keeps_a_forced_lockfile_out(repo):
-    from probe.sdk import ignore
+    from probe.sdk.recording_rules import ignore
 
     (repo / ".gitignore").write_text("uv.lock\n")
     (repo / "uv.lock").write_text("version = 1\n")

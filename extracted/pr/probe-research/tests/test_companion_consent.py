@@ -13,7 +13,7 @@ import pytest
 
 from probe.cli import daemon_cli
 from probe.cli import setup as wizard
-from probe.sdk.config import save_context
+from probe.sdk.settings.settings import save_context
 
 main = importlib.import_module("probe.cli.main")
 
@@ -21,7 +21,7 @@ main = importlib.import_module("probe.cli.main")
 @pytest.mark.parametrize("grant", [wizard.COMPANION_GRANT, "capture"])
 def test_desktop_recording_credential_failure_never_starts_device_approval(monkeypatch, grant):
     monkeypatch.setenv("PROBE_DESKTOP_HUMAN", "1")
-    monkeypatch.setattr("probe.sdk.device.device_authorize", lambda *a, **kw: pytest.fail("opened approval"))
+    monkeypatch.setattr("probe.sdk.settings.device.device_authorize", lambda *a, **kw: pytest.fail("opened approval"))
     credentials, errors = wizard.authorize([grant], base_url="https://api.test", allow_browser_approval=False)
     assert credentials == {}
     assert errors and "saved sign-in" in errors[0]
@@ -29,7 +29,7 @@ def test_desktop_recording_credential_failure_never_starts_device_approval(monke
 
 def test_desktop_capture_only_configure_keeps_its_authorization_path(monkeypatch):
     """Configure's remaining grants may be capture alone on a signed-in Mac."""
-    from probe.sdk.device import DeviceLoginError
+    from probe.sdk.settings.device import DeviceLoginError
 
     monkeypatch.setenv("PROBE_DESKTOP_HUMAN", "1")
     called = []
@@ -38,7 +38,7 @@ def test_desktop_capture_only_configure_keeps_its_authorization_path(monkeypatch
         called.append(kwargs["grants"])
         raise DeviceLoginError("test approval declined")
 
-    monkeypatch.setattr("probe.sdk.device.device_authorize", approve)
+    monkeypatch.setattr("probe.sdk.settings.device.device_authorize", approve)
     _, errors = wizard.authorize(["capture"], base_url="https://api.test")
     assert called == [["capture"]]
     assert "test approval declined" in errors[0]
@@ -48,7 +48,7 @@ def test_desktop_capture_only_configure_keeps_its_authorization_path(monkeypatch
 def test_desktop_provisioning_failure_never_falls_back_to_device_approval(monkeypatch, capture):
     monkeypatch.setenv("PROBE_DESKTOP_HUMAN", "1")
     monkeypatch.setattr(wizard, "mint_from_sign_in", lambda *a, **kw: None)
-    monkeypatch.setattr("probe.sdk.device.device_authorize", lambda *a, **kw: pytest.fail("opened approval"))
+    monkeypatch.setattr("probe.sdk.settings.device.device_authorize", lambda *a, **kw: pytest.fail("opened approval"))
     lines = (wizard.pair_capture("pi", base_url="https://api.test") if capture
              else main._authorize_companion("https://api.test"))
     assert any("saved sign-in" in line for line in lines)
@@ -79,7 +79,7 @@ def calls(monkeypatch):
 def test_the_approval_link_is_printed_while_the_flow_waits(monkeypatch, capsys):
     """`probe companion authorize --no-browser` promises the link. Without a
     prompt callback the device flow prints nothing and polls until it expires."""
-    from probe.sdk.device import DevicePrompt
+    from probe.sdk.settings.device import DevicePrompt
 
     def fake_authorize(grants, *, base_url, open_browser=True, on_prompt=None, **_):
         on_prompt(DevicePrompt("ABCD-EFGH", "https://x/device", "https://x/device?code=ABCD-EFGH"))
@@ -139,7 +139,7 @@ def test_a_declined_approval_with_an_old_key_saved_still_exits_nonzero(monkeypat
 
 
 class _Client:
-    """`probe.sdk.client.Client` standing in for the server's mint routes:
+    """`probe.sdk.client.client.Client` standing in for the server's mint routes:
     `answers` is what each POST does, in order (an exception is raised)."""
 
     calls: list = []
@@ -175,7 +175,8 @@ def mint_server(monkeypatch, tmp_path, real_sign_in_mint):
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config.json"))
     save_context({"token": "probe_pat_" + "1" * 32, "base_url": "https://api.test"})
     _Client.calls, _Client.answers = [], []
-    monkeypatch.setattr(client_mod, "Client", _Client)
+    monkeypatch.setattr(client_mod.client, "Client", _Client)
+    monkeypatch.setattr(client_mod.resources.runs.attach, "Client", _Client)
     return _Client
 
 
@@ -224,8 +225,8 @@ def test_no_saved_sign_in_or_another_token_in_the_environment_mints_nothing(mint
 
 
 def test_a_key_from_the_sign_in_is_saved_and_opens_no_browser(mint_server, monkeypatch):
-    from probe.sdk import config as config_mod
-    from probe.sdk import device
+    from probe.sdk.settings import settings as config_mod
+    from probe.sdk.settings import device
 
     mint_server.answers = [DAEMON_KEY]
     monkeypatch.setattr(device, "device_authorize", lambda *a, **k: pytest.fail("no browser after a sign-in mint"))
@@ -237,7 +238,7 @@ def test_a_key_from_the_sign_in_is_saved_and_opens_no_browser(mint_server, monke
 def test_without_the_consent_shown_the_browser_approval_runs(mint_server, monkeypatch):
     """A run nobody watched (`sign_in=False`) never mints from the sign-in: the
     browser approval is where the daemon's consent is shown."""
-    from probe.sdk import device
+    from probe.sdk.settings import device
 
     opened = []
     monkeypatch.setattr(device, "device_authorize", lambda *a, **k: opened.append(k.get("grants")) or {"grants": []})

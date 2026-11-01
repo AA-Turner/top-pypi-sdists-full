@@ -827,11 +827,11 @@ class Extractor():
         return False
 
     def _extract_jsonld(self, page):
+        pos = page.find(' type="application/ld+json"')
+        if pos < 0:
+            pos = page.find(" type='application/ld+json'")
         return util.json_loads(
-            text.extr(page, '<script type="application/ld+json">',
-                      "</script>") or
-            text.extr(page, "<script type='application/ld+json'>",
-                      "</script>"))
+            page[page.find(">", pos)+1:page.find("</script>", pos)])
 
     def _extract_nextdata(self, page):
         pos = page.find(' id="__NEXT_DATA__"')

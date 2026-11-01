@@ -14,10 +14,11 @@ import uuid
 
 import pytest
 
-from probe.mcp.contract import EntityType, View
-from probe.mcp.server import create_server
-from probe.mcp.service import _VIEW_OPTIONS, _VIEWS, ResearchReadService
-from probe.mcp.source import ResearchOSSource
+from probe.shared.reads.search_contract import EntityType, View
+from probe.mcp.server.server import create_server
+from probe.mcp.tools.view import _VIEW_OPTIONS, _VIEWS
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
 from test_mcp_delivery import _bounded, _wire
 from test_mcp_read_gaps import _CreatedSource, _hiding
@@ -400,7 +401,7 @@ def test_a_cursor_whose_after_is_not_a_version_is_refused_not_restarted(client, 
     """A hand-built cursor (the token is base64, not sealed) with a non-version
     `after` must be a 422 like every other malformed cursor, never the first
     page again under a fresh cursor -- that walk would never end."""
-    from probe.mcp.service import _join_get_cursor
+    from probe.mcp.tools.shaping.cursors import _join_get_cursor
 
     entity = _anchor(client, "project")
     _seed_summary(app, "project", entity["id"], 3)

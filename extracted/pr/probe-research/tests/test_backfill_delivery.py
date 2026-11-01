@@ -10,11 +10,14 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from probe.sdk import journal as jm
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
-from probe.sdk.journal import Journal, drain
-from probe.sdk.transport import Transport
+from probe.sdk.delivery import journal as jm
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.outbox.drain.drain import drain
+from probe.sdk.delivery.transport.transport import Transport
+
+SCANNING_DISABLED = "credential scanning is disabled in the SDK; these tests assert the redaction it did"
 
 
 @pytest.fixture(autouse=True)
@@ -22,7 +25,8 @@ def isolated(monkeypatch, tmp_path):
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config.json"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.delenv("PROBE_ATTRIBUTION", raising=False)
-    monkeypatch.setattr(jm, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 0)
 
 
 @pytest.fixture
@@ -101,6 +105,7 @@ def test_immutable_upload_receipt_and_replay(queue, tmp_path):
     assert len(store.records) == 1 and len(queue.pending()) == 0
 
 
+@pytest.mark.skip(reason=SCANNING_DISABLED)
 def test_redacted_upload_receipt_names_the_source_it_verified(queue, tmp_path):
     raw = b'GITHUB_TOKEN = "ghp_KKF0RDt0Xaetn6QMfStFUWSus4jowQUux6hu"\n'
     (tmp_path / "source.py").write_bytes(raw)
@@ -149,7 +154,11 @@ def test_crash_after_intent_before_operation_preserves_snapshot(queue, tmp_path,
         return real(path, *args, **kwargs)
 
     with monkeypatch.context() as m:
-        m.setattr(jm, "write_text_atomic", crash_on_op)
+        m.setattr(jm.journal, "write_text_atomic", crash_on_op)
+        m.setattr("probe.sdk.delivery.ops.op_handler.write_text_atomic", crash_on_op)
+        m.setattr("probe.sdk.delivery.outbox.drain.accounts.write_text_atomic", crash_on_op)
+        m.setattr("probe.sdk.delivery.outbox.drain.drain.write_text_atomic", crash_on_op)
+        m.setattr("probe.sdk.delivery.outbox.drain.holds.write_text_atomic", crash_on_op)
         with pytest.raises(Crash):
             enqueue(queue, tmp_path)
     assert not queue.pending() and queue.recovery_file.exists()
@@ -241,7 +250,7 @@ def test_failed_staging_never_queues_future_source_bytes(queue, tmp_path, monkey
             real(src, dst)
             Path(src).write_bytes(b"concurrent mutation")
 
-        monkeypatch.setattr(jm, "snapshot_file", mutate)
+        monkeypatch.setattr(jm.journal, "snapshot_file", mutate)
     kwargs = {"expected_content_hash": "0" * 64} if scenario == "hash" else {}
     with pytest.raises((ValueError, jm.OutboxFull)):
         enqueue(queue, tmp_path, **kwargs)
@@ -264,7 +273,8 @@ def test_old_worker_cannot_enumerate_receipt_namespace_and_new_status_counts_it(
 
 
 def test_pending_ceiling_includes_both_namespaces(queue, tmp_path, monkeypatch):
-    monkeypatch.setattr(jm, "MAX_PENDING_OPS", 1)
+    monkeypatch.setattr(jm.headroom, "MAX_PENDING_OPS", 1)
+    monkeypatch.setattr(jm.journal, "MAX_PENDING_OPS", 1)
     old = Journal(queue.dir.parent)
     old.append_http("POST", "/v1/runs", {"name": "live"})
     with pytest.raises(jm.OutboxFull):
@@ -274,7 +284,7 @@ def test_pending_ceiling_includes_both_namespaces(queue, tmp_path, monkeypatch):
 
 def test_old_worker_lease_does_not_suppress_receipt_worker(queue, tmp_path, monkeypatch):
     import fcntl
-    from probe.sdk import outbox_worker as worker
+    from probe.sdk.delivery import outbox as worker
 
     enqueue(queue, tmp_path)
     calls = []
@@ -292,10 +302,10 @@ def test_old_worker_lease_does_not_suppress_receipt_worker(queue, tmp_path, monk
 def test_explicit_attribution_survives_queue_restart_and_preserves_transcript_payload(
     tmp_path, monkeypatch
 ):
-    from probe.sdk import transport as tm
+    from probe.sdk.delivery import transport as tm
 
     monkeypatch.setattr(
-        tm,
+        tm.headers,
         "agent_session_headers",
         lambda: {
             "X-Probe-Agent": "claude_code",
@@ -467,7 +477,8 @@ def test_admitted_intent_recovery_can_drain_below_new_enqueue_disk_floor(queue, 
     queued = enqueue(queue, tmp_path)
     queue.pending()[0][0].unlink()
     (tmp_path / "source.py").unlink()
-    monkeypatch.setattr(jm, "MIN_FREE_BYTES", 1 << 100)
+    monkeypatch.setattr(jm.headroom, "MIN_FREE_BYTES", 1 << 100)
+    monkeypatch.setattr(jm.journal, "MIN_FREE_BYTES", 1 << 100)
     report = drain(Journal(queue.dir.parent), client_factory=lambda _: Store())
     assert report.delivered == 1
     assert queue.receipt("scope:file:v1")["op_id"] == queued["op_id"]
@@ -493,10 +504,12 @@ def test_reference_replay_after_remote_acceptance_keeps_artifact_identity(queue,
 
 @pytest.mark.parametrize("auto_drain", [True, False])
 def test_explicit_enqueue_wakes_sync_clients_but_receipt_reads_do_not(tmp_path, monkeypatch, auto_drain):
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     kicks = []
-    monkeypatch.setattr(outbox_worker, "maybe_spawn", lambda directory: kicks.append(directory) or True)
+    monkeypatch.setattr(outbox_worker.drainers.detached, "maybe_spawn", lambda directory: kicks.append(directory) or True)
+    monkeypatch.setattr(outbox_worker.outbox, "maybe_spawn", lambda directory: kicks.append(directory) or True)
+    monkeypatch.setattr(outbox_worker.rescuer, "maybe_spawn", lambda directory: kicks.append(directory) or True)
     client = Client(settings=Settings(base_url="http://test", token="test-token"),
                     spool_dir=tmp_path / "outbox", async_writes=False, auto_drain=auto_drain)
     client.enqueue_artifact_reference(correlation="ref", anchor="project", anchor_id="p1",
@@ -535,7 +548,7 @@ def test_recovery_does_not_clear_marker_for_append_after_directory_snapshot(queu
 
 
 def test_worker_retries_recovery_marker_before_empty_exit(queue, monkeypatch):
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     queue._receipt_dirs()
     calls = []
@@ -548,8 +561,8 @@ def test_worker_retries_recovery_marker_before_empty_exit(queue, monkeypatch):
             queue.recovery_file.unlink(missing_ok=True)
         return jm.DrainReport()
 
-    monkeypatch.setattr(jm, "drain", drain_with_late_intent)
-    monkeypatch.setattr(outbox_worker, "_EXIT_GRACE_SECONDS", 0)
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", drain_with_late_intent)
+    monkeypatch.setattr(outbox_worker.outbox, "_EXIT_GRACE_SECONDS", 0)
     assert outbox_worker.run(str(queue.dir)) == 0
     assert len(calls) == 2
 

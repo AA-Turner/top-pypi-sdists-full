@@ -5,8 +5,8 @@ from __future__ import annotations
 from probe.cli import client_installation
 from probe.cli.capabilities import Capabilities
 from probe.sdk import errors
-from probe.sdk.client import Client
-from probe.sdk.config import Settings
+from probe.sdk.client.client import Client
+from probe.sdk.settings.settings import Settings
 
 
 class _Nameable:

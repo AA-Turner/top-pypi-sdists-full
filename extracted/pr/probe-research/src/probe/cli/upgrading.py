@@ -27,22 +27,23 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 
 from probe import __version__
-from probe._compat import StrEnum
+from probe.foundation.compat.compat import StrEnum
 # `update_report` is imported HERE, at the top, for the same reason updater.py
 # imports its whole call graph eagerly (H8): it runs after `uv tool upgrade` has
 # replaced the installed tree, when a first import would read the new files.
 from probe.cli import (
     autoupdate,
-    claude_cli,
-    plugin_cli,
     root_skills,
-    update_report,
     updater,
-    versions,
-    wizard_lock,
-)
+    wizard_lock)
+from probe.shared.harness.harnesses.claude_code import binary as claude_cli
+from probe.shared.harness import plugins as plugin_cli
+from probe.shared.updates import (
+    update_report,
+    updates as versions)
 from probe.cli.capabilities import agent_source
-from probe.harness import get_registry
+from probe.shared.updates import step as update_step
+from probe.foundation.harness_registry import get_registry
 from probe.core import events as json_events
 
 
@@ -139,7 +140,7 @@ def after_update_line(outcome: "UpdateOutcome", agent: str, source: str | None =
 def reloads_plugins(source: str) -> bool:
     """Does this agent re-read Probe's plugin or package in place with /reload
     (a manifest kept from its start: `loaded_records`; an extension: pi)?"""
-    from probe.harness.registry import CAPABILITY_LOADED_RECORDS, FAMILY_EXTENSION
+    from probe.foundation.harness_registry.harness_registry import CAPABILITY_LOADED_RECORDS, FAMILY_EXTENSION
 
     harness = get_registry().find(source)
     return harness is not None and (harness.can(CAPABILITY_LOADED_RECORDS) or harness.family == FAMILY_EXTENSION)
@@ -147,12 +148,12 @@ def reloads_plugins(source: str) -> bool:
 
 #: Set by the Probe service (`probe.service.updater.SKIP_CLI_ENV`) when the CLI
 #: is current and daemon workers run from its env: plugins only.
-SKIP_CLI_ENV = "PROBE_UPDATE_SKIP_CLI"
+SKIP_CLI_ENV = update_step.SKIP_CLI_ENV
 #: Set by the Probe service (`probe.service.updater.FORCED_ENV`) when it updates
 #: past what deferred it for DEFER_LIMIT_S: those reasons, comma separated
 #: (`forced_past`). Past a live run the run-lock check is skipped (D33); past a
 #: setup holding wizard.lock for a day, the update runs without that lock (C1).
-FORCED_ENV = "PROBE_UPDATE_FORCED"
+FORCED_ENV = update_step.FORCED_ENV
 
 
 def forced_past(reason: str) -> bool:
@@ -176,7 +177,7 @@ def menu_holds_update_off() -> bool:
     version known (`updater.upgrade_side_by_side`), so it waits. Never raises:
     unknown reads as no."""
     try:
-        from probe._shared import setup_marks
+        from probe.shared.updates import setup_marks
         from probe.sdk import session_marker
         from probe.service.protocol import DeferReason
 
@@ -769,9 +770,15 @@ def _update_prelude(
     if include_plugin:
         # The pi step runs AFTER the CLI upgrade below has replaced the files
         # it would lazily import, so import them now, from this version.
-        # (`probe.harness` is imported at the top: `_agent_label` needs it.)
-        from probe.cli import pi_config  # noqa: F401
+        # (`probe.foundation.harness_registry` is imported at the top: `_agent_label` needs it.)
+        from probe.shared.harness.harnesses import pi as pi_config  # noqa: F401
         from probe.sdk import session_marker  # noqa: F401
+        # The plugin steps reach each agent's integration (and Kimi's and Codex's config) lazily.
+        from probe.shared.harness.harness import get_integrations
+        from probe.shared.harness.harnesses.codex import config as _codex_config  # noqa: F401
+        from probe.shared.harness.harnesses.kimi_code import config as _kimi_config  # noqa: F401
+
+        get_integrations()
 
     json_events.step(json_events.Step.UPDATE_CLI, json_events.Status.STARTED)
     install = updater.detect_install()
@@ -1221,7 +1228,7 @@ def package_harness() -> str | None:
 def _package_harness() -> str | None:
     """The extension-family harness whose package `_update_pi_package` moves
     (pi's), from the registry rather than by name."""
-    from probe.harness import FAMILY_EXTENSION, get_registry
+    from probe.foundation.harness_registry import FAMILY_EXTENSION, get_registry
 
     return next(
         (h.id for h in get_registry().installable() if h.family == FAMILY_EXTENSION), None
@@ -1275,7 +1282,7 @@ def _update_pi_package() -> _PiUpdate:
     Killed mid-`npm install`, the orphaned npm still finished `node_modules`.
     Only a pi STARTED during the second or two in which `pi update` has removed
     `node_modules` fails to load the package, and exits 1."""
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     directory = pi_config.installed_package_dir()
     if directory is None or not directory.is_dir():
@@ -1324,7 +1331,7 @@ def _update_pi_package() -> _PiUpdate:
     # The copy open sessions' shims switch to (kimi/pi update parity P1): made
     # from the clone `pi update` just finished; a package from before the shim
     # makes none.
-    from probe.cli import pi_pins
+    from probe.shared.harness.harnesses.pi import pins as pi_pins
 
     pinned = None
     try:

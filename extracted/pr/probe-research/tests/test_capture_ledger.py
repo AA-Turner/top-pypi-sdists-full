@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from probe.sdk.capture import (
+from probe.sdk.capture.capture import (
     CaptureLedger,
     CaptureState,
     stable_external_key,

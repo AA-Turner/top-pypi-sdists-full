@@ -118,9 +118,19 @@ class CheckpointTextRenderer(Renderer):
             ):
                 suffix += 1
             end = len(ids) - suffix
-            # Include only a directly adjacent assistant terminator, never a role header.
-            for stop in self.get_stop_strings():
-                tokens = encode(stop)
+            # Removing calls can also reorder the following tool responses in
+            # checkpoint templates. Their changed suffix is never assistant
+            # output: cap the differential span at the first turn terminator.
+            stop_tokens = [encode(stop) for stop in self.get_stop_strings()]
+            for position in range(start, end):
+                if any(
+                    tokens and ids[position : position + len(tokens)] == tokens
+                    for tokens in stop_tokens
+                ):
+                    end = position
+                    break
+            # Include the adjacent model stop token only when requested.
+            for tokens in stop_tokens:
                 if tokens and ids[end : end + len(tokens)] == tokens:
                     if train_on_eos:
                         end += len(tokens)

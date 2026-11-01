@@ -19,7 +19,8 @@ import sys
 
 import pytest
 
-from probe.sdk.snapshot import SnapshotError, capture_env, find_venv, venv_python
+from probe.sdk.capture.code.code import SnapshotError
+from probe.sdk.capture.code.environment import capture_env, find_venv, venv_python
 from tests.conftest import open_run
 
 # Storage-agnostic: every case here runs under both snapshot storages.
@@ -235,7 +236,7 @@ def test_an_unresolvable_environment_warns_from_the_sdk(client, app, tmp_path):
 def test_interpreter_inside_the_project_is_an_acceptable_fallback(project, monkeypatch):
     """`probe` pip-installed into the project's own env: no venv dir to find,
     but sys.prefix lives in the tree, so it is the project's environment."""
-    monkeypatch.setattr("probe.sdk.snapshot.find_venv", lambda cwd=None: (None, None))
+    monkeypatch.setattr("probe.sdk.capture.code.environment.find_venv", lambda cwd=None: (None, None))
     monkeypatch.setattr(sys, "prefix", str(project / ".venv"))
     info = capture_env(str(project), detect_venv=True)
     assert info["resolved_via"] == "interpreter"
@@ -276,7 +277,7 @@ def test_identity_carries_no_machine_specific_paths(project):
     in it would make two identical environments at different paths produce
     different env_refs -- and env_ref equality is what a reader compares to ask
     'same environment?'. Provenance belongs on the artifact meta instead."""
-    from probe.sdk.snapshot import split_env_provenance
+    from probe.sdk.capture.code.environment import split_env_provenance
 
     identity, provenance = split_env_provenance(capture_env(str(project), detect_venv=True))
 
@@ -291,7 +292,7 @@ def test_identity_carries_no_machine_specific_paths(project):
 def test_split_is_total_and_lossless(project):
     """Every key lands in exactly one side -- a new field added to capture_env
     must be classified deliberately, not silently hashed."""
-    from probe.sdk.snapshot import split_env_provenance
+    from probe.sdk.capture.code.environment import split_env_provenance
 
     info = capture_env(str(project))
     identity, provenance = split_env_provenance(info)
@@ -305,7 +306,7 @@ def test_split_is_total_and_lossless(project):
 def test_a_hanging_interpreter_times_out_instead_of_wedging_the_launch(monkeypatch):
     """Snapshot runs at the start of a training run; an unbounded wait here
     stalls the experiment rather than failing it."""
-    from probe.sdk import snapshot as S
+    from probe.sdk.capture import code as S
 
     def hang(*a, **kw):
         raise subprocess.TimeoutExpired(cmd="python", timeout=S._ENUMERATE_TIMEOUT)
@@ -316,7 +317,7 @@ def test_a_hanging_interpreter_times_out_instead_of_wedging_the_launch(monkeypat
 
 
 def test_an_unexecutable_interpreter_is_reported_not_swallowed(monkeypatch):
-    from probe.sdk import snapshot as S
+    from probe.sdk.capture import code as S
 
     monkeypatch.setattr(
         subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(OSError("Exec format error"))
@@ -327,7 +328,7 @@ def test_an_unexecutable_interpreter_is_reported_not_swallowed(monkeypatch):
 
 def test_unparseable_output_is_refused_rather_than_recorded_as_empty(monkeypatch):
     """A garbled stdout must not degrade into 'zero packages, captured fine'."""
-    from probe.sdk import snapshot as S
+    from probe.sdk.capture import code as S
 
     monkeypatch.setattr(
         subprocess,
@@ -342,7 +343,7 @@ def test_pythonhome_is_stripped_from_the_child(monkeypatch):
     """PYTHONHOME repoints an interpreter's stdlib at another installation's,
     which breaks a foreign interpreter outright. Everything else is inherited
     on purpose -- PYTHONPATH genuinely contributes modules to the run."""
-    from probe.sdk import snapshot as S
+    from probe.sdk.capture import code as S
 
     seen: dict = {}
     real = subprocess.run

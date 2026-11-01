@@ -30,7 +30,7 @@ Properties pinned:
      maintenance spawn still fires.
   7. The prompt COMPOSES with other context parts, after the boundary nudge
      and before the team-note brief (the budget-eaten tail).
-  8. Directory resolution mirrors probe.sdk.journal.default_dir: the
+  8. Directory resolution mirrors probe.sdk.delivery.journal.paths.default_dir: the
      PROBE_OUTBOX_DIR override, `~` expansion, and the per-rank suffix a
      SLURM/torchrun environment triggers.
   9. Fail-open: a counting error degrades to silence, never to a phantom
@@ -222,7 +222,7 @@ def test_prompt_follows_the_compact_nudge(hook, tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Directory resolution mirrors the CLI (probe.sdk.journal.default_dir).
+# Directory resolution mirrors the CLI (probe.sdk.delivery.journal.paths.default_dir).
 # ---------------------------------------------------------------------------
 
 

@@ -6,9 +6,9 @@ import warnings
 import httpx
 import pytest
 
-from probe.sdk.config import Settings
+from probe.sdk.settings.settings import Settings
 from probe.sdk.secret_gate import ArtifactInspectionWarning
-from probe.sdk.transport import Transport
+from probe.sdk.delivery.transport.transport import Transport
 
 
 def _send(transport, method, raw, tmp_path):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: whisper_normalizer
-Version: 0.1.15
+Version: 1.0.0
 Summary: A python package for whisper normalizer
 Author-email: kurianbenoy <kurian.bkk@gmail.com>
 License-Expression: MIT
@@ -14,8 +14,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -26,7 +24,7 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: more_itertools
@@ -38,6 +36,8 @@ Requires-Dist: black; extra == "dev"
 Requires-Dist: nbdev; extra == "dev"
 Requires-Dist: twine; extra == "dev"
 Requires-Dist: ipykernel; extra == "dev"
+Provides-Extra: tts
+Requires-Dist: num2words; extra == "tts"
 Dynamic: license-file
 
 # whisper_normalizer
@@ -51,7 +51,7 @@ Dynamic: license-file
 [![Github license](https://img.shields.io/github/license/kurianbenoy/whisper_normalizer.svg)](https://github.com/kurianbenoy/whisper_normalizer/blob/main/LICENSE)
 [![Github Stars](https://img.shields.io/github/stars/kurianbenoy/whisper_normalizer.svg?colorA=orange&colorB=orange&logo=github)](https://github.com/kurianbenoy/whisper_normalizer/stargazers)
 [![PyPI version](https://img.shields.io/pypi/v/whisper-normalizer.svg?style=flat-square&logo=pypi&logoColor=white)](https://pypi.org/project/whisper-normalizer/)
-[Humans behind](../humans.txt)
+[Humans behind](https://kurianbenoy.github.io/whisper_normalizer/humans.txt)
 <!-- [![Downloads](https://static.pepy.tech/badge/whisper-normalizer)](https://github.com/kurianbenoy/whisper_normalizer) -->
 <!-- [![python version](https://img.shields.io/badge/Python-%3E=3.7-blue)](https://github.com/kurianbenoy/whisper_normalizer)
 [![python version](https://img.shields.io/badge/Python-<3.12-blue)](https://github.com/kurianbenoy/whisper_normalizer) -->
@@ -78,7 +78,7 @@ pip install git+https://github.com/kurianbenoy/whisper_normalizer.git
 
 [Github Gist Link of walk through](https://gist.github.com/kurianbenoy/7d27d9ec193a4a97ec7821235bddc506)
 
-[![Hello world to whisper_normalizer](https://img.youtube.com/vi/c7trf0zul6g/0.jpg)](https://www.youtube.com/watch?v=c7trf0zul6g)
+[![](https://img.youtube.com/vi/c7trf0zul6g/0.jpg)](https://www.youtube.com/watch?v=c7trf0zul6g)
 
 ## Why should we normalize/standardize text?
 
@@ -124,6 +124,34 @@ normalizer("I'm a little teapot, short and stout. Tip me over and pour me out!")
 
     'i m a little teapot short and stout tip me over and pour me out '
 
+## Supported languages and capabilities
+
+Every language belongs to a tier: `dedicated` (a normalizer written for the language), `script` (it reuses the normalizer of its script) or `generic` (conservative, script-safe cleanup). [`supported_languages()`](https://kurianbenoy.github.io/whisper_normalizer/multilingual.html#supported_languages) lists every language with this metadata (`tier`, `capabilities`, `digits_to_words`, `marks`), and `Normalizer(code)` exposes `.tier` and `.capabilities`.
+
+| Language | Code | Normalizer | Tier | Digits → words | Marks | `tts_mode` |
+|----|----|----|----|----|----|----|
+| Arabic | `ar` | [`ArabicTextNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/international.html#arabictextnormalizer) | dedicated | tts_mode | stripped | yes |
+| Bengali | `bn` | [`BengaliNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#bengalinormalizer) | dedicated | always | kept | yes |
+| Chinese | `zh` | [`ChineseTextNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/international.html#chinesetextnormalizer) | dedicated | never | kept | no |
+| English | `en` | [`EnglishTextNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/english.html#englishtextnormalizer) | dedicated | tts_mode | stripped | yes |
+| French | `fr` | [`FrenchTextNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/international.html#frenchtextnormalizer) | dedicated | tts_mode | kept | yes |
+| Gujarati | `gu` | [`GujaratiNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#gujaratinormalizer) | dedicated | always | kept | yes |
+| Hindi | `hi` | [`HindiNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#hindinormalizer) | dedicated | always | kept | yes |
+| Kannada | `kn` | [`KannadaNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#kannadanormalizer) | dedicated | always | kept | yes |
+| Malayalam | `ml` | [`MalayalamNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#malayalamnormalizer) | dedicated | always | kept | yes |
+| Odia | `or` | [`OdiaNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#odianormalizer) | dedicated | always | kept | yes |
+| Punjabi | `pa` | [`PunjabiNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#punjabinormalizer) | dedicated | always | kept | yes |
+| Russian | `ru` | [`RussianTextNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/international.html#russiantextnormalizer) | dedicated | tts_mode | kept | yes |
+| Spanish | `es` | [`SpanishTextNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/international.html#spanishtextnormalizer) | dedicated | tts_mode | kept | yes |
+| Tamil | `ta` | [`TamilNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#tamilnormalizer) | dedicated | always | kept | yes |
+| Telugu | `te` | [`TeluguNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#telugunormalizer) | dedicated | always | kept | yes |
+| Assamese | `as` | [`BengaliNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#bengalinormalizer) | script | always | kept | yes |
+| Marathi | `mr` | [`DevanagariNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#devanagarinormalizer) | script | always | kept | yes |
+| Nepali | `ne` | [`DevanagariNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#devanagarinormalizer) | script | always (Hindi number words) | kept | no |
+| Sanskrit | `sa` | [`DevanagariNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#devanagarinormalizer) | script | always (Hindi number words) | kept | no |
+
+The other 82 languages use the generic tier: Unicode NFC, brackets and punctuation removed, case folded, combining marks kept. Digits become words only with `tts_mode=True`, which 33 of them support.
+
 ## Using BasicTextNormalizer in your mother tongue might be a bad idea
 
 Whisper Text Normalizer is not always recommended to be used. [Dr Kavya Manohar](https://www.linkedin.com/in/kavya-manohar/) has written a blogpost on why it might be a bad idea on her [blopost titled Indian Languages and Text Normalization: Part 1](https://kavyamanohar.com/post/indic-normalizer/).
@@ -132,7 +160,69 @@ If you need the basic normalizer for Indic or other scripts that use Unicode Mar
 
 ## This model extends Whisper_normalizer to support Indic languages as well.
 
-The logic for normalization in Indic languages is derived from [indic-nlp-library](https://github.com/anoopkunchukuttan/indic_nlp_library). The logic for Malayalam normalization is expanded beyond the Indic NLP library by [`MalayalamNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/1b.indic_normalizer.html#malayalamnormalizer).
+The logic for normalization in Indic languages is derived from [indic-nlp-library](https://github.com/anoopkunchukuttan/indic_nlp_library). The logic for Malayalam normalization is expanded beyond the Indic NLP library by [`MalayalamNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#malayalamnormalizer).
+
+## TTS Mode for Indic Languages
+
+`tts_mode` is not Indic-only: English, French, Spanish, Arabic, Russian and many other languages support it too (it needs `pip install whisper_normalizer[tts]`); see the [capability table](#supported-languages-and-capabilities). This section describes the Indic behaviour.
+
+Several Indic normalizers support a `tts_mode=True` option that converts text into a form suitable for text-to-speech synthesis. When enabled, the normalizer will:
+
+- Convert currency symbols to spoken forms (₹100 → “रुपये एक सौ”, \$20 → “डॉलर बीस”)
+- Convert decimal numbers to spoken form (1.5 → “एक पॉइंट पांच”)
+- Expand URLs and domains to spoken form (https://example.com → “एच टी टी पी एस कोलन स्लैश स्लैश ई एक्स ए एम पी एल ई डॉट कॉम”)
+- Expand email addresses (user@example.com → “यूजर एट एक्साम्पल डॉट कॉम”)
+- Expand special symbols (& → ” or “, @ →” at “, % →” percent “, etc.)
+- Expand acronyms (NASA → “N A S A”)
+
+### Supported Languages
+
+The following Indic languages support `tts_mode`:
+
+| Language | Code | Normalizer |
+|----|----|----|
+| Hindi | `hi` | [`HindiNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#hindinormalizer) |
+| Bengali | `bn` | [`BengaliNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#bengalinormalizer) |
+| Gujarati | `gu` | [`GujaratiNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#gujaratinormalizer) |
+| Odia | `or` | [`OdiaNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#odianormalizer) |
+| Punjabi | `pa` | [`PunjabiNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#punjabinormalizer) |
+| Tamil | `ta` | [`TamilNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#tamilnormalizer) |
+| Telugu | `te` | [`TeluguNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#telugunormalizer) |
+| Kannada | `kn` | [`KannadaNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#kannadanormalizer) |
+| Malayalam | `ml` | [`MalayalamNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#malayalamnormalizer) |
+| Assamese | `as` | [`BengaliNormalizer`](https://kurianbenoy.github.io/whisper_normalizer/indic_normalizer.html#bengalinormalizer) (via script tier) |
+
+### Usage
+
+``` python
+from whisper_normalizer import Normalizer
+
+# Pick a language; Normalizer.for_language("hi", tts_mode=True) is equivalent
+normalizer = Normalizer("hi", tts_mode=True)
+# Metadata: normalizer.language == "hi", .name == "Hindi", .tier == "dedicated"
+result = normalizer("नमस्ते ₹100 और $20.50")
+# Output: "नमस्ते रुपये एक सौ और डॉलर बीस पॉइंट पांच शून्य"
+```
+
+Or use the normalizer class directly:
+
+``` python
+from whisper_normalizer.indic import HindiNormalizer
+
+normalizer = HindiNormalizer(tts_mode=True)
+result = normalizer("Visit https://example.com or email user@example.com")
+# Output: "visit एच टी टी पी एस कोलन स्लैश स्लैश ई एक्स ए एम पी एल ई डॉट कॉम or यूजर एट एक्साम्पल डॉट कॉम"
+```
+
+### Option validation
+
+[`Normalizer`](https://kurianbenoy.github.io/whisper_normalizer/multilingual.html#normalizer) validates options and raises `ValueError` if the language does not support them, for example `tts_mode` for Nepali:
+
+``` python
+from whisper_normalizer import Normalizer
+
+Normalizer("ne", tts_mode=True)  # Raises ValueError: tts_mode is not supported for DevanagariNormalizer with lang='ne'. ...
+```
 
 ``` python
 from whisper_normalizer.indic import MalayalamNormalizer
@@ -142,3 +232,7 @@ normalizer("എന്റെ കമ്പ്യൂട്ടറിനു് എന
 ```
 
     'എന്റെ കമ്പ്യൂട്ടറിന് എന്റെ ഭാഷ.'
+
+## Language Capability Table
+
+All 101 supported languages and their normalizer capabilities:

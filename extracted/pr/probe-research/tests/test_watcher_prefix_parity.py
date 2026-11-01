@@ -88,7 +88,7 @@ def test_the_registry_carries_the_conventions_this_file_pins():
     """The harness registry is now where the prefix, the state dir and the
     Codex legacy fallback are written down; this file's expectations are held
     to it, and the live implementations below to both."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     reg = get_registry()
     for source, prefix in EXPECTED_PREFIX.items():

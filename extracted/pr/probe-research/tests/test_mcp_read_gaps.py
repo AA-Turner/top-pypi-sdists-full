@@ -31,13 +31,14 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
-from probe.mcp import accounting
+from probe.mcp.delivery import accounting
 from probe.mcp import server as server_mod
-from probe.mcp import service as service_module
-from probe.mcp.contract import BrowseMode, MetricMode, MissingMarker, View
-from probe.mcp.server import create_server
-from probe.mcp.service import ResearchReadService, _supported_views
-from probe.mcp.source import ResearchOSSource
+from probe.mcp import tools as service_module
+from probe.shared.reads.search_contract import BrowseMode, MetricMode, MissingMarker, View
+from probe.mcp.server.server import create_server
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.tools.view import _supported_views
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
 from tests.conftest import note_tokens
 
@@ -470,7 +471,7 @@ def test_a_note_kind_with_no_known_rank_still_resumes_by_finding_its_row(client,
     from probe.mcp import source as source_module
 
     monkeypatch.setattr(
-        source_module,
+        source_module.documents,
         "_NOTE_KIND_RANK",
         {k: v for k, v in source_module._NOTE_KIND_RANK.items() if k != "run"},
     )
@@ -981,7 +982,9 @@ def test_run_diff_resumes_on_the_routes_own_path_cursor(client, app, monkeypatch
     the route's own cursor. It used to re-walk the diff from its first path on
     every page and skip the ones already sent, re-reading the trial's manifests
     from storage each time."""
-    monkeypatch.setattr(service_module, "_PAGE_FETCH", 2)
+    monkeypatch.setattr(service_module.views.files, "_PAGE_FETCH", 2)
+    monkeypatch.setattr(service_module.entity, "_PAGE_FETCH", 2)
+    monkeypatch.setattr(service_module.views.runs, "_PAGE_FETCH", 2)
     rid = _run(client, app)
     paths = _seed_diff(app, rid, "t-1", 5)
     service = _service(client)
@@ -1067,7 +1070,7 @@ def test_a_resume_view_that_sends_no_rows_keeps_its_place(client, app, monkeypat
     """A `resume_key` view whose page sends nothing while more exists must
     carry the position it was read from; an offset-0 cursor with no `after`
     would restart the walk from its first row."""
-    from probe.mcp.service import _ViewData
+    from probe.mcp.tools.view import _ViewData
 
     rid = _run(client, app)
     seen_after: list = []

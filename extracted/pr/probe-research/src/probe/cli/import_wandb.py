@@ -33,7 +33,7 @@ import math
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from probe._compat import UTC
+from probe.foundation.compat.compat import UTC
 
 import typer
 
@@ -114,7 +114,8 @@ def import_wandb(
     ),
 ) -> None:
     """Mirror one W&B run's metric history into an existing probe run."""
-    from ..sdk.run import Run, _metric_batch_body
+    from ..sdk.run.run import Run
+    from ..sdk.run.metrics.derived import _metric_batch_body
 
     if wandb_path.count("/") != 2:
         raise typer.BadParameter("wandb path must be entity/project/run_id")

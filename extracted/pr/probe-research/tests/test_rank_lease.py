@@ -154,7 +154,7 @@ def test_a_process_already_writing_the_run_takes_no_second_lease(client, app, tm
     """The script's own probe.init() joined the run through PROBE_RUN_ID on
     this rank: that handle holds this process's lease already."""
     owner = open_run(client, experiment="e", name="r")
-    monkeypatch.setattr(fluent, "active_run", lambda: owner)
+    monkeypatch.setattr(fluent.fluent, "active_run", lambda: owner)
     before = len(app.requests)
     assert _rank_lease.hold(owner.id, owner.write_epoch, rank=1, client=_rank_client(app, tmp_path)) is None
     assert len(app.requests) == before

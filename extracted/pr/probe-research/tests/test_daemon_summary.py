@@ -14,9 +14,11 @@ from pathlib import Path
 
 import pytest
 
-from probe.daemon import approvals as appr
-from probe.daemon import folders, precheck, scope, tools
-from probe.daemon.store import Store
+from probe.shared.mailbox import approvals as appr
+from probe.daemon.session import session as folders, scope
+from probe.daemon.agent import tools
+from probe.shared.command_rules import command_rules as precheck
+from probe.daemon.store.store import Store
 from probe.sdk import session_marker
 
 FAKE_KEY = "sk-proj-" + "Ab3dE5gH7jK9mN1pQ3sT5vX7zB9dF1hJ3lN5pR7tV9xZ"
@@ -131,7 +133,7 @@ def test_steal_is_the_daemons_own_draft_and_push_has_no_force(tmp_path):
     # No `--force` at all: it would carry erased text past the server's check.
     import typer.main
 
-    from probe.cli.summary_cli import summary_app
+    from probe.shared.notes.summary.checkout_push import summary_app
 
     push = typer.main.get_command(summary_app).commands["push"]
     assert "--force" not in {opt for param in push.params for opt in param.opts}

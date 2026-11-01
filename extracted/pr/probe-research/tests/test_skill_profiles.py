@@ -1,7 +1,7 @@
 """agent/skills/profiles.json: the ONE list of which skills each install
 profile ships ("full" = the agent records; "daemon" = the Probe daemon records).
 
-The Makefile's skill syncs read it (`PROFILE_FULL`, `PROFILE_DAEMON_COPIED`).
+The skill syncs (plugins/VENDORED.json, made by tools/vendor.py) read it.
 The static manifests that cannot (the pi package.json, mirror-package.json),
 the lean daemon plugin's shipped skills and the pi extension's constants are
 held to it here and in tests/test_pi_daemon_profile.py.
@@ -10,8 +10,6 @@ held to it here and in tests/test_pi_daemon_profile.py.
 from __future__ import annotations
 
 import json
-import re
-import subprocess
 from pathlib import Path
 
 AGENT = Path(__file__).resolve().parents[1]
@@ -40,20 +38,22 @@ def test_the_mirror_root_manifest_ships_the_full_profile():
     assert [Path(p).name for p in manifest["pi"]["skills"]] == PROFILES["full"]
 
 
-def _make_dry_run(target: str) -> str:
-    return subprocess.run(
-        ["make", "-n", "-C", str(AGENT), target], capture_output=True, text=True, check=True
-    ).stdout
+def _synced_skills(group: str) -> list[str]:
+    """The skills `make <group>` copies as trees, in order, as tools/vendor.py expands them."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_vendor", AGENT / "tools" / "vendor.py")
+    vendor = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vendor)
+    return [Path(op.sources[0]).name for op in vendor.plan(group) if op.kind == "tree"]
 
 
-def test_the_makefile_skill_syncs_expand_to_the_profiles():
-    for target in ("sync-plugin-skills", "sync-pi-skills"):
-        assert f"for s in {' '.join(PROFILES['full'])}; do" in _make_dry_run(target), target
-    hand_kept = re.search(r"^DAEMON_HAND_KEPT := (.+)$", (AGENT / "Makefile").read_text(), re.MULTILINE)
-    assert hand_kept, "the Makefile no longer declares DAEMON_HAND_KEPT"
-    assert set(hand_kept.group(1).split()) <= set(PROFILES["daemon"])
-    copied = [s for s in PROFILES["daemon"] if s not in hand_kept.group(1).split()]
-    assert f"for s in {' '.join(copied)}; do" in _make_dry_run("sync-daemon-plugin")
+def test_the_skill_syncs_expand_to_the_profiles():
+    for group in ("sync-plugin-skills", "sync-pi-skills"):
+        assert _synced_skills(group) == PROFILES["full"], group
+    hand_kept = json.loads((AGENT / "plugins" / "VENDORED.json").read_text())["lists"]["daemon_hand_kept"]
+    assert set(hand_kept) <= set(PROFILES["daemon"])
+    assert _synced_skills("sync-daemon-plugin") == [s for s in PROFILES["daemon"] if s not in hand_kept]
 
 
 def test_the_lean_daemon_plugin_ships_the_daemon_profile():

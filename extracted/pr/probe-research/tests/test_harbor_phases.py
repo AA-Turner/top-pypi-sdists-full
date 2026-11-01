@@ -11,7 +11,7 @@ five seconds because a seeder wrote each independently.
 from __future__ import annotations
 
 import re
-from probe._compat import tomllib
+from probe.foundation.compat.compat import tomllib
 from pathlib import Path
 
 import pytest

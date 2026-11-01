@@ -1,4 +1,4 @@
-"""`probe.core.report`: one diagnostic report to the Probe team, sent once.
+"""`probe.shared.reports`: one diagnostic report to the Probe team, sent once.
 
 Real boundaries: the `python -I -m probe.core.run report` child the Probe
 service runs, a real HTTP server standing in for the API (`Stub`), the state
@@ -25,7 +25,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from probe.core import report, requests
+from probe.shared import reports as report
+from probe.core import requests
 from probe.core.requests import ActionName, ReportRequest, RequestError
 
 SID = "11111111-2222-4333-8444-555555555555"
@@ -109,16 +110,16 @@ def _closed_port() -> int:
 def machine(monkeypatch, stub):
     """A signed-in machine (CLI token and daemon key) pointed at the stub, whose
     backend counts as Probe's hosted service (the gate's last check)."""
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     monkeypatch.setenv("PROBE_BASE_URL", stub.url)
     monkeypatch.delenv("PROBE_TOKEN", raising=False)
     save_context({"base_url": stub.url, "token": CLI_TOKEN, "companion_token": DAEMON_KEY})
-    import probe.sdk._telemetry_core as core
+    import probe.analytics.core as core
 
     monkeypatch.setattr(core, "hosted_base_url", lambda url: True)
     # Room for a loaded machine: the tests of the budget set their own.
-    monkeypatch.setattr(report, "STAFF_SOURCE_BUDGET_S", 30.0)
+    monkeypatch.setattr(report.staff_report, "STAFF_SOURCE_BUDGET_S", 30.0)
     return stub
 
 
@@ -209,7 +210,7 @@ def test_the_child_runs_the_tree_under_test():
     probe_file = subprocess.run(
         [sys.executable, "-I", "-c", "import sys; sys.path.insert(0, sys.argv[1]); import probe; print(probe.__file__)",
          _SRC], capture_output=True, text=True, timeout=60).stdout.strip()
-    assert Path(probe_file).resolve().parent == Path(report.__file__).resolve().parents[1]
+    assert Path(probe_file).resolve().parent == Path(report.__file__).resolve().parents[2]
 
 
 def test_the_report_child_writes_one_answer_object(monkeypatch, stub):
@@ -228,7 +229,7 @@ def test_the_report_child_writes_one_answer_object(monkeypatch, stub):
 
 
 def test_the_report_child_sends_a_manual_report_and_names_its_copy(monkeypatch, stub):
-    from probe.sdk.config import save_context
+    from probe.sdk.settings.settings import save_context
 
     monkeypatch.setenv("PROBE_BASE_URL", stub.url)
     save_context({"base_url": stub.url, "token": CLI_TOKEN})
@@ -261,7 +262,7 @@ def test_an_automatic_report_needs_the_sessions_consent(machine, env, why):
 
 
 def test_an_automatic_report_never_goes_to_a_self_hosted_server(machine, monkeypatch):
-    import probe.sdk._telemetry_core as core
+    import probe.analytics.core as core
 
     monkeypatch.setattr(core, "hosted_base_url", lambda url: False)
     _accept(machine)
@@ -515,7 +516,7 @@ def test_a_report_is_capped_and_says_it_was_trimmed(machine, monkeypatch):
     worker = _state() / "daemon" / "sessions" / SID
     worker.mkdir(parents=True, exist_ok=True)
     (worker / "worker.log").write_text("".join(f"line {i} {'x' * 100}\n" for i in range(2000)))
-    monkeypatch.setattr(report, "REPORT_MAX_BYTES", 64 * 1024)
+    monkeypatch.setattr(report.staff_report, "REPORT_MAX_BYTES", 64 * 1024)
     _accept(machine)
     assert report.send(auto=False, family="worker", reason="x", sid=SID).sent
     body = json.loads(_sent_text(machine))
@@ -538,8 +539,9 @@ def test_the_wire_body_is_the_contracts(machine):
 
 
 def test_a_source_that_hangs_costs_only_itself(machine, monkeypatch):
-    monkeypatch.setattr(report, "STAFF_SOURCE_BUDGET_S", 0.2)
-    monkeypatch.setattr(report, "install_facts", lambda: time.sleep(5))
+    monkeypatch.setattr(report.staff_report, "STAFF_SOURCE_BUDGET_S", 0.2)
+    monkeypatch.setattr(report.facts, "install_facts", lambda: time.sleep(5))
+    monkeypatch.setattr(report.staff_report, "install_facts", lambda: time.sleep(5))
     _accept(machine)
     started = time.monotonic()
     assert report.send(auto=False, family="worker", reason="x").sent
@@ -707,7 +709,7 @@ def test_the_report_fits_the_servers_cap_as_the_transport_encodes_it(machine):
     default): the cap is measured that way, so the body stays under 640 KiB."""
     _plant_logs()
     _bind(SID)
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     wide = "".join(f"{i} 训练运行失败了，请检查日志 ✓\n" for i in range(40000))
     stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -730,9 +732,10 @@ def test_the_worker_log_never_carries_an_audit_reports_text(monkeypatch, caplog)
     import logging
     from types import SimpleNamespace
 
-    from probe.daemon import audit, mailbox
+    from probe.daemon.lanes import audit
+    from probe.shared import mailbox
 
-    monkeypatch.setattr(mailbox, "enabled", lambda **_k: False)
+    monkeypatch.setattr(mailbox.presence, "enabled", lambda **_k: False)
     lane = SimpleNamespace(w=SimpleNamespace(session=SimpleNamespace(source="kimi_code")), sid=SID)
     with caplog.at_level(logging.INFO, logger=audit.log.name):
         audit.AuditLane.report(lane, "the researcher's run 42 on the ACME data changed its config")
@@ -772,7 +775,7 @@ def test_the_keepers_lines_stay_in_the_service_log(machine):
 def test_a_fifo_where_a_log_should_be_never_blocks_a_report(machine, monkeypatch):
     _state().mkdir(parents=True, exist_ok=True)
     os.mkfifo(_state() / "daemon-errors.log")
-    monkeypatch.setattr(report, "STAFF_SOURCE_BUDGET_S", 1.0)
+    monkeypatch.setattr(report.staff_report, "STAFF_SOURCE_BUDGET_S", 1.0)
     _accept(machine)
     assert report.send(auto=False, family="worker", reason="x").sent
     assert "logs" not in json.loads(_sent_text(machine))["report"]["skipped"]
@@ -949,10 +952,10 @@ def test_an_automatic_report_refused_with_every_key_says_so_by_telemetry(machine
     and the report cannot reach us: `service.report_undeliverable` can (a
     PostHog destination posts it). Once per family per dedupe window: the
     refused try keeps its claim, so the service's retry answers `deduped`."""
-    from probe._shared import telemetry
+    from probe import analytics as telemetry
 
     said: list = []
-    monkeypatch.setattr(telemetry, "emit_report_undeliverable",
+    monkeypatch.setattr(telemetry.events, "emit_report_undeliverable",
                         lambda **kwargs: said.append(kwargs) or True)
     machine.routes[("POST", report.ROUTE)] = (401, {"detail": "invalid token"}, {})
     now = time.time() // report.DEDUPE_WINDOW_S * report.DEDUPE_WINDOW_S + 60
@@ -965,10 +968,10 @@ def test_an_automatic_report_refused_with_every_key_says_so_by_telemetry(machine
 def test_one_outage_refused_for_many_sessions_is_one_undeliverable_event_per_family(machine, monkeypatch):
     """C1 reviews: the report's claim is per session, so each session's
     report of one outage emitted its own event: up to 64 #eng-alerts posts a day."""
-    from probe._shared import telemetry
+    from probe import analytics as telemetry
 
     said: list = []
-    monkeypatch.setattr(telemetry, "emit_report_undeliverable", lambda **kwargs: said.append(kwargs) or True)
+    monkeypatch.setattr(telemetry.events, "emit_report_undeliverable", lambda **kwargs: said.append(kwargs) or True)
     machine.routes[("POST", report.ROUTE)] = (401, {"detail": "invalid token"}, {})
     now = time.time() // report.DEDUPE_WINDOW_S * report.DEDUPE_WINDOW_S + 60
     for sid in ("11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"):
@@ -980,20 +983,20 @@ def test_one_outage_refused_for_many_sessions_is_one_undeliverable_event_per_fam
 
 def test_a_signed_out_machine_sends_no_undeliverable_event(machine, monkeypatch):
     """No key held is a person who signed out, not a dead one: no alert."""
-    from probe._shared import telemetry
+    from probe import analytics as telemetry
 
     said: list = []
-    monkeypatch.setattr(telemetry, "emit_report_undeliverable", lambda **kwargs: said.append(kwargs) or True)
-    monkeypatch.setattr(report, "credentials", lambda: [])
+    monkeypatch.setattr(telemetry.events, "emit_report_undeliverable", lambda **kwargs: said.append(kwargs) or True)
+    monkeypatch.setattr(report.api, "credentials", lambda: [])
     assert report.send(auto=True, family="worker", reason="x", env={}).skipped == "unauthorized"
     assert said == []
 
 
 def test_a_manual_or_offline_report_sends_no_undeliverable_event(machine, monkeypatch):
-    from probe._shared import telemetry
+    from probe import analytics as telemetry
 
     said: list = []
-    monkeypatch.setattr(telemetry, "emit_report_undeliverable", lambda **kwargs: said.append(kwargs) or True)
+    monkeypatch.setattr(telemetry.events, "emit_report_undeliverable", lambda **kwargs: said.append(kwargs) or True)
     machine.routes[("POST", report.ROUTE)] = (401, {"detail": "invalid token"}, {})
     assert report.send(auto=False, family="worker", reason="x").skipped == "unauthorized"
     monkeypatch.setenv("PROBE_BASE_URL", f"http://127.0.0.1:{_closed_port()}")
@@ -1004,7 +1007,7 @@ def test_a_manual_or_offline_report_sends_no_undeliverable_event(machine, monkey
 def test_a_manual_report_carries_codex_hooks_and_an_automatic_one_does_not(machine, monkeypatch):
     """A Codex session unknown to the service may be one whose hooks Codex skips:
     `probe doctor --send` says which of Probe's hooks Codex runs, as `probe status` does."""
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
 
     snapshot = {"state": "needs_approval", "untrusted": ["probe-research-tap@research-os-agent:hooks/hooks.json:"
                                                          "SessionStart:0:0"], "checked_at": 1, "unheard_session": SID}

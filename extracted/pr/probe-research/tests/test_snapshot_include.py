@@ -18,13 +18,12 @@ import subprocess
 
 import pytest
 
-from probe.sdk.restore import restore_snapshot
-from probe.sdk.snapshot import (
-    SnapshotError,
+from probe.sdk.run.readback.restore import restore_snapshot
+from probe.sdk.capture.code.code import SnapshotError
+from probe.sdk.capture.code.archive import (
     build_pending_archive,
-    capture_manifest,
-    pending_entries,
-)
+    pending_entries)
+from probe.sdk.capture.code.sources.git import capture_manifest
 from tests.conftest import open_run
 
 

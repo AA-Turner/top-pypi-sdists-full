@@ -26,7 +26,9 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 
-from probe.cli import agent_rules, autoupdate, codex_config, plugin_cli
+from probe.cli import agent_rules, autoupdate
+from probe.shared.harness.harnesses.codex import config as codex_config
+from probe.shared.harness import plugins as plugin_cli
 from probe.cli.capabilities import (
     TAP_PLUGIN_NAME,
     Capabilities,
@@ -72,8 +74,8 @@ def _team_note_rows() -> list[str]:
     dirty flag below is the only place that turns that into something a person
     can see.
     """
-    from ..sdk.config import resolve
-    from . import team_note_file
+    from ..sdk.settings.settings import resolve
+    from ..shared.notes import team_note as team_note_file
 
     try:
         where = team_note_file.paths_for(resolve())
@@ -113,7 +115,7 @@ def _snapshot_ref_rows(cwd: str | None = None) -> list[str]:
     """
     import os
 
-    from ..sdk import snapshot as _snapshot
+    from ..sdk.capture import code as _snapshot
 
     try:
         here = cwd or os.getcwd()
@@ -149,7 +151,7 @@ def _parked_rows(where) -> list[str]:
     yet" row with nothing after it reads as "nothing here" over text that is
     sitting on disk unsent.
     """
-    from . import team_note_file
+    from ..shared.notes import team_note as team_note_file
 
     try:
         parked = team_note_file.parked_copies(where)
@@ -229,7 +231,8 @@ def _pi_capture_rows() -> list[str]:
     """
     import os
 
-    from probe.cli import capture_state, pi_config
+    from probe.cli import capture_state
+    from probe.shared.harness.harnesses import pi as pi_config
 
     rows: list[str] = []
     try:
@@ -317,7 +320,7 @@ def name_account() -> str | None:
     account being replaced can be named. When the wizard's one call could not
     name it -- a slow server, a network it could not cross -- ask this way."""
     try:
-        from probe.sdk.config import resolve
+        from probe.sdk.settings.settings import resolve
 
         settings = resolve()
     except Exception:  # noqa: BLE001 - a diagnostic must never crash
@@ -332,9 +335,9 @@ def fetch_unfiled() -> dict | None:
     one), so its Diagnose screen asks for it here, once, when it is chosen.
     None when signed out; never raises."""
     try:
-        from probe.sdk.client import Client
-        from probe.sdk.config import resolve
-        from probe.sdk.surface import Surface
+        from probe.sdk.client.client import Client
+        from probe.sdk.settings.settings import resolve
+        from probe.foundation.request_identity.surface import Surface
 
         settings = resolve()
         if not settings.token:
@@ -386,7 +389,8 @@ def _daemon_rows(caps: Capabilities | None = None) -> list[str]:
     The daemon is the capture daemon's child, so capture being off is named as
     the cause rather than left for the reader to connect.
     """
-    from probe.cli import companion, reasoning_summaries
+    from probe.cli import companion
+    from probe.shared.harness import reasoning_summaries
     from probe.cli import setup as wizard
     from probe.sdk import agent_session, session_marker
 
@@ -443,9 +447,9 @@ def _daemon_rows(caps: Capabilities | None = None) -> list[str]:
 
 def _diagnostic_reports() -> str:
     """Whether the daemon and the Probe service send the Probe team a report
-    when they misbehave (`probe.core.report`), and the last one sent."""
+    when they misbehave (`probe.shared.reports`), and the last one sent."""
     try:
-        from probe.core import report
+        from probe.shared import reports as report
 
         return report.doctor_row()
     except Exception:  # noqa: BLE001 - a diagnostic must never crash
@@ -458,9 +462,9 @@ def _who_records_rows() -> list[str]:
     against the floor the daemon needs and whether a project overrides it."""
     from pathlib import Path
 
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
     from probe.cli import setup as wizard
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
     from probe.sdk import session_marker
 
     daemon = session_marker.RECORDER_DAEMON
@@ -508,8 +512,8 @@ def _reader_rows(session_id: str) -> list[str]:
     store is opened read-only, the mailbox only listed."""
     import sqlite3
 
-    from probe.daemon import mailbox
-    from probe.daemon.store import store_path
+    from probe.shared import mailbox
+    from probe.daemon.store.store import store_path
 
     rows: list[str] = []
     status = mailbox.read_status(session_id)
@@ -546,8 +550,8 @@ def _version_comparison() -> tuple[tuple, float | None]:
     the renderer states as "could not check" -- the one thing it must never do is
     let an unreadable manifest print as though everything is current.
     """
-    from probe import version_policy
-    from probe.cli import versions as versions_mod
+    from probe.shared.updates import version_policy
+    from probe.shared.updates import updates as versions_mod
 
     try:
         manifest, fetched_at, _ok = version_policy.read_cache()
@@ -638,7 +642,7 @@ def _version_rows(caps: Capabilities) -> list[str]:
             _row("Checked against", "no cached manifest — could not check"),
             _row("", "the wizard's Update fetches it and compares"),
         ]
-    from probe.cli.versions import render as render_versions
+    from probe.shared.updates.updates import render as render_versions
 
     lines = [line for line in render_versions(list(caps.version_rows))]
     age = caps.version_manifest_age_s
@@ -665,7 +669,7 @@ def codex_hook_rows(caps: Capabilities) -> list[str]:
     # terminal reports for Claude Code, and that is where someone checks.
     if not caps.codex_available:
         return []
-    from probe.cli import codex_hooks
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
     from probe.sdk import session_marker
 
     lines = codex_hooks.rows(codex_hooks.status(), _row)
@@ -761,7 +765,7 @@ def service_rows(view: dict) -> list[str]:
     listed("Hook hosts", view.get("hook_hosts") or [], lambda h: f"{h.get('root')} (pid {h.get('pid')})")
     unreached = view.get("hints_unreached") or []
     if unreached:
-        from probe.harness import registry
+        from probe.foundation.harness_registry import harness_registry as registry
 
         def agent(harness: object) -> str:
             row = registry.get_registry().find(harness) if isinstance(harness, str) else None
@@ -991,7 +995,7 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None, service: di
         status = caps.outbox_status
         lines.append(_row("Pending", str(status.get("pending") or 0)))
         lines.append(_row("Dead-lettered", str(status.get("failed") or 0)))
-        from ..sdk.journal import auth_blocked_since
+        from ..sdk.delivery.journal.status_file import auth_blocked_since
 
         blocked = auth_blocked_since(status)
         if blocked:
@@ -1045,7 +1049,7 @@ def _device_problems(caps: Capabilities, recorder: str | None) -> list[str]:
         found.append("The Probe daemon's AI libraries are missing: press Enter on Who records to install them.")
     status = caps.outbox_status or {}
     if status:
-        from ..sdk.journal import auth_blocked_since
+        from ..sdk.delivery.journal.status_file import auth_blocked_since
 
         if status.get("failed"):
             found.append(f"Outbox: {status['failed']} write(s) dead-lettered (`probe outbox status`).")
@@ -1065,7 +1069,8 @@ def summary(caps_by_source: "dict[str, Capabilities]", *, recorder: str | None =
     full report (`render`, every section for every agent: ~300 lines for four
     agents, most of it the device's own sections said four times) is what `c`
     copies and `probe doctor` prints."""
-    from probe.cli import actions, codex_hooks
+    from probe.cli import actions
+    from probe.shared.harness.harnesses.codex import hooks as codex_hooks
     from probe.cli import setup as wizard
 
     from probe.cli.capabilities import McpState
@@ -1170,8 +1175,8 @@ def _check_login(settings) -> _LoginCheck:
     if not settings.token:
         return _LoginCheck()
     try:
-        from probe.sdk.client import Client
-        from probe.sdk.surface import Surface
+        from probe.sdk.client.client import Client
+        from probe.foundation.request_identity.surface import Surface
 
         with Client(settings=settings, async_writes=False, surface=Surface.CLI.value) as client:
             email = str(client.me().get("email") or "")
@@ -1298,7 +1303,7 @@ def collect(*, local: bool = False, plugins: PluginState | None = None) -> Capab
     config_context: str | None = None
     has_token = False
     try:
-        from probe.sdk.config import current_context_name, resolve
+        from probe.sdk.settings.settings import current_context_name, resolve
 
         settings = resolve()
         base_url = settings.base_url
@@ -1369,7 +1374,7 @@ def collect(*, local: bool = False, plugins: PluginState | None = None) -> Capab
     # The daemon profile installs no MCP, so there is no MCP login to check.
     if selected_agent == "codex" and TRACK == TRACKING_PLUGIN_NAME and TRACK in plugins:
         if local:
-            from probe.cli import codex_config
+            from probe.shared.harness.harnesses.codex import config as codex_config
 
             # `codex mcp list` answers `bearer_token` for any header there; an
             # OAuth login lives where only Codex can read it, so it is unknown.
@@ -1416,7 +1421,7 @@ def collect(*, local: bool = False, plugins: PluginState | None = None) -> Capab
         # Nothing ran: "`codex mcp list` did not answer" would be untrue.
         mcp_check = dataclasses.replace(mcp_check, what=CODEX_MCP_NOT_CHECKED)
 
-    from probe.cli import versions as versions_mod
+    from probe.shared.updates import updates as versions_mod
 
     rules_installed = agent_rules.is_installed()
     rules_stale = rules_installed and not agent_rules.is_current()
@@ -1622,7 +1627,7 @@ def _kimi_rows() -> list[str]:
     """Kimi Code's binary and version (Probe needs 2.1.1+), and whether its
     plugin list is one the wizard can manage (Kimi has no install command, so
     the wizard writes that file; a layout it does not know is left alone)."""
-    from probe.cli import kimi_config
+    from probe.shared.harness.harnesses.kimi_code import config as kimi_config
 
     rows = []
     if not kimi_config.binary_available():
@@ -1656,7 +1661,7 @@ def _outbox_status() -> dict | None:
     """The outbox's status.json, read only (`collect` runs from `probe
     status`, which promises no request and no process)."""
     try:
-        from probe.sdk.journal import Journal
+        from probe.sdk.delivery.journal.journal import Journal
 
         return Journal.read_status()
     except Exception:  # noqa: BLE001 - a diagnostic must never crash
@@ -1670,8 +1675,8 @@ def drop_unrecoverable_dead_letters() -> list[str]:
     T24), and what that did. Every other dead letter stays for `probe outbox
     retry`. Empty when nothing moved."""
     try:
-        from probe._shared import telemetry
-        from probe.sdk.journal import Journal
+        from probe import analytics as telemetry
+        from probe.sdk.delivery.journal.journal import Journal
 
         counts = Journal().drop_unrecoverable()
         if not counts.writes:
@@ -1695,14 +1700,13 @@ def rescue_outbox() -> dict | None:
     them in the background. Under the one rescue lock; None when there is
     nothing to say, or another rescue is running."""
     try:
-        from probe.sdk import outbox_worker
-        from probe.sdk.journal import (
-            Journal,
-            _stored_login_fingerprint,
-            _try_lock,
+        from probe.sdk.delivery import outbox as outbox_worker
+        from probe.sdk.delivery.journal.journal import Journal
+        from probe.sdk.delivery.outbox.drain.credentials import _stored_login_fingerprint
+        from probe.sdk.delivery.journal.item_locks import _try_lock
+        from probe.sdk.delivery.outbox.drain.adoption import (
             rescue_lock_path,
-            rescue_stranded,
-        )
+            rescue_stranded)
 
         root = Journal()
         if not outbox_worker.rescue_enabled() or root.paused:

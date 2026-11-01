@@ -31,5 +31,8 @@ class BenchmarkIngestionUploadPolicy(BaseModel):
 class BenchmarkIngestionUploadUrls(BaseModel):
   urls: list[BenchmarkUploadUrl]
 
+  reused: list[str] | None = None
+  """Paths declared with `reuse` that read an earlier upload; do not upload them."""
+
   policy: BenchmarkIngestionUploadPolicy | None = None
   """Set instead of `urls` when the allocation requested `post`."""

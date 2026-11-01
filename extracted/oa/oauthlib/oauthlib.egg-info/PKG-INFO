@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oauthlib
-Version: 4.0.0
+Version: 4.0.1
 Summary: A generic, spec-compliant, thorough implementation of the OAuth request-signing logic
 Home-page: https://github.com/oauthlib/oauthlib
 Author: The OAuthlib Community

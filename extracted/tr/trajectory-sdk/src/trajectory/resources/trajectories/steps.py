@@ -25,6 +25,7 @@ class Steps(APIResource):
     trajectory_id: str,
     *,
     start_step_index: int | None | Omit = omit,
+    trainable_only: bool | Omit = omit,
     cursor: str | None | Omit = omit,
     limit: int | Omit = omit,
     extra_headers: Headers | None = None,
@@ -36,6 +37,9 @@ class Steps(APIResource):
 
     Args:
       start_step_index: Begin the page at this step index. Cannot be combined with cursor.
+
+      trainable_only: Page only a finalized trajectory's trained steps, one per trained sequence,
+        indexed in that order; empty while the trajectory is live.
 
       extra_headers: Send extra headers
 
@@ -59,6 +63,7 @@ class Steps(APIResource):
         params=maybe_transform(
           {
             "start_step_index": start_step_index,
+            "trainable_only": trainable_only,
             "cursor": cursor,
             "limit": limit,
           }

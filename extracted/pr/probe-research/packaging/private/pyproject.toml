@@ -1,0 +1,45 @@
+# probe-research-cli: the compiled private half of `probe` (the CLI, daemon and service).
+# Built by .github/workflows/private-wheels.yml; see DESIGN.md. Version and dependencies
+# come from agent/pyproject.toml at build time (setup.py), so the two never drift.
+[build-system]
+# Cython pinned: 3.3.0 crashes on 5 modules (`sorted(x or [])` in cli/main.py among them).
+requires = ["setuptools>=77", "Cython==3.2.9", "tomli>=1.1; python_version < '3.11'"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "probe-research-cli"
+description = "Probe Research's CLI, daemon and service, compiled. Installed by probe-research."
+requires-python = ">=3.10"
+license = "LicenseRef-Proprietary"
+license-files = ["LICENSE"]
+authors = [{ name = "Probe", email = "team@prbe.ai" }]
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+]
+dynamic = ["version", "dependencies", "optional-dependencies"]
+
+[tool.cibuildwheel]
+# One cp310-abi3 wheel per platform. cibuildwheel builds it on 3.10, then installs and
+# smoke-tests that same wheel on every later Python. Free-threaded builds (cp31Xt) cannot
+# load abi3 extensions and are not built.
+build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
+skip = "*-musllinux_* *_i686 *-win32 *-win_arm64"
+# Fresh venv per Python: the wheel and its dependencies, then the public stand-in and the
+# smoke test (smoke.py). {project} is agent/ (cibuildwheel runs from there).
+test-command = "python {package}/smoke.py --agent {project} --standin {package}/build/standin"
+# The daemon's pydantic-ai, so its modules import (and are checked) compiled too.
+test-extras = ["daemon"]
+environment-pass = ["PROBE_PRIVATE_BUILD_JOBS"]
+
+[tool.cibuildwheel.linux]
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"

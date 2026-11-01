@@ -28,14 +28,14 @@ def hosted(monkeypatch):
 @pytest.fixture(autouse=True)
 def captured(monkeypatch):
     records: list[dict] = []
-    monkeypatch.setattr(tm, "_sender", None)
-    monkeypatch.setattr(tm, "_flush_registered", True)
+    monkeypatch.setattr(tm.sender, "_sender", None)
+    monkeypatch.setattr(tm.sender, "_flush_registered", True)
     monkeypatch.setattr(tm._Sender, "start", lambda self: None)
     monkeypatch.setattr(tm._Sender, "put", lambda self, rec: records.append(rec))
     context = tm.TelemetryContext(
         session_id="wizardsession", via=tm.Via.WIZARD, invoked_by=tm.InvokedBy.HUMAN,
     )
-    monkeypatch.setattr(tm, "_current", context)
+    monkeypatch.setattr(tm.analytics, "_current", context)
     return records
 
 

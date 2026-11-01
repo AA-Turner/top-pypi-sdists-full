@@ -39,8 +39,8 @@ def captured(monkeypatch):
     monkeypatch.setenv("PROBE_BASE_URL", "https://api.research.prbe.ai")
     monkeypatch.setenv("PROBE_TELEMETRY", "on")
     records: list[dict] = []
-    monkeypatch.setattr(tm, "_sender", None)
-    monkeypatch.setattr(tm, "_flush_registered", True)
+    monkeypatch.setattr(tm.sender, "_sender", None)
+    monkeypatch.setattr(tm.sender, "_flush_registered", True)
     monkeypatch.setattr(tm._Sender, "start", lambda self: None)
     monkeypatch.setattr(tm._Sender, "put", lambda self, rec: records.append(rec))
     return records
@@ -285,7 +285,7 @@ def test_the_removal_is_still_attributable_after_the_credential_is_gone(
     `machine:<id>`. The identity is resolved while the credential still exists
     and rides the record.
     """
-    from probe.sdk import _telemetry_core as core
+    from probe.analytics import core as core
 
     monkeypatch.setattr(
         core, "resolve_identity",
@@ -296,7 +296,7 @@ def test_the_removal_is_still_attributable_after_the_credential_is_gone(
 
     def release_everything(run):
         # What the real one does: the token is gone by the time the event fires.
-        from probe.sdk.config import save_context
+        from probe.sdk.settings.settings import save_context
 
         save_context({})
 
@@ -313,7 +313,7 @@ def test_the_removal_is_still_attributable_after_the_credential_is_gone(
 def test_an_unresolvable_identity_never_fails_the_removal(removal, captured, monkeypatch):
     """Fail-soft: a pin that cannot resolve leaves the event as it was before,
     and above all does not raise into an uninstall."""
-    from probe.sdk import _telemetry_core as core
+    from probe.analytics import core as core
 
     def unreachable(cfg, **kwargs):
         raise OSError("network down")

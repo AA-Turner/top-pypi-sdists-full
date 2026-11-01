@@ -3,7 +3,7 @@
 `probe doctor --bundle` builds it (and `--send` sends it): the desktop app's
 "Send a debug log" row runs `probe doctor --bundle --send --json` and reads the
 last stdout line (plan B9; the contract's "CLI output the app reads"). It is
-`probe.core.report`'s LOCAL scope: the same readers and the same scrubber as
+`probe.shared.reports`'s LOCAL scope: the same readers and the same scrubber as
 the staff report, with whole files and more sources.
 
     README.txt   when and where it was made, versions, what each folder holds,
@@ -73,9 +73,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from probe._compat import StrEnum
-from probe.core import report
-from probe.core.report import Failure, Scope
+from probe.foundation.compat.compat import StrEnum
+from probe.shared import reports as report
+from probe.shared.reports.reports import Failure, Scope
 
 ROUTE = "/v1/diagnostics/bundles"
 SCHEMA = 1
@@ -114,7 +114,7 @@ def _agent_binaries() -> frozenset[str]:
     """Process names (or argv[0] basenames) of the coding agents, from the
     registry: each one's binary, and the name it gives its own process where
     that differs (Kimi Code's `process_title`)."""
-    from probe.harness import get_registry
+    from probe.foundation.harness_registry import get_registry
 
     return frozenset(name for h in get_registry().all() for name in (h.binary, h.process_title) if name)
 
@@ -290,7 +290,7 @@ def _command(argv: list[str], timeout: float = COMMAND_TIMEOUT_S) -> str:
 def _probe_files(sink: Sink) -> None:
     """The CLI's own records: its config (tokens redacted), auto-update, the
     side-by-side installs, run locks, the outbox's counts."""
-    from probe.sdk.config import config_path
+    from probe.sdk.settings.settings import config_path
 
     sink.config_file("probe/config.json", config_path())
     root = report.state_root()
@@ -308,12 +308,12 @@ def _probe_files(sink: Sink) -> None:
                 sink.config_file(f"probe/{path.name}", path)
         elif path.suffix == ".log" and not path.name.startswith("daemon-errors"):
             sink.log_file(f"probe/{path.name}", path)
-    from probe import version_policy
+    from probe.shared.updates import version_policy
 
     sink.config_file("probe/version-check.json", version_policy.cache_path())
     facts: dict = {}
     with contextlib.suppress(Exception):
-        from probe._shared import installs
+        from probe.shared.updates import installs
 
         active = installs.active()
         root_dir = installs.versions_root()
@@ -323,11 +323,11 @@ def _probe_files(sink: Sink) -> None:
             "versions": sorted(p.name for p in root_dir.iterdir()) if root_dir.is_dir() else [],
         }
     with contextlib.suppress(Exception):
-        from probe._shared import run_lock
+        from probe.foundation.durable import run_lock
 
         facts["live_runs"] = run_lock.live_runs()
     with contextlib.suppress(Exception):
-        from probe.sdk.journal import Journal
+        from probe.sdk.delivery.journal.journal import Journal
 
         status = Journal.read_status()
         # Counts only: an op's body is the researcher's data.
@@ -354,7 +354,7 @@ def _probe_commands(sink: Sink) -> None:
     which = ["where", "probe"] if WINDOWS else ["which", "-a", "probe"]
     lines = [_command(which)]
     try:
-        from probe.harness import get_registry
+        from probe.foundation.harness_registry import get_registry
 
         for harness in get_registry().all():
             if harness.binary:
@@ -556,7 +556,7 @@ def _tap_rows(sid: str) -> dict:
 
     found: dict = {}
     try:
-        from probe.harness import get_registry
+        from probe.foundation.harness_registry import get_registry
 
         harnesses = [h for h in get_registry().captured() if h.capture is not None]
     except Exception:  # noqa: BLE001
@@ -595,7 +595,7 @@ def _daemon(sink: Sink) -> None:
         if path.is_file():
             sink.config_file(f"daemon/{name}", path)
     try:
-        from probe.harness import get_registry
+        from probe.foundation.harness_registry import get_registry
 
         for harness in get_registry().captured():
             if harness.capture is None:
@@ -637,7 +637,7 @@ def _agent(harness) -> Callable[[Sink], None]:
                 if path.is_file() and path.suffix in (".json", ".toml") and "cache" not in path.name.lower():
                     sink.config_file(f"{base}/home/{path.name}", path)
             _plugin_files(sink, home, f"{base}/home")
-        from probe.cli import plugin_cli
+        from probe.shared.harness import plugins as plugin_cli
 
         if harness.id == plugin_cli.CLAUDE:
             # Claude Code keeps its account and per-project state beside its folder.
@@ -652,7 +652,7 @@ def _another_program(harness) -> bool:
     """Whether the program on PATH under the agent's name is someone else's: pi's two-letter name
     is confirmed by its `--help` (`pi_config.pi_binary_available`, as the wizard does), so another
     package's program of that name is not taken for the agent."""
-    from probe.cli import pi_config
+    from probe.shared.harness.harnesses import pi as pi_config
 
     return harness.id == pi_config.HARNESS_ID and not pi_config.pi_binary_available()
 
@@ -1006,7 +1006,7 @@ def _network(sink: Sink) -> None:
         except OSError as exc:
             facts["dns"] = {"error": str(exc)[:200]}
         try:
-            from probe.sdk.tls import ssl_context
+            from probe.foundation.tls.tls import ssl_context
 
             started = time.monotonic()
             with httpx.Client(base_url=url, timeout=httpx.Timeout(5.0, connect=3.0), verify=ssl_context()) as http:
@@ -1031,7 +1031,7 @@ def _sources() -> list[tuple[str, Callable[[Sink], None]]]:
         ("daemon", _daemon),
     ]
     try:
-        from probe.harness import get_registry
+        from probe.foundation.harness_registry import get_registry
 
         sources.extend((f"agent_{h.id}", _agent(h)) for h in get_registry().all())
     except Exception:  # noqa: BLE001
@@ -1132,7 +1132,7 @@ def _harnesses_with_files(files: dict[str, Entry]) -> list[str]:
     `facts.json` and empty `transcripts.json` written for every agent the registry knows, or every
     log names all of them."""
     try:
-        from probe.harness import get_registry
+        from probe.foundation.harness_registry import get_registry
 
         known = [h.id for h in get_registry().captured()]
     except Exception:  # noqa: BLE001
@@ -1179,7 +1179,7 @@ def trim(files: dict[str, Entry], excess: int) -> list[str]:
 
 def _readme(collection: Collection, trimmed: dict[str, str]) -> str:
     try:
-        from probe.cli import versions
+        from probe.shared.updates import updates as versions
 
         local = versions.local_versions()
     except Exception:  # noqa: BLE001
@@ -1340,7 +1340,7 @@ def upload(slot: dict, path: Path, *, timeout: float = UPLOAD_PUT_TIMEOUT_S) -> 
     except OSError:
         return report.Reply(status=None, failure=Failure.SERVER)
     try:
-        from probe.sdk.tls import ssl_context
+        from probe.foundation.tls.tls import ssl_context
 
         with handle, httpx.Client(timeout=httpx.Timeout(timeout, connect=5.0), verify=ssl_context(),
                                   follow_redirects=False) as http:

@@ -420,12 +420,16 @@ class DeviantartExtractor(Extractor):
                 page = self._limited_request(deviation["url"]).text
 
             # extract journal html from webpage
-            html = text.extr(
-                page,
-                "<h2>Literature Text</h2></span><div>",
-                "</div></section></div></div>")
-            if html:
+            if (html := text.extr(
+                    page,
+                    "<h2>Literature Text</h2></span><div>",
+                    "</div></section></div></div>")):
                 return {"html": html}
+
+            if (pos := page.find(' data-editor-viewer="1"')) >= 0:
+                if html := text.rextr(
+                        page, ">", '</div></div></div><div class="', pos):
+                    return {"html": html}
 
             self.log.debug("%s: Failed to extract journal HTML from webpage. "
                            "Falling back to __INITIAL_STATE__ markup.",
@@ -1065,12 +1069,13 @@ class DeviantartDeviationExtractor(DeviantartExtractor):
     subcategory = "deviation"
     archive_fmt = "g_{_username}_{index}.{extension}"
     skip_files = None
-    pattern = (BASE_PATTERN + r"/(art|journal)/(?:[^/?#]+-)?(\d+)"
+    pattern = (BASE_PATTERN +
+               r"/(art|journal|status-update)/(?:[^/?#]+-)?(\d+)"
                r"|(?:https?://)?(?:www\.)?(?:fx)?deviantart\.com/"
                r"(?:view/|deviation/|view(?:-full)?\.php/*\?(?:[^#]+&)?id=)"
                r"(\d+)"  # bare deviation ID without slug
                r"|(?:https?://)?fav\.me/([0-9a-z]+)")  # base36
-    example = "https://www.deviantart.com/UsER/art/TITLE-12345"
+    example = "https://www.deviantart.com/USER/art/TITLE-12345"
 
     def deviations(self):
         _, _, type, did1, did2, did3 = self.groups

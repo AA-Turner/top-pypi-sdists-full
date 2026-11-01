@@ -1,6 +1,6 @@
 """`probe feedback`: tell the Probe team what got in the way, with the person's yes.
 
-    probe feedback send "<text>"   hold it as a question for the person (`probe.feedback`)
+    probe feedback send "<text>"   hold it as a question for the person (`probe.shared.feedback.feedback`)
     probe feedback flush           send what the person said yes to (run by the hooks)
 
 The question is asked in every permission mode, bypass included, and under
@@ -21,7 +21,7 @@ feedback_app = typer.Typer(
 )
 
 #: The daemon's `probe` commands carry the session they act for here
-#: (`daemon/worker.py`), and the agent's own as PROBE_AGENT_SESSION.
+#: (`daemon/worker/worker.py`), and the agent's own as PROBE_AGENT_SESSION.
 DAEMON_SESSION_ENV = "PROBE_DAEMON_SESSION"
 
 
@@ -33,7 +33,7 @@ def _fail(message: str) -> None:
 def _ask_line(req, harness: str | None) -> str:
     """What the agent does next. The question's fields are JSON: nothing in the
     feedback can close a quote and speak as this line."""
-    from probe.harness.registry import get_registry
+    from probe.foundation.harness_registry.harness_registry import get_registry
 
     q = req.question
     fields = json.dumps({"header": q.header, "question": q.question, "options": [q.yes_label, q.no_label]},
@@ -56,8 +56,8 @@ def send_cmd(
     """Send the Probe team feedback about Probe: when Probe got in the way or could do better.
 
     The person sees the whole text and decides; nothing is sent without their yes."""
-    from probe import feedback as fb
-    from probe.daemon import approvals as appr
+    from probe.shared.feedback import feedback as fb
+    from probe.shared.mailbox import approvals as appr
     from probe.sdk import agent_session, session_marker
 
     if os.environ.get(fb.ASKED_ENV):
@@ -70,7 +70,7 @@ def send_cmd(
             _fail(f"not sent: {exc}")
         typer.echo(f"sent to the Probe team ({(landed or {}).get('id', 'recorded')})")
         return
-    # The daemon's shell carries no coding agent's session (`daemon/tools.py`
+    # The daemon's shell carries no coding agent's session (`daemon/agent/tools/tools.py`
     # `_base_env`): in an agent's shell this variable is the agent's to set, so
     # it never makes the agent's feedback read as the daemon's.
     daemon_session = os.environ.get(DAEMON_SESSION_ENV)
@@ -101,7 +101,7 @@ def send_cmd(
 def client_for(context: str | None):
     """A client for the account a feedback question was asked under: that
     context's own credential when it is not the active one, else the usual."""
-    from probe.sdk.config import current_context_name, load_context
+    from probe.sdk.settings.settings import current_context_name, load_context
 
     from .main import _new_client
 
@@ -118,7 +118,7 @@ def client_for(context: str | None):
 def flush_cmd() -> None:
     """Send the feedback the person said yes to. The hooks run this after a yes,
     and at session start; it is safe to run at any time."""
-    from probe import feedback as fb
+    from probe.shared.feedback import feedback as fb
 
     for rid, outcome in fb.flush(client_for):
         typer.echo(f"{rid}: {outcome}")
@@ -126,7 +126,7 @@ def flush_cmd() -> None:
 
 def flush_quietly() -> None:
     """`flush`, for a command that just recorded a yes in-process (`probe approvals`)."""
-    from probe import feedback as fb
+    from probe.shared.feedback import feedback as fb
 
     try:
         fb.flush(client_for)

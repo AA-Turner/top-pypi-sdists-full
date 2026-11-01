@@ -19,15 +19,15 @@ import shutil
 import pytest
 
 from probe.cli import telemetry as tm
-from probe.sdk import journal as journal_module
-from probe.sdk.journal import (
+from probe.sdk.delivery import journal as journal_module
+from probe.sdk.delivery.ops.ops import (
     CREDENTIAL_NAMESPACE,
-    DELIVERY_NAMESPACE,
+    DELIVERY_NAMESPACE)
+from probe.sdk.delivery.journal.failures.discards import (
     DiscardCounts,
-    Journal,
-    auth_blocked_since,
-    relocate_discards,
-)
+    relocate_discards)
+from probe.sdk.delivery.journal.journal import Journal
+from probe.sdk.delivery.journal.status_file import auth_blocked_since
 
 HOSTED = "https://api.research.prbe.ai"
 FP = "ab" * 8
@@ -49,8 +49,8 @@ def captured(monkeypatch):
     """emit() records at the queue seam: no thread, no network."""
     records: list[dict] = []
     monkeypatch.setenv("PROBE_TELEMETRY", "on")
-    monkeypatch.setattr(tm, "_sender", None)
-    monkeypatch.setattr(tm, "_flush_registered", True)
+    monkeypatch.setattr(tm.sender, "_sender", None)
+    monkeypatch.setattr(tm.sender, "_flush_registered", True)
     monkeypatch.setattr(tm._Sender, "start", lambda self: None)
     monkeypatch.setattr(tm._Sender, "put", lambda self, rec: records.append(rec))
     return records
@@ -112,13 +112,13 @@ def test_a_queue_holding_discards_is_never_deleted_with_them(tmp_path, monkeypat
     names = _discard_all(queue)
     _age(queue.dir)
     assert not journal_module._queue_is_empty(queue.dir)
-    monkeypatch.setattr(journal_module, "_last_prune", float("-inf"))
+    monkeypatch.setattr(journal_module.paths, "_last_prune", float("-inf"))
     moved = DiscardCounts()
     journal_module.prune_credential_queues(root, counts=moved)
     assert sorted(os.listdir(root / "discarded")) == names, "the prune deleted a discarded write"
     assert moved.writes == 1
     _age(queue.dir)  # empty now: the next idle prune removes it
-    monkeypatch.setattr(journal_module, "_last_prune", float("-inf"))
+    monkeypatch.setattr(journal_module.paths, "_last_prune", float("-inf"))
     assert journal_module.prune_credential_queues(root) == 1
     assert sorted(os.listdir(root / "discarded")) == names
 
@@ -184,7 +184,7 @@ def test_a_half_pruned_queues_discards_are_moved_before_it_goes(tmp_path, monkey
     leftover = root / CREDENTIAL_NAMESPACE / f".pruned-{FP}-123-456" / "discarded"
     leftover.mkdir(parents=True)
     (leftover / "0001-x.json").write_text(json.dumps({"kind": "http", "context": {"base_url": HOSTED}}))
-    monkeypatch.setattr(journal_module, "_last_prune", float("-inf"))
+    monkeypatch.setattr(journal_module.paths, "_last_prune", float("-inf"))
     journal_module.prune_credential_queues(root)
     assert os.listdir(root / "discarded") == ["0001-x.json"]
     assert not leftover.parent.exists()
@@ -213,7 +213,7 @@ def test_a_half_pruned_queue_whose_discards_cannot_move_is_kept(tmp_path, monkey
 
     monkeypatch.setattr(journal_module.os, "link", refuse)
     monkeypatch.setattr(journal_module.os, "replace", refuse)
-    monkeypatch.setattr(journal_module, "_last_prune", float("-inf"))
+    monkeypatch.setattr(journal_module.paths, "_last_prune", float("-inf"))
     journal_module.prune_credential_queues(root)
     assert (leftover / "0001-x.json").exists()
 
@@ -253,7 +253,7 @@ def test_two_movers_at_once_count_the_write_once(tmp_path, monkeypatch):
 def test_probe_outbox_resume_looks_for_stranded_writes_again_at_once(tmp_path, monkeypatch):
     import importlib
 
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     main = importlib.import_module("probe.cli.main")
     root = tmp_path / "outbox"
@@ -268,7 +268,7 @@ def test_probe_outbox_resume_looks_for_stranded_writes_again_at_once(tmp_path, m
 
 
 def test_a_receipt_only_client_reports_its_discards_as_it_closes(tmp_path):
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     client = Client(spool_dir=tmp_path / "outbox", async_writes=True, auto_drain=False,
                     base_url=HOSTED, token="probe_pat_x_0123456789abcdef")
@@ -288,8 +288,8 @@ def test_a_worker_moves_a_bounded_number_and_the_rest_wait(tmp_path, monkeypatch
     for step in range(5):
         _write(queue, step)
     _discard_all(queue)
-    monkeypatch.setattr(journal_module, "_PRUNE_MOVE_LIMIT", 2)
-    monkeypatch.setattr(journal_module, "_last_prune", float("-inf"))
+    monkeypatch.setattr(journal_module.paths, "_PRUNE_MOVE_LIMIT", 2)
+    monkeypatch.setattr(journal_module.paths, "_last_prune", float("-inf"))
     moved = DiscardCounts()
     journal_module.prune_credential_queues(root, counts=moved)
     assert moved.writes == 2 and len(os.listdir(root / "discarded")) == 2
@@ -323,15 +323,15 @@ def test_probe_outbox_drain_reports_what_it_moved(tmp_path, monkeypatch, capture
     _write(queue)
     _discard_all(queue)
     monkeypatch.setattr(main, "_journal", lambda: Journal(str(root)))
-    monkeypatch.setattr(journal_module, "_last_prune", float("-inf"))
-    monkeypatch.setattr(journal_module, "drain", lambda journal, **kw: journal_module.DrainReport())
+    monkeypatch.setattr(journal_module.paths, "_last_prune", float("-inf"))
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.drain.drain", lambda journal, **kw: journal_module.DrainReport())
     main._drain_foreground()
     (props,) = _discarded(captured)
     assert (props["reason"], props["writes"]) == ("relocated", 1)
 
 
 def test_a_paused_outbox_moves_its_discards_and_looks_again_much_later(tmp_path, monkeypatch, captured):
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     root = tmp_path / "outbox"
     queue = _queue(root)
@@ -339,7 +339,7 @@ def test_a_paused_outbox_moves_its_discards_and_looks_again_much_later(tmp_path,
     _discard_all(queue)
     Journal(str(root)).pause()
     monkeypatch.setattr(Journal, "discover", staticmethod(lambda: []))
-    monkeypatch.setattr(journal_module, "rescue_lock_path", lambda: tmp_path / "rescue.lock")
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.adoption.rescue_lock_path", lambda: tmp_path / "rescue.lock")
     outbox_worker.rescue(str(root))
     assert len(os.listdir(root / "discarded")) == 1
     import time
@@ -364,7 +364,7 @@ def test_a_refusal_with_nothing_queued_blocks_nothing(tmp_path):
             refused_fingerprints={FP: "2026-10-23T17:23:00+00:00"})
     status = Journal.read_status(root)
     assert auth_blocked_since(status) is None
-    assert tm.stuck_status(status) is False
+    assert tm.stuck_status(status, auth_blocked_since=journal_module.auth_blocked_since(status)) is False
 
 
 def test_a_stale_root_refusal_beside_a_busy_queue_is_not_a_block(tmp_path):
@@ -416,7 +416,7 @@ def test_the_drain_still_reads_the_refusals_it_wrote(tmp_path):
 
 
 def test_a_stale_refusal_starts_no_rescuer(tmp_path, monkeypatch):
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     root = tmp_path / "outbox"
     _status(root, pending=0)
@@ -502,7 +502,7 @@ def test_the_rescuer_moves_discards_and_reports_them_once(tmp_path, monkeypatch,
     """What answers "are Bucket's writes still on that Mac" with nothing for
     the customer to run: the every-command check starts the rescuer when a
     credential queue holds discards, and its pass reports them, by day."""
-    from probe.sdk import outbox_worker
+    from probe.sdk.delivery import outbox as outbox_worker
 
     root = tmp_path / "outbox"
     queue = _queue(root)
@@ -512,9 +512,9 @@ def test_the_rescuer_moves_discards_and_reports_them_once(tmp_path, monkeypatch,
     monkeypatch.setattr(Journal, "discover", staticmethod(lambda: []))
     monkeypatch.delenv("PROBE_OUTBOX_RESCUE", raising=False)
     started = []
-    monkeypatch.setattr(outbox_worker, "spawn_rescuer", lambda journal: started.append(journal) or True)
+    monkeypatch.setattr(outbox_worker.rescuer, "spawn_rescuer", lambda journal: started.append(journal) or True)
     assert outbox_worker.maybe_rescue(Journal(str(root)), Journal.read_status(root) or {}) is True
-    monkeypatch.setattr(journal_module, "rescue_lock_path", lambda: tmp_path / "rescue.lock")
+    monkeypatch.setattr("probe.sdk.delivery.outbox.drain.adoption.rescue_lock_path", lambda: tmp_path / "rescue.lock")
     outbox_worker.rescue(str(root))
     (props,) = _discarded(captured)
     assert (props["reason"], props["writes"]) == ("relocated", 5)
@@ -526,7 +526,7 @@ def test_the_rescuer_moves_discards_and_reports_them_once(tmp_path, monkeypatch,
 def test_an_sdk_discard_keeps_its_answer_and_is_counted(tmp_path, monkeypatch):
     """`cli/backfill_delivery.py` reads `discard_delivery(...)["state"]`: its
     return stays the state dict. The count rides `sdk.delivery.summary`."""
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     client = Client(spool_dir=tmp_path / "outbox", async_writes=True, auto_drain=False,
                     base_url=HOSTED, token="probe_pat_x_0123456789abcdef")

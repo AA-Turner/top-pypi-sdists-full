@@ -27,12 +27,14 @@ from pathlib import Path
 import pytest
 
 from probe.cli import notes_find
-from probe.daemon import bite as bite_mod
-from probe.daemon import lease, tools, toolset
-from probe.daemon import model as model_mod
-from probe.daemon import approvals as appr
-from probe.daemon.events import Kind
-from probe.daemon.store import Store, StoredEvent
+from probe.daemon.worker.bite import bite as bite_mod
+from probe.daemon.host import lease
+from probe.daemon.agent import tools, toolset
+from probe.daemon.agent.model import model as model_mod
+from probe.shared.mailbox import approvals as appr
+from probe.shared.harness.events import Kind
+from probe.daemon.store.store import Store
+from probe.daemon.store.events import StoredEvent
 
 #: The module runs on the default (`bash`) tool set (conftest).
 DAEMON_TOOLS = "bash"
@@ -116,8 +118,8 @@ from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart  # noqa: 
 from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
 from probe.daemon import agent as agent_mod  # noqa: E402
-from probe.daemon import mailbox  # noqa: E402
-from probe.daemon import trace as trace_mod  # noqa: E402
+from probe.shared import mailbox  # noqa: E402
+from probe.daemon.trace import trace as trace_mod  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
 
 
@@ -271,7 +273,7 @@ def test_off_every_new_file_shows_as_before():
 
 
 def test_a_burst_counts_small_toward_a_bites_budget(tmp_path, monkeypatch):
-    from probe.daemon.events import Event
+    from probe.shared.harness.events import Event
 
     st = Store(tmp_path / "s.sqlite", clock=time.time)
     st.add([Event(kind=Kind.PROMPT, stream="main", offset=1, text="pull the branch")])
@@ -322,7 +324,7 @@ def test_a_model_this_module_did_not_build_is_its_own_task_model(monkeypatch):
 
 
 def _deps(tmp_path) -> tools.Deps:
-    from probe.daemon.folders import note_dirs
+    from probe.daemon.session.session import note_dirs
 
     work = tmp_path / "work"
     work.mkdir(parents=True, exist_ok=True)
@@ -483,7 +485,7 @@ def test_the_task_model_switch_is_never_restored():
 def test_on_the_index_layout_a_burst_counts_small_too(tmp_path, monkeypatch):
     """The indexer reads a burst as the list the writer would (swarm friction T17
     (1)): it counts as listed there too, so one bite takes all 300."""
-    from probe.daemon.events import Event
+    from probe.shared.harness.events import Event
 
     st = Store(tmp_path / "s.sqlite", clock=time.time)
     st.add([Event(kind=Kind.PROMPT, stream="main", offset=1, text="pull the branch")])

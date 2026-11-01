@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import pytest
 
-from probe.mcp.contract import View
-from probe.mcp.service import ResearchReadService, _VIEW_OPTIONS, _VIEWS, EntityType
-from probe.mcp.source import ResearchOSSource
+from probe.shared.reads.search_contract import EntityType, View
+from probe.mcp.tools.tools import ResearchReadService
+from probe.mcp.tools.view import _VIEW_OPTIONS, _VIEWS
+from probe.mcp.source.source import ResearchOSSource
 from probe.sdk import errors
 
 
@@ -221,7 +222,7 @@ def test_project_code_view_filters_are_actually_accepted():
 def test_every_code_pair_served_is_in_the_shared_matrix():
     """The dead-switch guard, aimed at exactly this change: each (kind, code)
     pair the server dispatches must exist in the generated vocabulary."""
-    from probe.mcp.contract import VIEW_MATRIX
+    from probe.shared.reads.search_contract import VIEW_MATRIX
 
     for kind in (EntityType.PROJECT, EntityType.EXPERIMENT, EntityType.RUN):
         assert (kind, View.CODE) in _VIEWS

@@ -136,10 +136,10 @@ def daemon_status(as_json: bool = typer.Option(False, "--json")) -> None:
     """Can the daemon run here, and what is it doing."""
     from pathlib import Path
 
-    from probe.daemon import approvals as appr
+    from probe.shared.mailbox import approvals as appr
     from probe.daemon import store as store_mod
-    from probe.daemon import trace as trace_mod
-    from probe.daemon import usage as usage_mod
+    from probe.daemon.trace import trace as trace_mod
+    from probe.daemon.agent.model import usage as usage_mod
 
     info: dict = {"ai_libraries": ai_libraries() or "missing: Who records in the wizard (switch it to the daemon, or Enter on it) installs them"}
     base = store_mod.state_dir()
@@ -162,7 +162,7 @@ def daemon_status(as_json: bool = typer.Option(False, "--json")) -> None:
             "usage": st.usage_summary(),
             "conversation": ({"runs": live["runs"], "compactions": live["compactions"]}
                              if live is not None else None),
-            # The worker's log and each agent's full trace (`probe/daemon/trace.py`).
+            # The worker's log and each agent's full trace (`probe/daemon/trace/trace.py`).
             "folder": str(trace_mod.session_dir(path.stem)),
         })
         st.close()
@@ -354,7 +354,7 @@ def _install_side_by_side(version: str) -> int | None:
     another update holds the install lock; 0 too when the switch waits for a
     quiet machine), or None where the side-by-side layout is not used (the
     caller installs as before)."""
-    from probe._shared import installs
+    from probe.shared.updates import installs
 
     from probe.cli import install_pipeline
 
@@ -482,7 +482,7 @@ def approvals_cmd(
     The coding agent normally puts these to you word for word with its question
     tool; this is the fallback for harnesses without one, and for anything left
     unanswered. Only a real terminal can answer (the agent's shell cannot)."""
-    from probe.daemon import approvals as appr
+    from probe.shared.mailbox import approvals as appr
     from probe.sdk import agent_session
 
     board = appr.Board()
@@ -637,7 +637,7 @@ def _echo_jev_approved(own_sid: str | None, *, scoped: bool) -> None:
 def deny_cmd(request_id: str = typer.Argument(..., help="the question's id, e.g. 7f3a09c1"),
              note: Optional[str] = typer.Option(None, "--why")) -> None:
     """Say no to a question the Probe daemon holds. Anyone may say no."""
-    from probe.daemon import approvals as appr
+    from probe.shared.mailbox import approvals as appr
 
     board = appr.Board()
     req = board.get(request_id.removeprefix("Probe ").strip())
@@ -704,7 +704,7 @@ def ask_cmd(
     wait: bool = typer.Option(False, "--wait", help=ASK_WAIT_HELP),
     writer: bool = typer.Option(False, "--writer", help=ASK_WRITER_HELP),
 ) -> None:
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
     from probe.sdk import agent_session, session_marker
 
     # A request to the writer keeps its line breaks (a handover's lists and
@@ -757,7 +757,7 @@ def _ask_writer(sid: str, text: str, *, wait: bool, alive: bool, reads_only: boo
     """`probe ask --writer`: a request for the daemon's WRITER (`requests.py`),
     filed in the mailbox's `requests/` folder -- never `asks/`, where a worker
     from before requests would hand it to the reader."""
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     if reads_only:
         typer.echo(ASK_WRITER_READ_ONLY, err=True)
@@ -790,7 +790,7 @@ def _wait_for(sid: str, ask_id: str) -> None:
     """Hold the answer to `ask_id` (its heartbeat) and print it, up to WAIT_MAX_S."""
     import time
 
-    from probe.daemon import mailbox
+    from probe.shared import mailbox
 
     deadline = time.monotonic() + mailbox.WAIT_MAX_S
     beat = 0.0

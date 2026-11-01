@@ -5,7 +5,7 @@ Output capture keeps `checkpoint` out (`checkpoints=False`): a captured
 checkpoint FOLDER's small files must not each become "the last checkpoint".
 
 `plot` was the image default until `artifacts.kind` became a fixed vocabulary
-(`probe.sdk.artifact_kinds`): a figure is not a kind, and the server files the
+(`probe.sdk.artifact.kinds`): a figure is not a kind, and the server files the
 word `plot` as `other` with the word kept as its label.
 
 The kind is read from the extension only when the caller passed none: an
@@ -20,8 +20,8 @@ from __future__ import annotations
 import pytest
 
 from probe import cli
-from probe.sdk.filetype import artifact_kind_for
-from probe.sdk.run import Run
+from probe.sdk.artifact.filetype import artifact_kind_for
+from probe.sdk.run.run import Run
 from tests.conftest import make_client
 from tests.test_outbox import seeded_run
 

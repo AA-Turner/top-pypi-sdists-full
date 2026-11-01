@@ -19,7 +19,7 @@ import time
 
 import pytest
 
-from probe import version_policy
+from probe.shared.updates import version_policy
 from probe.cli import autoupdate
 
 # NOT `from probe.cli import main`: probe/cli/__init__.py binds `main` to its own
@@ -701,7 +701,7 @@ def test_an_sdk_write_renews_a_detached_runs_lease(isolate):
     """A detached run has no process to hold an flock, so its lease has to be
     renewed by its own traffic or it expires under a job longer than 30 minutes."""
     from probe.cli import run_lock
-    from probe.sdk.client import _touch_run_lease
+    from probe.sdk.delivery.sink import _touch_run_lease
 
     run_lock.touch_lease("detached-run", seconds=10)  # nearly expired
     lease = run_lock.runs_dir() / f"detached-run{run_lock.LEASE_SUFFIX}"
@@ -711,7 +711,7 @@ def test_an_sdk_write_renews_a_detached_runs_lease(isolate):
 
 
 def test_a_write_to_a_non_run_path_touches_nothing(isolate):
-    from probe.sdk.client import _touch_run_lease
+    from probe.sdk.delivery.sink import _touch_run_lease
 
     _touch_run_lease("/v1/projects")  # must not raise, must not create anything
     assert not (isolate / "state" / "probe" / "runs").exists()

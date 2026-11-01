@@ -58,6 +58,7 @@ from river_client.renderers.deepseek import (
     strip_deepseek_thinking_from_text,
 )
 from river_client.renderers.glm52 import Glm52Renderer
+from river_client.renderers.glm53_text import Glm53Renderer
 from river_client.renderers.nemotron import Nemotron35Renderer, NemotronSuperVLRenderer
 from river_client.renderers.glm53 import Glm53FlashRenderer, parse_glm53_content_blocks
 from river_client.renderers.kimi import (
@@ -236,6 +237,17 @@ def get_renderer(
     is_dsv41 = _is_deepseek_v41(name_lower)
     is_glm53 = _is_glm53_flash(name_lower)
 
+    model_stem = name_lower.rsplit("/", 1)[-1]
+    if not is_glm53 and (model_stem == "glm-5.3" or model_stem.startswith("glm-5.3-")):
+        return Glm53Renderer(
+            tokenizer,
+            thinking=True if thinking is None else thinking,
+            strip_thinking_from_history=False
+            if strip_thinking_from_history is None
+            else strip_thinking_from_history,
+            reasoning_effort="max" if reasoning_effort is None else reasoning_effort,
+        )
+
     is_glm52 = "glm-5.2" in name_lower or "glm52" in name_lower
     if is_glm52:
         return Glm52Renderer(
@@ -372,6 +384,7 @@ __all__ = [
     "DeepSeekV4Renderer",
     "Glm53FlashRenderer",
     "Glm52Renderer",
+    "Glm53Renderer",
     "Nemotron35Renderer",
     "NemotronSuperVLRenderer",
     "KimiRenderer",

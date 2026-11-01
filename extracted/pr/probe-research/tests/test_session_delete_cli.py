@@ -17,7 +17,7 @@ import pytest
 from typer.testing import CliRunner
 
 from probe.cli.main import app as cli_app
-from probe.daemon import precheck
+from probe.shared.command_rules import command_rules as precheck
 from probe.sdk import agent_session
 
 from tests.conftest import make_client

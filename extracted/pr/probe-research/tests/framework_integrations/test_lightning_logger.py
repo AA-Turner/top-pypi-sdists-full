@@ -141,7 +141,10 @@ def wired(app, tmp_path, monkeypatch):
     # tests see lasting storage unless they say otherwise; subprocess tests
     # keep the runner's own answer (their child closes take that path).
     monkeypatch.setenv("PROBE_EPHEMERAL", "0")
-    monkeypatch.setattr(fluent, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.fluent, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.attach, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.bindings, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool"))
+    monkeypatch.setattr(fluent.run_openers.online, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool"))
     app.seed_experiment("e1")
 
 
@@ -278,7 +281,8 @@ def test_pickling_reattaches_by_run_id(app, wired, tmp_path, monkeypatch):
     logger = ProbeLogger(experiment="e1")
     run_id = logger.experiment.id
 
-    monkeypatch.setattr(client_module, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool2"))
+    monkeypatch.setattr(client_module.client, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool2"))
+    monkeypatch.setattr(client_module.resources.runs.attach, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool2"))
     copy = pickle.loads(pickle.dumps(logger))
     copy.log_metrics({"loss": 0.5}, step=3)
 
@@ -294,7 +298,8 @@ def _recording_client(app, tmp_path, monkeypatch) -> list[dict]:
         built.append(kwargs)
         return make_client(app, tmp_spool=tmp_path / f"copy{len(built)}")
 
-    monkeypatch.setattr(client_module, "Client", build)
+    monkeypatch.setattr(client_module.client, "Client", build)
+    monkeypatch.setattr(client_module.resources.runs.attach, "Client", build)
     return built
 
 
@@ -910,7 +915,7 @@ def test_lightnings_composed_sigterm_handler_has_the_shape_run_first_reorders(ap
     """`preempt.run_first` recognises Lightning's `_HandlersCompose` by its
     `signal_handlers` list, which it calls in order, ours last: checked here on
     the real one, during a real fit, after the first logged step."""
-    from probe.sdk import preempt
+    from probe.sdk.run.launch import preempt
 
     seen = {}
 
@@ -1241,7 +1246,8 @@ def test_a_workers_close_fits_inside_torchs_grace(monkeypatch, requested, applie
     if requested is None:
         monkeypatch.delenv("PROBE_FINISH_TIMEOUT_SEC")
     seen = []
-    monkeypatch.setattr(fluent, "_finish_at_exit", lambda: seen.append(os.environ["PROBE_FINISH_TIMEOUT_SEC"]))
+    monkeypatch.setattr(fluent.at_exit, "_finish_at_exit", lambda: seen.append(os.environ["PROBE_FINISH_TIMEOUT_SEC"]))
+    monkeypatch.setattr(fluent.exit, "_finish_at_exit", lambda: seen.append(os.environ["PROBE_FINISH_TIMEOUT_SEC"]))
     lightning_logger._close_at_worker_exit(None)
     assert seen == [applied]
 
@@ -1250,9 +1256,10 @@ def test_a_workers_close_fits_inside_torchs_grace(monkeypatch, requested, applie
 def worker_sigint(monkeypatch):
     """The handler `_chain_worker_sigint` chains, over Python's default one."""
     monkeypatch.setattr(lightning_logger, "_SIGINT_CHAINED_PID", None)
+    monkeypatch.setattr(lightning_logger, "_SIGINT_SEEN", None)
     signal.signal(signal.SIGINT, signal.default_int_handler)
     noted = []
-    monkeypatch.setattr(fluent, "note_exit", lambda status, exc=None: noted.append(status))
+    monkeypatch.setattr(fluent.exit, "note_exit", lambda status, exc=None: noted.append(status))
     return noted
 
 
@@ -1286,6 +1293,47 @@ def test_an_ignored_sigint_is_left_alone(worker_sigint):
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     lightning_logger._chain_worker_sigint()
     assert signal.getsignal(signal.SIGINT) is signal.SIG_IGN
+
+
+def _ctrl_c_exit() -> SystemExit:
+    """torch >= 2.15's worker wrapper on a Ctrl-C: `sys.exit(130)` from its
+    `except KeyboardInterrupt`."""
+    try:
+        try:
+            raise KeyboardInterrupt
+        except KeyboardInterrupt:
+            sys.exit(130)
+    except SystemExit as exc:
+        return exc
+    raise AssertionError("sys.exit did not raise")
+
+
+@pytest.mark.parametrize(
+    "signalled, parent_alive, verdict",
+    [(True, True, "canceled"), (True, False, "failed"), (False, True, "canceled")],
+    ids=["ctrl-c", "parent-died", "interrupt-without-the-signal"],
+)
+def test_torchs_ctrl_c_exit_closes_with_what_the_signal_said(
+    worker_sigint, monkeypatch, signalled, parent_alive, verdict
+):
+    """The worker's close read torch 2.15's exit 130 as a crash and noted
+    `failed` over `canceled`. With no SIGINT seen (a notebook worker, a raised
+    KeyboardInterrupt) it is still a Ctrl-C; after the parent died, `failed`."""
+    monkeypatch.setenv("PROBE_FINISH_TIMEOUT_SEC", "")  # the close's cap is undone after
+    monkeypatch.delenv("PROBE_FINISH_TIMEOUT_SEC")
+    monkeypatch.setattr(fluent.at_exit, "_finish_at_exit", lambda: None)
+    monkeypatch.setattr(fluent.exit, "_finish_at_exit", lambda: None)
+    lightning_logger._chain_worker_sigint()
+    if not parent_alive:
+        monkeypatch.setattr(os, "getppid", lambda: 1)
+    if signalled:
+        with pytest.raises(KeyboardInterrupt):
+            signal.raise_signal(signal.SIGINT)
+    try:
+        raise _ctrl_c_exit()
+    except SystemExit:
+        lightning_logger._close_at_worker_exit(None)
+    assert worker_sigint[-1] == verdict
 
 
 # -- runs two Trainers share (review 2 of #2029) -----------------------------------
@@ -1332,7 +1380,7 @@ def test_under_a_launcher_a_failure_the_loop_caught_leaves_the_verdict_to_it(
     """Review 2 LOW 2: under `probe exec` a trial whose error the sweep caught
     closed the launcher's run `failed`, and `probe exec` exited 0. The
     launcher reads the real exit code; an uncaught error still exits 1."""
-    from probe.sdk.run import EXEC_FINALIZES_ENV
+    from probe.sdk.run.launch.execute import EXEC_FINALIZES_ENV
 
     for var in ("RANK", "WORLD_SIZE", "SLURM_PROCID", "OMPI_COMM_WORLD_RANK"):
         monkeypatch.delenv(var, raising=False)
@@ -1532,7 +1580,7 @@ def test_only_a_monitored_callback_marks_a_checkpoint_best(app, wired, tmp_path)
 def test_a_folder_checkpoint_is_walked_once_per_save(app, wired, tmp_path, monkeypatch):
     """Review 2 LOW 5: the logger summed the folder, then `log_artifact` summed
     it again (and again on every refresh of its row)."""
-    from probe.sdk import hashing
+    from probe.sdk.artifact import hashing
 
     walks = []
     real = hashing.folder_size

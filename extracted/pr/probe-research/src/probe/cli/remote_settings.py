@@ -3,7 +3,7 @@
 Staff can set ONE setting on ONE device, once, and only toward quieter. v1 has one,
 `session_default`, the machine's default for new sessions, to `off` or `read`. The
 server answers this device's CLI token with `X-Probe-Settings-Requested`, whichever
-of our clients gets that answer leaves the mark (`probe._shared.settings_request`),
+of our clients gets that answer leaves the mark (`probe.foundation.remote_settings.preferences`),
 and `apply_pending`, run before a `probe` command (`probe.cli.main.
 _settings_request_notice`), acts on it:
 
@@ -62,7 +62,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
 
-from probe._compat import UTC, StrEnum
+from probe.foundation.compat.compat import UTC, StrEnum
 from probe.sdk import session_marker
 
 #: Where the machine fetches the open request.
@@ -126,7 +126,7 @@ class Outcome(StrEnum):
 
 
 def _state_dir():
-    from probe import version_policy
+    from probe.shared.updates import version_policy
 
     return version_policy.state_dir()
 
@@ -171,7 +171,7 @@ def _record(report: Report, *, phase: str, pending: list[str] | None = None, att
     """Save the request's record: True when it is on disk. Never raises.
     `moving_since` (the default phase): when the sessions started to be moved."""
     try:
-        from probe import version_policy
+        from probe.shared.updates import version_policy
 
         return bool(version_policy.atomic_write_json(
             _state_dir() / APPLIED_NAME,
@@ -336,7 +336,7 @@ def _resume(answer: dict, done: dict) -> tuple[Report, list[str]] | None:
 def _report_and_clear(client: Any, report: Report) -> bool | None:
     """Send the report; when the server took it (or has nothing open), forget the
     mark and remember it was sent."""
-    from probe._shared import settings_request
+    from probe.foundation.remote_settings import preferences as settings_request
 
     sent = _send(client, report)
     if sent is not False:
@@ -363,7 +363,7 @@ def apply_pending(client: Any, *, base_url: str | None = None, now: datetime | N
     """Apply staff's open settings request for this machine, once, and report it.
     `client` is a signed-in `probe` client of this machine's own token. Never
     raises."""
-    from probe._shared import settings_request
+    from probe.foundation.remote_settings import preferences as settings_request
     from probe.sdk.errors import NotFoundError
 
     if not settings_request.fresh():
@@ -434,7 +434,7 @@ def _tell_person(answer: dict, report: Report) -> None:
 
 def _emit(report: Report, answer: dict, sent: bool | None, base_url: str | None) -> None:
     with contextlib.suppress(Exception):
-        from probe._shared import telemetry
+        from probe import analytics as telemetry
 
         telemetry.emit_settings_remote_applied(
             setting=str(answer.get("setting")),

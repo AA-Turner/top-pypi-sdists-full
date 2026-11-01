@@ -5,6 +5,7 @@ from io import BytesIO
 from unittest import mock
 
 import pytest
+from urllib3 import encode_multipart_formdata
 
 from vcr.filters import (
     decode_response,
@@ -254,6 +255,63 @@ def test_replace_body_parameters_json(method):
     assert request_data == expected_data
 
 
+NESTED_BODY = {
+    "password": "top",
+    "params": {
+        "credentials": {"login": "name", "password": "secret"},
+        "users": [{"name": "a", "password": "p1"}, {"name": "b"}, "password"],
+        "empty": {},
+        "token": "t0k3n",
+    },
+}
+
+
+def test_replace_body_parameters_json_recursive():
+    request = Request("PUT", "http://google.com", json.dumps(NESTED_BODY).encode(), {})
+    request.headers["Content-Type"] = "application/json"
+    replace_body_parameters(
+        request,
+        [("password", None), ("token", lambda key, value, request: value.upper()), ("login", "<LOGIN>")],
+        recursive=True,
+    )
+    assert json.loads(request.body) == {
+        "params": {
+            "credentials": {"login": "<LOGIN>"},
+            # Lists are searched too, and strings in them aren't keys.
+            "users": [{"name": "a"}, {"name": "b"}, "password"],
+            # Objects left empty, or empty to begin with, are kept.
+            "empty": {},
+            "token": "T0K3N",
+        },
+    }
+
+
+def test_replace_body_parameters_dict_recursive():
+    request = Request("POST", "http://google.com", "", {})
+    request.body = NESTED_BODY
+    replace_body_parameters(request, [("password", None)], recursive=True)
+    assert request.body["params"]["credentials"] == {"login": "name"}
+    assert "password" not in request.body
+    # The original body isn't changed.
+    assert NESTED_BODY["params"]["credentials"]["password"] == "secret"
+
+
+def test_replace_body_parameters_json_not_recursive_by_default():
+    request = Request("POST", "http://google.com", json.dumps(NESTED_BODY).encode(), {})
+    request.headers["Content-Type"] = "application/json"
+    replace_body_parameters(request, [("password", None)])
+    data = json.loads(request.body)
+    assert "password" not in data
+    assert data["params"]["credentials"]["password"] == "secret"
+
+
+def test_replace_post_data_parameters_recursive():
+    request = Request("POST", "http://google.com", json.dumps(NESTED_BODY).encode(), {})
+    request.headers["Content-Type"] = "application/json"
+    replace_post_data_parameters(request, [("password", None)], recursive=True)
+    assert json.loads(request.body)["params"]["credentials"] == {"login": "name"}
+
+
 @pytest.mark.parametrize("method", ["POST", "PUT", "PATCH"])
 def test_remove_body_parameters_json(method):
     body = b'{"id": "secret", "foo": "bar", "baz": "qux"}'
@@ -308,6 +366,63 @@ def test_remove_body_parameters_dict(method):
     replace_body_parameters(request, [("id", None)])
     expected_data = {"foo": "bar", "baz": "qux"}
     assert request.body == expected_data
+
+
+def _multipart_request(fields, boundary="vcrpy-boundary", content_type=None):
+    body, default_content_type = encode_multipart_formdata(fields, boundary=boundary)
+    return Request("POST", "http://google.com", body, {"Content-Type": content_type or default_content_type})
+
+
+def test_replace_body_parameters_multipart():
+    request = _multipart_request(
+        {
+            "keep": "kept",
+            "remove": "secret",
+            "replace": "secret",
+            "shout": "whisper",
+            "file": ("name", b"\xff\xfe binary secret"),
+        },
+    )
+    replace_body_parameters(
+        request,
+        [
+            ("remove", None),
+            ("replace", "<REPLACED>"),
+            ("shout", lambda key, value, request: value.upper()),
+            ("missing", "doesntexist"),
+        ],
+    )
+    expected = _multipart_request(
+        {
+            "keep": "kept",
+            "replace": "<REPLACED>",
+            "shout": "WHISPER",
+            "file": ("name", b"\xff\xfe binary secret"),
+        },
+    )
+    assert request.body == expected.body
+
+
+def test_replace_body_parameters_multipart_matches_name_not_filename():
+    request = _multipart_request({"upload": ("secret", b"content")})
+    replace_body_parameters(request, [("secret", None)])
+    assert request.body == _multipart_request({"upload": ("secret", b"content")}).body
+
+
+def test_replace_body_parameters_multipart_quoted_boundary():
+    request = _multipart_request(
+        {"api_key": "secret", "a": "b"},
+        content_type='multipart/form-data; boundary="vcrpy-boundary"',
+    )
+    replace_body_parameters(request, [("api_key", None)])
+    assert request.body == _multipart_request({"a": "b"}).body
+
+
+def test_replace_body_parameters_leaves_iterator_body():
+    # A generator body is recorded as an iterator body, which isn't filtered (#814).
+    request = Request("POST", "http://google.com", iter([b"api_key=secret"]), {})
+    replace_body_parameters(request, [("api_key", None)])
+    assert b"".join(request.body) == b"api_key=secret"
 
 
 @pytest.mark.parametrize("method", ["POST", "PUT", "PATCH"])

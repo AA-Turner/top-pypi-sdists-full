@@ -94,7 +94,7 @@ def test_posthog_frames_separate_our_code_from_the_callers():
             {
                 "frames": [
                     {"probe": False},
-                    {"probe": True, "file": "sdk/transport.py", "func": "request", "line": 221},
+                    {"probe": True, "file": "sdk/delivery/transport/transport.py", "func": "request", "line": 221},
                 ]
             }
         ]
@@ -104,7 +104,7 @@ def test_posthog_frames_separate_our_code_from_the_callers():
     assert frames[0]["in_app"] is False
     assert set(frames[0]) == {"platform", "lang", "resolved", "filename", "in_app"}
     assert frames[1]["in_app"] is True
-    assert frames[1]["filename"] == "sdk/transport.py"
+    assert frames[1]["filename"] == "sdk/delivery/transport/transport.py"
     # PostHog's manual-capture schema: without these, ingestion treats the
     # frames as needing symbolication and the issue renders without a stack.
     assert frames[1]["platform"] == "custom"
@@ -141,7 +141,8 @@ def test_mcp_stdio_reports_then_reraises(monkeypatch):
     def boom():
         raise RuntimeError("stdio server died")
 
-    monkeypatch.setattr(mcp_server, "create_server", boom)
+    monkeypatch.setattr(mcp_server.server, "create_server", boom)
+    monkeypatch.setattr(mcp_server.http, "create_server", boom)
     monkeypatch.setattr(telemetry_mod, "report_crash", lambda exc, **kw: seen.append((exc, kw)))
 
     with pytest.raises(RuntimeError, match="stdio server died"):
@@ -202,7 +203,7 @@ def test_the_fingerprint_separates_call_sites():
                     "type": "TransportError",
                     "frames": [
                         {"probe": False},
-                        {"probe": True, "file": "sdk/transport.py", "func": func, "line": line},
+                        {"probe": True, "file": "sdk/delivery/transport/transport.py", "func": func, "line": line},
                     ],
                 }
             ]
@@ -230,7 +231,7 @@ def test_the_emitted_event_matches_posthogs_schema(monkeypatch):
     monkeypatch.setattr(
         telemetry_mod.TelemetryContext, "start", classmethod(lambda cls, **kw: _Ctx())
     )
-    monkeypatch.setattr(telemetry_mod, "_flush_at_exit", lambda: None)
+    monkeypatch.setattr(telemetry_mod.sender, "_flush_at_exit", lambda: None)
 
     try:
         raise errors_mod.TransportError("POST /v1/runs/x/metrics: connect timeout")

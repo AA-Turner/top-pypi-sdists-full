@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fast_hdbscan"
-version = "0.3.2"
+version = "0.3.4"
 authors = [{name = "Leland McInnes", email = "leland.mcinnes@gmail.com"}]
 maintainers = [{name = "Leland McInnes", email = "leland.mcinnes@gmail.com"}]
 description = "A fast multicore version of HDBSCAN and PLSCAN clustering algorithms."
@@ -12,10 +12,11 @@ readme = "README.rst"
 keywords = ["cluster", "clustering", "hdbscan", "dbscan", "plscan"]
 license = "BSD-2-Clause"
 classifiers = [
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Development Status :: 5 - Production/Stable",
     "Operating System :: OS Independent",
 ]
@@ -31,6 +32,9 @@ Homepage = "https://github.com/TutteInstitute/fast_hdbscan"
 
 [project.optional-dependencies]
 nndescent = ["pynndescent>=0.6"]
+
+[dependency-groups]
+cicd = ["pytest", "pytest-azurepipelines", "pytest-cov"]
 
 [tool.setuptools]
 zip-safe = false

@@ -183,7 +183,7 @@ def test_an_entity_miss_is_not_mislabeled_as_an_old_server(wired, capsys, monkey
     resolve and the sub-notes read is the miss left to hit: every carrier now
     resolves before the read.)"""
     from probe.sdk import errors
-    from probe.sdk.client import Client
+    from probe.sdk.client.client import Client
 
     cli.main(["run", "start", "--experiment", "e", "--name", "r1"])
     run_id = capsys.readouterr().out.strip()

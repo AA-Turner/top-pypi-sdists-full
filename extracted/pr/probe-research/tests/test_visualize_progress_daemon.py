@@ -20,7 +20,7 @@ import pytest
 
 import probe
 from probe.sdk import session_marker
-from probe.sdk.run import Run
+from probe.sdk.run.run import Run
 from tests.test_skills_commands_exist import _invocations
 
 AGENT = Path(__file__).resolve().parents[1]

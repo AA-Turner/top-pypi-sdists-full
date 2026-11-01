@@ -14,7 +14,7 @@ releases it the moment its holder exits, however it exits, so a run killed with
 SIGKILL leaves nothing to clean up and there is no pid to judge stale.
 
 A holder writes into the file who it is and since when (`{"pid", "start",
-"at"}`, `probe._shared.setup_marks`), and clears it as it lets go: the Probe
+"at"}`, `probe.shared.updates.setup_marks`), and clears it as it lets go: the Probe
 service reads it to tell how long a setup has held the device, and updates
 past one held for a day (plan C1, `probe.service.updater.LIMITED`). The
 interactive menu lets go of the lock while it waits on a person, and says so
@@ -35,11 +35,12 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from probe._shared import setup_marks
+from probe.shared.updates import setup_marks
+from probe.shared.updates import step as update_step
 
 LOCK_FILENAME = setup_marks.LOCK_FILENAME
 #: EX_TEMPFAIL: try again later. Distinct from 1 (failed) and 2 (usage).
-BUSY_EXIT_CODE = 75
+BUSY_EXIT_CODE = update_step.WIZARD_BUSY_EXIT
 BUSY_MESSAGE = "another Probe setup is running"
 #: How long a run waits out contention before calling it busy. A real holder
 #: keeps the lock for its whole run, seconds at least; `running()` (`probe

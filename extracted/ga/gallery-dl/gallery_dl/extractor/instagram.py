@@ -20,6 +20,7 @@ QUERIES = {
     "PolarisProfilePostsTabContentQuery_connection" : "28544666141895803",
     "PolarisProfileReelsTabContentQuery_connection" : "29285972954340351",
     "PolarisProfileTaggedTabContentQuery_connection": "28474042942277898",
+    "PolarisProfileRepostsTabContentRefetchQuery"   : "39686700687609779",
     "PolarisProfileStoryHighlightsTrayContentQuery" : "26970053832668570",
     "PolarisStoriesV3ReelPageGalleryQuery"          : "29306733562261201",
     "PolarisStoriesV3TrayContainerQuery"            : "38657722893875056",
@@ -168,6 +169,17 @@ class InstagramExtractor(Extractor):
     def posts(self):
         return ()
 
+    def _posts_expand(self, posts):
+        if self.config("metadata"):
+            for post in posts:
+                yield from self.api.media(post["code"])
+        else:
+            for post in posts:
+                if post.get("product_type") == "feed":
+                    yield post
+                else:
+                    yield from self.api.media(post["code"])
+
     def finalize(self, status):
         if status and self._cursor:
             self.log.info("Use '-o cursor=%s' to continue downloading "
@@ -250,8 +262,9 @@ class InstagramExtractor(Extractor):
                     img.setdefault("width", 0)
                     img.setdefault("height", 0)
                     items.insert(0, {
-                        "pk": f"{reel_id}_cover",
-                        "code": reel_id,
+                        "pk"  : reel_id + "_cover",
+                        "code": shortcode_from_id(reel_id),
+                        "type": "cover",
                         "taken_at": post["seen"],
                         "image_versions2": {"candidates": (img,)}})
 
@@ -283,9 +296,9 @@ class InstagramExtractor(Extractor):
 
             if coauthors := post.get("coauthor_producers"):
                 data["coauthors"] = [
-                    {"id"       : user["pk"],
-                     "username" : user["username"],
-                     "full_name": user["full_name"]}
+                    {"id"       : user.get("pk") or user.get("id"),
+                     "username" : user.get("username"),
+                     "full_name": user.get("full_name")}
                     for user in coauthors
                 ]
 
@@ -595,10 +608,12 @@ class InstagramUserExtractor(Dispatch, InstagramExtractor):
             (InstagramAvatarExtractor    , base + "avatar/"),
             (InstagramStoriesExtractor   , stories),
             (InstagramHighlightsExtractor, base + "highlights/"),
+            (InstagramHighlightsCoversExtractor, base + "highlights/covers/"),
             (InstagramPostsExtractor     , base + "posts/"),
             (InstagramPhotosExtractor    , base + "photos/"),
             (InstagramReelsExtractor     , base + "reels/"),
             (InstagramTaggedExtractor    , base + "tagged/"),
+            (InstagramRepostsExtractor   , base + "reposts/"),
         ), ("posts",))
 
 
@@ -662,8 +677,17 @@ class InstagramTaggedExtractor(InstagramExtractor):
         }
 
     def posts(self):
-        for post in self.api.user_tagged(self.item):
-            yield from self.api.media(post["code"])
+        return self._posts_expand(self.api.user_tagged(self.item))
+
+
+class InstagramRepostsExtractor(InstagramExtractor):
+    """Extractor for an Instagram user's reposts"""
+    subcategory = "reposts"
+    pattern = USER_PATTERN + r"/reposts"
+    example = "https://www.instagram.com/USER/reposts/"
+
+    def posts(self):
+        return self._posts_expand(self.api.user_reposts(self.item))
 
 
 class InstagramSavedExtractor(InstagramExtractor):
@@ -757,6 +781,20 @@ class InstagramStoriesExtractor(InstagramExtractor):
                 reels.append(copy)
 
         return reels
+
+
+class InstagramHighlightsCoversExtractor(InstagramExtractor):
+    """Extractor for an Instagram user's story highlight covers"""
+    subcategory = "highlights-covers"
+    pattern = USER_PATTERN + r"/(?:highlights/)?covers"
+    example = "https://www.instagram.com/USER/highlights/covers/"
+
+    def posts(self):
+        self._highlight_covers = True
+        tray = self.api.highlights_tray(self.item)
+        for hl in tray:
+            hl["items"] = []
+        return tray
 
 
 class InstagramHighlightsExtractor(InstagramExtractor):
@@ -1044,6 +1082,16 @@ class InstagramAPI():
             "PolarisProfileReelsTabContentQuery_connection", variables,
             "fetch__XDTUserDict", "/reels")
 
+    def user_reposts(self, handle):
+        variables = {
+            "max_id": None,
+            "id"    : str(self.user(handle)["id"]),
+        }
+
+        return self._pagination_graphql(
+            "PolarisProfileRepostsTabContentRefetchQuery", variables,
+            "fetch__XDTUserDict", "/reposts")
+
     def user_tagged(self, handle):
         variables = {
             "after"  : None,
@@ -1098,20 +1146,10 @@ class InstagramAPI():
 
     def _extract_opname_info(self, opname, path):
         extr = self.extractor
-        extr.log.debug("Looking up '%s' parameters", opname)
+        extr.log.debug("Collecting GraphQL parameters")
 
-        opname_map = self._extract_opname_map(path)
-        for name, info in opname_map.items():
-            extr.cache_update(self._extract_opname_info, name, info,
-                              _exp=86400, _mem=False)
-
-        return opname_map[opname]
-
-    def _extract_opname_map(self, path):
-        extr = self.extractor
         opname_map = {}
         params_map = {}
-
         base = "https://static.cdninstagram.com/rsrc.php/"
         opnames = "|".join(QUERIES)
         docids_pattern = text.re(
@@ -1126,17 +1164,20 @@ class InstagramAPI():
                 continue
             url = base + text.unescape(href)
             script = extr.request(url, interval=False).text
-            for opname, docid in docids_pattern.findall(script):
-                opname_map[opname] = docid
-            for opname, params in params_pattern.findall(script):
-                if not params_map.get(opname):
-                    params_map[opname] = [
+            for name, docid in docids_pattern.findall(script):
+                opname_map[name] = docid
+            for name, params in params_pattern.findall(script):
+                if not params_map.get(name):
+                    params_map[name] = [
                         param[1:-15] for param in params.split(",")
                         if param.endswith('.relayprovider"')]
 
-        for opname, docid in opname_map.items():
-            opname_map[opname] = (docid, params_map.get(opname))
-        return opname_map
+        for name, docid in opname_map.items():
+            opname_map[name] = info = (docid, params_map.get(name))
+            extr.cache_update(self._extract_opname_info, name, info,
+                              _exp=86400, _mem=False)
+
+        return opname_map[opname]
 
     def _webpage(self, path):
         headers = {
@@ -1166,8 +1207,9 @@ class InstagramAPI():
                                    _exp=86400, _mem=False)
         if params:
             for param in params:
-                full = f"__relay_internal__pv__{param}relayprovider"
-                variables.setdefault(full, True)
+                name = f"__relay_internal__pv__{param}relayprovider"
+                value = (param != "PolarisSEOIsCrawler")
+                variables.setdefault(name, value)
 
         headers = {
             "Accept"            : "*/*",
@@ -1304,7 +1346,10 @@ class InstagramAPI():
         extr = self.extractor
         url = extr.root + "/graphql/query"
 
-        variables["after"] = extr._init_cursor()
+        if "max_id" in variables:
+            variables["max_id"] = extr._init_cursor()
+        else:
+            variables["after"] = extr._init_cursor()
         headers, body = self._prepare_graphql(
             opname, variables, fieldname, path)
 
@@ -1328,21 +1373,33 @@ class InstagramAPI():
                 raise self.exc.AbortExtraction(
                     f"Failed to load API data ({msg})")
 
-            if "edges" not in data:
-                for value in data.values():
-                    if value.__class__ is dict and "edges" in value:
-                        data = value
-                        break
-                else:
+            if "max_id" in variables:
+                data = data["user_reposts_timeline"]
+
+                for item in data["repost_grid_items"]:
+                    yield item["media"]
+
+                if not data.get("repost_more_available"):
                     break
+                variables["max_id"] = extr._update_cursor(
+                    data["repost_next_max_id"])
+            else:
+                if "edges" not in data:
+                    for value in data.values():
+                        if value.__class__ is dict and "edges" in value:
+                            data = value
+                            break
+                    else:
+                        break
 
-            for edge in data["edges"]:
-                yield edge["node"]
+                for edge in data["edges"]:
+                    yield edge["node"]
 
-            info = data.get("page_info")
-            if not info or not info.get("has_next_page"):
-                break
-            variables["after"] = extr._update_cursor(info["end_cursor"])
+                info = data.get("page_info")
+                if not info or not info.get("has_next_page"):
+                    break
+                variables["after"] = extr._update_cursor(info["end_cursor"])
+
             body["variables"] = util.json_dumps(variables)
 
 

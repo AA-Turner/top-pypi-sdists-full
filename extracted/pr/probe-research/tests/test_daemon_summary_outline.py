@@ -29,10 +29,11 @@ pytest.importorskip("pydantic_ai_harness")
 
 from pydantic_ai.models.function import FunctionModel  # noqa: E402
 
-from probe.daemon import approvals as appr  # noqa: E402
-from probe.daemon import folders, tools  # noqa: E402
-from probe.daemon import model as model_mod  # noqa: E402
-from probe.daemon.store import Store  # noqa: E402
+from probe.shared.mailbox import approvals as appr  # noqa: E402
+from probe.daemon.session import session as folders  # noqa: E402
+from probe.daemon.agent import tools
+from probe.daemon.agent.model import model as model_mod  # noqa: E402
+from probe.daemon.store.store import Store  # noqa: E402
 from tests.test_daemon_conversation import (  # noqa: E402,F401 -- `_isolated` is an autouse fixture
     Replay,
     Script,
@@ -377,7 +378,7 @@ def test_the_outline_names_the_push_with_the_checkouts_own_flags(tmp_path):
     outline names repeats them, or the daemon would not find the draft."""
     replay = CheckoutReplay()
     deps = _deps(tmp_path, replay)
-    from probe.daemon import precheck
+    from probe.shared.command_rules import command_rules as precheck
 
     argv = ["summary", "checkout", "--experiment", "b2", "--project", "willow"]
     _code, out = asyncio.run(replay.run(argv[:4], "op"))
@@ -443,7 +444,7 @@ def test_a_missing_draft_is_checked_out_again(tmp_path):
 
 
 def test_loading_is_bounded_in_time(tmp_path, monkeypatch):
-    monkeypatch.setattr(tools, "AUTOLOAD_TIMEOUT_S", 0.3)
+    monkeypatch.setattr(tools.summaries, "AUTOLOAD_TIMEOUT_S", 0.3)
     replay = HeadReplay({"b2": 9}, delay=30.0)
     deps = _deps(tmp_path, replay)
     _log(deps.store, "experiment", "set", "b2", "--conclusion", "yes")
@@ -470,7 +471,7 @@ def test_a_checkout_the_cli_refuses_for_unpushed_edits_is_outlined_as_such(tmp_p
 
 
 def test_the_daemons_checkout_flags_parse():
-    from probe.daemon import precheck
+    from probe.shared.command_rules import command_rules as precheck
 
     parsed = precheck.parse(["summary", "checkout", "--experiment", "b2", "--no-visuals"])
     assert parsed.path == "summary checkout" and tools._anchor_key(parsed) == "experiment=b2"

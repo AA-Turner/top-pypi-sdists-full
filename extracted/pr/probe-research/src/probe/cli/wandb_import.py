@@ -33,9 +33,9 @@ def _cli_client():
     would also fsync megabytes to the outbox only to read them straight back
     out."""
     from .. import __version__
-    from ..client_headers import client_version_headers
-    from ..sdk.client import Client
-    from ..sdk.surface import Surface
+    from ..foundation.request_identity.request_identity import client_version_headers
+    from ..sdk.client.client import Client
+    from ..foundation.request_identity.surface import Surface
 
     return Client(
         async_writes=False,

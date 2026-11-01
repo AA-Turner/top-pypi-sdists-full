@@ -1,0 +1,139 @@
+"""Product analytics: `track(Event.X, **props)` (analytics.py) over one catalog (events.py). Every
+piece loads here, as the old module did whole: one first loaded at exit clears the Ctrl-C exit (#2083)."""
+
+from __future__ import annotations
+
+import importlib
+
+# Loaded now, in dependency order; names are served live below, so a patch on a piece reaches every caller.
+from . import outcomes, transport, sender, analytics, context, throttle, events, crash  # noqa: F401
+
+#: Every name the front door serves -> the piece that defines it.
+_HOMES = {
+    # outcomes
+    "IdentityMode": "outcomes",
+    "Via": "outcomes",
+    "DiscardReason": "outcomes",
+    "InvokedBy": "outcomes",
+    "SignInOutcome": "outcomes",
+    "ConfigureOutcome": "outcomes",
+    "ConfigureFailureKind": "outcomes",
+    "BackfillOutcome": "outcomes",
+    "InstallSettledOutcome": "outcomes",
+    "OnboardingOutcome": "outcomes",
+    "TranscriptsOutcome": "outcomes",
+    "ImportJobOutcome": "outcomes",
+    "RecorderOutcome": "outcomes",
+    "UninstallOutcome": "outcomes",
+    "ImportJobStall": "outcomes",
+    # transport
+    "_post_batch": "transport",
+    # sender
+    "FLUSH_TIMEOUT_S": "sender",
+    "QUEUE_MAX": "sender",
+    "_Sender": "sender",
+    "_sender_lock": "sender",
+    "_ensure_sender": "sender",
+    "_flush_at_exit": "sender",
+    "_sender": "sender",
+    "_flush_registered": "sender",
+    # analytics
+    "DESKTOP_HUMAN_ENV": "analytics",
+    "DESKTOP_SURFACE": "analytics",
+    "_now_iso": "analytics",
+    "TelemetryContext": "analytics",
+    "null_context": "analytics",
+    "current": "analytics",
+    "identity_mode_from_config": "analytics",
+    "track": "analytics",
+    "_current": "analytics",
+    # context
+    "_ORIGIN_SESSION": "context",
+    "origin_stamp": "context",
+    "job_context": "context",
+    "outbox_context": "context",
+    "detached_context": "context",
+    # throttle
+    "_STUCK_STAMP": "throttle",
+    "STUCK_REPORT_INTERVAL_S": "throttle",
+    "STUCK_HELD_S": "throttle",
+    "_error_kind": "throttle",
+    "_age_hours": "throttle",
+    "report_due": "throttle",
+    "_safe_key": "throttle",
+    "stuck_report_due": "throttle",
+    "stuck_status": "throttle",
+    # events
+    "EVENT_WIZARD_INVOKED": "events",
+    "EVENT_WIZARD_STARTED": "events",
+    "EVENT_WIZARD_ACTION_CHOSEN": "events",
+    "EVENT_WIZARD_CONFIGURE_STARTED": "events",
+    "EVENT_WIZARD_SIGNED_IN": "events",
+    "EVENT_WIZARD_CONFIGURE_COMPLETED": "events",
+    "EVENT_INTEGRATION_REINSTALL_STARTED": "events",
+    "EVENT_INTEGRATION_REINSTALL_COMPLETED": "events",
+    "EVENT_BACKFILL_INVOKED": "events",
+    "EVENT_BACKFILL_STARTED": "events",
+    "EVENT_BACKFILL_SCANNED": "events",
+    "EVENT_BACKFILL_PLAN_READY": "events",
+    "EVENT_BACKFILL_APPROVED": "events",
+    "EVENT_BACKFILL_SUMMARY": "events",
+    "EVENT_WIZARD_INSTALL_SETTLED": "events",
+    "EVENT_WIZARD_IMPORTS_CHOSEN": "events",
+    "EVENT_WIZARD_ONBOARDING_COMPLETED": "events",
+    "EVENT_WIZARD_UNINSTALL_STARTED": "events",
+    "EVENT_WIZARD_UNINSTALL_COMPLETED": "events",
+    "EVENT_WIZARD_SIGNED_OUT": "events",
+    "EVENT_WIZARD_RECORDER_CHANGED": "events",
+    "EVENT_TRANSCRIPTS_SUMMARY": "events",
+    "EVENT_IMPORT_JOB_ENQUEUED": "events",
+    "EVENT_IMPORT_JOB_STALLED": "events",
+    "EVENT_IMPORT_JOB_FINISHED": "events",
+    "EVENT_IMPORT_JOB_CLEARED": "events",
+    "EVENT_OUTBOX_DRAINED": "events",
+    "EVENT_OUTBOX_STUCK": "events",
+    "EVENT_OUTBOX_RESCUED": "events",
+    "EVENT_OUTBOX_DISCARDED": "events",
+    "EVENT_OUTBOX_PAUSE_LIFTED": "events",
+    "EVENT_CAPTURE_REPAIR_APPLIED": "events",
+    "EVENT_SETTINGS_REMOTE_APPLIED": "events",
+    "EVENT_DELIVERY_SUMMARY": "events",
+    "EVENT_REPORT_UNDELIVERABLE": "events",
+    "EVENT_DAEMON_ERROR": "events",
+    "emit_report_undeliverable": "events",
+    "emit_service_event": "events",
+    "emit_outbox_drained": "events",
+    "emit_outbox_rescued": "events",
+    "emit_outbox_discarded": "events",
+    "DELIVERY_SUMMARY_FIELDS": "events",
+    "emit_delivery_summary": "events",
+    "emit_outbox_stuck": "events",
+    "emit_outbox_pause_lifted": "events",
+    "emit_capture_repair_applied": "events",
+    "emit_settings_remote_applied": "events",
+    "Event": "events",
+    "EVENT_SERVICE_STARTED": "events",
+    "EVENT_SERVICE_STATE": "events",
+    "EVENT_SERVICE_STOPPED": "events",
+    "EVENT_LIFEBOAT_ACTED": "events",
+    "SERVICE_EVENTS": "events",
+    "EVENT_MCP_TOOL_SERVED": "events",
+    "EVENT_EXCEPTION": "events",
+    # crash
+    "_FRAME_BASE": "crash",
+    "_posthog_frames": "crash",
+    "_fingerprint": "crash",
+    "_contract_safe": "crash",
+    "report_crash": "crash",
+}
+
+
+def __getattr__(name: str):
+    piece = _HOMES.get(name)
+    if piece is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    return getattr(importlib.import_module(f".{piece}", __name__), name)
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(_HOMES))

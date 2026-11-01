@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import gzip
 import importlib
 import os
 from pathlib import Path
 import subprocess
 import sys
+import types
 
+from anywidget import AnyWidget
+import comm
 from IPython.display import IFrame
 import numpy as np
 import pytest
@@ -15,6 +20,8 @@ from pyvista import examples
 from trame.app import get_server
 from trame_vtk.tools.vtksz2html import HTML_VIEWER_PATH
 
+from trame_pyvista import jupyter
+from trame_pyvista.jupyter import _HTML_ONLY_KWARGS
 from trame_pyvista.jupyter import EmbeddableWidget
 from trame_pyvista.jupyter import TrameServerDownError
 from trame_pyvista.jupyter import Widget
@@ -88,6 +95,144 @@ def test_launch_server_with_jupyter_kernel_argv():
         'from trame_pyvista.jupyter import elegantly_launch\n'
         "elegantly_launch('kernel-argv')\n"
         "assert get_server(name='kernel-argv').running\n"
+    )
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=90,
+        env={**os.environ, 'PYVISTA_OFF_SCREEN': 'true'},
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_launch_server_off_main_thread():
+    # marimo run executes app cells in worker threads, where signal handlers cannot be installed.
+    code = (
+        'import threading, urllib.request\n'
+        'from trame.app import get_server\n'
+        'from trame_pyvista.jupyter import elegantly_launch\n'
+        'def run():\n'
+        "    elegantly_launch('off-main')\n"
+        'thread = threading.Thread(target=run)\n'
+        'thread.start()\n'
+        'thread.join(60)\n'
+        "port = get_server(name='off-main').port\n"
+        "with urllib.request.urlopen(f'http://127.0.0.1:{port}/index.html', timeout=10) as r:\n"
+        '    assert r.status == 200\n'
+    )
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=90,
+        env={**os.environ, 'PYVISTA_OFF_SCREEN': 'true'},
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_off_main_launches_share_one_loop_thread():
+    code = (
+        'import threading\n'
+        'from trame_pyvista.jupyter import elegantly_launch\n'
+        "for name in ('first', 'second'):\n"
+        '    thread = threading.Thread(target=elegantly_launch, args=(name,))\n'
+        '    thread.start()\n'
+        '    thread.join(60)\n'
+        "loops = [t for t in threading.enumerate() if t.name == 'trame-pyvista-server']\n"
+        'assert len(loops) == 1, loops\n'
+    )
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=90,
+        env={**os.environ, 'PYVISTA_OFF_SCREEN': 'true'},
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_launch_server_keeps_signal_handlers():
+    code = (
+        'import signal\n'
+        'from trame_pyvista.jupyter import elegantly_launch\n'
+        'before = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}\n'
+        "elegantly_launch('keep-signals')\n"
+        'assert {sig: signal.getsignal(sig) for sig in before} == before\n'
+    )
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=90,
+        env={**os.environ, 'PYVISTA_OFF_SCREEN': 'true'},
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_elegantly_launch_inside_running_loop():
+    # A Jupyter kernel runs cells while its event loop is running.
+    code = (
+        'import asyncio\n'
+        'from trame.app import get_server\n'
+        'from trame_pyvista.jupyter import elegantly_launch\n'
+        'async def cell():\n'
+        "    elegantly_launch('in-loop')\n"
+        "    assert get_server(name='in-loop').running\n"
+        'asyncio.run(cell())\n'
+    )
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=90,
+        env={**os.environ, 'PYVISTA_OFF_SCREEN': 'true'},
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_elegantly_launch_in_marimo_uses_server_thread():
+    # marimo runs cells on its kernel loop, which a nested loop corrupts.
+    code = (
+        'import asyncio, sys\n'
+        'from trame.app import get_server\n'
+        'from trame_pyvista import jupyter\n'
+        'jupyter._in_marimo = lambda: True\n'
+        'async def cell():\n'
+        "    jupyter.elegantly_launch('in-marimo')\n"
+        "    assert get_server(name='in-marimo').running\n"
+        "    assert 'nest_asyncio2' not in sys.modules\n"
+        '    assert jupyter._server_event_loop is not None\n'
+        'asyncio.run(cell())\n'
+    )
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=90,
+        env={**os.environ, 'PYVISTA_OFF_SCREEN': 'true'},
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_launch_server_uses_theme_port():
+    code = (
+        'import socket\n'
+        'import pyvista as pv\n'
+        'from trame.app import get_server\n'
+        'from trame_pyvista.jupyter import elegantly_launch\n'
+        'with socket.socket() as s:\n'
+        "    s.bind(('127.0.0.1', 0))\n"
+        '    port = s.getsockname()[1]\n'
+        'pv.global_theme.trame.jupyter_server_port = port\n'
+        "elegantly_launch('themed-port')\n"
+        "assert get_server(name='themed-port').port == port\n"
     )
     result = subprocess.run(
         [sys.executable, '-c', code],
@@ -403,11 +548,12 @@ def test_trame_views():
     assert PyVistaLocalView(pl, trame_server=server)
 
 
-def test_trame_jupyter_custom_size():
+@pytest.mark.parametrize('backend', ['trame', 'html'])
+def test_trame_jupyter_custom_size(backend):
     w, h = 200, 150
     pl = pv.Plotter(notebook=True, window_size=(w, h))
     _ = pl.add_mesh(pv.Cone())
-    widget = pl.show(jupyter_backend='trame', return_viewer=True)
+    widget = pl.show(jupyter_backend=backend, return_viewer=True)
     html = widget.value
     assert f'width: {w}px' in html
     assert f'height: {h}px' in html
@@ -415,7 +561,7 @@ def test_trame_jupyter_custom_size():
     pl = pv.Plotter(notebook=True)
     pl.window_size = (w, h)
     _ = pl.add_mesh(pv.Cone())
-    widget = pl.show(jupyter_backend='trame', return_viewer=True)
+    widget = pl.show(jupyter_backend=backend, return_viewer=True)
     html = widget.value
     assert f'width: {w}px' in html
     assert f'height: {h}px' in html
@@ -426,7 +572,7 @@ def test_trame_jupyter_custom_size():
     try:
         pl = pv.Plotter(notebook=True)
         _ = pl.add_mesh(pv.Cone())
-        widget = pl.show(jupyter_backend='trame', return_viewer=True)
+        widget = pl.show(jupyter_backend=backend, return_viewer=True)
         html = widget.value
         assert 'width: 100%' in html
         assert 'height: 600px' in html
@@ -540,15 +686,202 @@ def test_embeddable_widget():
     assert isinstance(widget, EmbeddableWidget)
 
 
-def test_ipywidgets_raises(monkeypatch: pytest.MonkeyPatch):
+def _show_html(**kwargs):
+    """Return the html backend widget of a sphere plot."""
+    pl = pv.Plotter(notebook=True)
+    pl.add_mesh(pv.Sphere())
+    return pl.show(jupyter_backend='html', return_viewer=True, jupyter_kwargs=kwargs)
+
+
+def test_scene_esm_with_page_carries_gzipped_page():
+    esm = jupyter._scene_esm_with_page()
+    assert esm.startswith(f'const VIEWER_PAGE_GZ = "{jupyter._viewer_page_gz()}";')
+    assert esm.split('\n', 1)[1] == jupyter._SCENE_ESM.split('\n', 1)[1]
+    assert len(esm) < len(Path(HTML_VIEWER_PATH).read_text(encoding='utf-8')) / 2
+
+
+def test_embeddable_widgets_share_viewer_page():
+    first, second = _show_html(), _show_html()
+    page = first._viewer_page
+    assert page is second._viewer_page
+    assert page.html_gz == jupyter._viewer_page_gz()
+    html_gz = base64.b64decode(page.html_gz)
+    assert gzip.decompress(html_gz) == Path(HTML_VIEWER_PATH).read_bytes()
+    assert len(html_gz) < len(gzip.decompress(html_gz)) / 2
+    assert base64.b64decode(first.scene)[:2] == b'PK'
+    assert first.get_state()['_viewer_page'] == f'IPY_MODEL_{page.model_id}'
+
+
+def test_viewer_page_sends_plain_html_on_request():
+    page = _show_html()._viewer_page
+    assert page.html == ''
+    page.set_state({'plain': True})
+    try:
+        assert page.html == Path(HTML_VIEWER_PATH).read_text(encoding='utf-8')
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize('close', ['widget', 'comm'])
+def test_embeddable_widget_replaces_closed_viewer_page(close):
+    old = _show_html()._viewer_page
+    if close == 'widget':
+        old.close()
+    else:
+        msg = {'content': {'comm_id': old.comm.comm_id, 'data': {}}}
+        comm.get_comm_manager().comm_close(None, None, msg)
+    first, second = _show_html(), _show_html()
+    assert first._viewer_page is not old
+    assert first._viewer_page is second._viewer_page
+
+
+def test_embeddable_widget_value():
+    pl = pv.Plotter(notebook=True)
+    pl.add_mesh(pv.Sphere())
+    widget = pl.show(jupyter_backend='html', return_viewer=True)
+    src = pl.trame.export_html(filename=None).getvalue()
+    exported_scene = src.split('const base64Str = "')[1].split('"')[0]
+    src = src.replace(exported_scene, widget.scene)
+    src = src.replace('&', '&amp;').replace('"', '&quot;')
+    border = 'border: 1px solid rgb(221,221,221);'
+    assert widget.value == (
+        f'<iframe srcdoc="{src}" class="pyvista" style="width: 100%; height: 600px; {border}">'
+        '</iframe>'
+    )
+
+
+def test_embeddable_widget_ignores_html_kwargs():
+    with pytest.warns(
+        UserWarning, match=r'Ignoring `style`, `description`, `description_tooltip`'
+    ):
+        widget = _show_html(
+            style={'background': 'red'}, description='sphere', description_tooltip='a'
+        )
+    assert isinstance(widget, EmbeddableWidget)
+
+
+def test_widget_is_anywidget():
+    widget = Widget(None, 'http://x', width='10px', height='20px')
+    assert isinstance(widget, AnyWidget)
+    assert widget.get_state()['value'] == widget.value
+    assert widget.value == (
+        '<iframe src="http://x" class="pyvista" '
+        'style="width: 10px; height: 20px; border: 1px solid rgb(221,221,221);" '
+        'scrolling="no"></iframe>'
+    )
+
+
+@pytest.mark.parametrize('key', _HTML_ONLY_KWARGS)
+def test_widget_ignores_html_kwargs(key):
+    with pytest.warns(UserWarning, match=rf'Ignoring `{key}`: no effect'):
+        widget = Widget(None, 'http://x', **{key: 'x'})
+    assert key not in widget.get_state()
+
+
+def test_marimo_esm_carries_the_viewer_page(monkeypatch: pytest.MonkeyPatch):
     from trame_pyvista import jupyter
 
+    pytest.importorskip('marimo')
+    monkeypatch.setattr(jupyter, '_in_marimo', lambda: True)
+    first, second = _show_html(), _show_html()
+    assert first._viewer_page is None
+    assert first._esm == second._esm == jupyter._scene_esm_with_page()
+    assert f'const VIEWER_PAGE_GZ = "{jupyter._viewer_page_gz()}";' in first._esm
+    monkeypatch.setattr(jupyter, '_in_marimo', lambda: False)
+    widget = _show_html()
+    assert widget._esm == jupyter._SCENE_ESM
+    assert widget._viewer_page is jupyter._get_viewer_page()
+
+
+@pytest.mark.parametrize('version', ['0.14.12', '0.23.13'])
+def test_old_marimo_warns_once(monkeypatch: pytest.MonkeyPatch, version: str):
+    from trame_pyvista import jupyter
+
+    marimo = pytest.importorskip('marimo')
+    monkeypatch.setattr(jupyter, '_in_marimo', lambda: True)
+    monkeypatch.setattr(marimo, '__version__', version)
+    jupyter._warn_old_marimo.cache_clear()
+    with pytest.warns(UserWarning, match=rf'marimo {version} sends the viewer page'):
+        _show_html()
+    _show_html()
+    jupyter._warn_old_marimo.cache_clear()
+    monkeypatch.setattr(marimo, '__version__', jupyter._MARIMO_FLOOR)
+    _show_html()
+    jupyter._warn_old_marimo.cache_clear()
+
+
+def test_in_marimo(monkeypatch: pytest.MonkeyPatch):
+    from trame_pyvista import jupyter
+
+    marimo = pytest.importorskip('marimo')
+    assert jupyter._in_marimo() is False
+    monkeypatch.setattr(marimo, 'running_in_notebook', lambda: True)
+    assert jupyter._in_marimo() is True
+    monkeypatch.delitem(sys.modules, 'marimo')
+    assert jupyter._in_marimo() is False
+
+
+def test_marimo_script_run_shares_the_viewer_page():
+    marimo = pytest.importorskip('marimo')
+    app = marimo.App()
+
+    @app.cell
+    def _():
+        import pyvista as pv
+
+        from trame_pyvista import jupyter
+
+        in_marimo = jupyter._in_marimo()
+        pl = pv.Plotter()
+        pl.add_mesh(pv.Sphere())
+        widget = pl.trame.show(mode='html')
+        return in_marimo, jupyter, widget
+
+    _, defs = app.run()
+    assert defs['in_marimo'] is False
+    assert defs['widget']._esm == defs['jupyter']._SCENE_ESM
+    assert defs['widget']._viewer_page is defs['jupyter']._get_viewer_page()
+
+
+def test_anywidget_raises(monkeypatch: pytest.MonkeyPatch):
+    from trame_pyvista import jupyter
+
+    monkeypatch.setattr(jupyter, 'AnyWidget', object)
     monkeypatch.setattr(jupyter, 'HTML', object)
-    with pytest.raises(ImportError, match=r'Please install `ipywidgets`.'):
+    with pytest.raises(ImportError, match=r"pip install 'pyvista\[jupyter\]'"):
         jupyter.Widget(viewer=None, src=None)
 
-    with pytest.raises(ImportError, match=r'Please install `ipywidgets`.'):
+    with pytest.raises(ImportError, match=r"pip install 'pyvista\[jupyter\]'"):
         jupyter.EmbeddableWidget(plotter=None, width=None, height=None)
+
+
+def test_ipywidgets_fallback_is_deprecated(monkeypatch: pytest.MonkeyPatch):
+    from ipywidgets import HTML
+
+    from trame_pyvista import jupyter
+
+    viewer = object()
+    expected = jupyter.Widget(viewer, 'http://x', width='10px', height='20px')
+    pl = pv.Plotter(notebook=True)
+    pl.add_mesh(pv.Sphere())
+    expected_scene = jupyter.EmbeddableWidget(pl, width='100%', height='600px')
+
+    monkeypatch.setattr(jupyter, 'AnyWidget', object)
+    with pytest.warns(FutureWarning, match=r'ipywidgets alone is deprecated'):
+        widget = jupyter.Widget(
+            viewer, 'http://x', width='10px', height='20px', description='sphere'
+        )
+    assert type(widget) is jupyter._HTMLWidget
+    assert isinstance(widget, HTML)
+    assert widget.value == expected.value
+    assert widget.description == 'sphere'
+    assert widget.viewer is viewer
+    assert widget.src == 'http://x'
+
+    with pytest.warns(FutureWarning, match=r'ipywidgets alone is deprecated'):
+        scene = jupyter.EmbeddableWidget(pl, width='100%', height='600px')
+    assert type(scene) is jupyter._HTMLEmbeddableWidget
+    assert scene.value == expected_scene.value
 
 
 def test_launch_server_defaults():
@@ -562,6 +895,55 @@ def test_build_url_server_proxy():
     assert src == f'proxy/{server.port}/index.html?ui=abc&reconnect=auto'
     src = build_url(server, server_proxy_enabled=True, server_proxy_prefix='proxy/')
     assert src == f'proxy/{server.port}/index.html?reconnect=auto'
+
+
+@pytest.mark.parametrize('mode', ['trame', 'html'])
+def test_show_trame_host_and_protocol(mode):
+    pl = pv.Plotter(notebook=True)
+    pl.add_mesh(pv.Sphere())
+    widget = show_trame(pl, mode=mode, host='example.test', protocol='https')
+    if mode == 'trame':
+        assert widget.src.startswith('https://example.test:')
+        assert f'src="{widget.src}"' in widget.value
+
+
+def test_show_trame_handler_gets_host_and_protocol():
+    pl = pv.Plotter(notebook=True)
+    pl.add_mesh(pv.Sphere())
+    received = show_trame(
+        pl, mode='trame', host='example.test', protocol='https', handler=lambda *_, **kw: kw
+    )
+    assert received['host'] == 'example.test'
+    assert received['protocol'] == 'https'
+
+
+def test_widget_iframe_attrs():
+    widget = Widget(None, 'about:blank', iframe_attrs={'allow': 'fullscreen'})
+    assert 'allow="fullscreen"' in widget.value
+
+
+def test_html_widget_passes_anywidget_kwargs():
+    pl = pv.Plotter(notebook=True)
+    pl.add_mesh(pv.Sphere())
+    widget = show_trame(pl, mode='html', layout={'width': '50%'})
+    assert widget.layout.width == '50%'
+
+
+def test_build_url_colab(monkeypatch: pytest.MonkeyPatch):
+    server = get_server(name=pv.global_theme.trame.jupyter_server_name)
+    calls = []
+
+    def eval_js(script):
+        calls.append(script)
+        return 'https://8080-colab.example.dev/'
+
+    output = types.ModuleType('google.colab.output')
+    output.eval_js = eval_js
+    monkeypatch.setitem(sys.modules, 'google.colab', types.ModuleType('google.colab'))
+    monkeypatch.setitem(sys.modules, 'google.colab.output', output)
+    src = build_url(server, ui='abc', server_proxy_enabled=False)
+    assert src == 'https://8080-colab.example.dev/index.html?ui=abc&reconnect=auto'
+    assert calls == [f'google.colab.kernel.proxyPort({server.port})']
 
 
 def test_elegantly_launch_requires_nest_asyncio(monkeypatch: pytest.MonkeyPatch):

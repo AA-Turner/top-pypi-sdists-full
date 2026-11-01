@@ -101,7 +101,7 @@ def entry(path: Path | str, *, stage: str, empty_only: bool = False) -> dict | N
 
 def tool_dirs() -> list[Path]:
     """Every uv tool folder Probe's CLI may be installed in."""
-    from probe._shared import installs
+    from probe.shared.updates import installs
 
     found: list[Path] = []
 
@@ -136,7 +136,7 @@ def tool_dirs() -> list[Path]:
 def primary_versions_root() -> Path:
     """The versions folder whose install lock the uninstall holds: the one
     this CLI runs from, else the uv tool folder's."""
-    from probe._shared import installs
+    from probe.shared.updates import installs
 
     running = installs.versions_root_of()
     if running is not None:
@@ -146,7 +146,7 @@ def primary_versions_root() -> Path:
 
 
 def _receipt_shims(env: Path) -> list[Path]:
-    from probe._compat import tomllib
+    from probe.foundation.compat.compat import tomllib
 
     try:
         tool = tomllib.loads((env / "uv-receipt.toml").read_text(encoding="utf-8")).get("tool") or {}
@@ -175,7 +175,7 @@ def _points_into(link: Path, roots: list[Path]) -> bool:
 
 def cli_layout() -> dict:
     """The CLI's own files: `paths` (stage finish), `env_generations`, `shims`."""
-    from probe._shared import handoff, installs
+    from probe.shared.updates import handoff, installs
 
     paths: list[dict] = []
     envs: list[Path] = []
@@ -245,7 +245,7 @@ def session_state_dirs() -> list[Path]:
 def state_roots() -> list[Path]:
     """Probe's state folders: the service's (`~/.local/state/probe`, fixed),
     this process's XDG one, and any a live session named."""
-    from probe import version_policy
+    from probe.shared.updates import version_policy
     from probe.service import paths
 
     roots: list[Path] = []
@@ -319,8 +319,8 @@ def desktop_bundle_left() -> Path | None:
 def state_layout() -> dict:
     """Probe's state on this computer (stage state), what is kept and why."""
     from probe.cli import uninstall_agents
-    from probe.sdk import journal
-    from probe.sdk.config import config_path
+    from probe.sdk.delivery import journal
+    from probe.sdk.settings.settings import config_path
     from probe.service import paths
 
     out: list[dict] = []
@@ -347,7 +347,7 @@ def state_layout() -> dict:
     for folder in _telemetry_dirs():
         out.append(entry(folder, stage=STAGE_STATE))
     try:
-        from probe import version_policy
+        from probe.shared.updates import version_policy
 
         cache = version_policy.cache_path()
         if os.environ.get("PROBE_VERSION_CACHE"):
@@ -404,7 +404,7 @@ def state_layout() -> dict:
 def device_instance_id() -> str | None:
     """This machine's device instance id, READ (never minted: an uninstall
     must not give the machine a new identity)."""
-    from probe.sdk import device_identity
+    from probe.sdk.settings import device_identity
 
     try:
         data = json.loads(device_identity.device_file().read_text(encoding="utf-8"))
@@ -420,7 +420,7 @@ class Offline(Exception):
 
 def contexts() -> dict[str, dict]:
     """Every saved context that holds a credential: {name: its dict}."""
-    from probe.sdk.config import load_file
+    from probe.sdk.settings.settings import load_file
 
     try:
         data = load_file()
@@ -435,7 +435,7 @@ def contexts() -> dict[str, dict]:
 
 
 def _base_url(ctx: dict) -> str:
-    from probe.sdk.config import DEFAULT_BASE_URL
+    from probe.sdk.settings.settings import DEFAULT_BASE_URL
 
     return str(ctx.get("base_url") or DEFAULT_BASE_URL).rstrip("/")
 
@@ -447,9 +447,9 @@ def server_ids(*, device_id: str | None = None) -> dict:
     cannot be reached; a context whose credentials no longer authenticate
     has nothing left to retire."""
     from probe.sdk import errors
-    from probe.sdk.client import Client
-    from probe.sdk.config import Settings
-    from probe.sdk.surface import Surface
+    from probe.sdk.client.client import Client
+    from probe.sdk.settings.settings import Settings
+    from probe.foundation.request_identity.surface import Surface
 
     device_id = device_id if device_id is not None else device_instance_id()
     out: dict = {"device_ids": [device_id] if device_id else [], "installation_ids": [], "contexts": {}}
